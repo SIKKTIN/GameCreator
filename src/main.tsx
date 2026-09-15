@@ -162,7 +162,7 @@ const initialStoryDocs: StoryDoc[] = [
 const nav = [
   ['项目概览', Layers],
   ['故事文档', BookOpen],
-  ['数据配置', Database],
+  ['枚举定义', Tag],
   ['枚举管理', Tag],
   ['引擎设置', Settings2],
   ['任务与流程', GitBranch],
@@ -309,7 +309,8 @@ function WorkspaceApp({ role }: { role: UserRole }) {
         {active === '数据配置' && <DataConfiguration key={dataKey} data={currentData}
           onChange={(next) => { void registry.updateData(next); }}
           definitions={datasetDefinitions} activeDataset={activeDataset} setActiveDataset={setActiveDataset} registry={registry} />}
-        {active === '枚举定义' && <EnumDefinitions registry={registry} />}\n        {active === '枚举管理' && <EnumManager config={engineConfig} registry={registry} columns={currentData.columns} />}
+        {active === '枚举定义' && <EnumDefinitions registry={registry} />}
+        {active === '枚举管理' && <EnumManager config={engineConfig} registry={registry} columns={currentData.columns} />}
         {active === '引擎设置' && <EngineSettings config={engineConfig} registry={registry} setConfig={(next) => { markDirty(); setEngineConfig(next); persistEngineConfig(next); }} />}
         {active !== '项目概览' && active !== '故事文档' && active !== '数据配置' && active !== '枚举定义' && active !== '枚举管理' && active !== '引擎设置' && (
           <section className="empty">
