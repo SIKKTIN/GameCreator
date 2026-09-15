@@ -35,6 +35,10 @@ export function EngineSettings({ config, setConfig, registry }: {
   </section>;
 }
 
+export function EnumDefinitions({ registry }: { registry: EnumRegistry }) {
+  const scan = registry.active?.scan;
+  return <section className="enum-manager"><div className="enum-summary"><div><span>STABLE ENUM DEFINITIONS</span><h2>枚举定义</h2><p>这里展示已审核发布的稳定版本，供项目成员查看和使用。</p></div><em>{scan ? `稳定版本 · ${registry.active?.id}` : '尚未发布'}</em></div>{!scan && <div className="enum-note"><AlertTriangle size={16} color="#e7a93b" /><p>当前还没有稳定枚举版本，请管理员在“枚举管理”中扫描并审核发布。</p></div>}{scan && <><div className="scan-summary"><b>{scan.groups.length} 组枚举 · {scan.counts.members} 个成员 · {scan.files.length} 个 Lua 文件</b><span>来源：{scan.projectPath}/{scan.enumPath}</span></div><div className="enum-preview-grid">{scan.groups.map((group) => <article className="enum-preview" key={enumId(group)}><div className="enum-detail-head"><div><span>STABLE ENUM · {group.source}:{group.line}</span><h3>{group.name}</h3><p>{group.comment || '无定义注释'}</p></div><em>{group.valueType}</em></div><div className="enum-values">{group.members.map((member) => <div key={member.key}><code>{member.key}</code><span>{formatLuaValue(member.value)}</span><small>{member.comment || '无成员注释'} · L{member.line}</small></div>)}</div></article>)}</div></>}</section>;
+}
 export function EnumManager({ config, registry, columns }: {
   config: EngineConfig; registry: EnumRegistry; columns: ProjectData['columns'];
 }) {

@@ -39,7 +39,7 @@ import './data-config.css';
 import './enum-bindings.css';
 import { loadEngineConfig, persistEngineConfig, type EngineConfig } from './engine';
 import { useEnumRegistry } from './useEnumRegistry';
-import { EngineSettings, EnumManager } from './EnginePanels';
+import { EngineSettings, EnumDefinitions, EnumManager } from './EnginePanels';
 import { DataConfiguration } from './DataConfiguration';
 import { projectIdentity, type DatasetKey, type DataRecord, type DatasetDef, type ProjectData } from './data-model';
 import { AuthGate, type UserRole } from './auth';
@@ -309,9 +309,9 @@ function WorkspaceApp({ role }: { role: UserRole }) {
         {active === '数据配置' && <DataConfiguration key={dataKey} data={currentData}
           onChange={(next) => { void registry.updateData(next); }}
           definitions={datasetDefinitions} activeDataset={activeDataset} setActiveDataset={setActiveDataset} registry={registry} />}
-        {active === '枚举管理' && <EnumManager config={engineConfig} registry={registry} columns={currentData.columns} />}
+        {active === '枚举定义' && <EnumDefinitions registry={registry} />}\n        {active === '枚举管理' && <EnumManager config={engineConfig} registry={registry} columns={currentData.columns} />}
         {active === '引擎设置' && <EngineSettings config={engineConfig} registry={registry} setConfig={(next) => { markDirty(); setEngineConfig(next); persistEngineConfig(next); }} />}
-        {active !== '项目概览' && active !== '故事文档' && active !== '数据配置' && active !== '枚举管理' && active !== '引擎设置' && (
+        {active !== '项目概览' && active !== '故事文档' && active !== '数据配置' && active !== '枚举定义' && active !== '枚举管理' && active !== '引擎设置' && (
           <section className="empty">
             <div className="empty-icon"><Layers size={34} /></div>
             <h2>{active}</h2>
