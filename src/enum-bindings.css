@@ -1,0 +1,14 @@
+.registry-status{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:12px 16px;background:var(--panel);border:1px solid var(--line);border-radius:8px}
+.registry-status b,.registry-status small{display:block}.registry-status b{font-size:12px}.registry-status small{font-size:11px;color:var(--muted);margin-top:4px;overflow-wrap:anywhere}
+.registry-status button{display:flex;align-items:center;gap:6px;flex-shrink:0;padding:7px 10px;border:1px solid var(--line);border-radius:5px;background:var(--panel-2);color:var(--text);cursor:pointer}
+.binding-row{grid-template-columns:minmax(90px,1fr) minmax(80px,.7fr) 110px minmax(220px,2fr)}
+.enum-binding{min-width:0}.enum-binding select{width:100%}.enum-binding small{display:block;font-size:10px;color:var(--muted);margin-top:4px;overflow-wrap:anywhere}
+.column-binding{display:block;font-size:10px;color:#a69aea;font-weight:400;margin-top:4px}
+.enum-resolution{font-size:10px;line-height:1.6;color:var(--muted);overflow-wrap:anywhere}.enum-resolution code{color:#b5aaff}
+.field-error{color:#e8aa75;font-size:11px;line-height:1.5;overflow-wrap:anywhere}
+.field-hint,.enum-usage{font-size:11px;color:var(--muted);line-height:1.6;overflow-wrap:anywhere}
+.data-table [aria-invalid=true],.inspector-fields [aria-invalid=true]{border-color:#8f663e;background:#29231f}
+.data-workspace button:disabled,.engine-settings button:disabled,.enum-manager button:disabled{opacity:.5;cursor:not-allowed}
+.enum-detail-head>div{min-width:0}.enum-detail-head span,.enum-detail-head h3,.scan-summary span,.scan-result code{overflow-wrap:anywhere}
+.enum-values code,.enum-values span{overflow-wrap:anywhere}
+@media(max-width:900px){.binding-row{grid-template-columns:1fr 1fr}.enum-binding{grid-column:1/-1}.registry-status{align-items:flex-start}}

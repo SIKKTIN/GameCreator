@@ -1,0 +1,8 @@
+node_modules/
+dist/
+dist-withdraw/
+.npm-cache/
+.pnpm-store/
+*.tsbuildinfo
+generate/*.md
+.DS_Store
