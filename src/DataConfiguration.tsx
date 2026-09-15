@@ -8,14 +8,15 @@ import type { EnumRegistry } from './useEnumRegistry';
 
 type Props = {
   data: ProjectData; onChange: (data: ProjectData) => void; definitions: DatasetDef[];
-  activeDataset: DatasetKey; setActiveDataset: (key: DatasetKey) => void; registry: EnumRegistry;
+  activeDataset: DatasetKey; setActiveDataset: (key: DatasetKey) => void; registry: EnumRegistry; onCreateTable: (definition: DatasetDef) => void;
 };
 
-export function DataConfiguration({ data, onChange, definitions, activeDataset, setActiveDataset, registry }: Props) {
+export function DataConfiguration({ data, onChange, definitions, activeDataset, setActiveDataset, registry, onCreateTable }: Props) {
   const definition = definitions.find((item) => item.key === activeDataset)!;
   const columns = data.columns[activeDataset];
   const rows = data.datasets[activeDataset];
   const [showFields, setShowFields] = useState(false);
+  const [showCreateTable, setShowCreateTable] = useState(false);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'warning'>('all');
   const [selectedId, setSelectedId] = useState('');
@@ -63,7 +64,8 @@ export function DataConfiguration({ data, onChange, definitions, activeDataset, 
   return <section className="data-workspace">
     <div className="data-tabs">{definitions.map((item) => <button key={item.key} className={item.key === activeDataset ? 'active' : ''}
       onClick={() => { setActiveDataset(item.key); setSelectedId(''); setShowFields(false); }}>
-      {item.label}<span>{data.datasets[item.key].length}</span></button>)}</div>
+      {item.label}<span>{data.datasets[item.key].length}</span></button>)}<button className="primary create-table-button" onClick={() => setShowCreateTable(true)}><Plus size={14} />新建配置表</button></div>
+    {showCreateTable && <CreateTableDialog onClose={() => setShowCreateTable(false)} onCreate={(definition) => { onCreateTable(definition); setShowCreateTable(false); }} />}
     <div className="registry-status" role="status">
       <div><b>{registry.active ? '稳定版本 ' + registry.active.id.slice(0, 10) + ' · ' + registry.scan?.groups.length + ' 组枚举' : '尚无稳定枚举版本'}</b>
         <small>{registry.error || (registry.candidate ? '存在候选更新，请到「枚举管理」审核；当前配置继续使用稳定版本。' : registry.ready ? '数据与字段自动保存，更新需审核发布。' : '请先到「枚举管理」审核首次导入。')}</small></div>
@@ -117,6 +119,13 @@ export function DataConfiguration({ data, onChange, definitions, activeDataset, 
             '当前数据已通过字段、枚举与引用检查。'}</p></div></div>
       </aside></div>
   </section>;
+}
+
+
+function CreateTableDialog({ onClose, onCreate }: { onClose: () => void; onCreate: (definition: DatasetDef) => void }) {
+  const [key, setKey] = useState(''); const [label, setLabel] = useState(''); const [error, setError] = useState('');
+  const submit = () => { const normalized = key.trim(); if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(normalized)) { setError('表 key 需使用字母、数字、下划线，且不能以数字开头'); return; } if (!label.trim()) { setError('请输入表名称'); return; } onCreate({ key: normalized, label: label.trim(), badge: '0', columns: [{ key: 'id', label: 'ID', type: 'text' }] }); };
+  return <div className="field-manager create-table-dialog"><div className="field-manager-head"><div><span>NEW DATASET</span><h3>新建配置表</h3></div><button onClick={onClose}>关闭</button></div><label>表名称<input value={label} onChange={(event) => setLabel(event.target.value)} placeholder="例如：任务配置" /></label><label>表 key<input value={key} onChange={(event) => setKey(event.target.value)} placeholder="例如：quests" /></label>{error && <p className="field-error">{error}</p>}<div className="field-manager-foot"><small>创建后可在“字段”中继续添加字段、绑定枚举或配置跨表引用。</small><button className="primary" onClick={submit}><Plus size={14} />创建配置表</button></div></div>;
 }
 
 function FieldManager({ columns, definitions, registry, onApply, onClose }: {

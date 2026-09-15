@@ -1,6 +1,6 @@
 import type { EnumGroup, EnumScan } from './engine';
 
-export type DatasetKey = 'items' | 'characters' | 'skills' | 'economy' | 'shop';
+export type DatasetKey = string;
 // Bound enum cells store member keys; resolveEnumValue returns the original Lua type.
 export type DataRecord = Record<string, string> & { id: string };
 export type ColumnDef = {

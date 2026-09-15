@@ -174,6 +174,7 @@ function WorkspaceApp({ role }: { role: UserRole }) {
   const [active, setActive] = useState('项目概览');
   const [saved, setSaved] = useState(true);
   const [activeDataset, setActiveDataset] = useState<DatasetKey>('items');
+  const [definitions, setDefinitions] = useState<DatasetDef[]>(() => { try { return JSON.parse(localStorage.getItem('gamecreator.dataset-definitions.v1') ?? 'null') ?? datasetDefinitions; } catch { return datasetDefinitions; } });
   const [engineConfig, setEngineConfig] = useState<EngineConfig>(loadEngineConfig);
   const registry = useEnumRegistry(engineConfig, initialData);
   const dataKey = projectIdentity(engineConfig.projectPath);
@@ -197,10 +198,18 @@ function WorkspaceApp({ role }: { role: UserRole }) {
 
   const markDirty = () => setSaved(false);
   const exportAiContext = async () => {
-    const markdown = buildAiMarkdown(project, storyDocs, currentData, datasetDefinitions, engineConfig, registry);
+    const markdown = buildAiMarkdown(project, storyDocs, currentData, definitions, engineConfig, registry);
     const location = await saveAiMarkdown(markdown);
     setSaved(true);
     window.alert(`AI 文档已生成：${location}`);
+  };
+  const createDataset = (definition: DatasetDef) => {
+    const nextDefinitions = [...definitions, definition];
+    setDefinitions(nextDefinitions);
+    localStorage.setItem('gamecreator.dataset-definitions.v1', JSON.stringify(nextDefinitions));
+    void registry.updateData({ ...currentData, datasets: { ...currentData.datasets, [definition.key]: [] }, columns: { ...currentData.columns, [definition.key]: definition.columns } });
+    setActiveDataset(definition.key);
+    markDirty();
   };
 
 
@@ -309,7 +318,7 @@ function WorkspaceApp({ role }: { role: UserRole }) {
         )}
         {active === '数据配置' && <DataConfiguration key={dataKey} data={currentData}
           onChange={(next) => { void registry.updateData(next); }}
-          definitions={datasetDefinitions} activeDataset={activeDataset} setActiveDataset={setActiveDataset} registry={registry} />}
+          definitions={definitions} activeDataset={activeDataset} setActiveDataset={setActiveDataset} registry={registry} onCreateTable={createDataset} />}
         {active === '枚举定义' && <EnumDefinitions registry={registry} />}
         {active === '枚举管理' && <EnumManager config={engineConfig} registry={registry} columns={currentData.columns} />}
         {active === '引擎设置' && <EngineSettings config={engineConfig} registry={registry} setConfig={(next) => { markDirty(); setEngineConfig(next); persistEngineConfig(next); }} />}
