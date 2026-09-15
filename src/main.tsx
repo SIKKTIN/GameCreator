@@ -160,7 +160,7 @@ const initialStoryDocs: StoryDoc[] = [
 ];
 
 const nav = [
-  ['项目概览', Layers],
+  ['故事文档', BookOpen],
   ['数据配置', Database],
   ['枚举定义', Tag],
   ['枚举管理', Tag],
