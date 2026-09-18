@@ -1,0 +1,132 @@
+// Run after npm run build. Uses isolated directories and never writes to a user's game project.
+const {_electron}=require(process.env.GAMECREATOR_PLAYWRIGHT_PATH||'playwright');
+const fs=require('node:fs/promises');
+const os=require('node:os');
+const path=require('node:path');
+const assert=require('node:assert/strict');
+const {pathToFileURL}=require('node:url');
+const {createWorkspaceStorage}=require('../desktop/test-workspaces.cjs');
+const root=path.resolve(__dirname,'..');
+(async()=>{
+ const dir=await fs.mkdtemp(path.join(os.tmpdir(),'gamecreator-projects-'));
+ const profile=path.join(dir,'profile'),dataDirectory=path.join(dir,'data');
+ const a=path.join(dir,'ProjectA'),b=path.join(dir,'ProjectB');
+ const identity=value=>value.replaceAll('\\','/').toLowerCase();
+ const aid=identity(a),ak='gamecreator.enum-versions.v1:'+aid;let bid,bk;
+ const storage=createWorkspaceStorage(dataDirectory),catalogKey='gamecreator.projects.v1';
+ const read=key=>JSON.parse(storage.getItem(key)||'null');
+ const wk=(id,type)=>'gamecreator.workspace.v1:'+id+':'+type;
+ const env={...process.env,GAMECREATOR_USER_DATA_DIR:profile,GAMECREATOR_DATA_DIR:dataDirectory};delete env.ELECTRON_RUN_AS_NODE;
+ let app,page;const errors=[],scanRequests=[];
+ const launch=async()=>{
+  app=await _electron.launch({executablePath:require('electron'),args:[path.join(root,'desktop/main.cjs')],env});
+  page=await app.firstWindow();page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>{if(r.url().includes('/api/engine/scan'))scanRequests.push(r.url());});
+  await page.getByRole('button',{name:'登录',exact:true}).click();
+ };
+ const nav=async name=>page.getByRole('button',{name,exact:true}).click();
+ const idle=()=>page.waitForFunction(()=>!document.querySelector('.ps-trigger')?.disabled);
+ const select=async(name,id)=>{
+  await idle();await page.locator('.ps-trigger').click();await page.getByRole('menuitemradio',{name:new RegExp('^'+name)}).click();
+  await page.waitForFunction(id=>JSON.parse(window.desktopClient.storage.getItem('gamecreator.projects.v1')).activeId===id,id);await idle();
+ };
+ const addDialog=async()=>{await idle();await page.locator('.ps-trigger').click();await page.getByRole('menuitem',{name:'新建项目',exact:true}).click();return page.getByRole('dialog',{name:'新建项目',exact:true});};
+ try{
+  await fs.mkdir(profile);for(const p of [a,b]){
+   await fs.mkdir(path.join(p,'Script/Const'),{recursive:true});
+   const name=p===a?'Const_A':'Const_B';
+   await fs.writeFile(path.join(p,'Script/Const',name+'.lua'),'local '+name+' = {}\n'+name+'.Mode = {\n  ONE = 1,\n  TWO = 2,\n}\nreturn '+name);
+  }
+  const {scanConstDirectory}=await import(pathToFileURL(path.join(root,'server/lua-enum-parser.mjs')));
+  const {emptyStore,makeSnapshot,stageSnapshot,decideChanges,diffEnums,publishRelease}=await import(pathToFileURL(path.join(root,'src/enum-versions.ts')));
+  const data={columns:{},datasets:{}};
+  const defs=['items','characters','skills','economy','shop','quests'].map(key=>({key,label:key==='quests'?'A任务':key,badge:'0',columns:[{key:'id',label:'ID'},{key:'name',label:'名称'}]}));
+  for(const def of defs){data.columns[def.key]=def.columns;data.datasets[def.key]=[];}
+  data.datasets.quests=[{id:'a_quest',name:'A任务内容'}];
+  const scan=await scanConstDirectory(a,'Script/Const');
+  const staged=stageSnapshot(emptyStore(data),await makeSnapshot(scan,'source'));
+  const stable=await publishRelease(decideChanges(staged,diffEnums(null,scan).map(c=>c.id),true,'admin'));
+  const config={engine:'oasis-lua',projectPath:a,enumPath:'Script/Const',dataPath:'Script/AConfig',outputFormat:'lua',autoSync:false,backupBeforeSync:true};
+  storage.setItem('gamecreator.engine-config.v1',JSON.stringify(config));storage.setItem(ak,JSON.stringify(stable));
+  storage.setItem('gamecreator.dataset-definitions.v1',JSON.stringify(defs));
+  storage.setItem(wk(aid,'project'),JSON.stringify({name:'项目A',genre:'动作 RPG',platform:'PC / Steam',version:'v1.0.0',status:'制作中',description:'A独有简介'}));
+  storage.setItem(wk(aid,'stories'),JSON.stringify([{id:'story_a',title:'A故事',category:'世界观',status:'草稿',updated:'刚刚',summary:'A摘要',content:'A正文',tags:[],outlines:[],relations:{characters:[],locations:[],systems:[]}}]));
+  storage.setItem(wk(aid,'milestones'),JSON.stringify([{title:'A里程碑',owner:'A',due:'2026/10/20',status:'done'}]));
+  const original=Object.fromEntries([ak,wk(aid,'project'),wk(aid,'stories'),wk(aid,'milestones'),'gamecreator.dataset-definitions.v1'].map(k=>[k,storage.getItem(k)]));
+  await launch();await idle();assert.equal(read(catalogKey).projects.length,1);
+  await page.locator('.ps-trigger').click();assert.equal(await page.getByRole('menuitemradio').getAttribute('aria-checked'),'true');
+  await page.keyboard.press('Escape');assert.equal(await page.locator('.ps-trigger').evaluate(el=>el===document.activeElement),true);
+  const scansBeforeCreation=scanRequests.length;
+  let dialog=await addDialog();assert.equal(await dialog.getByRole('textbox').count(),1);assert.equal(await dialog.getByLabel('项目目录',{exact:true}).count(),0);
+  await dialog.getByRole('button',{name:'创建并切换',exact:true}).click();assert.equal(read(catalogKey).activeId,aid);
+  await dialog.getByLabel('项目名称',{exact:true}).fill('项目B');await dialog.getByRole('button',{name:'创建并切换',exact:true}).click();await idle();
+  bid=read(catalogKey).activeId;bk='gamecreator.enum-versions.v1:'+bid;assert.match(bid,/^project-[0-9a-f-]{36}$/);
+  assert.equal(read(catalogKey).projects.length,2);assert.equal(read(catalogKey).projects[1].config.projectPath,'');
+  assert.equal(await page.getByRole('textbox',{name:'项目名称',exact:true}).inputValue(),'项目B');assert.equal(await page.locator('.milestone').count(),0);assert.equal(await page.locator('.team-member').count(),0);await page.getByText('暂无项目动态',{exact:true}).waitFor();
+  await nav('故事文档');await page.getByRole('heading',{name:'暂无故事文档',exact:true}).waitFor();
+  await nav('数据配置');assert.equal(await page.locator('.data-table tbody tr').count(),0);assert.equal(await page.getByRole('button',{name:/^A任务/}).count(),0);
+  await nav('新建配置表');await page.getByPlaceholder('例如：任务配置').fill('B任务');await page.getByPlaceholder('例如：quests').fill('quests');await nav('创建配置表');
+  await page.getByRole('button',{name:/^B任务/}).waitFor();await idle();await nav('新增记录');await page.locator('.data-table input').waitFor();await idle();
+  await page.locator('.data-table input').fill('b_quest');await page.waitForFunction(key=>JSON.parse(window.desktopClient.storage.getItem(key)).data.datasets.quests?.[0]?.id==='b_quest',bk);
+  await nav('故事文档');await nav('新建故事文档');await page.locator('.story-title-input').fill('B故事');await page.locator('.story-body').fill('B独有正文');
+  await nav('项目概览');await page.getByRole('textbox',{name:'项目名称',exact:true}).fill('项目B已编辑');await nav('添加里程碑');
+  // A second unbound prototype has its own content and storage identity.
+  dialog=await addDialog();await dialog.getByLabel('项目名称',{exact:true}).fill('项目C原型');await dialog.getByRole('button',{name:'创建并切换',exact:true}).click();await idle();
+  const cid=read(catalogKey).activeId;assert.notEqual(cid,bid);assert.equal(read(catalogKey).projects[2].config.projectPath,'');
+  await nav('故事文档');await page.getByRole('heading',{name:'暂无故事文档',exact:true}).waitFor();await nav('新建故事文档');await page.locator('.story-title-input').fill('C故事');
+  await nav('数据配置');assert.equal(await page.getByRole('button',{name:/^B任务/}).count(),0);assert.equal(await page.locator('.data-table tbody tr').count(),0);
+  await select('项目B已编辑',bid);assert.equal(read(wk(cid,'stories'))[0].title,'C故事');
+  assert.equal(read(bk).data.datasets.quests[0].id,'b_quest');assert.equal(read(bk).snapshots.length,0);assert.equal(read(bk).activeId,null);
+  assert.equal(scanRequests.length,scansBeforeCreation,'Unbound projects must not request an engine scan');
+  await nav('枚举管理');await page.getByRole('heading',{name:'尚未配置引擎',exact:true}).waitFor();assert.equal(await page.getByRole('button',{name:'检测更新',exact:true}).count(),0);await page.getByRole('tab',{name:'外部导入',exact:true}).click();assert.equal(await page.getByRole('button',{name:'从工程导入',exact:true}).isDisabled(),true);
+  await app.close();app=null;await launch();await idle();assert.equal(read(catalogKey).activeId,bid);assert.equal(read(catalogKey).projects[1].config.projectPath,'');
+  await nav('故事文档');assert.equal(await page.locator('.story-title-input').inputValue(),'B故事');assert.equal(await page.locator('.story-body').inputValue(),'B独有正文');
+  await nav('数据配置');await page.getByRole('button',{name:/^B任务/}).click();assert.equal(await page.getByRole('textbox',{name:'b_quest · ID',exact:true}).inputValue(),'b_quest');
+  await nav('引擎设置');assert.equal(await page.getByRole('textbox',{name:/^项目目录/}).isEditable(),true);assert.equal(await page.getByRole('button',{name:'测试连接',exact:true}).isDisabled(),true);
+  const unboundStore=storage.getItem(bk);
+  await page.getByRole('textbox',{name:/^项目目录/}).fill(path.join(dir,'missing'));assert.equal(read(catalogKey).projects[1].config.projectPath,'');
+  await nav('保存设置');await page.getByText(/工程目录不存在或无法访问/).waitFor();assert.equal(read(catalogKey).projects[1].config.projectPath,'');assert.equal(storage.getItem(bk),unboundStore);
+  // The OS folder picker now belongs to engine settings, after prototype content is written.
+  await app.evaluate(({dialog},b)=>{dialog.showOpenDialog=async()=>({canceled:false,filePaths:[b]});},b);
+  await nav('选择目录');await page.waitForFunction(b=>Array.from(document.querySelectorAll('.engine-settings input')).some(el=>el.value===b),b);
+  await page.getByRole('textbox',{name:/^数据输出目录/}).fill('Script/BConfig');assert.equal(scanRequests.length,scansBeforeCreation);
+  await nav('保存设置');await page.waitForFunction(b=>JSON.parse(window.desktopClient.storage.getItem('gamecreator.projects.v1')).projects[1].config.projectPath===b,b);await idle();
+  assert.equal(read(catalogKey).activeId,bid);assert.equal(read(bk).data.datasets.quests[0].id,'b_quest');assert.equal(read(wk(bid,'stories'))[0].content,'B独有正文');
+  await nav('枚举管理');await page.getByRole('button',{name:'同意 Const_B.Mode · 新增枚举组',exact:true}).click();
+  await page.waitForFunction(key=>{const s=JSON.parse(window.desktopClient.storage.getItem(key));return s.reviews[s.candidateId].selected.length===1;},bk);
+  await nav('同步已同意的变更');await page.waitForFunction(key=>!!JSON.parse(window.desktopClient.storage.getItem(key)).activeId,bk);
+  await nav('枚举定义');await page.getByRole('heading',{name:'Const_B.Mode',exact:true}).waitFor();assert.equal(await page.getByRole('heading',{name:'Const_A.Mode',exact:true}).count(),0);
+  await select('项目A',aid);assert.equal(await page.getByRole('textbox',{name:'项目名称',exact:true}).inputValue(),'项目A');assert.equal(await page.locator('.milestone').count(),1);
+  await nav('故事文档');assert.equal(await page.locator('.story-title-input').inputValue(),'A故事');
+  await nav('引擎设置');assert.equal(await page.getByRole('textbox',{name:/^数据输出目录/}).inputValue(),'Script/AConfig');
+  await nav('枚举定义');await page.getByRole('heading',{name:'Const_A.Mode',exact:true}).waitFor();
+  await nav('数据配置');await page.getByRole('button',{name:/^A任务/}).click();assert.equal(await page.getByRole('textbox',{name:'a_quest · 名称',exact:true}).inputValue(),'A任务内容');assert.equal(await page.getByRole('button',{name:/^B任务/}).count(),0);
+  for(const [k,v] of Object.entries(original))assert.equal(storage.getItem(k),v,'Original project modified: '+k);
+  await select('项目B已编辑',bid);
+  // Changing or clearing the external source must never change this project's identity or data.
+  await nav('引擎设置');await page.getByRole('textbox',{name:/^项目目录/}).fill(a);await nav('保存设置');await idle();
+  await page.waitForFunction(key=>JSON.parse(window.desktopClient.storage.getItem(key)).snapshots.some(s=>s.kind==='source'&&s.scan.groups.some(g=>g.name==='Const_A.Mode')),bk);
+  assert.equal(read(catalogKey).activeId,bid);assert.equal(read(bk).data.datasets.quests[0].id,'b_quest');
+  await page.getByRole('textbox',{name:/^项目目录/}).fill('');await nav('保存设置');await idle();
+  assert.equal(read(catalogKey).projects[1].config.projectPath,'');const disconnected=storage.getItem(bk);const scansAtDisconnect=scanRequests.length;
+  await select('项目C原型',cid);await select('项目B已编辑',bid);assert.equal(storage.getItem(bk),disconnected);assert.equal(scanRequests.length,scansAtDisconnect);
+  await nav('引擎设置');await page.getByRole('textbox',{name:/^项目目录/}).fill(b);await nav('保存设置');await idle();
+  await page.getByRole('button',{name:/^测试面板/}).click();await nav('加载混合变化');await page.locator('.test-workspace-banner').waitFor();
+  await page.locator('.test-workspace-banner').getByRole('button',{name:'返回原工作区',exact:true}).click();await idle();assert.equal(read(catalogKey).activeId,bid);assert.equal(read(catalogKey).mode,'project');
+  await page.getByRole('button',{name:/^测试面板/}).click();await nav('加载新增成员');await page.locator('.test-workspace-banner').waitFor();await select('项目A',aid);assert.equal(await page.locator('.test-workspace-banner').count(),0);assert.equal(read('gamecreator.test-session.v1'),null);
+  await select('项目B已编辑',bid);await app.close();app=null;await launch();await idle();
+  assert.equal(await page.getByRole('textbox',{name:'项目名称',exact:true}).inputValue(),'项目B已编辑');assert.equal(await page.locator('.milestone').count(),1);
+  await nav('故事文档');assert.equal(await page.locator('.story-title-input').inputValue(),'B故事');assert.equal(await page.locator('.story-body').inputValue(),'B独有正文');
+  await nav('数据配置');await page.getByRole('button',{name:/^B任务/}).click();assert.equal(await page.getByRole('textbox',{name:'b_quest · ID',exact:true}).inputValue(),'b_quest');
+  await nav('引擎设置');assert.equal(await page.getByRole('textbox',{name:/^数据输出目录/}).inputValue(),'Script/BConfig');
+  await nav('枚举定义');await page.getByRole('heading',{name:'Const_B.Mode',exact:true}).waitFor();
+  await nav('项目概览');await page.locator('.ps-trigger').click();await fs.mkdir(path.join(root,'.gamecreator/qa'),{recursive:true});await page.screenshot({path:path.join(root,'.gamecreator/qa/project-switcher.png')});await page.keyboard.press('Escape');
+  dialog=await addDialog();await page.screenshot({path:path.join(root,'.gamecreator/qa/add-project.png')});await dialog.getByRole('button',{name:'取消',exact:true}).click();
+  for(const [k,v] of Object.entries(original))assert.equal(storage.getItem(k),v,'Original project modified after restart: '+k);
+  await app.close();app=null;storage.setItem(catalogKey,'{"schema":1,"projects":[]}');
+  const blockedArchive=storage.getItem(catalogKey);await launch();await page.getByRole('heading',{name:'项目列表读取失败',exact:true}).waitFor();
+  assert.equal(await page.locator('.ps-trigger').count(),0);assert.equal(await page.getByRole('textbox',{name:'项目名称',exact:true}).count(),0);
+  assert.equal(storage.getItem(catalogKey),blockedArchive);
+  for(const [k,v] of Object.entries(original))assert.equal(storage.getItem(k),v,'Damaged catalog wrote to project: '+k);
+  assert.deepEqual(errors,[]);console.log('PASS: name-only prototype creation; multiple unbound projects; no unconfigured scans; draft engine settings and folder validation; binding/change/unbinding preserves content; legacy data preserved; test workspace return; restart restores project and content.');
+ }finally{if(app)await app.close();await fs.rm(dir,{recursive:true,force:true});}
+})().catch(error=>{console.error(error);process.exitCode=1;});

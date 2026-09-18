@@ -26,6 +26,7 @@ export function readVersions(storage: StorageLike, key: string, initial: Project
       !Array.isArray(group.members) || group.members.some((member) => typeof member?.key !== 'string' ||
         (typeof member.value !== 'number' && typeof member.value !== 'string')))) ||
     Object.values(value.reviews).some((review) => !review || !Array.isArray(review.selected) || !Array.isArray(review.acknowledged) ||
+      (review.declined !== undefined && (!Array.isArray(review.declined) || review.declined.some(id => typeof id !== 'string'))) ||
       !review.migrations || typeof review.reviewer !== 'string' || typeof review.note !== 'string') ||
     value.releases.some((release) => !release || !Array.isArray(release.patches) || !Array.isArray(release.accepted))) {
     throw new Error('版本快照或审核记录异常，已停止加载');

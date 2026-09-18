@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  makeSnapshot, emptyStore, stageSnapshot, diffEnums, planRelease, publishRelease,
+  decideChanges, syncApprovedChanges, upgradeApprovalReview, makeSnapshot, emptyStore, stageSnapshot, diffEnums, planRelease, publishRelease,
   rollback, getExportSnapshot, snapshotById, exportIssues, replaceProjectData,
 } from '../src/enum-versions.ts';
 import { enumId } from '../src/data-model.ts';
@@ -29,12 +29,14 @@ function changed(members) {
 }
 async function baseline() {
   const store = stageSnapshot(emptyStore(data()), await makeSnapshot(scan, 'source'));
+  approve(store);
   return publishRelease(store);
 }
 async function candidate(store, source) { return stageSnapshot(store, await makeSnapshot(source, 'source')); }
 function approve(store, predicate = () => true) {
   const review = store.reviews[store.candidateId];
   const changes = diffEnums(snapshotById(store, store.activeId)?.scan ?? null, snapshotById(store, store.candidateId).scan);
+  review.approvalOnly = false; // Exercise compatibility with legacy migration records.
   review.selected = changes.filter(predicate).map((change) => change.id);
   review.acknowledged = changes.filter(predicate).map((change) => change.id);
   review.note = '已审核影响与迁移';
@@ -45,6 +47,7 @@ test('first scan is only a candidate; first release is explicit', async () => {
   const store = stageSnapshot(emptyStore(data()), await makeSnapshot(scan, 'source'));
   assert.equal(store.activeId, null);
   assert.throws(() => getExportSnapshot(store), /尚未发布/);
+  approve(store);
   const published = await publishRelease(store);
   assert.ok(published.activeId);
   assert.equal(store.activeId, null);
@@ -61,7 +64,8 @@ test('scan does not alter stable values, and partial approval preserves unselect
   const old = await baseline();
   const staged = await candidate(old, changed([['A', 99], ['B', 2], ['C', 3]]));
   assert.equal(snapshotById(staged, staged.activeId).scan.groups[0].members[0].value, 1);
-  // Only low-risk additions are selected by default.
+  // Only explicitly approved additions are published.
+  approve(staged, change => change.kind === 'add-member');
   const next = await publishRelease(staged);
   assert.deepEqual(snapshotById(next, next.activeId).scan.groups[0].members.map(({ key, value }) => [key, value]), [['A', 1], ['B', 2], ['C', 3]]);
   assert.equal(getExportSnapshot(staged).scan.groups[0].members[0].value, 1);
@@ -128,6 +132,7 @@ test('rollback restores migrated keys and preserves unrelated later edits', asyn
 test('rollback rejects newly bound enums unavailable in the previous stable version', async () => {
   const other = { ...group, name: 'Const_Test.Other' };
   const staged = await candidate(await baseline(), { ...scan, groups: [group, other] });
+  approve(staged);
   const next = await publishRelease(staged);
   next.data.columns.items[0].enumId = enumId(other);
   assert.throws(() => rollback(next), /目标版本中不存在/);
@@ -137,6 +142,7 @@ test('storage saves versions, decisions and data together; stale writes are reje
   const storage = { getItem: (key) => values.get(key) ?? null, setItem: (key, value) => values.set(key, value) };
   const published = await baseline();
   const staged = await candidate(published, changed([['A', 1], ['B', 2], ['C', 3]]));
+  approve(staged);
   const saved = writeVersions(storage, 'project', 0, staged);
   const restored = readVersions(storage, 'project', data());
   assert.deepEqual(restored, saved);
@@ -166,6 +172,7 @@ test('metadata and sorting are reviewable without accepting value changes', asyn
   source.groups[0].comment = '新说明';
   source.groups[0].members[0].comment = '新成员注释';
   const staged = await candidate(await baseline(), source);
+  approve(staged, change => change.risk === 'low');
   const next = await publishRelease(staged);
   const result = snapshotById(next, next.activeId).scan.groups[0];
   assert.deepEqual(result.members.map((member) => member.key), ['B', 'A']);
@@ -183,4 +190,61 @@ test('an edit queued before a migration cannot overwrite migrated data', async (
   edit.datasets.items[0].name = '旧页面排队的编辑';
   assert.throws(() => replaceProjectData(next, oldData, edit), /数据已被/);
   assert.equal(next.data.datasets.items[0].mode, 'C');
+});
+
+test('new reviews are pending, and decisions do not change the published definitions', async () => {
+  const staged = await candidate(await baseline(), changed([['A', 9], ['B', 2], ['C', 3]]));
+  assert.deepEqual(staged.reviews[staged.candidateId].selected, []);
+  await assert.rejects(syncApprovedChanges(staged), /至少选择/);
+  const changes = diffEnums(scan, snapshotById(staged, staged.candidateId).scan);
+  const agreed = decideChanges(staged, [changes.find(item => item.kind === 'add-member').id], true, 'admin');
+  const decided = decideChanges(agreed, [changes.find(item => item.kind === 'value').id], false, 'admin');
+  assert.deepEqual(snapshotById(decided, decided.activeId).scan.groups[0].members.map(item => item.value), [1, 2]);
+  const next = await syncApprovedChanges(decided);
+  assert.deepEqual(snapshotById(next, next.activeId).scan.groups[0].members.map(item => item.value), [1, 2, 3]);
+  assert.ok(next.candidateId);
+  assert.equal(next.reviews[next.candidateId].declined.length, 1);
+  assert.equal(next.releases.at(-1).reviewer, 'admin');
+});
+
+test('unchanged decisions survive rescans and disk reload; changed content becomes pending', async () => {
+  let staged = await candidate(await baseline(), changed([['A', 9], ['B', 2], ['C', 3]]));
+  const changes = diffEnums(scan, snapshotById(staged, staged.candidateId).scan);
+  staged = decideChanges(staged, [changes.find(item => item.kind === 'value').id], false, 'admin');
+  staged = decideChanges(staged, [changes.find(item => item.kind === 'add-member').id], true, 'admin');
+  const raw = JSON.stringify(staged);
+  staged = readVersions({getItem:()=>raw,setItem:()=>{}}, 'fixture', data());
+  const unchanged = await candidate(staged, changed([['A', 9], ['B', 2], ['C', 3]]));
+  assert.equal(unchanged.reviews[unchanged.candidateId].selected.length, 1);
+  assert.equal(unchanged.reviews[unchanged.candidateId].declined.length, 1);
+  const updated = await candidate(unchanged, changed([['A', 10], ['B', 2], ['C', 4]]));
+  assert.equal(updated.reviews[updated.candidateId].selected.length, 0);
+  assert.equal(updated.reviews[updated.candidateId].declined.length, 0);
+});
+
+test('approval-only deletion cannot migrate records even with legacy mappings', async () => {
+  let staged = await candidate(await baseline(), changed([['A', 1]]));
+  const deletion = diffEnums(scan, snapshotById(staged, staged.candidateId).scan).find(item=>item.kind==='remove-member');
+  staged = decideChanges(staged, [deletion.id], true, 'admin');
+  staged.reviews[staged.candidateId].migrations[deletion.id] = {mode:'replace',target:'A'};
+  await assert.rejects(syncApprovedChanges(staged), /数据配置/);
+  assert.equal(staged.data.datasets.items[0].mode, 'B');
+  staged.data.datasets.items[0].mode = 'A';
+  const next = await syncApprovedChanges(staged);
+  assert.equal(next.releases.at(-1).patches.length, 0);
+  assert.equal(snapshotById(next,next.activeId).scan.groups[0].members.length, 1);
+});
+
+test('group changes must be decided, and old preselected drafts reset without affecting releases', async () => {
+  const staged = await candidate(await baseline(), {...scan,groups:[]});
+  const change=diffEnums(scan,snapshotById(staged,staged.candidateId).scan)[0];
+  const decided=decideChanges(staged,[change.id],true,'admin');
+  await assert.rejects(syncApprovedChanges(decided),/仍被字段绑定/);
+  const legacy=structuredClone(decided);
+  legacy.reviews[legacy.candidateId].approvalOnly=false;
+  const upgraded=upgradeApprovalReview(legacy);
+  assert.deepEqual(upgraded.reviews[upgraded.candidateId].selected,[]);
+  assert.deepEqual(upgraded.releases,legacy.releases);
+  assert.equal(upgraded.activeId,legacy.activeId);
+  assert.throws(()=>decideChanges(upgraded,['missing-change'],true,'admin'),/失效/);
 });

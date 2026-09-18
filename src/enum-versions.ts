@@ -12,6 +12,7 @@ export type Snapshot = {
 export type Migration = { mode: 'replace' | 'retain'; target?: string };
 export type Review = {
   baseId: string | null; status: 'draft' | 'approved' | 'rejected' | 'archived';
+  approvalOnly?: boolean; declined?: string[];
   selected: string[]; acknowledged: string[]; migrations: Record<string, Migration>;
   reviewer: string; note: string;
 };
@@ -88,19 +89,82 @@ export function diffEnums(stable: EnumScan | null, candidate: EnumScan): Change[
   for (const [id, group] of oldGroups) if (!newGroups.has(id)) add(group, 'remove-group', 'high');
   return changes;
 }
-export function startReview(baseId: string | null, changes: Change[]): Review {
-  return {
-    baseId, status: 'draft', selected: changes.filter((change) => change.risk === 'low').map((change) => change.id),
-    acknowledged: [], migrations: {}, reviewer: '本地用户', note: '',
+export function startReview(baseId: string | null, _changes: Change[]): Review {
+  return { baseId, status: 'draft', approvalOnly: true, selected: [], declined: [],
+    acknowledged: [], migrations: {}, reviewer: '本地用户', note: '' };
+}
+function changeSignature(change: Change, before: EnumScan | null, after: EnumScan) {
+  const cleanMember = (member: EnumGroup['members'][number]) => ({ key: member.key, value: member.value, comment: member.comment });
+  const entity = (scan: EnumScan | null) => {
+    const group = scan?.groups.find(item => enumId(item) === change.groupId);
+    if (!group) return null;
+    if (change.member) {
+      const member = group.members.find(item => item.key === change.member);
+      return member ? cleanMember(member) : null;
+    }
+    return { name: group.name, comment: group.comment, members: group.members.map(cleanMember) };
   };
+  return JSON.stringify({ change, before: entity(before), after: entity(after) });
 }
 export function stageSnapshot(store: VersionStore, source: Snapshot): VersionStore {
   const stable = snapshotById(store, store.activeId)?.scan ?? null;
-  const previous = store.candidateId ? store.reviews[store.candidateId] : null;
+  const changes = diffEnums(stable, source.scan);
+  const priorSource = [...store.snapshots].reverse().find(snapshot => snapshot.kind === 'source');
+  const priorReview = priorSource ? store.reviews[priorSource.id] : null;
+  const next = startReview(store.activeId, changes);
+  const sameBase = priorReview?.baseId === store.activeId;
+  const publishedBase = priorSource && store.releases.some(release =>
+    release.sourceId === priorSource.id && release.toId === store.activeId && release.fromId === priorReview?.baseId);
+  if (priorSource && priorReview?.approvalOnly && (sameBase || publishedBase)) {
+    const before = snapshotById(store, priorReview.baseId)?.scan ?? null;
+    const oldChanges = diffEnums(before, priorSource.scan);
+    for (const change of changes) {
+      const old = oldChanges.find(item => item.id === change.id);
+      if (!old || changeSignature(old, before, priorSource.scan) !== changeSignature(change, stable, source.scan)) continue;
+      if (priorReview.selected.includes(change.id)) next.selected.push(change.id);
+      if (priorReview.declined?.includes(change.id)) next.declined!.push(change.id);
+      if (priorReview.acknowledged.includes(change.id)) next.acknowledged.push(change.id);
+    }
+    next.reviewer = priorReview.reviewer;
+    next.note = priorReview.note;
+  }
   const reviews = { ...store.reviews };
-  if (previous && store.candidateId) reviews[store.candidateId] = { ...previous, status: 'archived' };
-  reviews[source.id] = startReview(store.activeId, diffEnums(stable, source.scan));
+  if (store.candidateId && reviews[store.candidateId]) reviews[store.candidateId] = { ...reviews[store.candidateId], status: 'archived' };
+  reviews[source.id] = next;
   return { ...store, candidateId: source.id, snapshots: [...store.snapshots, source], reviews };
+}
+export function upgradeApprovalReview(store: VersionStore): VersionStore {
+  const review = store.candidateId ? store.reviews[store.candidateId] : null;
+  if (!review || review.approvalOnly) return store;
+  // Earlier versions preselected low-risk changes; those were not explicit decisions.
+  return { ...store, reviews: { ...store.reviews, [store.candidateId!]: {
+    ...review, approvalOnly: true, selected: [], declined: [], acknowledged: [], migrations: {}, note: '',
+  } } };
+}
+export function decideChanges(store: VersionStore, ids: string[], agree: boolean, reviewer: string): VersionStore {
+  const source = snapshotById(store, store.candidateId);
+  const review = source ? store.reviews[source.id] : null;
+  if (!source || !review || review.status !== 'draft' || review.baseId !== store.activeId) throw new Error('审核基准已变化，请重新检测');
+  const changes = diffEnums(snapshotById(store, store.activeId)?.scan ?? null, source.scan);
+  if (ids.some(id => !changes.some(change => change.id === id))) throw new Error('变更已失效，请重新检测');
+  const selected = new Set(review.approvalOnly ? review.selected : []);
+  const declined = new Set(review.declined ?? []);
+  for (const id of ids) {
+    if (agree) { selected.add(id); declined.delete(id); }
+    else { selected.delete(id); declined.add(id); }
+  }
+  return { ...store, reviews: { ...store.reviews, [source.id]: {
+    ...review, approvalOnly: true, selected: [...selected], declined: [...declined], migrations: {},
+    acknowledged: changes.filter(change => selected.has(change.id) && change.risk === 'high').map(change => change.id),
+    reviewer, note: '更新检测审核：同意 ' + selected.size + ' 项，不同意 ' + declined.size + ' 项。',
+  } } };
+}
+export async function syncApprovedChanges(store: VersionStore): Promise<VersionStore> {
+  const source = snapshotById(store, store.candidateId);
+  if (!source || !store.reviews[source.id]?.approvalOnly) throw new Error('请在更新检测中决定是否同意变更');
+  const published = await publishRelease(store);
+  const remaining = diffEnums(snapshotById(published, published.activeId)?.scan ?? null, source.scan);
+  return remaining.length ? stageSnapshot(published, await makeSnapshot(source.scan, 'source')) : published;
 }
 export function impacts(change: Change, data: ProjectData) {
   return Object.entries(data.columns).flatMap(([table, columns]) => columns
@@ -179,6 +243,10 @@ export function planRelease(store: VersionStore) {
     const affected = impacts(change, data);
     if (change.kind === 'remove-group' && affected.length) errors.push(change.name + ' 仍被字段绑定，请先重新绑定字段或取消删除');
     if (change.kind !== 'remove-member' || !affected.some((item) => item.records.length)) continue;
+    if (review.approvalOnly) {
+      errors.push(change.name + '.' + change.member + ' 仍被记录使用，请先到数据配置处理引用，或不同意此删除');
+      continue;
+    }
     const migration = review.migrations[change.id];
     if (!migration) { errors.push(change.name + '.' + change.member + '：请选择替换或保留待修复'); continue; }
     if (migration.mode === 'retain') continue;

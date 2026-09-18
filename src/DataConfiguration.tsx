@@ -68,8 +68,8 @@ export function DataConfiguration({ data, onChange, definitions, activeDataset, 
     {showCreateTable && <CreateTableDialog onClose={() => setShowCreateTable(false)} onCreate={(definition) => { onCreateTable(definition); setShowCreateTable(false); }} />}
     <div className="registry-status" role="status">
       <div><b>{registry.active ? '稳定版本 ' + registry.active.id.slice(0, 10) + ' · ' + registry.scan?.groups.length + ' 组枚举' : '尚无稳定枚举版本'}</b>
-        <small>{registry.error || (registry.candidate ? '存在候选更新，请到「枚举管理」审核；当前配置继续使用稳定版本。' : registry.ready ? '数据与字段自动保存，更新需审核发布。' : '请先到「枚举管理」审核首次导入。')}</small></div>
-      <button onClick={() => void registry.refresh()} disabled={registry.loading || registry.busy}><RefreshCw size={14} />扫描更新</button>
+        <small>{registry.error || (registry.candidate ? '存在候选更新，请到「枚举管理」审核；当前配置继续使用稳定版本。' : registry.ready ? '数据与字段自动保存，更新需审核发布。' : !registry.sourceConfigured ? '可先编写配置数据，后续在引擎设置中连接工程。' : '请先到「枚举管理」审核首次导入。')}</small></div>
+      <button onClick={() => void registry.refresh()} disabled={!registry.sourceConfigured || registry.loading || registry.busy}><RefreshCw size={14} />扫描更新</button>
     </div>
     <details className="release-preview"><summary>{registry.canExport ? '导出检查通过 · 仅使用当前稳定版本' : '导出被阻止 · ' + registry.blockingIssues.length + ' 项待处理问题'}</summary>
       {registry.blockingIssues.map((issue, index) => <p key={index}>{issue}</p>)}

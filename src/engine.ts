@@ -1,3 +1,4 @@
+import { workspaceStorage } from './workspace-storage.ts';
 export type EngineConfig = { engine: string; projectPath: string; enumPath: string; dataPath: string; outputFormat: string; autoSync: boolean; backupBeforeSync: boolean };
 
 export const defaultEngineConfig: EngineConfig = {
@@ -13,12 +14,12 @@ export const defaultEngineConfig: EngineConfig = {
 const STORAGE_KEY = 'gamecreator.engine-config.v1';
 export function loadEngineConfig(): EngineConfig {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = workspaceStorage.getItem(STORAGE_KEY);
     return raw ? { ...defaultEngineConfig, ...JSON.parse(raw) } : defaultEngineConfig;
   } catch { return defaultEngineConfig; }
 }
 export function persistEngineConfig(config: EngineConfig) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(config)); } catch { /* storage may be unavailable */ }
+  workspaceStorage.setItem(STORAGE_KEY, JSON.stringify(config));
 }
 
 export type EnumMember = { key: string; value: string | number; line: number; comment: string };
@@ -26,6 +27,7 @@ export type EnumGroup = { name: string; source: string; line: number; valueType:
 export type EnumScan = { projectPath: string; enumPath: string; files: string[]; groups: EnumGroup[]; orderTables: { name: string; source: string; keys: string[]; detail: string }[]; dynamic: { name: string; source: string; line: number; detail: string }[]; counts: { files: number; groups: number; members: number } };
 
 export async function scanEngineProject(config: EngineConfig, signal?: AbortSignal): Promise<EnumScan> {
+  if (!config.projectPath.trim() || !config.enumPath.trim()) throw new Error('请先在引擎设置中配置工程和枚举目录');
   const query = new URLSearchParams({ projectPath: config.projectPath, enumPath: config.enumPath });
   const response = await fetch(`/api/engine/scan?${query}`, { signal });
   const payload = await response.json().catch(() => ({}));

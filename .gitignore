@@ -6,3 +6,4 @@ dist-withdraw/
 *.tsbuildinfo
 generate/*.md
 .DS_Store
+.gamecreator/

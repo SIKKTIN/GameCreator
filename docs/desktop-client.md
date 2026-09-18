@@ -23,3 +23,5 @@ npm run dev
 ```
 
 客户端入口位于 `desktop/main.cjs`，本地服务位于 `desktop/server.cjs`，预加载脚本位于 `desktop/preload.cjs`。服务只绑定 `127.0.0.1`，并限制静态文件和扫描接口的访问范围。
+
+桌面端现已使用磁盘存档，端口变化不会丢失枚举和配置数据；详见 [本地数据持久化](persistence.md)。

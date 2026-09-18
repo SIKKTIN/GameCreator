@@ -1,0 +1,52 @@
+.enum-management, .enum-update-panel, .enum-import-panel { display:grid; gap:20px; min-width:0; }
+.enum-management-tabs { display:flex; gap:24px; border-bottom:1px solid #393448; }
+.enum-management-tabs button { display:flex; align-items:center; gap:8px; border:0; border-bottom:2px solid transparent; padding:12px 4px; background:none; color:#aaa6bd; font-size:14px; cursor:pointer; }
+.enum-management-tabs button[aria-selected=true] { border-bottom-color:#a193ff; color:#cec5ff; }
+.enum-management-tabs button span { padding:2px 7px; border-radius:12px; background:#302944; font-size:11px; }
+.enum-update-summary { display:flex; flex-wrap:wrap; gap:10px; align-items:center; font-size:12px; color:#aaa6bd; }
+.enum-change-badge { display:inline-block; border-radius:5px; padding:3px 7px; font-size:11px; white-space:normal; }
+.enum-change-badge.added { color:#80e2b7; background:#18382c; }
+.enum-change-badge.removed { color:#ffaaa8; background:#41252c; }
+.enum-change-badge.modified { color:#f1d078; background:#3b3320; }
+.enum-review-group.added { border-color:#337251; }
+.enum-review-group.removed { border-color:#8c444f; }
+.enum-review-filter { display:flex; align-items:center; gap:10px; font-size:12px; color:#b8b0cf; }
+.enum-review-filter select { border:1px solid #393448; border-radius:7px; background:#201d2d; color:#e9e6fa; padding:9px 12px; }
+.enum-group-decision { display:flex; flex-wrap:wrap; justify-content:space-between; gap:10px; margin-top:12px; padding:10px 0; border-bottom:1px solid #353045; color:#aaa6bd; }
+.enum-catalog-members .enum-review-member { display:block; padding:10px 0; }
+.enum-member-name { display:flex; flex-wrap:wrap; align-items:baseline; gap:8px; }
+.enum-member-name > span:not(.enum-change-badge) { color:#aaa6bd; font-size:12px; overflow-wrap:anywhere; }
+.enum-review-member.added > .enum-member-name code { color:#80e2b7; }
+.enum-review-member.removed > .enum-member-name code { color:#ffaaa8; text-decoration:line-through; }
+.enum-review-member.modified > .enum-member-name code { color:#f1d078; }
+.enum-change-item { padding:10px; margin-top:10px; border-left:3px solid #dfc164; background:#242131; border-radius:5px; }
+.enum-change-item.added { border-left-color:#5bbe90; }
+.enum-change-item.removed { border-left-color:#e0777e; }
+.enum-change-line { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; }
+.enum-decision { display:flex; flex-wrap:wrap; align-items:center; gap:6px; font-size:11px; }
+.enum-decision > span { color:#b3acc7; margin-right:4px; }
+.enum-decision button, .enum-history > button { background:#211e30; border:1px solid #514763; color:#cdc5e7; border-radius:5px; padding:6px 10px; cursor:pointer; font-size:12px; }
+.enum-decision button[aria-pressed=true] { background:#554282; color:#fff; border-color:#bda3f4; }
+.enum-readonly-diff { margin-top:9px; color:#aaa6bd; font-size:11px; line-height:1.7; overflow-wrap:anywhere; }
+.enum-readonly-diff summary, .enum-history summary, .enum-import-files summary { cursor:pointer; }
+.enum-readonly-diff p { margin:7px 0; }
+.enum-diff-values { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:8px; }
+.enum-diff-values small, .enum-diff-values code { display:block; overflow-wrap:anywhere; white-space:pre-wrap; }
+.enum-diff-values code { color:#d8d2e9; padding:6px 0; }
+.enum-delete-blocked { color:#f3b4a1; font-size:11px; line-height:1.7; margin:8px 0 0; }
+.enum-sync-bar { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; padding:18px; border:1px solid #645084; border-radius:9px; background:#241e34; }
+.enum-sync-bar b { font-size:13px; }.enum-sync-bar p { color:#b9aecb; margin:7px 0 0; font-size:12px; line-height:1.7; }
+.enum-sync-bar ul { flex-basis:100%; margin:0; color:#f3b4a1; font-size:12px; line-height:1.8; }
+.enum-sync-success { display:flex; align-items:center; gap:8px; color:#80e2b7; font-size:13px; }
+.enum-management button:disabled { opacity:.45; cursor:not-allowed; }
+.enum-management button:focus-visible, .enum-management select:focus-visible, .enum-management summary:focus-visible { outline:2px solid #bca4fb; outline-offset:3px; }
+.enum-history { border:1px solid #393448; border-radius:9px; padding:16px; color:#b9aecb; font-size:12px; line-height:1.8; }
+.enum-history > summary { display:flex; align-items:center; gap:8px; color:#e0d7f5; font-size:13px; }
+.enum-history > button { margin:14px 0; }.enum-history p { overflow-wrap:anywhere; }
+.enum-import-source, .enum-import-result { padding:18px; border:1px solid #393448; border-radius:9px; background:#1b1927; font-size:13px; }
+.enum-import-source code { display:block; margin-top:9px; overflow-wrap:anywhere; color:#c5bbff; font-size:12px; }
+.enum-import-source p, .enum-import-result p { color:#aaa6bd; font-size:12px; line-height:1.7; margin-bottom:0; }
+.enum-import-result { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:12px; }
+.enum-import-warning { padding:14px; border-radius:8px; background:#382f1c; color:#ebc681; font-size:12px; line-height:1.8; }
+.enum-import-files { margin-top:12px; color:#aaa6bd; font-size:12px; line-height:1.8; }
+.enum-import-files code { display:block; color:#bfb4d8; overflow-wrap:anywhere; }

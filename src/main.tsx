@@ -1,4 +1,14 @@
-import { useState } from 'react';
+import { GameplayDesigns } from './GameplayDesigns';
+import { useGameplayDesigns } from './useGameplayDesigns';
+import { ProjectSwitcher } from './ProjectSwitcher';
+import { useProjectCatalog } from './useProjectCatalog';
+import { addSavedProject, selectSavedProject, updateSavedConfig, type SavedProject } from './project-catalog';
+import { TestPanel } from './TestPanel';
+import { buildTestWorkspace, testScenarios, type TestSession, type TestScenarioId } from './test-scenarios';
+import { workspaceStorage } from './workspace-storage';
+import { logDebug } from './debug-log';
+import { useStoredState } from './useStoredState';
+import { useMemo, useRef, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import {
   AlertTriangle,
@@ -9,11 +19,11 @@ import {
   CalendarDays,
   Check,
   CheckCircle2,
-  ChevronDown,
   Clock3,
   Database,
   Eye,
   FileText,
+  Gamepad2,
   GitBranch,
   Italic,
   Layers,
@@ -23,7 +33,6 @@ import {
   Pencil,
   Plus,
   Quote,
-  Save,
   Search,
   Settings2,
   SlidersHorizontal,
@@ -37,7 +46,7 @@ import './overview.css';
 import './story.css';
 import './data-config.css';
 import './enum-bindings.css';
-import { loadEngineConfig, persistEngineConfig, type EngineConfig } from './engine';
+import type { EngineConfig } from './engine';
 import { useEnumRegistry } from './useEnumRegistry';
 import { EngineSettings, EnumDefinitions, EnumManager } from './EnginePanels';
 import { DataConfiguration } from './DataConfiguration';
@@ -83,8 +92,6 @@ const datasetDefinitions: DatasetDef[] = [
   { key: 'economy', label: 'Economy', badge: '8', columns: [{ key: 'id', label: 'ID' }, { key: 'name', label: '名称' }, { key: 'initial', label: '初始值' }, { key: 'output', label: '产出方式' }, { key: 'note', label: '备注' }] },
   { key: 'shop', label: 'Shop', badge: '16', columns: [{ key: 'id', label: 'ID' }, { key: 'itemID', label: '商品 Item ID', type: 'reference', reference: 'items' }, { key: 'price', label: '价格' }, { key: 'limit', label: '限购' }, { key: 'status', label: '状态', type: 'enum', enumName: 'EShopStatus', options: ['上架', '下架'] }] },
 ];
-
-
 
 const initialDatasets: Record<DatasetKey, DataRecord[]> = {
   items: initialRows,
@@ -161,6 +168,7 @@ const initialStoryDocs: StoryDoc[] = [
 
 const nav = [
   ['项目概览', Layers],
+  ['玩法设计', Gamepad2],
   ['故事文档', BookOpen],
   ['数据配置', Database],
   ['枚举定义', Tag],
@@ -170,19 +178,7 @@ const nav = [
   ['数值分析', BarChart3],
 ] as const;
 
-function WorkspaceApp({ role }: { role: UserRole }) {
-  const [active, setActive] = useState('项目概览');
-  const [saved, setSaved] = useState(true);
-  const [activeDataset, setActiveDataset] = useState<DatasetKey>('items');
-  const [definitions, setDefinitions] = useState<DatasetDef[]>(() => { try { return JSON.parse(localStorage.getItem('gamecreator.dataset-definitions.v1') ?? 'null') ?? datasetDefinitions; } catch { return datasetDefinitions; } });
-  const [engineConfig, setEngineConfig] = useState<EngineConfig>(loadEngineConfig);
-  const registry = useEnumRegistry(engineConfig, initialData);
-  const dataKey = projectIdentity(engineConfig.projectPath);
-  const currentData = registry.data;
-  const [milestones, setMilestones] = useState(initialMilestones);
-  const [storyDocs, setStoryDocs] = useState(initialStoryDocs);
-  const [activeStoryId, setActiveStoryId] = useState(initialStoryDocs[0].id);
-  const [project, setProject] = useState({
+const initialProject = {
     name: 'Project Aurora',
     genre: '动作 RPG',
     platform: 'PC / Steam',
@@ -190,36 +186,147 @@ function WorkspaceApp({ role }: { role: UserRole }) {
     status: '制作中',
     description:
       '一款以极光大陆为舞台的动作角色扮演游戏。玩家将穿越失落城邦，收集星核并决定世界的最终走向。',
+  };
+
+function WorkspaceController({ role, username }: { role: UserRole; username: string }) {
+  const projects = useProjectCatalog();
+  const formalProject = projects.catalog.projects.find(item => item.id === projects.catalog.activeId)!;
+  const [storedTest, setStoredTest, sessionError] = useStoredState<TestSession | null>('gamecreator.test-session.v1', null);
+  const [preparing, setPreparing] = useState(false);
+  const [error, setError] = useState('');
+  const lock = useRef(false);
+  const valid = storedTest && typeof storedTest.id === 'string' && /^[0-9a-f-]{36}$/.test(storedTest.id)
+    && storedTest.expectedChanges && ['added', 'removed', 'modified'].every(key => Number.isInteger(storedTest.expectedChanges[key as keyof TestSession['expectedChanges']]))
+    && testScenarios.some(item => item.id === storedTest.scenario)
+    && storedTest.config?.projectPath && storedTest.config.projectPath.replace(/\\/g, '/').toLowerCase().endsWith('/test-workspaces/' + storedTest.id + '/project');
+  const testSession = role === 'admin' && projects.catalog.mode === 'test' && valid ? storedTest : null;
+  const selectProject = (id: string) => {
+    if (lock.current) return false;
+    if (!projects.commit(catalog => selectSavedProject(catalog, id))) return false;
+    if (storedTest) setStoredTest(null);
+    setError(''); logDebug('切换项目', 'success', projects.catalog.projects.find(item => item.id === id)?.name ?? id);
+    return true;
+  };
+  const addProject = async (input: { name: string }) => {
+    if (role !== 'admin' || lock.current || projects.blocked) return false;
+    if (!input.name.trim()) throw new Error('请输入项目名称');
+    if (!projects.commit(catalog => addSavedProject(catalog, input.name))) return false;
+    if (storedTest) setStoredTest(null);
+    setError(''); logDebug('新建项目', 'success', input.name);
+    return true;
+  };
+  const configureProject = async (config: EngineConfig) => {
+    if (role !== 'admin' || lock.current || projects.blocked) return false;
+    lock.current = true; setPreparing(true); setError('');
+    try {
+      let location = { projectPath: config.projectPath.trim(), enumPath: config.enumPath.trim() };
+      if (location.projectPath) {
+        if (window.desktopClient?.validateProjectLocation) location = await window.desktopClient.validateProjectLocation(location);
+        else {
+          if (!/^(?:[A-Za-z]:[\\/]|\/)/.test(location.projectPath)) throw new Error('请输入完整的工程目录');
+          if (!location.enumPath || /^(?:[A-Za-z]:|[\\/])/.test(location.enumPath) || location.enumPath.split(/[\\/]/).includes('..')) throw new Error('枚举目录必须是工程内的相对路径');
+        }
+      }
+      return projects.commit(catalog => updateSavedConfig(catalog, formalProject.id, { ...config, ...location }));
+    } finally { lock.current = false; setPreparing(false); }
+  };
+  const load = async (scenario: TestScenarioId) => {
+    if (role !== 'admin' || lock.current || projects.blocked) return;
+    lock.current = true; setPreparing(true); setError('');
+    try {
+      if (!window.desktopClient?.prepareTestWorkspace) throw new Error('请使用桌面客户端加载测试场景');
+      const prepared = await window.desktopClient.prepareTestWorkspace(scenario);
+      const built = await buildTestWorkspace(prepared, username);
+      workspaceStorage.setItem(built.key, JSON.stringify(built.store));
+      if (!setStoredTest(built.session) || !projects.commit(catalog => ({ ...catalog, mode: 'test' }))) throw new Error('测试工作区切换未保存');
+      logDebug('加载测试场景', 'success', testScenarios.find(item=>item.id===scenario)!.name, built.key);
+    } catch (reason) {
+      setError(String(reason)); logDebug('加载测试场景','error',String(reason));
+    } finally { lock.current = false; setPreparing(false); }
+  };
+  const exit = () => { selectProject(projects.catalog.activeId); };
+  const options = projects.catalog.projects.map(item => {
+    let name = item.name;
+    try {
+      const raw = workspaceStorage.getItem('gamecreator.workspace.v1:' + item.id + ':project');
+      if (raw && typeof JSON.parse(raw)?.name === 'string' && JSON.parse(raw).name.trim()) name = JSON.parse(raw).name;
+    } catch { /* The project itself displays its archive error when selected. */ }
+    return { id: item.id, name, projectPath: item.config.projectPath };
   });
+  if (projects.blocked) return <main className="enum-catalog-empty" role="alert">
+    <AlertTriangle size={32} /><h1>项目列表读取失败</h1>
+    <p>无法确定当前项目，已停止加载和保存工作区。请恢复项目列表存档后重新打开软件。</p>
+    <p>{projects.error}</p><button className="primary" onClick={() => window.location.reload()}>重新读取</button>
+  </main>;
+  return <WorkspaceApp key={testSession?.id ?? 'project:' + formalProject.id} role={role} username={username}
+    formalProject={formalProject} projectOptions={options} onSelectProject={selectProject} onAddProject={addProject}
+    onConfigChange={configureProject}
+    onRenameProject={name => projects.commit(catalog => ({ ...catalog, projects: catalog.projects.map(item => item.id === formalProject.id ? { ...item, name } : item) }))}
+    testSession={testSession} onLoadTest={load} onExitTest={exit} preparingTest={preparing || projects.blocked}
+    testError={error || projects.error || sessionError || (storedTest && !valid ? '测试会话信息无效，已回到正式工作区。' : '')} />;
+}
+
+const emptyStories: StoryDoc[] = [];
+const emptyMilestones: Milestone[] = [];
+const emptyProjectData: ProjectData = { columns: initialData.columns, datasets: Object.fromEntries(datasetDefinitions.map(item => [item.key, []])) };
+const initialTestProject = { ...initialProject, name: '枚举测试工作区' };
+function WorkspaceApp({ role, username, testSession, onLoadTest, onExitTest, preparingTest, testError, formalProject, projectOptions, onSelectProject, onAddProject, onConfigChange, onRenameProject }: {
+  formalProject: SavedProject; projectOptions: { id: string; name: string; projectPath: string }[];
+  onSelectProject: (id: string) => boolean; onAddProject: (input: { name: string }) => Promise<boolean>;
+  onConfigChange: (config: EngineConfig) => Promise<boolean>; onRenameProject: (name: string) => boolean;
+  role: UserRole; username: string; testSession: TestSession | null; onLoadTest: (scenario: TestScenarioId) => Promise<void>;
+  onExitTest: () => void; preparingTest: boolean; testError: string;
+}) {
+  const [active, setActive] = useState(testSession ? '枚举管理' : '项目概览');
+
+  const [activeDataset, setActiveDataset] = useState<DatasetKey>('items');
+  const [activeGameplayId, setActiveGameplayId] = useState('');
+
+  const engineConfig = testSession?.config ?? formalProject.config;
+  const isNewProject = !testSession && formalProject.initialContent === 'empty';
+  const dataKey = testSession ? projectIdentity(engineConfig.projectPath) : formalProject.id;
+  const registry = useEnumRegistry(engineConfig, isNewProject ? emptyProjectData : initialData, username, dataKey);
+  const gameplay = useGameplayDesigns(dataKey);
+  const currentData = registry.data;
+  const [allDefinitions, setDefinitions, definitionsError] = useStoredState<DatasetDef[]>('gamecreator.workspace.v1:' + dataKey + ':definitions', datasetDefinitions);
+  const definitions = Object.keys(currentData.datasets).map(key =>
+    ({ ...(allDefinitions.find(item => item.key === key) ?? { key, label: key, badge: '' }), columns: currentData.columns[key] }));
+  const currentDataset = definitions.some(item => item.key === activeDataset) ? activeDataset : definitions[0].key;
+  const [milestones, setMilestones, milestoneError] = useStoredState('gamecreator.workspace.v1:' + dataKey + ':milestones', isNewProject ? emptyMilestones : initialMilestones);
+  const [storyDocs, setStoryDocs, storyError] = useStoredState('gamecreator.workspace.v1:' + dataKey + ':stories', isNewProject ? emptyStories : initialStoryDocs);
+  const [activeStoryId, setActiveStoryId] = useState(initialStoryDocs[0].id);
+  const projectDefaults = useMemo(() => testSession ? initialTestProject : isNewProject
+    ? { ...initialProject, name: formalProject.name, version: 'v0.1.0', description: '' } : { ...initialProject, name: formalProject.name }, [testSession?.id, isNewProject, formalProject.id, formalProject.name]);
+  const [project, setProject, projectError] = useStoredState('gamecreator.workspace.v1:' + dataKey + ':project', projectDefaults);
 
   const completedMilestones = milestones.filter((milestone) => milestone.status === 'done').length;
-  const progress = Math.round((completedMilestones / milestones.length) * 100);
+  const progress = milestones.length ? Math.round((completedMilestones / milestones.length) * 100) : 0;
+  const storageError = [definitionsError, milestoneError, storyError, projectError, registry.error, gameplay.error].filter(Boolean).join('；');
   const visibleNav = role === 'admin' ? nav : nav.filter(([name]) => !['枚举管理', '引擎设置'].includes(name));
 
-  const markDirty = () => setSaved(false);
   const exportAiContext = async () => {
-    const markdown = buildAiMarkdown(project, storyDocs, currentData, definitions, engineConfig, registry);
-    const location = await saveAiMarkdown(markdown);
-    setSaved(true);
+    if (testSession || gameplay.blocked || gameplay.pending) return;
+    const markdown = buildAiMarkdown(project, storyDocs, currentData, definitions, engineConfig, registry, gameplay.store.designs);
+    const location = await saveAiMarkdown(markdown, formalProject.id);
+
     window.alert(`AI 文档已生成：${location}`);
   };
-  const createDataset = (definition: DatasetDef) => {
-    const nextDefinitions = [...definitions, definition];
+  const createDataset = async (definition: DatasetDef) => {
+    const nextDefinitions = [...allDefinitions.filter(item => item.key !== definition.key), definition];
+
+    if (!await registry.updateData({ ...currentData, datasets: { ...currentData.datasets, [definition.key]: [] }, columns: { ...currentData.columns, [definition.key]: definition.columns } })) return;
     setDefinitions(nextDefinitions);
-    localStorage.setItem('gamecreator.dataset-definitions.v1', JSON.stringify(nextDefinitions));
-    void registry.updateData({ ...currentData, datasets: { ...currentData.datasets, [definition.key]: [] }, columns: { ...currentData.columns, [definition.key]: definition.columns } });
     setActiveDataset(definition.key);
-    markDirty();
+
   };
 
-
   const updateProject = (key: keyof typeof project, value: string) => {
-    markDirty();
-    setProject((current) => ({ ...current, [key]: value }));
+
+    if (setProject((current) => ({ ...current, [key]: value })) && key === 'name' && !testSession) onRenameProject(value);
   };
 
   const updateStory = (id: string, changes: Partial<StoryDoc>) => {
-    markDirty();
+
     setStoryDocs((current) =>
       current.map((document) =>
         document.id === id ? { ...document, ...changes, updated: '刚刚' } : document,
@@ -229,7 +336,7 @@ function WorkspaceApp({ role }: { role: UserRole }) {
 
   const addStoryDoc = () => {
     const id = `story_${Date.now()}`;
-    markDirty();
+
     setStoryDocs((current) => [
       ...current,
       {
@@ -249,7 +356,7 @@ function WorkspaceApp({ role }: { role: UserRole }) {
   };
 
   const toggleMilestone = (index: number) => {
-    markDirty();
+
     setMilestones((current) =>
       current.map((milestone, itemIndex) => {
         if (itemIndex !== index) return milestone;
@@ -259,7 +366,7 @@ function WorkspaceApp({ role }: { role: UserRole }) {
   };
 
   const addMilestone = () => {
-    markDirty();
+
     setMilestones((current) => [
       ...current,
       { title: '新的项目里程碑', owner: '待分配', due: '2026/10/20', status: 'planned' },
@@ -273,7 +380,9 @@ function WorkspaceApp({ role }: { role: UserRole }) {
           <div className="logo">✦</div>
           <div><b>GameCreator</b><small>CONTENT STUDIO</small></div>
         </div>
-        <div className="project"><span className="dot" /><span>{project.name}</span><ChevronDown size={14} /></div>
+        <ProjectSwitcher projects={projectOptions} currentId={testSession ? null : formalProject.id} currentName={project.name}
+          testName={testSession ? testScenarios.find(item=>item.id===testSession.scenario)?.name : undefined}
+          canAdd={role === 'admin'} busy={preparingTest || registry.busy || registry.loading || gameplay.pending} onSelect={onSelectProject} onAdd={onAddProject} />
         <nav>
           {visibleNav.map(([name, Icon]) => (
             <button key={name} className={active === name ? 'active' : ''} onClick={() => setActive(name)}>
@@ -291,15 +400,23 @@ function WorkspaceApp({ role }: { role: UserRole }) {
         <header>
           <div><div className="crumb">{project.name.toUpperCase()} <span>/</span> {active.toUpperCase()}</div><h1>{active}</h1></div>
           <div className="header-actions">
+            {role === 'admin' && <TestPanel page={active} username={username} config={engineConfig} registry={registry} testSession={testSession}
+              busy={preparingTest || gameplay.pending} error={testError || storageError} onLoad={onLoadTest} onExit={onExitTest} onNavigate={setActive} />}
             <div className="search"><Search size={16} /><input placeholder="搜索内容..." /></div>
-            <button className="save" onClick={exportAiContext}><FileText size={16} />生成 AI 文档</button>
-            <button className="save" onClick={() => setSaved(true)}>{saved ? <Check size={16} /> : <Save size={16} />}{saved ? '已保存' : '保存项目'}</button>
+            <button className="save" disabled={!!testSession || gameplay.blocked || gameplay.pending} title={testSession ? "测试工作区可在面板复制诊断信息" : undefined} onClick={exportAiContext}><FileText size={16} />生成 AI 文档</button>
+            <span className="save" role="status">{storageError ? <AlertTriangle size={16} /> : <Check size={16} />}{storageError ? '请检查保存状态' : registry.busy ? '正在保存…' : '已自动保存'}</span>
           </div>
         </header>
 
+        {testSession && <div className="test-workspace-banner" role="status"><span><b>测试工作区</b> · {testScenarios.find(item=>item.id===testSession.scenario)?.name} · 数据独立保存</span>
+          <button disabled={preparingTest || registry.busy || registry.loading || gameplay.pending} onClick={onExitTest}>返回原工作区</button></div>}
+        {testError && <p className="field-error" role="alert">{testError}</p>}
+        {storageError && !gameplay.error && <p className="field-error" role="alert">{storageError}</p>}
+        {gameplay.error && <div className="gp-save-error" role="alert"><span>{gameplay.error}{gameplay.pending && "。草稿保留在当前窗口，请重试保存后再切换项目。"}</span>{gameplay.pending && <button className="gp-secondary" onClick={gameplay.retry}>重试保存玩法</button>}</div>}
         {active === '项目概览' && (
           <ProjectOverview
             project={project}
+            showExamples={!isNewProject}
             progress={progress}
             milestones={milestones}
             updateProject={updateProject}
@@ -307,6 +424,10 @@ function WorkspaceApp({ role }: { role: UserRole }) {
             addMilestone={addMilestone}
           />
         )}
+        {active === '玩法设计' && <GameplayDesigns selectedId={activeGameplayId} onSelect={setActiveGameplayId} controller={gameplay} sources={{ stories: storyDocs, datasets: definitions }} onOpenLink={link => {
+          if (link.kind === 'story') { setActiveStoryId(link.targetId); setActive('故事文档'); }
+          else { setActiveDataset(link.targetId); setActive('数据配置'); }
+        }} />}
         {active === '故事文档' && (
           <StoryDocuments
             documents={storyDocs}
@@ -318,11 +439,11 @@ function WorkspaceApp({ role }: { role: UserRole }) {
         )}
         {active === '数据配置' && <DataConfiguration key={dataKey} data={currentData}
           onChange={(next) => { void registry.updateData(next); }}
-          definitions={definitions} activeDataset={activeDataset} setActiveDataset={setActiveDataset} registry={registry} onCreateTable={createDataset} />}
+          definitions={definitions} activeDataset={currentDataset} setActiveDataset={setActiveDataset} registry={registry} onCreateTable={createDataset} />}
         {active === '枚举定义' && <EnumDefinitions registry={registry} />}
-        {active === '枚举管理' && <EnumManager config={engineConfig} registry={registry} columns={currentData.columns} />}
-        {active === '引擎设置' && <EngineSettings config={engineConfig} registry={registry} setConfig={(next) => { markDirty(); setEngineConfig(next); persistEngineConfig(next); }} />}
-        {active !== '项目概览' && active !== '故事文档' && active !== '数据配置' && active !== '枚举定义' && active !== '枚举管理' && active !== '引擎设置' && (
+        {active === '枚举管理' && <EnumManager config={engineConfig} registry={registry} />}
+        {active === '引擎设置' && <fieldset disabled={!!testSession} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>{testSession && <p>测试场景使用固定来源，请通过测试面板加载或重置场景。</p>}<EngineSettings config={engineConfig} registry={registry} onPickDirectory={window.desktopClient?.pickProjectDirectory} setConfig={(next) => testSession ? Promise.resolve(false) : onConfigChange(next)} /></fieldset>}
+        {active !== '项目概览' && active !== '玩法设计' && active !== '故事文档' && active !== '数据配置' && active !== '枚举定义' && active !== '枚举管理' && active !== '引擎设置' && (
           <section className="empty">
             <div className="empty-icon"><Layers size={34} /></div>
             <h2>{active}</h2>
@@ -336,7 +457,7 @@ function WorkspaceApp({ role }: { role: UserRole }) {
 }
 
 function App() {
-  return <AuthGate>{(session) => <WorkspaceApp role={session.role} />}</AuthGate>;
+  return <AuthGate>{(session) => <WorkspaceController role={session.role} username={session.username} />}</AuthGate>;
 }
 
 type Project = {
@@ -350,6 +471,7 @@ type Project = {
 
 type ProjectOverviewProps = {
   project: Project;
+  showExamples: boolean;
   progress: number;
   milestones: Milestone[];
   updateProject: (key: keyof Project, value: string) => void;
@@ -357,13 +479,13 @@ type ProjectOverviewProps = {
   addMilestone: () => void;
 };
 
-function ProjectOverview({ project, progress, milestones, updateProject, toggleMilestone, addMilestone }: ProjectOverviewProps) {
-  const team = [
+function ProjectOverview({ project, showExamples, progress, milestones, updateProject, toggleMilestone, addMilestone }: ProjectOverviewProps) {
+  const team = showExamples ? [
     { name: '林默', role: '主策划', color: '#8c7bff' },
     { name: '陈溪', role: '数值设计', color: '#4fd19a' },
     { name: '周野', role: '系统策划', color: '#e1b56d' },
     { name: '顾言', role: '文案设计', color: '#e27d9b' },
-  ];
+  ] : [];
 
   return (
     <section className="overview">
@@ -390,17 +512,17 @@ function ProjectOverview({ project, progress, milestones, updateProject, toggleM
             <label><span>当前版本</span><input value={project.version} onChange={(event) => updateProject('version', event.target.value)} /></label>
           </div>
           <label className="field-full"><span>项目简介</span><textarea value={project.description} onChange={(event) => updateProject('description', event.target.value)} /></label>
-          <div className="info-footer"><span className="status-badge"><span />{project.status}</span><span>最后编辑：今天 14:32</span></div>
+          <div className="info-footer"><span className="status-badge"><span />{project.status}</span>{showExamples && <span>最后编辑：今天 14:32</span>}</div>
         </div>
 
         <div className="overview-panel activity-panel">
           <div className="panel-heading"><div><span className="section-kicker">RECENT ACTIVITY</span><h3>最近动态</h3></div><Clock3 size={16} /></div>
           <div className="activity-list">
-            <Activity icon={<Database size={15} />} title="更新了物品配置" detail="新增 4 条物品记录" time="12 分钟前" />
+            {showExamples ? <><Activity icon={<Database size={15} />} title="更新了物品配置" detail="新增 4 条物品记录" time="12 分钟前" />
             <Activity icon={<FileText size={15} />} title="编辑了序章文档" detail="补充角色出场设定" time="昨天 18:40" />
-            <Activity icon={<CheckCircle2 size={15} />} title="完成核心玩法验证" detail="林默 · 里程碑" time="2026/09/12" />
+            <Activity icon={<CheckCircle2 size={15} />} title="完成核心玩法验证" detail="林默 · 里程碑" time="2026/09/12" /></> : <p className="empty-inspector">暂无项目动态</p>}
           </div>
-          <button className="text-button">查看全部动态 <span>→</span></button>
+          {showExamples && <button className="text-button">查看全部动态 <span>→</span></button>}
         </div>
       </div>
 
@@ -422,6 +544,7 @@ function ProjectOverview({ project, progress, milestones, updateProject, toggleM
         <div className="overview-panel team-panel">
           <div className="panel-heading"><div><span className="section-kicker">TEAM</span><h3>项目成员</h3></div><Users size={16} /></div>
           <div className="team-list">
+            {!team.length && <p className="empty-inspector">暂无项目成员</p>}
             {team.map((member) => (
               <div className="team-member" key={member.name}><div className="member-avatar" style={{ background: member.color }}>{member.name.slice(0, 1)}</div><div><strong>{member.name}</strong><small>{member.role}</small></div><span className="online-dot" /></div>
             ))}
@@ -447,6 +570,7 @@ function StoryDocuments({
   addStoryDoc: () => void;
 }) {
   const selected = documents.find((document) => document.id === activeStoryId) ?? documents[0];
+  if (!selected) return <section className="enum-catalog-empty"><BookOpen size={28} /><h3>暂无故事文档</h3><p>创建这个项目的第一份故事文档。</p><button className="primary" onClick={addStoryDoc}>新建故事文档</button></section>;
   const characterCount = selected.content.replace(/\s/g, '').length;
   const paragraphCount = selected.content.split(/\n+/).filter(Boolean).length;
 
