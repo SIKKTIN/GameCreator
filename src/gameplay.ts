@@ -1,3 +1,4 @@
+import { emptyStage, copyStage, validateStage, stageMarkdown, type GameplayStage } from './gameplay-stage.ts';
 import { emptyStructure, copyStructure, validateStructure, structureMarkdown, type GameplayStructure } from './gameplay-structure.ts';
 export const gameplayStatuses = ['草稿', '待验证', '验证中', '已验证'] as const;
 export const gameplayResults = ['未测试', '通过', '需要调整'] as const;
@@ -6,26 +7,27 @@ export type GameplayLink = { kind: 'story' | 'dataset'; targetId: string };
 export type LoopStep = { id: string; text: string };
 export type PrototypeItem = LoopStep & { done: boolean };
 export type GameplayCheck = { id: string; question: string; steps: string; expected: string; actual: string; result: typeof gameplayResults[number] };
-export type GameplayDesign = GameplayStructure & {
+export type GameplayDesign = GameplayStructure & GameplayStage & {
   id: string; title: string; summary: string; experience: string; rules: string; winCondition: string; loseCondition: string;
   status: GameplayStatus; archived: boolean; loop: LoopStep[]; prototype: PrototypeItem[]; deferred: string;
   checks: GameplayCheck[]; links: GameplayLink[]; createdAt: string; updatedAt: string;
 };
-export type GameplayStore = { schema: 2; designs: GameplayDesign[] };
+export type GameplayStore = { schema: 3; designs: GameplayDesign[] };
 export type GameplaySources = { stories: { id: string; title: string }[]; datasets: { key: string; label: string }[] };
-export const emptyGameplay = (): GameplayStore => ({ schema: 2, designs: [] });
+export const emptyGameplay = (): GameplayStore => ({ schema: 3, designs: [] });
 export function createGameplay(title: string): GameplayDesign {
   if (!title.trim()) throw new Error('请输入玩法名称');
   const now = new Date().toISOString();
-  return { ...emptyStructure(), id: crypto.randomUUID(), title: title.trim(), summary: '', experience: '', rules: '', winCondition: '', loseCondition: '',
+  return { ...emptyStructure(), ...emptyStage(), id: crypto.randomUUID(), title: title.trim(), summary: '', experience: '', rules: '', winCondition: '', loseCondition: '',
     status: '草稿', archived: false, loop: [], prototype: [], deferred: '', checks: [], links: [], createdAt: now, updatedAt: now };
 }
 export function duplicateGameplay(source: GameplayDesign): GameplayDesign {
-  return { ...structuredClone(source), ...createGameplay((source.title.trim() || '未命名玩法') + ' · 副本'),
+  const base = createGameplay((source.title.trim() || '未命名玩法') + ' · 副本');
+  return { ...structuredClone(source), ...base,
     summary: source.summary, experience: source.experience, rules: source.rules, winCondition: source.winCondition, loseCondition: source.loseCondition,
     loop: source.loop.map(step => ({ ...step, id: crypto.randomUUID() })),
     prototype: source.prototype.map(item => ({ ...item, id: crypto.randomUUID(), done: false })), deferred: source.deferred,
-    checks: source.checks.map(check => ({ ...check, id: crypto.randomUUID(), actual: '', result: '未测试' })), links: structuredClone(source.links), ...copyStructure(source) };
+    checks: source.checks.map(check => ({ ...check, id: crypto.randomUUID(), actual: '', result: '未测试' })), links: structuredClone(source.links), ...copyStructure(source), ...copyStage(source, base.id) };
 }
 export function moveGameplayItem<T>(items: T[], index: number, direction: -1 | 1): T[] {
   const target = index + direction;
@@ -43,7 +45,7 @@ export function validateGameplay(value: unknown): GameplayStore {
       seen.add((item as Record<string, unknown>).id as string);
     }
   };
-  if (!record(value) || ![1, 2].includes(value.schema as number) || !Array.isArray(value.designs)) return fail();
+  if (!record(value) || ![1, 2, 3].includes(value.schema as number) || !Array.isArray(value.designs)) return fail();
   ids(value.designs, d => {
     if (!strings(d, ['title', 'summary', 'experience', 'rules', 'winCondition', 'loseCondition', 'deferred', 'createdAt', 'updatedAt']) ||
         !gameplayStatuses.includes(d.status as GameplayStatus) || typeof d.archived !== 'boolean' ||
@@ -60,10 +62,11 @@ export function validateGameplay(value: unknown): GameplayStore {
     return true;
   });
   const designs = (value.designs as GameplayDesign[]).map(design => {
-    const upgraded = value.schema === 1 ? { ...emptyStructure(), ...design } : design;
-    validateStructure(upgraded); return upgraded;
+    const structure = value.schema === 1 ? { ...emptyStructure(), ...design } : design;
+    const upgraded = value.schema !== 3 ? { ...emptyStage(), ...structure } : structure;
+    validateStructure(upgraded); validateStage(upgraded); return upgraded;
   });
-  return { schema: 2, designs };
+  return { schema: 3, designs };
 }
 export function readGameplay(storage: Pick<Storage, 'getItem'>, key: string) {
   const raw = storage.getItem(key);
@@ -84,7 +87,7 @@ export function gameplayMarkdown(designs: GameplayDesign[], sources: GameplaySou
   if (!designs.length) lines.push('暂无玩法设计。', '');
   for (const design of designs) {
     lines.push('### ' + text(design.title), '', '- 状态：' + design.status + (design.archived ? '（已归档）' : ''), '- 最后编辑：' + design.updatedAt, '',
-      text(design.summary), '', structureMarkdown(design, designs), '', '#### 体验目标', '', text(design.experience), '', '#### 核心循环', '');
+      text(design.summary), '', structureMarkdown(design, designs), '', stageMarkdown(design, designs), '', '#### 体验目标', '', text(design.experience), '', '#### 核心循环', '');
     lines.push(...(design.loop.length ? design.loop.map((s, i) => `${i + 1}. ${text(s.text)}`) : ['待补充']), '', '#### 玩法规则', '', text(design.rules), '',
       '- 胜利条件：' + text(design.winCondition), '- 失败条件：' + text(design.loseCondition), '', '#### 原型范围', '');
     lines.push(...(design.prototype.length ? design.prototype.map(i => `- [${i.done ? 'x' : ' '}] ${text(i.text)}`) : ['待补充']), '', '暂缓内容：', '', text(design.deferred), '', '#### 验证记录', '');

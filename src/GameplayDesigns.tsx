@@ -4,7 +4,8 @@ import { createGameplay, duplicateGameplay, gameplayLinkName, gameplayResults, g
 import type { GameplayController } from './useGameplayDesigns';
 import './gameplay.css';
 import { GameplayDependencies, GameplayRules, GameplayStateFlow } from './GameplayStructure';
-type EditorTab = 'design' | 'relations' | 'rules' | 'flow';
+import { GameplaySpace, GameplayTime } from './GameplayStage';
+type EditorTab = 'design' | 'relations' | 'rules' | 'flow' | 'space' | 'time';
 
 type Props = { selectedId: string; onSelect: (id: string) => void; controller: GameplayController; sources: GameplaySources; onOpenLink: (link: GameplayLink) => void };
 export function GameplayDesigns({ controller, selectedId, onSelect: setSelectedId, sources, onOpenLink }: Props) {
@@ -76,11 +77,13 @@ function GameplayEditor({ design: d, designs, tab, onTab, onNavigate, sources, o
     <div className="gp-editor-heading"><div><span className="gp-kicker">GAMEPLAY DESIGN</span><h2>{d.title || '未命名玩法'}</h2><p className="gp-muted">最后编辑：{new Date(d.updatedAt).toLocaleString()}</p></div>
       <div className="gp-actions"><button className="gp-secondary" onClick={onCopy}><Copy size={15} />复制玩法</button><button className="gp-secondary" onClick={onArchive}>{d.archived ? <RotateCcw size={15} /> : <Archive size={15} />}{d.archived ? '恢复玩法' : '归档玩法'}</button></div></div>
     {d.archived && <p className="gp-archive-notice" role="status">此玩法已归档。恢复后可以继续编辑，也可以复制成新的方案。</p>}
-    <div className="gp-structure-tabs" role="tablist" aria-label="玩法设计分页">{([['design', '设计说明', null], ['relations', '系统关系', d.dependencies.length], ['rules', '条件规则', d.conditionRules.length], ['flow', '状态流程', d.stateFlow.states.length]] as const).map(([id, name, count]) => <button role="tab" key={id} id={'gp-tab-' + id} aria-controls={'gp-panel-' + id} aria-selected={tab === id} tabIndex={tab === id ? 0 : -1} onKeyDown={e => { const ids: EditorTab[] = ['design', 'relations', 'rules', 'flow']; const index = ids.indexOf(tab); const next = e.key === 'ArrowRight' ? ids[(index + 1) % ids.length] : e.key === 'ArrowLeft' ? ids[(index + ids.length - 1) % ids.length] : e.key === 'Home' ? ids[0] : e.key === 'End' ? ids[ids.length - 1] : null; if (next) { e.preventDefault(); onTab(next); document.getElementById('gp-tab-' + next)?.focus(); } }} onClick={() => onTab(id)}>{name}{count !== null && <small>{count}</small>}</button>)}</div>
+    <div className="gp-structure-tabs" role="tablist" aria-label="玩法设计分页">{([['design', '设计说明', null], ['relations', '系统关系', d.dependencies.length], ['rules', '条件规则', d.conditionRules.length], ['flow', '状态流程', d.stateFlow.states.length], ['space', '空间布局', d.space.objects.length], ['time', '时间轴', d.timeline.events.length]] as const).map(([id, name, count]) => <button role="tab" key={id} id={'gp-tab-' + id} aria-controls={'gp-panel-' + id} aria-selected={tab === id} tabIndex={tab === id ? 0 : -1} onKeyDown={e => { const ids: EditorTab[] = ['design', 'relations', 'rules', 'flow', 'space', 'time']; const index = ids.indexOf(tab); const next = e.key === 'ArrowRight' ? ids[(index + 1) % ids.length] : e.key === 'ArrowLeft' ? ids[(index + ids.length - 1) % ids.length] : e.key === 'Home' ? ids[0] : e.key === 'End' ? ids[ids.length - 1] : null; if (next) { e.preventDefault(); onTab(next); document.getElementById('gp-tab-' + next)?.focus(); } }} onClick={() => onTab(id)}>{name}{count !== null && <small>{count}</small>}</button>)}</div>
     <div className="gs-panel" role="tabpanel" id={'gp-panel-' + tab} aria-labelledby={'gp-tab-' + tab}>
     {tab === 'relations' && <GameplayDependencies design={d} designs={designs} disabled={d.archived} onChange={onChange} onNavigate={onNavigate} />}
     {tab === 'rules' && <GameplayRules design={d} disabled={d.archived} onChange={onChange} />}
     {tab === 'flow' && <GameplayStateFlow design={d} disabled={d.archived} onChange={onChange} />}
+    {tab === 'space' && <GameplaySpace design={d} designs={designs} disabled={d.archived} onChange={onChange} onNavigate={id => { onNavigate(id); onTab('space'); }} />}
+    {tab === 'time' && <GameplayTime design={d} designs={designs} disabled={d.archived} onChange={onChange} onNavigate={id => { onNavigate(id); onTab('space'); }} />}
     {tab === 'design' && <><div className="gp-stats"><div><span>原型制作</span><strong>{completed}<small> / {d.prototype.length}</small></strong><div className="gp-progress" aria-label={'制作完成 ' + progress + '%'}><span style={{ width: progress + '%' }} /></div></div>
       <div><span>试玩验证</span><strong>{passed}<small> / {d.checks.length} 通过</small></strong><p>制作完成后，仍需实际试玩验证。</p></div></div>
     <fieldset className="gp-editor-fields" disabled={d.archived}>

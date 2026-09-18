@@ -21,7 +21,7 @@ Electron 客户端将工作区数据保存在 GameCreator 根目录的 `.gamecre
 | 存档内容 | 存储键 |
 | --- | --- |
 | 枚举稳定版本、候选版本、审核决定、发布与迁移历史、配置表字段和数据记录 | `gamecreator.enum-versions.v1:<项目标识>` |
-| 玩法设计、依赖关系、条件规则、状态流程、原型清单、验证记录和关联 | `gamecreator.workspace.v1:<项目标识>:gameplay` |
+| 玩法设计、依赖关系、条件规则、状态流程、空间布局、时间轴、原型清单、验证记录和关联 | `gamecreator.workspace.v1:<项目标识>:gameplay` |
 | 配置表目录和显示名称 | `gamecreator.workspace.v1:<项目标识>:definitions` |
 | 项目信息、故事文档、里程碑 | `gamecreator.workspace.v1:<项目标识>:project`、`:stories`、`:milestones` |
 
@@ -72,4 +72,4 @@ node tests/desktop-restart.cjs
 
 该测试使用临时独立用户配置和存档目录，验证旧数据迁移、实际编辑，以及不同端口下的连续重启恢复，不读取或修改用户真实存档。
 
-玩法内容独立使用 schema 2。schema 1 读取时补充空的结构化关系、规则和状态流程，在首次编辑时才保存升级，保留原玩法与内部 ID、文本、制作和验证数据。只查看或手动预览不会改写存档。
+玩法内容独立使用 schema 3。读取 schema 1 时补充空的结构化关系、规则和状态流程；读取 schema 1/2 时再补充空网格与时间轴，仅在首次编辑时保存升级。保留原玩法与内部 ID、文本、制作和验证数据。图形查看、手动路径预览和时间播放/游标不改写存档。

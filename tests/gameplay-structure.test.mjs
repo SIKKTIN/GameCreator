@@ -10,8 +10,8 @@ function fixture(){
 }
 test('legacy schema migrates only on edit and preserves all previous content and IDs',()=>{
  const [d]=fixture();delete d.dependencies;delete d.conditionRules;delete d.stateFlow;d.rules='原规则不能丢失';d.checks=[{id:'check',question:'目标?',steps:'试玩',expected:'通过',actual:'待验证',result:'未测试'}];let raw=JSON.stringify({schema:1,designs:[d]}),writes=0;
- const storage={getItem:()=>raw,setItem:(_,v)=>{raw=v;writes++;}};const before=raw,loaded=readGameplay(storage,'gp');assert.equal(raw,before);assert.equal(writes,0);assert.equal(loaded.store.schema,2);assert.deepEqual(loaded.store.designs[0],{...emptyStructure(),...d});
- loaded.store.designs[0].conditionRules=[createRule()];writeGameplay(storage,'gp',before,loaded.store);assert.equal(JSON.parse(raw).schema,2);assert.equal(JSON.parse(raw).designs[0].rules,d.rules);assert.deepEqual(JSON.parse(raw).designs[0].checks,d.checks);
+ const storage={getItem:()=>raw,setItem:(_,v)=>{raw=v;writes++;}};const before=raw,loaded=readGameplay(storage,'gp');assert.equal(raw,before);assert.equal(writes,0);assert.equal(loaded.store.schema,3);assert.deepEqual(loaded.store.designs[0],{...emptyStructure(),...d});
+ loaded.store.designs[0].conditionRules=[createRule()];writeGameplay(storage,'gp',before,loaded.store);assert.equal(JSON.parse(raw).schema,3);assert.equal(JSON.parse(raw).designs[0].rules,d.rules);assert.deepEqual(JSON.parse(raw).designs[0].checks,d.checks);
 });
 test('schema2 validates all nested structures without rejecting incomplete design drafts',()=>{
  const [d,b]=fixture();validateGameplay({schema:2,designs:[d,b]});
