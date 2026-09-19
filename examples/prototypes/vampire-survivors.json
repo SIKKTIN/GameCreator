@@ -1537,8 +1537,34 @@
           "columns": 32,
           "cellSize": 2,
           "unit": "米",
-          "description": "无限平铺地面中的一个玩家周边采样，2米/格；紫色玩家为局部原点。蓝色区是32×18米视野；敌人生成圈为半径20–26米，周围四个标记仅指示环上方位，不是四条固定刷怪路。布局工具不模拟自由移动、圆环采样或碰撞。",
+          "description": "以玩家中心为原点，X向右、Y向下，单位米。玩家可在无限平面移动；当前图展示一个局部快照。圆形表示2米拾取范围，环形表示20–26米刷怪带。跟随视野与刷怪带由运行时随玩家移动。",
           "objects": [
+            {
+              "id": "vs-obj-spawn-ring",
+              "name": "刷怪环 20–26 米",
+              "kind": "zone",
+              "color": "red",
+              "anchor": "cell",
+              "row": 9,
+              "column": 16,
+              "width": 1,
+              "height": 1,
+              "direction": "right",
+              "rangeShape": "ring",
+              "range": 1,
+              "notes": "以玩家位置为中心的刷怪带；四个方向标记展示环上的位置，具体生成角度由刷怪系统决定。",
+              "geometry": {
+                "x": -1,
+                "y": -1,
+                "width": 2,
+                "height": 2,
+                "rotation": 0,
+                "shape": "circle",
+                "range": 26,
+                "innerRange": 20,
+                "arc": 90
+              }
+            },
             {
               "id": "vs-obj-camera",
               "name": "跟随视野",
@@ -1552,7 +1578,18 @@
               "direction": "right",
               "rangeShape": "none",
               "range": 0,
-              "notes": "运行时随玩家移动"
+              "notes": "运行时随玩家移动",
+              "geometry": {
+                "x": -15,
+                "y": -9,
+                "width": 32,
+                "height": 18,
+                "rotation": 0,
+                "shape": "rect",
+                "range": 0,
+                "innerRange": 0,
+                "arc": 90
+              }
             },
             {
               "id": "vs-obj-player",
@@ -1567,7 +1604,18 @@
               "direction": "right",
               "rangeShape": "radius",
               "range": 1,
-              "notes": "本地原点；拾取半径基础2米"
+              "notes": "本地原点；拾取半径基础2米",
+              "geometry": {
+                "x": -1,
+                "y": -1,
+                "width": 2,
+                "height": 2,
+                "rotation": 0,
+                "shape": "circle",
+                "range": 2,
+                "innerRange": 0,
+                "arc": 90
+              }
             },
             {
               "id": "vs-obj-spawn-n",
@@ -1582,7 +1630,18 @@
               "direction": "right",
               "rangeShape": "none",
               "range": 0,
-              "notes": "随机环形分布，非固定点"
+              "notes": "随机环形分布，非固定点",
+              "geometry": {
+                "x": -1,
+                "y": -17,
+                "width": 2,
+                "height": 2,
+                "rotation": 0,
+                "shape": "rect",
+                "range": 0,
+                "innerRange": 0,
+                "arc": 90
+              }
             },
             {
               "id": "vs-obj-spawn-s",
@@ -1597,7 +1656,18 @@
               "direction": "right",
               "rangeShape": "none",
               "range": 0,
-              "notes": "运行时以玩家位置重新采样"
+              "notes": "运行时以玩家位置重新采样",
+              "geometry": {
+                "x": -1,
+                "y": 17,
+                "width": 2,
+                "height": 2,
+                "rotation": 0,
+                "shape": "rect",
+                "range": 0,
+                "innerRange": 0,
+                "arc": 90
+              }
             },
             {
               "id": "vs-obj-spawn-w",
@@ -1612,7 +1682,18 @@
               "direction": "right",
               "rangeShape": "none",
               "range": 0,
-              "notes": ""
+              "notes": "",
+              "geometry": {
+                "x": -27,
+                "y": -1,
+                "width": 2,
+                "height": 2,
+                "rotation": 0,
+                "shape": "rect",
+                "range": 0,
+                "innerRange": 0,
+                "arc": 90
+              }
             },
             {
               "id": "vs-obj-spawn-e",
@@ -1627,7 +1708,18 @@
               "direction": "right",
               "rangeShape": "none",
               "range": 0,
-              "notes": ""
+              "notes": "",
+              "geometry": {
+                "x": 27,
+                "y": -1,
+                "width": 2,
+                "height": 2,
+                "rotation": 0,
+                "shape": "rect",
+                "range": 0,
+                "innerRange": 0,
+                "arc": 90
+              }
             },
             {
               "id": "vs-obj-xp",
@@ -1642,7 +1734,18 @@
               "direction": "right",
               "rangeShape": "none",
               "range": 0,
-              "notes": "需要判断绕回路线；不会超时消失"
+              "notes": "需要判断绕回路线；不会超时消失",
+              "geometry": {
+                "x": 7,
+                "y": 5,
+                "width": 4,
+                "height": 4,
+                "rotation": 0,
+                "shape": "rect",
+                "range": 0,
+                "innerRange": 0,
+                "arc": 90
+              }
             },
             {
               "id": "vs-obj-chest",
@@ -1657,7 +1760,18 @@
               "direction": "right",
               "rangeShape": "none",
               "range": 0,
-              "notes": "世界位置不自动吸附"
+              "notes": "世界位置不自动吸附",
+              "geometry": {
+                "x": 9,
+                "y": -7,
+                "width": 2,
+                "height": 2,
+                "rotation": 0,
+                "shape": "rect",
+                "range": 0,
+                "innerRange": 0,
+                "arc": 90
+              }
             },
             {
               "id": "vs-obj-enemy",
@@ -1672,7 +1786,18 @@
               "direction": "right",
               "rangeShape": "none",
               "range": 0,
-              "notes": "接触伤害共用玩家无敌窗"
+              "notes": "接触伤害共用玩家无敌窗",
+              "geometry": {
+                "x": 13,
+                "y": -3,
+                "width": 2,
+                "height": 2,
+                "rotation": 0,
+                "shape": "rect",
+                "range": 0,
+                "innerRange": 0,
+                "arc": 90
+              }
             },
             {
               "id": "vs-obj-landmark",
@@ -1687,9 +1812,26 @@
               "direction": "right",
               "rangeShape": "none",
               "range": 0,
-              "notes": "仅视觉路标，无实体碰撞，不能用于卡怪"
+              "notes": "仅视觉路标，无实体碰撞，不能用于卡怪",
+              "geometry": {
+                "x": -13,
+                "y": 7,
+                "width": 4,
+                "height": 4,
+                "rotation": 0,
+                "shape": "rect",
+                "range": 0,
+                "innerRange": 0,
+                "arc": 90
+              }
             }
-          ]
+          ],
+          "spatial": {
+            "version": 1,
+            "view": "free",
+            "rooms": [],
+            "connections": []
+          }
         },
         "timeline": {
           "duration": 1800,

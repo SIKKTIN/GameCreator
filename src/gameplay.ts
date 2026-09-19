@@ -23,11 +23,12 @@ export function createGameplay(title: string): GameplayDesign {
 }
 export function duplicateGameplay(source: GameplayDesign): GameplayDesign {
   const base = createGameplay((source.title.trim() || '未命名玩法') + ' · 副本');
+  const structure = copyStructure(source), ruleIds = new Map(source.conditionRules.map((rule, index) => [rule.id, structure.conditionRules[index].id]));
   return { ...structuredClone(source), ...base,
     summary: source.summary, experience: source.experience, rules: source.rules, winCondition: source.winCondition, loseCondition: source.loseCondition,
     loop: source.loop.map(step => ({ ...step, id: crypto.randomUUID() })),
     prototype: source.prototype.map(item => ({ ...item, id: crypto.randomUUID(), done: false })), deferred: source.deferred,
-    checks: source.checks.map(check => ({ ...check, id: crypto.randomUUID(), actual: '', result: '未测试' })), links: structuredClone(source.links), ...copyStructure(source), ...copyStage(source, base.id) };
+    checks: source.checks.map(check => ({ ...check, id: crypto.randomUUID(), actual: '', result: '未测试' })), links: structuredClone(source.links), ...structure, ...copyStage(source, base.id, ruleIds) };
 }
 export function moveGameplayItem<T>(items: T[], index: number, direction: -1 | 1): T[] {
   const target = index + direction;

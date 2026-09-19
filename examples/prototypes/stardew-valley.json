@@ -89,7 +89,44 @@
           "cellSize": 1,
           "unit": "格",
           "description": "",
-          "objects": []
+          "objects": [],
+          "spatial": {
+            "version": 1,
+            "view": "rooms",
+            "rooms": [
+              {
+                "id": "sv-room-farm",
+                "name": "农场",
+                "x": 0,
+                "y": 80,
+                "view": "grid",
+                "sourceDesignId": "d3491dbb-2524-461c-84e6-62c7c3cb924c",
+                "notes": ""
+              },
+              {
+                "id": "sv-room-village",
+                "name": "村庄",
+                "x": 400,
+                "y": 80,
+                "view": "grid",
+                "sourceDesignId": "c21a2dab-5e57-4f0e-a0a4-1af66918c5e3",
+                "notes": ""
+              }
+            ],
+            "connections": [
+              {
+                "id": "sv-room-road",
+                "name": "东门与西口",
+                "from": "sv-room-farm",
+                "to": "sv-room-village",
+                "fromObjectId": "affbb03b-e2e4-41b2-b152-c8ca75878429",
+                "toObjectId": "ef96cd00-07ee-4211-b8d9-3309bb66660e",
+                "direction": "both",
+                "condition": "未处于对话、工具动作或日结算",
+                "ruleId": ""
+              }
+            ]
+          }
         },
         "timeline": {
           "duration": 180,
