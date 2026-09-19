@@ -58,7 +58,7 @@ export function useTeamConnection() {
     if (health.service !== 'gamecreator-collaboration' || health.apiVersion < 2 || !health.apiVersion) throw new Error('请先重启本机协作服务，以启用完整故事字段和导入功能。');
     const result = await teamRequest<Omit<TeamSession, 'url'>>(address, '/login', '', 'POST', { username, password });
     try {
-      if (requiresAdmin && ((result.apiVersion ?? 0) < 3 || result.user.serverRole !== 'admin')) throw new Error('新建协作项目需要使用服务器管理员账号，并将服务升级到最新版本。');
+      if (requiresAdmin && ((result.apiVersion ?? 0) < 3 || result.user.serverRole !== 'admin')) throw new Error('此操作需要使用服务器管理员账号，并将服务升级到最新版本。');
       const { projects } = await teamRequest<{ projects: TeamProject[] }>(address, '/projects', result.token);
       const selected = target ? projects.find(item => teamProjectKey(result.serverId, item.id) === target) : projects[0];
       if (target && !selected) throw new Error('这个账号无法访问所选项目，请确认服务器和项目成员身份。');
@@ -113,7 +113,7 @@ export function TeamConnectionDialog({ connection, onConnected, onManageServer, 
         <option value="alice">Alice</option><option value="bob">Bob</option><option value="admin">Admin · 服务器管理员</option><option value="viewer">Viewer</option>
       </select></label>
       <label>团队密码<input aria-label="团队密码" type="password" autoComplete="current-password" value={password} onChange={event => setPassword(event.target.value)} disabled={busy} /></label>
-      <small>{connection.requiresAdmin ? '请使用服务器管理员账号连接，随后创建协作项目。' : '本机验证账号密码已预填。共享数据保存在团队服务器。'}</small>
+      <small>{connection.requiresAdmin ? '请使用服务器管理员账号连接，随后继续创建或发布协作项目。' : '本机验证账号密码已预填。共享数据保存在团队服务器。'}</small>
       {(error || connection.error) && <p className="team-message" role="alert">{error || connection.error}</p>}
       <div className="team-dialog-actions"><button type="button" disabled={busy} onClick={close}>取消</button><button className="primary" disabled={busy}>{busy ? '正在连接…' : '连接并进入项目'}</button></div>
     </form>
