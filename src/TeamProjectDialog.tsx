@@ -3,10 +3,10 @@ import { beforeLogoutEvent } from './auth';
 import { defaultPermissions, effectivePermissions, leaveTeamEvent, teamRequest, TeamError, type ModulePermissions, type TeamMember, type TeamProject, type TeamRole, type TeamSession } from './team-api';
 import './team-project.css';
 
-export function TeamMemberFields({ accounts, roles, currentUserId, onChange, permissions, onPermissionChange }: {
+export function TeamMemberFields({ accounts, roles, currentUserId, onChange, permissions, onPermissionChange, coreEnabled = true }: {
   accounts: { userId: string; username: string; enabled?: boolean }[]; roles: Record<string, TeamRole | 'none'>; currentUserId: string;
   onChange: (userId: string, role: TeamRole | 'none') => void;
-  permissions?: Record<string,ModulePermissions>; onPermissionChange?: (userId:string,module:keyof ModulePermissions,value:ModulePermissions['overview'])=>void;
+  coreEnabled?: boolean; permissions?: Record<string,ModulePermissions>; onPermissionChange?: (userId:string,module:keyof ModulePermissions,value:ModulePermissions['overview'])=>void;
 }) {
   return <div className="team-project-members"><strong>项目成员与权限</strong>
     {accounts.map(account => <div className="team-member-config" key={account.userId}><label><span>{account.username}{account.enabled===false&&<small>账号已停用</small>}{account.userId === currentUserId && <small>当前管理账号</small>}</span>
@@ -14,9 +14,9 @@ export function TeamMemberFields({ accounts, roles, currentUserId, onChange, per
         onChange={event => onChange(account.userId, event.target.value as TeamRole | 'none')}>
         <option value="none">不加入此项目</option><option value="admin">管理员</option><option value="editor">编辑者</option><option value="viewer">只读成员</option>
       </select></label>{permissions&&roles[account.userId]&&roles[account.userId]!=='none'&&<div className="team-module-permissions">
-        {(['overview','stories'] as const).map(module=>{
+        {(['overview','stories','core'] as const).filter(module => module !== 'core' || coreEnabled).map(module=>{
           const role=roles[account.userId] as TeamRole, overrides=permissions[account.userId]??defaultPermissions(),effective=effectivePermissions(role,overrides)[module];
-          const label=module==='overview'?'项目概览':'故事文档';
+          const label=module==='overview'?'项目概览':module==='core'?'玩法核心':'故事文档';
           return <label key={module}><span>{label}<small>生效：{effective==='edit'?'可编辑':'只读'}</small></span>
             <select aria-label={`${account.username} ${label}权限`} disabled={role!=='editor'} value={role==='editor'?overrides[module]:'inherit'} onChange={event=>onPermissionChange?.(account.userId,module,event.target.value as ModulePermissions['overview'])}>
               <option value="inherit">角色默认（{effectivePermissions(role)[module]==='edit'?'可编辑':'只读'}）</option><option value="view">只读</option><option value="edit">可编辑</option>
@@ -48,7 +48,7 @@ export function TeamProjectDialog({ session, project, onClose, onCreated, onSave
       setAccounts(users.accounts); setRevision(current?.revision ?? 0);
       setRoles(Object.fromEntries(users.accounts.map(account => [account.userId, current?.members.find(member => member.userId === account.userId)?.role ??
         (account.userId === session.user.id ? 'admin' : 'none')])));
-      setPermissions(Object.fromEntries(users.accounts.map(account=>[account.userId,current?.members.find(member=>member.userId===account.userId)?.permissions??defaultPermissions()])));
+      setPermissions(Object.fromEntries(users.accounts.map(account=>[account.userId,{...defaultPermissions(),...current?.members.find(member=>member.userId===account.userId)?.permissions}])));
       setLoaded(true); setConflict(false);
     } catch (reason) { if (alive.current && reads.current === read) setError((reason as Error).message); }
   }, [session, project?.id]);
@@ -64,6 +64,7 @@ export function TeamProjectDialog({ session, project, onClose, onCreated, onSave
     operating.current = true; setBusy(true); setError('');
     const members = accounts.filter(account => roles[account.userId] !== 'none').map(account => ({ userId: account.userId, role: roles[account.userId],
       ...((session.apiVersion??0)>=6?{permissions:roles[account.userId]==='editor'?permissions[account.userId]??defaultPermissions():defaultPermissions()}:{}), }));
+    if ((session.apiVersion ?? 0) < 7) members.forEach(member => { if (member.permissions) delete (member.permissions as Partial<ModulePermissions>).core; });
     try {
       if (project) {
         await teamRequest(session.url, route, session.token, 'PUT', { members, revision });
@@ -87,11 +88,11 @@ export function TeamProjectDialog({ session, project, onClose, onCreated, onSave
       <p className="team-project-server">{session.url} · 当前账号：{session.user.username}</p>
       <fieldset disabled={busy || !loaded}>
         {!project && <label>协作项目名称<input required maxLength={100} value={name} onChange={event => setName(event.target.value)} autoFocus /></label>}
-        <TeamMemberFields accounts={accounts} roles={roles} currentUserId={session.user.id} permissions={(session.apiVersion??0)>=6?permissions:undefined}
+        <TeamMemberFields coreEnabled={(session.apiVersion ?? 0) >= 7} accounts={accounts} roles={roles} currentUserId={session.user.id} permissions={(session.apiVersion??0)>=6?permissions:undefined}
           onChange={(userId, role) => {setRoles(previous => ({ ...previous, [userId]: role }));setPermissions(previous=>({...previous,[userId]:defaultPermissions()}));}}
           onPermissionChange={(userId,module,value)=>setPermissions(previous=>({...previous,[userId]:{...(previous[userId]??defaultPermissions()),[module]:value}}))}/>
       </fieldset>
-      <small>项目管理员可编辑并管理成员；编辑者默认只能查看概览、编辑故事，可单独调整模块权限；只读成员只能查看。当前管理账号保留管理员权限。</small>
+      <small>项目管理员可编辑并管理成员；编辑者默认只能查看概览、编辑故事与玩法核心，可单独调整模块权限；只读成员只能查看。当前管理账号保留管理员权限。</small>
       {(session.apiVersion??0)<6&&<p className="team-message">模块权限需要升级服务器后重新连接。</p>}
       {!loaded && !error && <p role="status">正在读取成员…</p>}
       {error && <p className="team-message" role="alert">{error}</p>}

@@ -13,3 +13,7 @@
 .team-members-dialog .team-dialog-actions { flex-shrink:0; padding:16px 24px; margin:0; border-top:1px solid #3b334a; background:#1f1c2b; }
 .team-project-members small { display: block; margin-top: 4px; }
 .team-project-members select:disabled { opacity: .6; }
+
+.team-core-diff{display:grid;grid-template-columns:1fr 1fr;gap:20px;overflow-wrap:anywhere}.team-core-diff p{white-space:pre-wrap}.team-core .team-conflict details{margin:12px 0;padding:12px;border:1px solid #544767;border-radius:8px}.team-core .team-conflict{max-height:480px;overflow:auto}.team-core .gc-heading{margin-top:20px}
+
+.team-core-status{padding:14px 18px;margin:12px 0;border:1px solid #2d524a;border-radius:8px;background:#192e2a;color:#9fdfd2}.team-core-status.pending{background:#352f24;color:#e6c688;border-color:#625232}
