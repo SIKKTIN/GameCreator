@@ -49,7 +49,8 @@ const pauseUntil = async (check, message) => {
       await page.locator('.ps-trigger').click(); await page.getByRole('menuitem', { name: '连接团队服务器', exact: true }).click();
     }
     await page.getByLabel('协作服务地址', { exact: true }).fill(serviceUrl);
-    await page.getByLabel('模拟成员', { exact: true }).selectOption(account);
+    await page.getByLabel('团队账号', { exact: true }).fill(account);
+    await page.getByLabel('团队密码', { exact: true }).fill(account+'123');
     await page.getByRole('button', { name: '连接并进入项目', exact: true }).click();
     await page.locator('.team-project .story-workspace').waitFor();
   };

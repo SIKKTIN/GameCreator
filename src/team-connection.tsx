@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { workspaceStorage } from './workspace-storage';
-import { localTeamUrl, teamRequest, type TeamProject, type TeamSession } from './team-api';
+import { localTeamUrl, teamRequest, TeamError, type TeamProject, type TeamSession } from './team-api';
 
 const CONNECTION_KEY = 'gamecreator.team-connection.v1';
 export type SavedTeamConnection = { url: string; serverId: string; username: string; projects: TeamProject[] };
@@ -31,11 +31,21 @@ export function useTeamConnection() {
     catch (reason) { directoryPending.current = true; setError('连接目录未能保存在本机：' + String(reason)); }
   }, []);
   const refreshProjects = useCallback(async () => {
-    const current = sessionRef.current; if (!current) return;
+    const current = sessionRef.current; if (!current || current.invalid) return;
     const version = ++requestVersion.current;
-    const { projects } = await teamRequest<{ projects: TeamProject[] }>(current.url, '/projects', current.token);
+    let result: { projects: TeamProject[]; user?: TeamSession['user'] };
+    try { result = await teamRequest(current.url, '/projects', current.token); }
+    catch (reason) {
+      if (reason instanceof TeamError && reason.status === 401 && current === sessionRef.current) {
+        const invalid = { ...current, invalid: true }; sessionRef.current = invalid; setSession(invalid); setError(reason.message);
+      }
+      throw reason;
+    }
     if (current !== sessionRef.current || version !== requestVersion.current) return;
-    remember({ url: current.url, serverId: current.serverId, username: current.user.username, projects });
+    remember({ url: current.url, serverId: current.serverId, username: current.user.username, projects: result.projects });
+    if (result.user && result.user.serverRole !== current.user.serverRole) {
+      const next = { ...current, user: result.user }; sessionRef.current = next; setSession(next);
+    }
   }, [remember]);
   useEffect(() => {
     if (!session) return;
@@ -89,10 +99,10 @@ export function TeamConnectionDialog({ connection, onConnected, onManageServer, 
   const query = new URLSearchParams(location.search).get('team') || '';
   const [url, setUrl] = useState(connection.saved?.url || 'http://127.0.0.1:4747');
   const [username, setUsername] = useState(connection.saved?.username || (['admin','alice','bob','viewer'].includes(query) ? query : 'alice'));
-  const [password, setPassword] = useState(username + '123');
+  const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false), [error, setError] = useState('');
   useEffect(() => { if (addressRequest) setUrl(addressRequest.url); }, [addressRequest]);
-  useEffect(() => { if (connection.requiresAdmin) { setUsername('admin'); setPassword('admin123'); } }, [connection.requiresAdmin, connection.connectionRequest]);
+  useEffect(() => { if (connection.requiresAdmin && connection.session?.user.serverRole !== 'admin') { setUsername('admin'); setPassword(''); } }, [connection.requiresAdmin, connection.connectionRequest]);
   const close = () => { connection.close(); onDismiss?.(); };
   useEffect(() => {
     if (connection.open) { setError(''); dialog.current?.showModal(); }
@@ -101,7 +111,7 @@ export function TeamConnectionDialog({ connection, onConnected, onManageServer, 
   const submit = async (event: FormEvent) => {
     event.preventDefault(); if (busy) return;
     setBusy(true); setError('');
-    try { const projectId = await connection.connect(url, username, password); onConnected(projectId); }
+    try { const projectId = await connection.connect(url, username, password); setPassword(''); onConnected(projectId); }
     catch (reason) { setError((reason as Error).message); }
     finally { setBusy(false); }
   };
@@ -109,11 +119,9 @@ export function TeamConnectionDialog({ connection, onConnected, onManageServer, 
     <form onSubmit={submit}><h2 id="team-connect-title">连接团队服务器</h2><p>连接后，团队项目会出现在左上角项目列表中。</p>
       <label>协作服务地址<input aria-label="协作服务地址" value={url} onChange={event => setUrl(event.target.value)} disabled={busy} required /></label>
       {onManageServer && <button type="button" disabled={busy} onClick={onManageServer}>前往服务器管理</button>}
-      <label>模拟成员<select aria-label="模拟成员" value={username} disabled={busy} onChange={event => { setUsername(event.target.value); setPassword(event.target.value + '123'); }}>
-        <option value="alice">Alice</option><option value="bob">Bob</option><option value="admin">Admin · 服务器管理员</option><option value="viewer">Viewer</option>
-      </select></label>
-      <label>团队密码<input aria-label="团队密码" type="password" autoComplete="current-password" value={password} onChange={event => setPassword(event.target.value)} disabled={busy} /></label>
-      <small>{connection.requiresAdmin ? '请使用服务器管理员账号连接，随后继续创建或发布协作项目。' : '本机验证账号密码已预填。共享数据保存在团队服务器。'}</small>
+      <label>团队账号<input aria-label="团队账号" autoComplete="username" maxLength={80} value={username} disabled={busy} required onChange={event => setUsername(event.target.value)} /></label>
+      <label>团队密码<input aria-label="团队密码" type="password" autoComplete="current-password" maxLength={256} value={password} onChange={event => setPassword(event.target.value)} disabled={busy} required /></label>
+      <small>{connection.requiresAdmin ? '请使用服务器管理员账号连接，随后继续管理操作。' : '请输入协作服务器的账号和密码。新账号由服务器管理员创建。'}</small>
       {(error || connection.error) && <p className="team-message" role="alert">{error || connection.error}</p>}
       <div className="team-dialog-actions"><button type="button" disabled={busy} onClick={close}>取消</button><button className="primary" disabled={busy}>{busy ? '正在连接…' : '连接并进入项目'}</button></div>
     </form>

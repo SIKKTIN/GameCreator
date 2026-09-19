@@ -6,7 +6,7 @@ const { createCollaborationServer } = require('../server/collaboration.cjs');
 const info = {name:'协作项目',genre:'叙事冒险',platform:'PC',version:'v0.2',status:'制作中',description:'共享简介'};
 const milestone = {title:'首个原型',owner:'Alice',due:'2026/10/20',status:'planned'};
 const source = {sourceInstanceId:'overview-client',sourceProjectId:'local-project'};
-const publication = () => ({...source,name:'发布时指定名称',members:[{userId:'admin',role:'admin'},{userId:'bob',role:'editor'}],stories:[],overview:{info,milestones:[milestone]}});
+const publication = () => ({...source,name:'发布时指定名称',members:[{userId:'admin',role:'admin'},{userId:'bob',role:'editor',permissions:{overview:'edit',stories:'inherit'}}],stories:[],overview:{info,milestones:[milestone]}});
 async function fixture(run) {
   const prefix=path.join(os.tmpdir(),'gc-overview-'),directory=fs.mkdtempSync(prefix);
   let service=await createCollaborationServer({directory,port:0});
@@ -31,6 +31,7 @@ test('overview migration is additive and preserves existing project names, membe
 }));
 test('basic info and individual milestones commit independently, reject conflicts, update directory names and record real activity',()=>fixture(async({request,login,restart})=>{
   let admin=await login('admin');const alice=await login('alice'),bob=await login('bob'),viewer=await login('viewer'),route='/projects/team-demo';
+  const grant=await request(route+'/members',admin,'PUT',{revision:1,members:[{userId:'admin',role:'admin'},{userId:'viewer',role:'viewer'},...['alice','bob'].map(userId=>({userId,role:'editor',permissions:{overview:'edit',stories:'inherit'}}))]});assert.equal(grant.status,200);
   const first=randomUUID(),second=randomUUID();
   const independent=await Promise.all([
     request(route+'/overview',alice,'PUT',{revision:0,fields:info}),
@@ -48,7 +49,7 @@ test('basic info and individual milestones commit independently, reject conflict
   ]);assert.deepEqual(milestoneRace.map(row=>row.status).sort(),[200,409]);
   assert.equal(milestoneRace.find(row=>row.status===409).data.currentRecord.id,first);
   const read=(await request(route+'/overview',viewer)).data;
-  assert.equal(read.activity.length,5,'Only successful writes create activity');assert.ok(read.activity.every(row=>['alice','bob'].includes(row.actor)));
+  assert.equal(read.activity.length,6,'Only successful writes and the explicit permission grant create activity');assert.ok(read.activity.filter(row=>row.title!=='更新了项目成员配置').every(row=>['alice','bob'].includes(row.actor)));
   assert.equal((await request('/projects',bob)).data.projects[0].name,info.name);
   assert.equal((await request(route+'/stories/world',bob)).data.story.revision,1);
   for(const endpoint of ['/overview','/milestones/'+first])assert.equal((await request(route+endpoint,viewer,'PUT',{revision:2,fields:info,role:'admin'})).status,403);
@@ -56,10 +57,10 @@ test('basic info and individual milestones commit independently, reject conflict
   const privateProject=await request('/projects',admin,'POST',{name:'私有',requestId:randomUUID(),members:[{userId:'admin',role:'admin'}]});
   assert.equal((await request('/projects/'+privateProject.data.project.id+'/overview',bob)).status,403);
   assert.equal((await request('/projects/'+privateProject.data.project.id+'/milestones/'+first,bob,'PUT',{revision:0,fields:milestone})).status,403);
-  await request(route+'/members',admin,'PUT',{revision:1,members:[{userId:'admin',role:'admin'}]});
+  await request(route+'/members',admin,'PUT',{revision:2,members:[{userId:'admin',role:'admin'}]});
   assert.equal((await request(route+'/overview',bob)).status,403);assert.equal((await request(route+'/milestones/'+second,alice,'PUT',{revision:1,fields:milestone})).status,403);
   await restart();admin=await login('admin');const persisted=(await request(route+'/overview',admin)).data;
-  assert.deepEqual(persisted.info,read.info);assert.deepEqual(persisted.milestones,read.milestones);assert.equal(persisted.activity.length,6);
+  assert.deepEqual(persisted.info,read.info);assert.deepEqual(persisted.milestones,read.milestones);assert.equal(persisted.activity.length,7);
 }));
 test('publication includes overview atomically; retry and old-client publication never overwrite initialized team content',()=>fixture(async({request,login})=>{
   const admin=await login('admin');

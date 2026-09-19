@@ -9,14 +9,14 @@ import { WorkspaceSidebar } from './WorkspaceSidebar';
 import type { ServerModuleNavigation } from './ServerManager';
 import { workspaceStorage } from './workspace-storage';
 import type { SavedProject } from './project-catalog';
-import { canLeaveTeam, leaveTeamEvent, roleLabels, sameFields, storyFields, teamStoryDocument, TeamError, teamRequest,
-  type TeamProject, type TeamRole, type TeamSession, type TeamStory, type TeamStoryFields } from './team-api';
+import { canLeaveTeam, canEditModule, leaveTeamEvent, roleLabels, sameFields, storyFields, teamStoryDocument, TeamError, teamRequest,
+  type TeamCapabilities, type TeamProject, type TeamRole, type TeamSession, type TeamStory, type TeamStoryFields } from './team-api';
 import './team.css';
 
 const displayTime = (value: string) => new Date(value).toLocaleString('zh-CN', { hour12: false });
 type Draft = { base: TeamStory; fields: TeamStoryFields };
 
-export function TeamProjectWorkspace({ project, session, picker, localProjects, onConnection, onDisconnect, localAdmin, serverPage, onManageServer, onLeaveServer }: {
+export function TeamProjectWorkspace({ project, session, picker, localProjects, onConnection, onDisconnect, localAdmin, serverPage, onManageServer, onLeaveServer, adminPageName, onManageUsers }: {
   project: TeamProject; session: TeamSession; picker: ReactNode; localProjects: SavedProject[]; onConnection: () => void; onDisconnect: () => void;
   localAdmin: boolean;
 } & ServerModuleNavigation) {
@@ -24,6 +24,9 @@ export function TeamProjectWorkspace({ project, session, picker, localProjects, 
   const [members, setMembers] = useState<{ username: string; role: TeamRole }[]>([]);
   const [syncError, setSyncError] = useState(''), [loaded, setLoaded] = useState(false), [role, setRole] = useState(project.role);
   const [accessDenied, setAccessDenied] = useState(false), [manageMembers, setManageMembers] = useState(false);
+  const [capabilities,setCapabilities] = useState<TeamCapabilities>();
+  const accessBlocked = accessDenied || !!session.invalid;
+  const writableStories = !accessBlocked && loaded && canEditModule(session,role,capabilities,'stories');
   const [active,setActive] = useState('故事文档');
   const overviewEnabled = (session.apiVersion ?? 0) >= 5;
   const [createBusy, setCreateBusy] = useState(false), [createError, setCreateError] = useState(''), [refresh, setRefresh] = useState(0);
@@ -40,14 +43,14 @@ export function TeamProjectWorkspace({ project, session, picker, localProjects, 
     let active = true, timer: number;
     const poll = async () => {
       try {
-        const result = await teamRequest<{ stories: TeamStory[]; role: TeamRole }>(session.url, route, session.token);
+        const result = await teamRequest<{ stories: TeamStory[]; role: TeamRole; capabilities?: TeamCapabilities }>(session.url, route, session.token);
         if (!active) return;
         setStories(previous => result.stories.map(story => {
           const existing = previous.find(item => item.id === story.id);
           return existing && existing.revision > story.revision ? existing : story;
         }).concat(previous.filter(item => !result.stories.some(story => story.id === item.id))));
-        setSelectedId(current => current || result.stories[0]?.id || ''); setSyncError(''); setAccessDenied(false); setLoaded(true); setRole(result.role);
-      } catch (reason) { if (active) { setSyncError((reason as Error).message); if (reason instanceof TeamError && reason.status === 403) { setAccessDenied(true); setManageMembers(false); } } }
+        setSelectedId(current => current || result.stories[0]?.id || ''); setSyncError(''); setAccessDenied(false); setLoaded(true); setRole(result.role);setCapabilities(result.capabilities);
+      } catch (reason) { if (active) { setSyncError((reason as Error).message); if (reason instanceof TeamError && [401,403].includes(reason.status)) { setAccessDenied(true); setManageMembers(false);setCapabilities(undefined); } } }
       finally { if (active) timer = window.setTimeout(poll, 2000); }
     };
     void poll(); return () => { active = false; window.clearTimeout(timer); };
@@ -69,7 +72,7 @@ export function TeamProjectWorkspace({ project, session, picker, localProjects, 
     return existing ? previous.map(item => item.id === story.id ? story : item) : [story, ...previous];
   });
   const create = async () => {
-    if (creating.current || !canLeaveTeam()) return;
+    if (creating.current || !writableStories || !canLeaveTeam()) return;
     creating.current = true; setCreateBusy(true); setCreateError('');
     try {
       const result = await teamRequest<{ story: TeamStory }>(session.url, route, session.token, 'POST', {
@@ -81,30 +84,30 @@ export function TeamProjectWorkspace({ project, session, picker, localProjects, 
   };
   const selected = stories.find(item => item.id === selectedId);
   return <div className="app team-project">
-    {manageMembers && !accessDenied && role === 'admin' && <TeamProjectDialog session={session} project={project} onClose={() => setManageMembers(false)} onSaved={() => setRefresh(value => value + 1)} />}
-    <WorkspaceSidebar picker={picker} team teamOverview={overviewEnabled} admin={localAdmin} active={serverPage ? '服务器管理' : active} onManageServer={onManageServer}
+    {manageMembers && !accessBlocked && role === 'admin' && <TeamProjectDialog session={session} project={project} onClose={() => setManageMembers(false)} onSaved={() => setRefresh(value => value + 1)} />}
+    <WorkspaceSidebar picker={picker} team teamOverview={overviewEnabled} admin={localAdmin} active={serverPage ? adminPageName??'服务器管理' : active} onManageServer={onManageServer} onManageUsers={onManageUsers}
       onNavigate={name=>{if(canLeaveTeam()){onLeaveServer();setActive(name);}}} footer={<>
       <div className="user"><div className="avatar">{session.user.username[0].toUpperCase()}</div><span>{session.user.username}<small>团队成员 · {roleLabels[role]}</small></span></div>
       <details className="team-members"><summary>项目成员 · {members.length}</summary>{members.map(item => <p key={item.username}>{item.username}<small>{roleLabels[item.role]}</small></p>)}</details>
     </>} />
     {serverPage}
     <main hidden={!!serverPage}><header><div><div className="crumb">{project.name} <span>/</span> 团队项目</div><h1>{active}</h1></div>
-      <div className="team-actions">{!accessDenied && role === 'admin' && <button onClick={() => { if (canLeaveTeam()) setManageMembers(true); }}>成员管理</button>}<button onClick={onConnection}>连接设置</button><button onClick={onDisconnect}>断开团队连接</button></div></header>
+      <div className="team-actions">{!accessBlocked && role === 'admin' && <button onClick={() => { if (canLeaveTeam()) setManageMembers(true); }}>成员管理</button>}<button onClick={onConnection}>连接设置</button><button onClick={onDisconnect}>断开团队连接</button></div></header>
       <div className="team-project-info"><span>团队项目 · {session.url}</span><span>当前成员：{session.user.username} · {roleLabels[role]}</span><span>已共享：{overviewEnabled?'项目概览、故事文档':'故事文档'}</span></div>
       <div className={'team-sync ' + (syncError ? 'offline' : '')} role="status">{syncError ? <CloudOff size={16} /> : <Cloud size={16} />}
         <span>{syncError || (loaded ? '已连接 · 每 2 秒检查团队更新' : '正在读取团队故事…')}</span>
         <button aria-label="立即刷新团队内容" onClick={() => setRefresh(value => value + 1)}><RefreshCw size={15} /></button></div>
-      {accessDenied && <p className="team-message" role="alert">你已无权访问这个项目。本机未提交草稿仍保留，请选择其他项目或联系项目管理员。</p>}
-      {overviewEnabled&&<div hidden={accessDenied||active!=='项目概览'}><TeamOverview session={session} projectId={project.id} members={members} onMembers={()=>setManageMembers(true)} onDenied={()=>setAccessDenied(true)}/></div>}
+      {accessBlocked && <p className="team-message" role="alert">{session.invalid?'团队登录已失效，请重新连接。本机未提交草稿仍保留。':'你已无权访问这个项目。本机未提交草稿仍保留，请选择其他项目或联系项目管理员。'}</p>}
+      {overviewEnabled&&<div hidden={accessBlocked||active!=='项目概览'}><TeamOverview blocked={accessBlocked} session={session} projectId={project.id} members={members} onMembers={()=>setManageMembers(true)} onDenied={()=>setAccessDenied(true)}/></div>}
       <div hidden={active!=='故事文档'}>
-      {loaded && !accessDenied && role !== 'viewer' && <div className="team-import-toolbar"><StoryImportDialog projects={localProjects} session={session} projectId={project.id} onImported={imported => {
+      {writableStories && <div className="team-import-toolbar"><StoryImportDialog projects={localProjects} session={session} projectId={project.id} onImported={imported => {
         imported.forEach(receive); if (imported.length) setSelectedId(imported[0].id);
       }} /></div>}
       {createError && <p className="team-message" role="alert">{createError}</p>}
-      <div hidden={accessDenied}>
-      {selected ? <TeamStoryEditor key={selected.id} story={selected} documents={stories} session={session} role={accessDenied ? 'viewer' : role} onSaved={receive} busy={createBusy}
+      <div hidden={accessBlocked}>
+      {selected ? <TeamStoryEditor key={selected.id} story={selected} documents={stories} session={session} role={writableStories ? role : 'viewer'} onSaved={receive} busy={createBusy}
         onSelect={id => { if (canLeaveTeam()) setSelectedId(id); }} onCreate={() => void create()} />
-        : loaded ? <StoryDocuments documents={[]} activeStoryId="" setActiveStoryId={() => {}} updateStory={() => {}} addStoryDoc={() => void create()} readOnly={role === 'viewer'} busy={createBusy} />
+        : loaded ? <StoryDocuments documents={[]} activeStoryId="" setActiveStoryId={() => {}} updateStory={() => {}} addStoryDoc={() => void create()} readOnly={!writableStories} busy={createBusy} />
           : <p className="team-empty">等待团队内容…</p>}
       </div>
       </div>
@@ -194,11 +197,12 @@ function TeamStoryEditor({ story, documents, session, role, onSaved, onSelect, o
         {!readOnly && <button className="team-primary" onClick={save} disabled={!dirty || saving || busy || !!conflict || !!initial.error || !draft.fields.title.trim() || !draft.fields.category.trim()}><Check size={17} />{saving ? '正在提交…' : '保存到团队'}</button>}</div>
     </div>
     <div className={'team-save-state' + (dirty ? ' pending' : '')} role="status">{readOnly ? '当前账号只有查看权限' : diskError ? '本机草稿保存失败' : saving ? '等待服务端确认…' : dirty ? '草稿已保存在本机 · 尚未提交到团队' : '当前内容已保存到团队'}{message && <span> · {message}</span>}</div>
+    {readOnly&&dirty&&<p className="team-overview-notice">编辑区保留了你的本机未提交草稿，尚未写入团队；恢复编辑权限后可以继续处理。</p>}
     {diskError && <div className="team-message" role="alert">{diskError}<button onClick={() => persist(current.current)}>重试保存草稿</button></div>}
     {saveError && <div className="team-message" role="alert">{saveError}</div>}
     {conflict && <section className="team-conflict" aria-label="文档冲突" role="alert"><h2>这篇文档有新的团队版本</h2>
       <p>{conflict.updatedBy} 已保存版本 {conflict.revision}。你的草稿仍在编辑区，请对照右侧最新内容，包括状态、标签、大纲及关联设定，修改后确认合并。</p>
-      <div className="team-actions"><button disabled={saving || !!initial.error} onClick={() => { change({ ...current.current, base: conflict }); setConflict(null); setSaveError(''); setMessage('已确认合并，请点击“保存到团队”提交'); }}>已合并，准备提交</button>
+      <div className="team-actions"><button disabled={readOnly || saving || !!initial.error} onClick={() => { change({ ...current.current, base: conflict }); setConflict(null); setSaveError(''); setMessage('已确认合并，请点击“保存到团队”提交'); }}>已合并，准备提交</button>
         <button disabled={saving || !!initial.error} onClick={() => { change({ base: conflict, fields: storyFields(conflict) }); setConflict(null); setSaveError(''); setMessage('已采用团队最新版本'); }}>采用最新版本并丢弃草稿</button></div>
     </section>}
     <StoryDocuments documents={documents.map(item => item.id === story.id ? { ...draft.fields, id: item.id, updated: `${draft.base.updatedBy} · 版本 ${draft.base.revision}` } : teamStoryDocument(item))}

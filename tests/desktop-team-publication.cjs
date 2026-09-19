@@ -52,7 +52,8 @@ const waitUntil = async (check, message) => {
   const connection = page => page.getByRole('dialog', { name: '连接团队服务器', exact: true });
   const connect = async (page, username) => {
     await connection(page).getByLabel('协作服务地址', { exact: true }).fill(service.url);
-    await connection(page).getByLabel('模拟成员', { exact: true }).selectOption(username);
+    await connection(page).getByLabel('团队账号', { exact: true }).fill(username);
+    await connection(page).getByLabel('团队密码', { exact: true }).fill(username+'123');
     await connection(page).getByRole('button', { name: '连接并进入项目', exact: true }).click();
   };
   const modal = page => page.getByRole('dialog', { name: '发布为协作项目', exact: true });
