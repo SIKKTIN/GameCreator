@@ -2,7 +2,7 @@ import { initialStoryDocs, type StoryDoc } from './story-model.ts';
 import type { SavedProject } from './project-catalog.ts';
 
 type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
-export function readLocalStories(storage: StorageLike, project: SavedProject): StoryDoc[] {
+export function readLocalStories(storage: Pick<StorageLike, 'getItem'>, project: SavedProject): StoryDoc[] {
   const raw = storage.getItem(`gamecreator.workspace.v1:${project.id}:stories`);
   const stories = raw === null ? (project.initialContent === 'legacy' ? initialStoryDocs : []) : JSON.parse(raw);
   const ids = new Set<string>();

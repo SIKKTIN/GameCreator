@@ -1,0 +1,12 @@
+.team-dialog.team-publish-dialog { width: min(700px, calc(100vw - 40px)); padding: 0; overflow: hidden; }
+.team-publish-dialog > form { display: flex; flex-direction: column; max-height: 85vh; }
+.team-publish-content { min-height: 0; overflow: auto; padding: 24px; }
+.team-publish-dialog .team-dialog-actions { flex-shrink: 0; margin: 0; padding: 16px 24px; border-top: 1px solid #49415f; }
+.team-publication-scope, .team-publication-result { padding: 14px 16px; border: 1px solid #49415f; border-radius: 8px; background: #242032; }
+.team-publication-scope strong, .team-publication-result strong { font-size: 14px; overflow-wrap: anywhere; }
+.team-publication-scope p { margin: 8px 0; }
+.team-publication-preview { padding: 12px 14px; border: 1px solid #49415f; border-radius: 8px; font-size: 12px; }
+.team-publication-preview summary { cursor: pointer; color: #c6b8ec; overflow-wrap: anywhere; }
+.team-publication-preview > div { max-height: 260px; overflow: auto; }
+.team-publication-preview details { border-top: 1px solid #49415f; padding: 12px 0; margin-top: 12px; }
+.team-publication-preview pre { font: inherit; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 160px; overflow: auto; }

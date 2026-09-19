@@ -3,6 +3,19 @@ import { beforeLogoutEvent } from './auth';
 import { leaveTeamEvent, teamRequest, TeamError, type TeamMember, type TeamProject, type TeamRole, type TeamSession } from './team-api';
 import './team-project.css';
 
+export function TeamMemberFields({ accounts, roles, currentUserId, onChange }: {
+  accounts: { userId: string; username: string }[]; roles: Record<string, TeamRole | 'none'>; currentUserId: string;
+  onChange: (userId: string, role: TeamRole | 'none') => void;
+}) {
+  return <div className="team-project-members"><strong>项目成员与权限</strong>
+    {accounts.map(account => <label key={account.userId}><span>{account.username}{account.userId === currentUserId && <small>当前管理账号</small>}</span>
+      <select aria-label={account.username + ' 权限'} value={roles[account.userId] ?? 'none'} disabled={account.userId === currentUserId}
+        onChange={event => onChange(account.userId, event.target.value as TeamRole | 'none')}>
+        <option value="none">不加入此项目</option><option value="admin">管理员</option><option value="editor">编辑者</option><option value="viewer">只读成员</option>
+      </select></label>)}
+  </div>;
+}
+
 export function TeamProjectDialog({ session, project, onClose, onCreated, onSaved }: {
   session: TeamSession; project?: TeamProject; onClose: () => void;
   onCreated?: (project: TeamProject) => void; onSaved?: () => void;
@@ -61,13 +74,7 @@ export function TeamProjectDialog({ session, project, onClose, onCreated, onSave
       <p className="team-project-server">{session.url} · 当前账号：{session.user.username}</p>
       <fieldset disabled={busy || !loaded}>
         {!project && <label>协作项目名称<input required maxLength={100} value={name} onChange={event => setName(event.target.value)} autoFocus /></label>}
-        <div className="team-project-members"><strong>项目成员与权限</strong>
-          {accounts.map(account => <label key={account.userId}><span>{account.username}{account.userId === session.user.id && <small>当前管理账号</small>}</span>
-            <select aria-label={account.username + ' 权限'} value={roles[account.userId] ?? 'none'} disabled={account.userId === session.user.id}
-              onChange={event => setRoles(previous => ({ ...previous, [account.userId]: event.target.value as TeamRole | 'none' }))}>
-              <option value="none">不加入此项目</option><option value="admin">管理员</option><option value="editor">编辑者</option><option value="viewer">只读成员</option>
-            </select></label>)}
-        </div>
+        <TeamMemberFields accounts={accounts} roles={roles} currentUserId={session.user.id} onChange={(userId, role) => setRoles(previous => ({ ...previous, [userId]: role }))} />
       </fieldset>
       <small>管理员可编辑文档及管理成员；编辑者可编辑文档；只读成员只能查看。当前管理账号保留管理员权限。首版协作内容为故事文档。</small>
       {!loaded && !error && <p role="status">正在读取成员…</p>}

@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { randomUUID, randomBytes, scryptSync, timingSafeEqual } = require('node:crypto');
 const { DatabaseSync } = require('node:sqlite');
+const publicationLimits = require('../shared/publication-limits.json');
 
 const demoAccounts = ['admin', 'alice', 'bob', 'viewer'];
 class RequestError extends Error {
@@ -34,9 +35,11 @@ async function readBody(request, limit = 2000000) {
   let size = 0; const chunks = [];
   for await (const chunk of request) {
     size += chunk.length;
-    if (size > limit) fail(413, '提交内容过大，请减少本次复制的文档数量');
-    chunks.push(chunk);
+    // Drain an oversized body without retaining it, so the client receives a
+    // reliable 413 response and subsequent requests can reuse the connection.
+    if (size <= limit) chunks.push(chunk); else chunks.length = 0;
   }
+  if (size > limit) fail(413, '提交内容过大，超过此操作允许的大小。');
   try {
     const value = JSON.parse(Buffer.concat(chunks).toString('utf8'));
     if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error();
@@ -73,6 +76,9 @@ async function createCollaborationServer({ directory, port = 4747, root = path.r
   db.exec(`CREATE TABLE IF NOT EXISTS project_creations (user_id TEXT NOT NULL REFERENCES users(id),
     request_key TEXT NOT NULL, project_id TEXT NOT NULL REFERENCES projects(id), signature TEXT NOT NULL,
     PRIMARY KEY(user_id, request_key))`);
+  db.exec(`CREATE TABLE IF NOT EXISTS project_publications (source_instance_id TEXT NOT NULL, source_project_id TEXT NOT NULL,
+    project_id TEXT NOT NULL UNIQUE REFERENCES projects(id), published_by TEXT NOT NULL REFERENCES users(id),
+    published_at TEXT NOT NULL, story_count INTEGER NOT NULL, PRIMARY KEY(source_instance_id, source_project_id))`);
   const transaction = operation => {
     db.exec('BEGIN IMMEDIATE');
     try { const result = operation(); db.exec('COMMIT'); return result; }
@@ -144,6 +150,39 @@ async function createCollaborationServer({ directory, port = 4747, root = path.r
     db.prepare('DELETE FROM members WHERE project_id=?').run(project);
     for (const member of members) db.prepare('INSERT INTO members VALUES (?, ?, ?)').run(project, member.userId, member.role);
   };
+  const publicationSource = input => ({
+    sourceInstanceId: textField(input.sourceInstanceId, '本机标识', 100, true),
+    sourceProjectId: textField(input.sourceProjectId, '来源项目', 1000, true),
+  });
+  const findPublication = (source, user) => {
+    const published = db.prepare(`SELECT project_id AS projectId, published_at AS publishedAt, story_count AS storyCount
+      FROM project_publications WHERE source_instance_id=? AND source_project_id=?`).get(source.sourceInstanceId, source.sourceProjectId);
+    if (!published) return null;
+    const member = membership(published.projectId, user);
+    const project = db.prepare('SELECT id,name FROM projects WHERE id=?').get(published.projectId);
+    return { project: { ...project, role: member.role }, publishedAt: published.publishedAt, storyCount: published.storyCount };
+  };
+  const prepareImports = (stories, source, maximum, minimum = 1) => {
+    if (!Array.isArray(stories) || stories.length < minimum || stories.length > maximum) fail(400, `本次应包含 ${minimum}–${maximum} 篇故事文档`);
+    const seen = new Set();
+    return stories.map(item => {
+      if (!item || typeof item !== 'object') fail(400, '导入文档格式无效');
+      const sourceId = textField(item.id, '来源文档标识', 1000, true);
+      if (seen.has(sourceId)) fail(400, '本次导入含重复文档');
+      seen.add(sourceId);
+      return { sourceKey: JSON.stringify([source.sourceInstanceId, source.sourceProjectId, sourceId]), fields: storyFields(item) };
+    });
+  };
+  // Call only within the caller's transaction, together with membership checks.
+  const insertImportedStory = (project, { sourceKey, fields }, user) => {
+    const storyId = randomUUID();
+    db.prepare(`INSERT INTO stories (id,project_id,title,category,summary,content,revision,updated_at,updated_by,details)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(storyId, project, fields.title, fields.category, fields.summary, fields.content,
+        1, new Date().toISOString(), user, JSON.stringify(storyDetails(fields)));
+    const story = getStory(project, storyId); recordHistory(story);
+    db.prepare('INSERT INTO story_imports VALUES (?, ?, ?)').run(project, sourceKey, storyId);
+    return story;
+  };
   const send = (response, status, value) => {
     response.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
     response.end(JSON.stringify(value));
@@ -177,7 +216,7 @@ async function createCollaborationServer({ directory, port = 4747, root = path.r
         }
         fail(405, '不支持此操作');
       }
-      if (route === '/api/team/health' && request.method === 'GET') return send(response, 200, { service: 'gamecreator-collaboration', serverId, apiVersion: 3 });
+      if (route === '/api/team/health' && request.method === 'GET') return send(response, 200, { service: 'gamecreator-collaboration', serverId, apiVersion: 4 });
       if (route === '/api/team/login' && request.method === 'POST') {
         const input = await readBody(request);
         const username = textField(input.username, '账号', 80, true).toLowerCase();
@@ -188,7 +227,7 @@ async function createCollaborationServer({ directory, port = 4747, root = path.r
         for (const [token, session] of sessions) if (session.expires < Date.now()) sessions.delete(token);
         const token = randomBytes(32).toString('hex');
         sessions.set(token, { userId: user.id, username: user.username, expires: Date.now() + 12 * 60 * 60 * 1000 });
-        return send(response, 200, { token, serverId, apiVersion: 3, user: { id: user.id, username: user.username, serverRole: user.server_role } });
+        return send(response, 200, { token, serverId, apiVersion: 4, user: { id: user.id, username: user.username, serverRole: user.server_role } });
       }
       if (route.startsWith('/api/team/')) {
         const session = authenticate(request);
@@ -200,6 +239,33 @@ async function createCollaborationServer({ directory, port = 4747, root = path.r
         if (route === '/api/team/projects' && request.method === 'GET') {
           return send(response, 200, { projects: db.prepare(`SELECT p.id, p.name, m.role FROM projects p
             JOIN members m ON m.project_id=p.id WHERE m.user_id=? ORDER BY p.name`).all(session.userId) });
+        }
+        if (route === '/api/team/publications/lookup' && request.method === 'POST') {
+          requireServerAdmin(session.userId);
+          const source = publicationSource(await readBody(request));
+          requireServerAdmin(session.userId);
+          return send(response, 200, { publication: findPublication(source, session.userId) });
+        }
+        if (route === '/api/team/publications' && request.method === 'POST') {
+          requireServerAdmin(session.userId);
+          const input = await readBody(request, publicationLimits.maxBytes), source = publicationSource(input);
+          const result = transaction(() => {
+            requireServerAdmin(session.userId);
+            // A source is published once on this server. Retrying never overwrites
+            // team edits or memberships, even if the local snapshot has changed.
+            const previous = findPublication(source, session.userId);
+            if (previous) return { ...previous, reused: true };
+            const name = textField(input.name, '项目名称', 100, true), members = memberInput(input.members, session.userId);
+            const imports = prepareImports(input.stories, source, publicationLimits.maxStories, 0);
+            const id = randomUUID(), publishedAt = new Date().toISOString();
+            db.prepare('INSERT INTO projects (id,name) VALUES (?, ?)').run(id, name);
+            writeMembers(id, members);
+            for (const entry of imports) insertImportedStory(id, entry, session.userId);
+            db.prepare('INSERT INTO project_publications VALUES (?, ?, ?, ?, ?, ?)')
+              .run(source.sourceInstanceId, source.sourceProjectId, id, session.userId, publishedAt, imports.length);
+            return { project: { id, name, role: 'admin' }, publishedAt, storyCount: imports.length, reused: false };
+          });
+          return send(response, result.reused ? 200 : 201, result);
         }
         if (route === '/api/team/projects' && request.method === 'POST') {
           requireServerAdmin(session.userId);
@@ -249,29 +315,13 @@ async function createCollaborationServer({ directory, port = 4747, root = path.r
         if (id === 'import' && !history && request.method === 'POST') {
           membership(project, session.userId, true);
           const input = await readBody(request, 5000000);
-          const sourceInstanceId = textField(input.sourceInstanceId, '本机标识', 100, true);
-          const sourceProjectId = textField(input.sourceProjectId, '来源项目', 1000, true);
-          if (!Array.isArray(input.stories) || input.stories.length < 1 || input.stories.length > 50) fail(400, '每次请选择 1–50 篇故事文档');
-          const seen = new Set();
-          const imports = input.stories.map(item => {
-            if (!item || typeof item !== 'object') fail(400, '导入文档格式无效');
-            const sourceId = textField(item.id, '来源文档标识', 1000, true);
-            if (seen.has(sourceId)) fail(400, '本次导入含重复文档');
-            seen.add(sourceId);
-            return { sourceKey: JSON.stringify([sourceInstanceId, sourceProjectId, sourceId]), fields: storyFields(item) };
-          });
+          const imports = prepareImports(input.stories, publicationSource(input), 50);
           const result = transaction(() => {
             membership(project, session.userId, true);
             const imported = []; let skipped = 0;
-            for (const { sourceKey, fields } of imports) {
-              if (db.prepare('SELECT story_id FROM story_imports WHERE project_id=? AND source_key=?').get(project, sourceKey)) { skipped++; continue; }
-              const storyId = randomUUID();
-              db.prepare(`INSERT INTO stories (id,project_id,title,category,summary,content,revision,updated_at,updated_by,details)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(storyId, project, fields.title, fields.category, fields.summary, fields.content,
-                1, new Date().toISOString(), session.userId, JSON.stringify(storyDetails(fields)));
-              const story = getStory(project, storyId); recordHistory(story);
-              db.prepare('INSERT INTO story_imports VALUES (?, ?, ?)').run(project, sourceKey, storyId);
-              imported.push(story);
+            for (const entry of imports) {
+              if (db.prepare('SELECT story_id FROM story_imports WHERE project_id=? AND source_key=?').get(project, entry.sourceKey)) { skipped++; continue; }
+              imported.push(insertImportedStory(project, entry, session.userId));
             }
             return { imported, skipped };
           });
