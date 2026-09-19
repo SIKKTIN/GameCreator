@@ -27,38 +27,63 @@ function graphPath(store: GameplayCoreStore, graphId: string): CoreGraph[] {
 }
 
 type Route = { path: string; x: number; y: number; right: number; bottom: number; outside?: boolean };
+type Point = [number, number];
+function cubicRoute(start: Point, first: Point, second: Point, end: Point): Pick<Route, 'path' | 'x' | 'y'> {
+  // Derive the label from the same curve as the line (Bezier t = 0.5).
+  // Independent offsets made labels jump away when nodes became nearly aligned.
+  return {
+    path: `M ${start[0]} ${start[1]} C ${first[0]} ${first[1]}, ${second[0]} ${second[1]}, ${end[0]} ${end[1]}`,
+    x: (start[0] + 3 * first[0] + 3 * second[0] + end[0]) / 8,
+    y: (start[1] + 3 * first[1] + 3 * second[1] + end[1]) / 8,
+  };
+}
+function corridorRoute(start: Point, first: Point, second: Point, end: Point, a: CoreNode, b: CoreNode, labelWidth: number, lane: number, below = false) {
+  let route = cubicRoute(start, first, second, end);
+  const overlapsNode = [a, b].some(n => route.x + labelWidth / 2 > n.x && route.x - labelWidth / 2 < n.x + NODE_WIDTH && route.y + 22.5 > n.y && route.y - 22.5 < n.y + NODE_HEIGHT);
+  if (overlapsNode) {
+    // Compact prototype columns leave less room than the label width. Bend the
+    // line itself into free space, keeping its label on the curve and clickable.
+    const above = Math.min(a.y, b.y) - 35 - lane;
+    const y = !below && above >= 24 ? above : Math.max(a.y, b.y) + NODE_HEIGHT + 35 + lane;
+    const controlY = (8 * y - start[1] - end[1]) / 6;
+    first = [first[0], controlY]; second = [second[0], controlY];
+    route = cubicRoute(start, first, second, end);
+  }
+  return { ...route, bottom: Math.max(start[1], first[1], second[1], end[1], route.y + 22.5) + 35 };
+}
+const edgeCaptionWidth = (caption: string, condition: string) => Math.max(54, Math.min(184, Math.max(caption.length, condition.length) * 11 + 20));
 function edgeRoute(edge: CoreEdge, nodes: CoreNode[], index: number, outsideIndex: number, parallelIndex: number): Route | null {
   const a = nodes.find(n => n.id === edge.fromId), b = nodes.find(n => n.id === edge.toId);
   if (!a || !b) return null;
   const lane = parallelIndex * 18;
+  // Reserve expanded condition space too so selecting a line never reroutes it.
+  const labelWidth = edgeCaptionWidth(short(edge.label || '继续', 12) + (edge.condition ? ' ◇' : ''), short(edge.condition));
   const ax = a.x + NODE_WIDTH, ay = a.y + NODE_HEIGHT / 2, bx = b.x, by = b.y + NODE_HEIGHT / 2;
   if (a.id === b.id) {
-    const right = ax + 104 + lane;
-    return { path: `M ${ax} ${ay} C ${right} ${ay}, ${right} ${a.y - 52 - lane}, ${a.x + NODE_WIDTH / 2} ${a.y - 2}`, x: ax + 56 + lane, y: Math.max(20, a.y - 20 - lane), right: right + 65, bottom: a.y + NODE_HEIGHT };
+    const right = Math.max(ax + 104 + lane, (8 * (ax + labelWidth / 2 + 12) - ax - (a.x + NODE_WIDTH / 2)) / 6);
+    return { ...cubicRoute([ax, ay], [right, ay], [right, a.y - 52 - lane], [a.x + NODE_WIDTH / 2, a.y - 2]), right: right + 65, bottom: a.y + NODE_HEIGHT };
   }
   // Even a narrow gap is a forward transition; templates deliberately use compact columns.
   if (bx > ax) {
     const bend = Math.max(16, Math.min(90, (bx - ax) / 2));
     const sy = ay - 10 - lane, ty = by - 10 - lane;
-    const near = Math.abs(a.y - b.y) < NODE_HEIGHT;
-    return { path: `M ${ax} ${sy} C ${ax + bend} ${sy}, ${bx - bend} ${ty}, ${bx - 3} ${ty}`, x: (ax + bx) / 2, y: Math.max(20, (near ? Math.min(a.y, b.y) - 20 : (sy + ty) / 2 - 17) - lane), right: Math.max(ax, bx), bottom: Math.max(ay, by) };
+    return { ...corridorRoute([ax, sy], [ax + bend, sy], [bx - bend, ty], [bx - 3, ty], a, b, labelWidth, lane), right: Math.max(ax, bx) };
   }
   const returnGap = a.x - (b.x + NODE_WIDTH);
   // A return to the neighboring column can stay in the same corridor, on a separate port.
   if (returnGap > 0 && returnGap < 160) {
     const left = a.x, right = b.x + NODE_WIDTH, bend = Math.max(16, returnGap / 2);
     const sy = ay + 13 + lane, ty = by + 13 + lane;
-    const y = Math.abs(a.y - b.y) < NODE_HEIGHT ? Math.max(a.y, b.y) + NODE_HEIGHT + 23 + lane : (sy + ty) / 2 + 20 + lane;
-    return { path: `M ${left} ${sy} C ${left - bend} ${sy}, ${right + bend} ${ty}, ${right + 3} ${ty}`, x: (left + right) / 2, y, right: left + 95, bottom: y + 35 };
+    return { ...corridorRoute([left, sy], [left - bend, sy], [right + bend, ty], [right + 3, ty], a, b, labelWidth, lane, true), right: left + 95 };
   }
   if (Math.abs(a.x - b.x) < NODE_WIDTH * .6) {
-    const right = Math.max(ax, b.x + NODE_WIDTH) + 84 + (index % 5) * 16 + lane;
-    return { path: `M ${ax} ${ay} C ${right} ${ay}, ${right} ${by}, ${b.x + NODE_WIDTH + 3} ${by}`, x: right - 12, y: (ay + by) / 2, right: right + 95, bottom: Math.max(ay, by) + 35 };
+    const right = Math.max(Math.max(ax, b.x + NODE_WIDTH) + 84 + (index % 5) * 16 + lane, (8 * (Math.max(ax, b.x + NODE_WIDTH) + labelWidth / 2 + 12) - ax - (b.x + NODE_WIDTH + 3)) / 6);
+    return { ...cubicRoute([ax, ay], [right, ay], [right, by], [b.x + NODE_WIDTH + 3, by]), right: right + 95, bottom: Math.max(ay, by) + 35 };
   }
   const bottom = Math.max(...nodes.map(n => n.y + NODE_HEIGHT));
   const rail = bottom + 50 + outsideIndex * 36 + lane;
   const right = ax + 34 + outsideIndex * 9, target = b.x + NODE_WIDTH / 2;
-  return { path: `M ${ax} ${ay} H ${right - 12} Q ${right} ${ay} ${right} ${ay + 12} V ${rail - 12} Q ${right} ${rail} ${right - 12} ${rail} H ${target + 12} Q ${target} ${rail} ${target} ${rail - 12} V ${b.y + NODE_HEIGHT + 3}`, x: (right + target) / 2, y: rail - 14, right: right + 95, bottom: rail + 25, outside: true };
+  return { path: `M ${ax} ${ay} H ${right - 12} Q ${right} ${ay} ${right} ${ay + 12} V ${rail - 12} Q ${right} ${rail} ${right - 12} ${rail} H ${target + 12} Q ${target} ${rail} ${target} ${rail - 12} V ${b.y + NODE_HEIGHT + 3}`, x: (right + target) / 2, y: rail, right: right + 95, bottom: rail + 25, outside: true };
 }
 
 export function GameplayCore({ controller, designs, onOpenGameplay }: { controller: GameplayCoreController; designs: GameplayDesign[]; onOpenGameplay: (id: string) => void }) {
@@ -258,8 +283,8 @@ export function GameplayCore({ controller, designs, onOpenGameplay }: { controll
         <div className={'gc-canvas-scroll' + (linking ? ' is-linking' : '') + (viewport.panning ? ' is-panning' : '')} ref={scroll} {...viewport.handlers} aria-label="玩法流程画布" tabIndex={0} onClick={event => { if (event.target === event.currentTarget) setSelected(null); }}>
           <div className="gc-canvas-sizer" style={{ width: width * zoom + Math.max(0, viewport.x), height: height * zoom + Math.max(0, viewport.y) }}><div className="gc-canvas-surface" style={{ width, height, transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${zoom})` }} onClick={event => { if (event.target === event.currentTarget) setSelected(null); }}>
             <svg className="gc-connections" width={width} height={height} aria-label="玩法流转连线"><defs><marker id={markerId} viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#a797df" /></marker><marker id={markerId + '-active'} viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#d7caff" /></marker></defs>
-              {routedEdges.map(({ item, route }) => { if (!route) return null; const active = edge?.id === item.id; const showCondition = active && !!item.condition; const caption = short(item.label || '继续', 12) + (item.condition && !active ? ' ◇' : ''), condition = short(item.condition); const captionWidth = Math.max(54, Math.min(184, Math.max(caption.length, showCondition ? condition.length : 0) * 11 + 20)); const title = nodeName(paintedNodes.find(n => n.id === item.fromId)!) + ' → ' + nodeName(paintedNodes.find(n => n.id === item.toId)!) + (item.label ? ' · ' + item.label : '');
-                return <g key={item.id} className={'gc-edge' + (active ? ' is-selected' : '')} tabIndex={0} role="button" aria-label={'选择连线：' + title} onClick={event => { event.stopPropagation(); setSelected({ kind: 'edge', id: item.id }); }} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.stopPropagation(); setSelected({ kind: 'edge', id: item.id }); } }}><title>{title + (item.condition ? '\n条件：' + item.condition : '')}</title><path className="gc-edge-hit" d={route.path} /><path className="gc-edge-line" d={route.path} markerEnd={`url(#${markerId + (active ? '-active' : '')})`} /><g transform={`translate(${route.x},${route.y})`}><rect x={-captionWidth / 2} y={-16} width={captionWidth} height={showCondition ? 45 : 29} rx={7} /><text textAnchor="middle" y={3}>{caption}</text>{showCondition && <text className="gc-edge-condition" textAnchor="middle" y={19}>{condition}</text>}</g></g>;
+              {routedEdges.map(({ item, route }) => { if (!route) return null; const active = edge?.id === item.id; const showCondition = active && !!item.condition; const caption = short(item.label || '继续', 12) + (item.condition && !active ? ' ◇' : ''), condition = short(item.condition); const captionWidth = edgeCaptionWidth(caption, showCondition ? condition : ''); const title = nodeName(paintedNodes.find(n => n.id === item.fromId)!) + ' → ' + nodeName(paintedNodes.find(n => n.id === item.toId)!) + (item.label ? ' · ' + item.label : '');
+                return <g key={item.id} className={'gc-edge' + (active ? ' is-selected' : '')} tabIndex={0} role="button" aria-label={'选择连线：' + title} onClick={event => { event.stopPropagation(); setSelected({ kind: 'edge', id: item.id }); }} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.stopPropagation(); setSelected({ kind: 'edge', id: item.id }); } }}><title>{title + (item.condition ? '\n条件：' + item.condition : '')}</title><path className="gc-edge-hit" d={route.path} /><path className="gc-edge-line" d={route.path} markerEnd={`url(#${markerId + (active ? '-active' : '')})`} /><g transform={`translate(${route.x},${route.y})`}><rect x={-captionWidth / 2} y={showCondition ? -22.5 : -14.5} width={captionWidth} height={showCondition ? 45 : 29} rx={7} /><text textAnchor="middle" y={showCondition ? -4 : 3}>{caption}</text>{showCondition && <text className="gc-edge-condition" textAnchor="middle" y={12}>{condition}</text>}</g></g>;
               })}
             </svg>
             {paintedNodes.map(item => { const Icon = kindIcons[item.kind], child = store.graphs.find(g => g.id === item.childGraphId); return <div key={item.id} className={'gc-node gc-node-' + item.kind + (node?.id === item.id ? ' is-selected' : '') + (linkFromId === item.id ? ' is-source' : '')} style={{ left: item.x, top: item.y, width: NODE_WIDTH, height: NODE_HEIGHT }}>
