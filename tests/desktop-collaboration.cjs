@@ -41,7 +41,9 @@ const pauseUntil = async (check, message) => {
     return { app, page };
   };
   const login = async (page, account) => {
+    await page.locator('.auth-submit, .ps-trigger').first().waitFor();
     if (await page.getByRole('button', { name: '登录', exact: true }).isVisible()) await page.getByRole('button', { name: '登录', exact: true }).click();
+    await page.locator('.ps-trigger').waitFor();
     const dialog = page.getByRole('dialog', { name: '连接团队服务器', exact: true });
     if (!await dialog.isVisible()) {
       await page.locator('.ps-trigger').click(); await page.getByRole('menuitem', { name: '连接团队服务器', exact: true }).click();
@@ -103,7 +105,7 @@ const pauseUntil = async (check, message) => {
     await body(a.page).fill('Alice 的团队版本'); await save(a.page);
     await b.page.getByRole('alert', { name: '文档冲突', exact: true }).waitFor();
     assert.equal(await body(b.page).inputValue(), 'Bob 的未提交草稿');
-    assert.ok((await b.page.getByRole('region', { name: '团队最新版本', exact: true }).innerText()).includes('Alice 的团队版本'));
+    await pauseUntil(async () => (await b.page.getByRole('region', { name: '团队最新版本', exact: true }).innerText()).includes('Alice 的团队版本'), 'Conflict comparison did not receive the latest team version');
     assert.ok(await b.page.getByRole('button', { name: '保存到团队', exact: true }).isDisabled());
     await fs.mkdir(path.join(root, '.gamecreator/qa'), { recursive: true });
     await b.page.screenshot({ path: path.join(root, '.gamecreator/qa/team-conflict.png'), fullPage: true });

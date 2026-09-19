@@ -44,7 +44,7 @@ async function readBody(request, limit = 2000000) {
   } catch { fail(400, '请求内容不是有效的 JSON 对象'); }
 }
 
-async function createCollaborationServer({ directory, port = 4747, root = path.resolve(__dirname, '..') }) {
+async function createCollaborationServer({ directory, port = 4747, root = path.resolve(__dirname, '..'), hostControl }) {
   fs.mkdirSync(directory, { recursive: true });
   const db = new DatabaseSync(path.join(directory, 'team.sqlite'));
   db.exec(`PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000;
@@ -136,6 +136,19 @@ async function createCollaborationServer({ directory, port = 4747, root = path.r
       if (request.method === 'OPTIONS') { response.writeHead(204); response.end(); return; }
       const url = new URL(request.url, 'http://127.0.0.1');
       const route = url.pathname;
+      if (route === '/api/host/status' || route === '/api/host/stop') {
+        if (!hostControl) fail(404, '此服务不支持客户端管理');
+        const token = request.headers['x-gamecreator-host-token'];
+        if (typeof token !== 'string' || !/^[a-f0-9]{64}$/.test(token) || !timingSafeEqual(Buffer.from(token), Buffer.from(hostControl.token))) fail(403, '不允许管理这个服务器进程');
+        if (route.endsWith('/status') && request.method === 'GET') return send(response, 200, {
+          service: 'gamecreator-host', ownerId: hostControl.ownerId, startedAt: hostControl.startedAt, stopping: hostControl.isStopping(),
+        });
+        if (route.endsWith('/stop') && request.method === 'POST') {
+          response.once('finish', () => setImmediate(hostControl.stop));
+          return send(response, 200, { ownerId: hostControl.ownerId, stopping: true });
+        }
+        fail(405, '不支持此操作');
+      }
       if (route === '/api/team/health' && request.method === 'GET') return send(response, 200, { service: 'gamecreator-collaboration', serverId, apiVersion: 2 });
       if (route === '/api/team/login' && request.method === 'POST') {
         const input = await readBody(request);

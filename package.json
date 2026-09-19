@@ -13,7 +13,8 @@
     "mcp:debug": "node mcp/debug-server.mjs",
     "collaboration": "node server/collaboration.cjs",
     "collaboration:demo": "npm run build && node scripts/collaboration-demo.cjs",
-    "test:collaboration": "node --test tests/collaboration.test.cjs tests/story-import.test.mjs"
+    "test:collaboration": "node --test tests/collaboration.test.cjs tests/story-import.test.mjs",
+    "test:server-manager": "node --test tests/collaboration-host.test.cjs"
   },
   "dependencies": {
     "react": "latest",

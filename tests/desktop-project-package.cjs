@@ -218,16 +218,11 @@ const sectionProperties = [['gameplay', 'gameplay'], ['functional-systems', 'fun
     const originalCatalog = storage.getItem(catalogKey);
     await menuAction('导出项目到文件夹', [exportParent]);
     const exportDialog = modal('导出项目到文件夹');
-    let folder;
-    await waitUntil(async () => {
-      const entries = await fs.readdir(exportParent, { withFileTypes: true });
-      for (const entry of entries.filter(entry => entry.isDirectory())) {
-        const candidate = path.join(exportParent, entry.name);
-        if (await fs.stat(path.join(candidate, 'manifest.json')).then(() => true, () => false)) { folder = candidate; return true; }
-      }
-      return false;
-    }, 'export did not create a portable project directory');
-    await waitUntil(async () => (await exportDialog.innerText()).includes(folder), 'export dialog did not show completed path');
+    // The manifest also exists in the staging directory before the atomic rename.
+    // Validate the completed path reported by the application, not the first directory seen.
+    await exportDialog.getByText('项目已导出', { exact: true }).waitFor();
+    const folder = await exportDialog.locator('.pp-success p').innerText();
+    assert.equal(path.dirname(folder), exportParent);
     for (const name of ['manifest.json', 'data', 'assets', 'README.md']) await fs.stat(path.join(folder, name));
     assert.equal(storage.getItem(catalogKey), originalCatalog, 'export must not change project catalog');
     await page.screenshot({ path: path.join(artifacts, 'project-package-export-result.png') }); await dismissDialog();

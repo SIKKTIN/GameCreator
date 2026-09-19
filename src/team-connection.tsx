@@ -45,16 +45,20 @@ export function useTeamConnection() {
     setSession(null);
   };
   return { saved, session, open, error, connect, disconnect, close: () => setOpen(false),
+    resume: () => setOpen(true),
     show: (projectKey: string | null = null) => { setTarget(projectKey); setOpen(true); } };
 }
 
-export function TeamConnectionDialog({ connection, onConnected }: { connection: ReturnType<typeof useTeamConnection>; onConnected: (projectId: string) => void }) {
+export function TeamConnectionDialog({ connection, onConnected, onManageServer, addressRequest }: {
+  connection: ReturnType<typeof useTeamConnection>; onConnected: (projectId: string) => void; onManageServer?: () => void; addressRequest?: { url: string } | null;
+}) {
   const dialog = useRef<HTMLDialogElement>(null);
   const query = new URLSearchParams(location.search).get('team') || '';
   const [url, setUrl] = useState(connection.saved?.url || 'http://127.0.0.1:4747');
   const [username, setUsername] = useState(connection.saved?.username || (['admin','alice','bob','viewer'].includes(query) ? query : 'alice'));
   const [password, setPassword] = useState(username + '123');
   const [busy, setBusy] = useState(false), [error, setError] = useState('');
+  useEffect(() => { if (addressRequest) setUrl(addressRequest.url); }, [addressRequest]);
   useEffect(() => {
     if (connection.open) { setError(''); dialog.current?.showModal(); }
     else dialog.current?.close();
@@ -69,6 +73,7 @@ export function TeamConnectionDialog({ connection, onConnected }: { connection: 
   return <dialog className="team-dialog" ref={dialog} aria-labelledby="team-connect-title" onCancel={event => { if (busy) event.preventDefault(); else connection.close(); }}>
     <form onSubmit={submit}><h2 id="team-connect-title">连接团队服务器</h2><p>连接后，团队项目会出现在左上角项目列表中。</p>
       <label>协作服务地址<input aria-label="协作服务地址" value={url} onChange={event => setUrl(event.target.value)} disabled={busy} required /></label>
+      {onManageServer && <button type="button" disabled={busy} onClick={onManageServer}>前往服务器管理</button>}
       <label>模拟成员<select aria-label="模拟成员" value={username} disabled={busy} onChange={event => { setUsername(event.target.value); setPassword(event.target.value + '123'); }}>
         <option value="alice">Alice · 编辑者</option><option value="bob">Bob · 编辑者</option><option value="admin">Admin · 管理员</option><option value="viewer">Viewer · 只读成员</option>
       </select></label>

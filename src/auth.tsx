@@ -13,6 +13,7 @@ const ACCOUNTS: Record<string, { password: string; role: UserRole; label: string
 
 function readSession(): Session | null {
   try {
+    if (window.desktopClient?.auth) return window.desktopClient.auth.session();
     const value = JSON.parse(localStorage.getItem(SESSION_KEY) ?? 'null');
     return value?.username && value?.role ? value : null;
   } catch { return null; }
@@ -26,6 +27,11 @@ export function AuthGate({ children }: { children: (session: Session) => React.R
 
   const login = (event: FormEvent) => {
     event.preventDefault();
+    if (window.desktopClient?.auth) {
+      try { setSession(window.desktopClient.auth.login({ username, password })); setError(''); }
+      catch (reason) { setError((reason as Error).message); }
+      return;
+    }
     const account = ACCOUNTS[username.trim().toLowerCase()];
     if (!account || account.password !== password) { setError('账号或密码错误'); return; }
     const next = { username: username.trim().toLowerCase(), role: account.role };
@@ -45,6 +51,7 @@ export function AuthGate({ children }: { children: (session: Session) => React.R
 
   const logout = () => {
     if (!window.dispatchEvent(new Event(beforeLogoutEvent, { cancelable: true }))) return;
+    if (window.desktopClient?.auth) window.desktopClient.auth.logout();
     localStorage.removeItem(SESSION_KEY); setSession(null);
   };
   return <div className={`authenticated-shell role-${session.role}`}>
