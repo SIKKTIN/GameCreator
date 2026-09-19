@@ -5,7 +5,7 @@ const project = { id: 'local-project', name: '目录名称', initialContent: 'em
 const story = { id: 'local-story', title: '完整文档', category: '角色设定', status: '定稿', updated: '刚刚', summary: '摘要', content: '正文',
   tags: ['一'], outlines: ['起因'], relations: { characters: ['角色'], locations: ['地点'], systems: ['系统'] } };
 const setup = () => {
-  const records = new Map([['gamecreator.workspace.v1:local-project:project', JSON.stringify({ name: '实际项目名称', description: '不会发布的简介' })],
+  const records = new Map([['gamecreator.workspace.v1:local-project:project', JSON.stringify({ name: '实际项目名称', description: '同步发布的简介' })],
     ['gamecreator.workspace.v1:local-project:stories', JSON.stringify([story])]]);
   return { records, getItem: key => records.get(key) ?? null };
 };
@@ -17,6 +17,7 @@ test('publication snapshot preserves all story fields, reads current name, exclu
   assertPublicationCurrent(storage, project, preview); assert.deepEqual([...storage.records], before);
   const request = publicationBody(preview, { sourceInstanceId: 'client', sourceProjectId: project.id }, '协作名称', [{ userId: 'admin', role: 'admin' }]);
   assert.equal(request.name, '协作名称'); assert.equal('description' in request, false); assert.equal('config' in request, false);
+  assert.equal(request.overview.info.description,'同步发布的简介');assert.equal(request.overview.info.name,'协作名称');
   storage.records.set('gamecreator.workspace.v1:local-project:stories', JSON.stringify([{ ...story, content: '其他窗口修改' }]));
   assert.throws(() => assertPublicationCurrent(storage, project, preview), /本地项目已变化/);
   assert.equal(preview.stories[0].content, story.content);

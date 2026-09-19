@@ -79,7 +79,7 @@ test('publication retry survives concurrency and restart without overwriting tea
 
 test('invalid input, oversize submissions and a mid-transaction write failure leave no partial project', t => fixture(async ({ request, login, directory }) => {
   const admin = await login('admin'), database = new DatabaseSync(path.join(directory, 'team.sqlite'));
-  const counts = () => Object.fromEntries(['projects', 'members', 'stories', 'history', 'story_imports', 'project_publications'].map(table => [table, database.prepare('SELECT COUNT(*) AS n FROM ' + table).get().n]));
+  const counts = () => Object.fromEntries(['projects', 'members', 'stories', 'history', 'story_imports', 'project_publications','project_overviews','project_milestones','project_activity'].map(table => [table, database.prepare('SELECT COUNT(*) AS n FROM ' + table).get().n]));
   try {
     const before = counts();
     for (const invalid of [
@@ -92,7 +92,7 @@ test('invalid input, oversize submissions and a mid-transaction write failure le
     assert.equal((await request('/publications', admin, 'POST', huge)).status, 413); assert.deepEqual(counts(), before);
     database.exec("CREATE TRIGGER reject_publication_history BEFORE INSERT ON history WHEN json_extract(NEW.snapshot,'$.title')='故事 1' BEGIN SELECT RAISE(ABORT,'injected publication failure'); END;");
     const reported = []; const log = t.mock.method(console, 'error', (...args) => reported.push(args));
-    assert.equal((await request('/publications', admin, 'POST', body())).status, 500);
+    assert.equal((await request('/publications', admin, 'POST', {...body(),overview:{info:{genre:'',platform:'',version:'',status:'',description:'完整发布'},milestones:[{title:'原型',owner:'',due:'',status:'planned'}]}})).status, 500);
     assert.equal(reported.length, 1); assert.equal(reported[0][1].message, 'injected publication failure'); log.mock.restore();
     assert.deepEqual(counts(), before, 'Project, members, first story and its history must all roll back');
     assert.equal((await request('/publications/lookup', admin, 'POST', origin)).data.publication, null);

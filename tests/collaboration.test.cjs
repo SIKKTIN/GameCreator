@@ -121,7 +121,7 @@ test('upgrade the original team database without rewriting existing stories or h
     service = await createCollaborationServer({ directory, port: 0 });
     const login = await fetch(service.url + '/api/team/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username:'alice', password:'alice123' }) }).then(response => response.json());
     const read = await fetch(service.url + '/api/team/projects/team-demo/stories', { headers: { Authorization: 'Bearer ' + login.token } }).then(response => response.json());
-    assert.equal(login.apiVersion, 4); assert.equal(login.user.serverRole, 'member'); assert.equal(read.stories.length, 2);
+    assert.equal(login.apiVersion, 5); assert.equal(login.user.serverRole, 'member'); assert.equal(read.stories.length, 2);
     assert.equal(read.stories[0].status, '草稿'); assert.deepEqual(read.stories[0].relations, { characters: [], locations: [], systems: [] });
     const verify = new DatabaseSync(path.join(directory, 'team.sqlite'));
     assert.equal(verify.prepare("SELECT server_role FROM users WHERE id='admin'").get().server_role, 'admin');
