@@ -6,11 +6,11 @@ export const workspaceNavigation = [
   ['数据配置', Database], ['枚举定义', Tag], ['枚举管理', Tag], ['引擎设置', Settings2], ['任务与流程', GitBranch], ['数值分析', BarChart3],
 ] as const;
 
-export function WorkspaceSidebar({ picker, active, onNavigate, team = false, empty = false, teamOverview = false, admin = false, onManageServer, onManageUsers, footer }: {
-  picker: ReactNode; active: string; onNavigate: (name: string) => void; team?: boolean; empty?: boolean; teamOverview?: boolean; admin?: boolean; onManageServer?: () => void; onManageUsers?: () => void; footer: ReactNode;
+export function WorkspaceSidebar({ picker, active, onNavigate, team = false, empty = false, teamOverview = false, teamCore = false, admin = false, onManageServer, onManageUsers, footer }: {
+  picker: ReactNode; active: string; onNavigate: (name: string) => void; team?: boolean; empty?: boolean; teamOverview?: boolean; teamCore?: boolean; admin?: boolean; onManageServer?: () => void; onManageUsers?: () => void; footer: ReactNode;
 }) {
   const items = admin || team ? workspaceNavigation : workspaceNavigation.filter(([name]) => !['枚举管理', '引擎设置'].includes(name));
-  const unavailable = (name:string) => empty || (team && name !== '故事文档' && !(teamOverview && name === '项目概览'));
+  const unavailable = (name:string) => empty || (team && name !== '故事文档' && !(teamOverview && name === '项目概览') && !(teamCore && name === '玩法核心'));
   return <aside id="workspace-navigation" className="workspace-sidebar" aria-label="主导航栏">
     <div className="brand"><div className="logo">✦</div><div><b>GameCreator</b><small>CONTENT STUDIO</small></div></div>
     {picker}

@@ -1,7 +1,6 @@
 import { useEffect, useId, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { ArrowDownRight, ArrowLeft, ArrowRight, ChevronRight, Circle, CircleStop, CornerDownRight, GitBranch, Layers, Link2, Maximize2, Minus, MousePointer2, Play, Plus, RotateCcw, Trash2, Unlink, X } from 'lucide-react';
-import { createCoreEdge, createCoreModule, createCoreNode, coreIssues, removeCoreNode, type CoreEdge, type CoreGraph, type CoreNode, type CoreNodeKind, type GameplayCoreStore } from './gameplay-core';
-import type { GameplayDesign } from './gameplay';
+import { createCoreEdge, createCoreModule, createCoreNode, coreIssues, removeCoreNode, type CoreEdge, type CoreGraph, type CoreNode, type CoreNodeKind, type GameplayCoreStore, type CoreDesignReference } from './gameplay-core';
 import type { GameplayCoreController } from './useGameplayCore';
 import './gameplay-core.css';
 import { useCoreCanvasViewport } from './useCoreCanvasViewport';
@@ -86,7 +85,8 @@ function edgeRoute(edge: CoreEdge, nodes: CoreNode[], index: number, outsideInde
   return { path: `M ${ax} ${ay} H ${right - 12} Q ${right} ${ay} ${right} ${ay + 12} V ${rail - 12} Q ${right} ${rail} ${right - 12} ${rail} H ${target + 12} Q ${target} ${rail} ${target} ${rail - 12} V ${b.y + NODE_HEIGHT + 3}`, x: (right + target) / 2, y: rail, right: right + 95, bottom: rail + 25, outside: true };
 }
 
-export function GameplayCore({ controller, designs, onOpenGameplay }: { controller: GameplayCoreController; designs: GameplayDesign[]; onOpenGameplay: (id: string) => void }) {
+export function GameplayCore({ controller, designs, onOpenGameplay, team = false, onMoveNode, onGraphChange, statusLabel }: { controller: GameplayCoreController; designs: CoreDesignReference[]; onOpenGameplay: (id: string) => void;
+  team?: boolean; onMoveNode?: (id: string, x: number, y: number) => void; onGraphChange?: (id: string) => void; statusLabel?: string }) {
   const { store, update, blocked } = controller;
   const [graphId, setGraphId] = useState(store.rootId), [selected, setSelected] = useState<Selection>(null);
   const [linking, setLinking] = useState(false), [linkFromId, setLinkFromId] = useState<string | null>(null);
@@ -98,6 +98,7 @@ export function GameplayCore({ controller, designs, onOpenGameplay }: { controll
   const suppressModuleDoubleClick = useRef(false), fittedGraphIds = useRef(new Set<string>());
   const markerId = 'gc-arrow-' + useId().replace(/:/g, '');
   const graph = store.graphs.find(g => g.id === graphId) ?? store.graphs.find(g => g.id === store.rootId);
+  useEffect(() => { if (graph) onGraphChange?.(graph.id); }, [graph?.id,onGraphChange]);
   const node = selected?.kind === 'node' ? graph?.nodes.find(n => n.id === selected.id) : undefined;
   const edge = selected?.kind === 'edge' ? graph?.edges.find(e => e.id === selected.id) : undefined;
   const path = graph ? graphPath(store, graph.id) : [];
@@ -202,17 +203,17 @@ export function GameplayCore({ controller, designs, onOpenGameplay }: { controll
     if (linking && !blocked) { if (linkFromId) addEdge(linkFromId, id); else { setLinkFromId(id); setSelected({ kind: 'node', id }); } }
     else setSelected({ kind: 'node', id });
   };
-  const enterModule = (target: CoreNode) => {
+  const enterModule = (target: CoreNode, allowCreate = false) => {
     if (target.kind !== 'module' || linking) return;
     if (target.childGraphId && store.graphs.some(g => g.id === target.childGraphId)) { navigate(target.childGraphId); return; }
-    if (blocked || !graph) return;
+    if (blocked || !graph || (team && !allowCreate)) return;
     const result = createCoreModule(store, graph.id, target.id);
     const childId = result.graphs.find(g => g.id === graph.id)?.nodes.find(n => n.id === target.id)?.childGraphId;
     if (update(() => result) && childId) navigate(childId);
   };
   const startDrag = (event: ReactPointerEvent<HTMLButtonElement>, target: CoreNode) => {
     if (!linking) suppressModuleDoubleClick.current = false;
-    if (blocked || linking || event.button !== 0) return;
+    if ((blocked && !onMoveNode) || linking || event.button !== 0) return;
     suppressClick.current = false;
     drag.current = { id: target.id, x: target.x, y: target.y, clientX: event.clientX, clientY: event.clientY, moved: false };
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -232,7 +233,10 @@ export function GameplayCore({ controller, designs, onOpenGameplay }: { controll
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
     if (current.moved) {
       suppressClick.current = true;
-      if (!cancelled) patchNode(current.id, { x: Math.max(35, Math.min(15000, Math.round(current.x + (event.clientX - current.clientX) / zoom))), y: Math.max(65, Math.min(15000, Math.round(current.y + (event.clientY - current.clientY) / zoom))) });
+      if (!cancelled) {
+        const x = Math.max(35, Math.min(15000, Math.round(current.x + (event.clientX - current.clientX) / zoom))), y = Math.max(65, Math.min(15000, Math.round(current.y + (event.clientY - current.clientY) / zoom)));
+        if (onMoveNode) onMoveNode(current.id,x,y); else if (!team) patchNode(current.id,{x,y});
+      }
     }
     drag.current = null; setDragPosition(null);
   };
@@ -270,7 +274,7 @@ export function GameplayCore({ controller, designs, onOpenGameplay }: { controll
     if (event.key === ' ') event.stopPropagation();
     if (event.key === 'Escape' && linking) { event.stopPropagation(); setLinking(false); setLinkFromId(null); }
   }}>
-    <div className="gc-heading"><div><span className="gc-eyebrow">CORE GAMEPLAY</span><h2>从入口到循环，画出游戏的骨架。</h2><p>用模块组织玩法，双击进入内部循环，再关联具体的玩法设计。</p></div><span className={'gc-save-state' + (controller.pending || blocked ? ' is-warning' : '')}>{controller.pending ? '有未保存修改' : blocked ? '写入已暂停' : '随编辑保存'}</span></div>
+    <div className="gc-heading"><div><span className="gc-eyebrow">CORE GAMEPLAY</span><h2>从入口到循环，画出游戏的骨架。</h2><p>{team ? '内容保存到团队；拖动、缩放和浏览各自独立。' : '用模块组织玩法，双击进入内部循环，再关联具体的玩法设计。'}</p></div><span className={'gc-save-state' + (controller.pending || blocked ? ' is-warning' : '')}>{statusLabel ?? (controller.pending ? '有未保存修改' : blocked ? '写入已暂停' : '随编辑保存')}</span></div>
     {controller.error && <div className="gc-alert" role="alert"><span>{controller.error}</span><div className="gc-recovery-actions">{controller.pending && <button type="button" onClick={exportDraft}>导出当前草稿</button>}{!blocked && <button type="button" onClick={controller.retry}>重试保存</button>}<button type="button" onClick={reload}>重新读取存档</button></div></div>}
     <div className="gc-layout">
       <aside className="gc-directory" aria-label="玩法核心模块目录"><div className="gc-directory-title"><Layers size={17} /><strong>玩法模块</strong><small>{store.graphs.length}</small></div><div className="gc-tree">{tree(store.rootId)}</div><p className="gc-directory-help">每个循环模块都有自己的流程图。<br />从总览逐层进入，保持每层精简。</p>
@@ -298,10 +302,10 @@ export function GameplayCore({ controller, designs, onOpenGameplay }: { controll
       </div>
       <aside className="gc-inspector" aria-label="流程属性编辑"><div className="gc-inspector-heading"><div><span className="gc-eyebrow">{node ? 'NODE' : edge ? 'TRANSITION' : 'FLOW'}</span><h3>{node ? kindNames[node.kind] + '属性' : edge ? '流转连线' : '流程属性'}</h3></div>{(node || edge) && <button type="button" className="gc-icon-button" aria-label="取消选择" onClick={() => setSelected(null)}><X size={16} /></button>}</div>
         {node ? <div className="gc-properties"><label className="gc-field">节点名称<input aria-label="节点名称" value={node.title} disabled={blocked} onChange={event => patchNode(node.id, { title: event.target.value })} placeholder="用简短名称描述玩家正在做什么" /></label><label className="gc-field">节点说明<textarea aria-label="节点说明" rows={4} value={node.description} disabled={blocked} onChange={event => patchNode(node.id, { description: event.target.value })} placeholder="说明玩法目标、玩家行为或退出条件" /></label>
-          {node.kind === 'module' && <button type="button" className="gc-button gc-primary gc-wide" onClick={() => enterModule(node)}><Layers size={15} />进入内部循环<ArrowRight size={15} /></button>}
-          <div className="gc-reference-section"><h4>关联玩法设计 <small>{node.gameplayIds.length}</small></h4><p>引用具体规则与方案，细节在玩法设计中维护。</p><select aria-label="添加关联玩法" value="" disabled={blocked} onChange={event => { if (event.target.value) patchNode(node.id, { gameplayIds: [...node.gameplayIds, event.target.value] }); }}><option value="">选择一份玩法设计…</option>{designs.filter(d => !d.archived && !node.gameplayIds.includes(d.id)).map(d => <option value={d.id} key={d.id}>{d.title || '未命名玩法'}</option>)}</select>
+          {node.kind === 'module' && <button type="button" className="gc-button gc-primary gc-wide" disabled={blocked && !node.childGraphId} onClick={() => enterModule(node,true)}><Layers size={15} />{team && !node.childGraphId ? '创建内部循环' : '进入内部循环'}<ArrowRight size={15} /></button>}
+          <div className="gc-reference-section"><h4>关联玩法设计 <small>{node.gameplayIds.length}</small></h4><p>{team ? '玩法设计尚未接入协作，以下保留发布时的来源名称与标识。' : '引用具体规则与方案，细节在玩法设计中维护。'}</p><select aria-label="添加关联玩法" value="" disabled={blocked || team} onChange={event => { if (event.target.value) patchNode(node.id, { gameplayIds: [...node.gameplayIds, event.target.value] }); }}><option value="">选择一份玩法设计…</option>{designs.filter(d => !d.archived && !node.gameplayIds.includes(d.id)).map(d => <option value={d.id} key={d.id}>{d.title || '未命名玩法'}</option>)}</select>
             {!designs.some(d => !d.archived) && <p className="gc-muted">还没有可关联的玩法设计，可以稍后补充。</p>}
-            <div className="gc-references">{node.gameplayIds.map(id => { const design = designs.find(d => d.id === id); return <div className={'gc-reference' + (!design || design.archived ? ' is-warning' : '')} key={id}><div>{design ? <button type="button" className="gc-reference-open" aria-label={'打开关联玩法：' + design.title} onClick={() => onOpenGameplay(id)}><span>{design.title || '未命名玩法'}</span><ArrowRight size={14} /></button> : <span>已失效的玩法关联</span>}{(!design || design.archived) && <small>{design ? '玩法已归档，仍保留关联' : `原玩法已不存在 · ${id.slice(0, 8)}`}</small>}</div><button type="button" className="gc-icon-button" disabled={blocked} aria-label={'解除关联：' + (design?.title || id)} onClick={() => patchNode(node.id, { gameplayIds: node.gameplayIds.filter(value => value !== id) })}><Unlink size={14} /></button></div>; })}</div>
+            <div className="gc-references">{node.gameplayIds.map(id => { const design = designs.find(d => d.id === id); return <div className={'gc-reference' + (!design || design.archived ? ' is-warning' : '')} key={id}><div>{team ? <span>{design?.title || id}<small>来源标识：{id} · 玩法设计尚未接入协作</small></span> : design ? <button type="button" className="gc-reference-open" aria-label={'打开关联玩法：' + design.title} onClick={() => onOpenGameplay(id)}><span>{design.title || '未命名玩法'}</span><ArrowRight size={14} /></button> : <span>已失效的玩法关联</span>}{(!design || design.archived) && <small>{design ? '玩法已归档，仍保留关联' : `原玩法已不存在 · ${id.slice(0, 8)}`}</small>}</div><button type="button" className="gc-icon-button" disabled={blocked || team} aria-label={'解除关联：' + (design?.title || id)} onClick={() => patchNode(node.id, { gameplayIds: node.gameplayIds.filter(value => value !== id) })}><Unlink size={14} /></button></div>; })}</div>
           </div><div className="gc-inspector-actions"><button type="button" className="gc-button" disabled={blocked} onClick={() => { setLinking(true); setLinkFromId(node.id); }}><Link2 size={15} />从此节点连线</button><button type="button" className="gc-button gc-danger" disabled={blocked} onClick={requestDelete}><Trash2 size={15} />删除节点</button></div>
         </div> : edge ? <div className="gc-properties"><label className="gc-field">起点<select aria-label="连线起点" value={edge.fromId} disabled={blocked} onChange={event => patchEdge({ fromId: event.target.value })}>{graph.nodes.map(n => <option key={n.id} value={n.id}>{nodeName(n)}</option>)}</select></label><label className="gc-field">终点<select aria-label="连线终点" value={edge.toId} disabled={blocked} onChange={event => patchEdge({ toId: event.target.value })}>{graph.nodes.map(n => <option key={n.id} value={n.id}>{nodeName(n)}</option>)}</select></label><label className="gc-field">连线说明<input aria-label="连线说明" value={edge.label} disabled={blocked} onChange={event => patchEdge({ label: event.target.value })} placeholder="如：开始游戏、领取奖励、进入下一天" /></label><label className="gc-field">流转条件<textarea aria-label="流转条件" rows={4} value={edge.condition} disabled={blocked} onChange={event => patchEdge({ condition: event.target.value })} placeholder="如：还有未完成关卡 / 击败最终 Boss" /></label><p className="gc-inspector-note">条件用于表达设计意图。连接自己或前面的节点，即可形成循环。</p><button type="button" className="gc-button gc-danger" disabled={blocked} onClick={() => { if (editGraph(g => ({ ...g, edges: g.edges.filter(e => e.id !== edge.id) }))) setSelected(null); }}><Trash2 size={15} />删除连线</button></div> : <div className="gc-properties"><label className="gc-field">流程图名称<input aria-label="流程图名称" value={graph.title} disabled={blocked} onChange={event => renameGraph(event.target.value)} /></label><label className="gc-field">流程图说明<textarea aria-label="流程图说明" rows={5} value={graph.summary} disabled={blocked} onChange={event => editGraph(g => ({ ...g, summary: event.target.value }))} placeholder="用一句话描述这层玩法的核心体验" /></label><div className="gc-flow-guide"><h4>保持这一层精简</h4><p><Play size={14} />入口：玩家从哪里开始。</p><p><Circle size={14} />活动：玩家正在做什么。</p><p><Layers size={14} />模块：双击进入一组玩法循环。</p><p><GitBranch size={14} />条件：选择或条件产生分支。</p><p><CircleStop size={14} />结束：通关、退出或阶段完成。</p></div><p className="gc-inspector-note">自由探索与日常经营可以持续循环，无需强行设置终点。</p>{path.length > 1 && <button type="button" className="gc-button" onClick={() => navigate(path[path.length - 2].id)}><ArrowLeft size={15} />返回上层流程</button>}</div>}
       </aside>

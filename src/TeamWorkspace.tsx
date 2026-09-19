@@ -4,6 +4,7 @@ import { beforeLogoutEvent } from './auth';
 import { StoryDocuments } from './StoryDocuments';
 import { StoryImportDialog } from './StoryImportDialog';
 import { TeamProjectDialog } from './TeamProjectDialog';
+import { TeamGameplayCore } from './TeamGameplayCore';
 import { TeamOverview } from './TeamOverview';
 import { WorkspaceSidebar } from './WorkspaceSidebar';
 import type { ServerModuleNavigation } from './ServerManager';
@@ -85,20 +86,21 @@ export function TeamProjectWorkspace({ project, session, picker, localProjects, 
   const selected = stories.find(item => item.id === selectedId);
   return <div className="app team-project">
     {manageMembers && !accessBlocked && role === 'admin' && <TeamProjectDialog session={session} project={project} onClose={() => setManageMembers(false)} onSaved={() => setRefresh(value => value + 1)} />}
-    <WorkspaceSidebar picker={picker} team teamOverview={overviewEnabled} admin={localAdmin} active={serverPage ? adminPageName??'服务器管理' : active} onManageServer={onManageServer} onManageUsers={onManageUsers}
+    <WorkspaceSidebar picker={picker} team teamOverview={overviewEnabled} teamCore={(session.apiVersion ?? 0) >= 7} admin={localAdmin} active={serverPage ? adminPageName??'服务器管理' : active} onManageServer={onManageServer} onManageUsers={onManageUsers}
       onNavigate={name=>{if(canLeaveTeam()){onLeaveServer();setActive(name);}}} footer={<>
       <div className="user"><div className="avatar">{session.user.username[0].toUpperCase()}</div><span>{session.user.username}<small>团队成员 · {roleLabels[role]}</small></span></div>
       <details className="team-members"><summary>项目成员 · {members.length}</summary>{members.map(item => <p key={item.username}>{item.username}<small>{roleLabels[item.role]}</small></p>)}</details>
     </>} />
     {serverPage}
-    <main hidden={!!serverPage}><header><div><div className="crumb">{project.name} <span>/</span> 团队项目</div><h1>{active}</h1></div>
+    <main hidden={!!serverPage} className={active === '玩法核心' ? 'core-workspace-page' : undefined}><header><div><div className="crumb">{project.name} <span>/</span> 团队项目</div><h1>{active}</h1></div>
       <div className="team-actions">{!accessBlocked && role === 'admin' && <button onClick={() => { if (canLeaveTeam()) setManageMembers(true); }}>成员管理</button>}<button onClick={onConnection}>连接设置</button><button onClick={onDisconnect}>断开团队连接</button></div></header>
-      <div className="team-project-info"><span>团队项目 · {session.url}</span><span>当前成员：{session.user.username} · {roleLabels[role]}</span><span>已共享：{overviewEnabled?'项目概览、故事文档':'故事文档'}</span></div>
+      <div className="team-project-info"><span>团队项目 · {session.url}</span><span>当前成员：{session.user.username} · {roleLabels[role]}</span><span>已共享：{(session.apiVersion ?? 0) >= 7 ? '项目概览、玩法核心、故事文档' : overviewEnabled ? '项目概览、故事文档' : '故事文档'}</span></div>
       <div className={'team-sync ' + (syncError ? 'offline' : '')} role="status">{syncError ? <CloudOff size={16} /> : <Cloud size={16} />}
         <span>{syncError || (loaded ? '已连接 · 每 2 秒检查团队更新' : '正在读取团队故事…')}</span>
         <button aria-label="立即刷新团队内容" onClick={() => setRefresh(value => value + 1)}><RefreshCw size={15} /></button></div>
       {accessBlocked && <p className="team-message" role="alert">{session.invalid?'团队登录已失效，请重新连接。本机未提交草稿仍保留。':'你已无权访问这个项目。本机未提交草稿仍保留，请选择其他项目或联系项目管理员。'}</p>}
       {overviewEnabled&&<div hidden={accessBlocked||active!=='项目概览'}><TeamOverview blocked={accessBlocked} session={session} projectId={project.id} members={members} onMembers={()=>setManageMembers(true)} onDenied={()=>setAccessDenied(true)}/></div>}
+      {(session.apiVersion ?? 0) >= 7 && <div hidden={accessBlocked || active !== '玩法核心'}><TeamGameplayCore session={session} projectId={project.id} blocked={accessBlocked} onDenied={() => setAccessDenied(true)}/></div>}
       <div hidden={active!=='故事文档'}>
       {writableStories && <div className="team-import-toolbar"><StoryImportDialog projects={localProjects} session={session} projectId={project.id} onImported={imported => {
         imported.forEach(receive); if (imported.length) setSelectedId(imported[0].id);
