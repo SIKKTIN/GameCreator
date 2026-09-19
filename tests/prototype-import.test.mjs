@@ -40,7 +40,7 @@ function assertUntouched(storage, previous) { for (const [key, value] of Object.
 for (const summary of prototypeExamples) {
   test(summary.id + ': complete editable archives preserve all design/reference maps and match the example card', () => {
     const example = fixture(summary.id);
-    const expectedTables = { 'hollow-knight': 8, 'stardew-valley': 9, 'plants-vs-zombies': 4 };
+    const expectedTables = { 'hollow-knight': 8, 'stardew-valley': 9, 'plants-vs-zombies': 4, 'disco-elysium': 15 };
     assert.equal(example.definitions.length, expectedTables[summary.id]);
     assert.ok(['items', 'characters', 'skills', 'economy', 'shop'].every(key => !Object.hasOwn(example.data.datasets, key)));
     assert.deepEqual(Object.keys(example.data.datasets).sort(), example.definitions.map(definition => definition.key).sort());

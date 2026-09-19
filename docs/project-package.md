@@ -43,7 +43,7 @@
 
 ## 本地批量归档
 
-仓库根目录 `ProjectCache/` 用于本机导出归档，已被 Git 忽略。当前三套原型分别保存到 `ProjectCache/空洞骑士/`、`ProjectCache/星露谷物语/`、`ProjectCache/植物大战僵尸/`。这些目录是当时的完整快照，不会随之后的编辑自动更新。
+仓库根目录 `ProjectCache/` 用于本机导出归档，已被 Git 忽略。当前四套原型分别保存到 `ProjectCache/空洞骑士/`、`ProjectCache/星露谷物语/`、`ProjectCache/植物大战僵尸/`、`ProjectCache/极乐迪斯科/`。这些目录是当时的完整快照，不会随之后的编辑自动更新。
 
 也可在 Node.js 24 环境中执行：
 

@@ -1,4 +1,4 @@
-export type PrototypeExampleId = 'hollow-knight' | 'stardew-valley' | 'plants-vs-zombies';
+export type PrototypeExampleId = 'hollow-knight' | 'stardew-valley' | 'plants-vs-zombies' | 'disco-elysium';
 export type PrototypeImportInput = { exampleId: PrototypeExampleId; name: string };
 export type PrototypeExampleSummary = {
   id: PrototypeExampleId;
@@ -26,6 +26,11 @@ export const prototypeExamples: readonly PrototypeExampleSummary[] = [
     description: '在五行九列草坪上收集阳光、种植三类植物并抵挡三波僵尸。美术需求覆盖单位、同路战斗、资源与对局状态。',
     counts: { gameplay: 5, systems: 7, requirements: 20, assets: 32, tables: 4, records: 17, stories: 1 },
   },
+  {
+    id: 'disco-elysium', title: '极乐迪斯科', name: '极乐迪斯科 · 港区疑案原型',
+    description: '两天内调查一桩港区疑案：在五个场景中访问六名人物，通过对话、技能声音、红白检定、思想内化与日程变化取得线索，形成查明真相、误判结案或暂缓调查三种阶段结果。具体案件、台词与数值为本原型原创设计约定。',
+    counts: { gameplay: 8, systems: 9, requirements: 22, assets: 40, tables: 15, records: 198, stories: 5 },
+  },
 ];
 
 export async function loadPrototypeExample(id: PrototypeExampleId): Promise<unknown> {
@@ -33,6 +38,7 @@ export async function loadPrototypeExample(id: PrototypeExampleId): Promise<unkn
     case 'hollow-knight': return structuredClone((await import('../examples/prototypes/hollow-knight.json')).default);
     case 'stardew-valley': return structuredClone((await import('../examples/prototypes/stardew-valley.json')).default);
     case 'plants-vs-zombies': return structuredClone((await import('../examples/prototypes/plants-vs-zombies.json')).default);
+    case 'disco-elysium': return structuredClone((await import('../examples/prototypes/disco-elysium.json')).default);
     default: throw new Error('没有找到所选原型示例，请重新选择。');
   }
 }
