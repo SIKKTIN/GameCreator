@@ -28,13 +28,15 @@ AI 文档包括玩法核心的层级、节点、连线条件和关联玩法，�
 - 星露谷物语：以新的一天、安排活动、休息与日结算构成主循环，展开农场、钓鱼、矿洞和社交。没有强制终点；钓鱼与矿洞为待细化的扩展模块。
 - 空洞骑士：探索发现战斗、能力试炼与路径门槛，成长解锁路径后回到探索；内部图关联现有移动、战斗、长椅、冲刺试炼和近路文档。
 
+- 极乐迪斯科：自由调查展开为探索取证、对话与技能检定、思想内化及日程，案情汇报形成三种阶段结果。具体剧情和数值为原创原型约定。
+
 官方示例的图只随“从原型示例创建项目”写入新项目。升级不会自动覆盖本机已经修改过的原型存档。
 
 ## 验证
 
 `node --test tests/gameplay-core-portability.test.mjs tests/project-package.test.mjs tests/project-package-files.test.cjs tests/prototype-import.test.mjs` 覆盖原型创建、旧格式兼容、图的完整往返、失效引用草稿、文件哈希与损坏结构拒绝。
 
-`node scripts/validate-prototype-examples.mjs` 校验三个官方示例的图结构和玩法引用。
+`node scripts/validate-prototype-examples.mjs` 校验四个官方示例的图结构和玩法引用。
 
 构建后运行 `node tests/desktop-gameplay-core.cjs` 可验证图形编辑、嵌套导航、真实持久化、冲突恢复、项目隔离与窄窗口布局。
 

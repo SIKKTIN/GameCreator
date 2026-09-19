@@ -11,6 +11,7 @@ const examples = [
   { file: 'hollow-knight.json', requirements: 26, assets: 39 },
   { file: 'stardew-valley.json', requirements: 23, assets: 34 },
   { file: 'plants-vs-zombies.json', requirements: 20, assets: 32 },
+  { file: 'disco-elysium.json', requirements: 22, assets: 40 },
 ];
 const record = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 const nonempty = value => typeof value === 'string' && value.trim().length > 0;
