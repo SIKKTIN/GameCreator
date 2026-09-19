@@ -55,6 +55,7 @@ import type { EngineConfig } from './engine';
 import { useEnumRegistry } from './useEnumRegistry';
 import { EngineSettings, EnumDefinitions, EnumManager } from './EnginePanels';
 import { DataConfiguration } from './DataConfiguration';
+import { patchDataViewState, readDataViewState, resolveActiveDataset } from './data-view-state';
 import { projectIdentity, type DatasetKey, type DataRecord, type DatasetDef, type ProjectData } from './data-model';
 import { AuthGate, beforeLogoutEvent, type UserRole } from './auth';
 import { buildAiMarkdown, saveAiMarkdown } from './ai-export';
@@ -286,7 +287,6 @@ function WorkspaceApp({ role, username, testSession, onLoadTest, onExitTest, pre
 }) {
   const [active, setActive] = useState(testSession ? '枚举管理' : '项目概览');
 
-  const [activeDataset, setActiveDataset] = useState<DatasetKey>('items');
   const [activeGameplayId, setActiveGameplayId] = useState('');
   const [gameplaySource, setGameplaySource] = useState<{ kind: string; id: string } | undefined>();
   const [functionalSelection, setFunctionalSelection] = useState<FunctionalSelection>(null);
@@ -295,6 +295,14 @@ function WorkspaceApp({ role, username, testSession, onLoadTest, onExitTest, pre
   const engineConfig = testSession?.config ?? formalProject.config;
   const isNewProject = !testSession && formalProject.initialContent === 'empty';
   const dataKey = testSession ? projectIdentity(engineConfig.projectPath) : formalProject.id;
+  const savedDataView = useMemo(() => readDataViewState(dataKey), [dataKey]);
+  const [datasetSelection, setDatasetSelection] = useState({ workspaceKey: dataKey, key: savedDataView.activeDataset });
+  const activeDataset = datasetSelection.workspaceKey === dataKey ? datasetSelection.key : savedDataView.activeDataset;
+  const setActiveDataset = (key: DatasetKey) => {
+    setDatasetSelection({ workspaceKey: dataKey, key });
+    patchDataViewState(dataKey, { activeDataset: key });
+  };
+  const creatingDataset = useRef(false);
   const registry = useEnumRegistry(engineConfig, isNewProject ? emptyProjectData : initialData, username, dataKey);
   const gameplay = useGameplayDesigns(dataKey);
   const functional = useFunctionalSystems(dataKey);
@@ -308,7 +316,12 @@ function WorkspaceApp({ role, username, testSession, onLoadTest, onExitTest, pre
   const [allDefinitions, setDefinitions, definitionsError] = useStoredState<DatasetDef[]>('gamecreator.workspace.v1:' + dataKey + ':definitions', datasetDefinitions);
   const definitions = Object.keys(currentData.datasets).map(key =>
     ({ ...(allDefinitions.find(item => item.key === key) ?? { key, label: key, badge: '' }), columns: currentData.columns[key] }));
-  const currentDataset = definitions.some(item => item.key === activeDataset) ? activeDataset : definitions[0].key;
+  const currentDataset = resolveActiveDataset(definitions, currentData, activeDataset);
+  useEffect(() => {
+    if (active !== '数据配置' || !currentDataset || currentDataset === activeDataset) return;
+    setDatasetSelection({ workspaceKey: dataKey, key: currentDataset });
+    patchDataViewState(dataKey, { activeDataset: currentDataset });
+  }, [active, activeDataset, currentDataset, dataKey]);
   const [milestones, setMilestones, milestoneError] = useStoredState('gamecreator.workspace.v1:' + dataKey + ':milestones', isNewProject ? emptyMilestones : initialMilestones);
   const [storyDocs, setStoryDocs, storyError] = useStoredState('gamecreator.workspace.v1:' + dataKey + ':stories', isNewProject ? emptyStories : initialStoryDocs);
   const [activeStoryId, setActiveStoryId] = useState(initialStoryDocs[0].id);
@@ -333,13 +346,20 @@ function WorkspaceApp({ role, username, testSession, onLoadTest, onExitTest, pre
 
     window.alert(`AI 文档已生成：${location}`);
   };
-  const createDataset = async (definition: DatasetDef) => {
-    const nextDefinitions = [...allDefinitions.filter(item => item.key !== definition.key), definition];
-
-    if (!await registry.updateData({ ...currentData, datasets: { ...currentData.datasets, [definition.key]: [] }, columns: { ...currentData.columns, [definition.key]: definition.columns } })) return;
-    setDefinitions(nextDefinitions);
-    setActiveDataset(definition.key);
-
+  const createDataset = async (definition: DatasetDef): Promise<boolean> => {
+    if (creatingDataset.current) return false;
+    if (Object.prototype.hasOwnProperty.call(currentData.datasets, definition.key)) throw new Error('配置表标识已存在，请换一个标识');
+    creatingDataset.current = true;
+    try {
+      const nextDefinitions = [...allDefinitions.filter(item => item.key !== definition.key), definition];
+      if (!setDefinitions(nextDefinitions)) return false;
+      if (!await registry.updateData({ ...currentData, datasets: { ...currentData.datasets, [definition.key]: [] }, columns: { ...currentData.columns, [definition.key]: definition.columns } })) {
+        setDefinitions(allDefinitions);
+        return false;
+      }
+      setActiveDataset(definition.key);
+      return true;
+    } finally { creatingDataset.current = false; }
   };
 
   const updateProject = (key: keyof typeof project, value: string) => {
@@ -463,8 +483,8 @@ function WorkspaceApp({ role, username, testSession, onLoadTest, onExitTest, pre
             addStoryDoc={addStoryDoc}
           />
         )}
-        {active === '数据配置' && <DataConfiguration key={dataKey} data={currentData}
-          onChange={(next) => { void registry.updateData(next); }}
+        {active === '数据配置' && <DataConfiguration key={dataKey} workspaceKey={dataKey} data={currentData}
+          onChange={(next) => registry.updateData(next)}
           definitions={definitions} activeDataset={currentDataset} setActiveDataset={setActiveDataset} registry={registry} onCreateTable={createDataset} />}
         {active === '枚举定义' && <EnumDefinitions registry={registry} />}
         {active === '枚举管理' && <EnumManager config={engineConfig} registry={registry} />}
