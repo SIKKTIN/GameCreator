@@ -1,3 +1,4 @@
+import type { SpatialView } from './spatial-layout';
 import { useRef, useState, type ReactNode, type FormEvent } from 'react';
 import { Archive, ArrowDown, ArrowRight, ArrowUp, CheckCircle2, Copy, FileText, FlaskConical, Gamepad2, Link2, Plus, RotateCcw, Search, Trash2, X } from 'lucide-react';
 import { createGameplay, duplicateGameplay, gameplayLinkName, gameplayResults, gameplayStatuses, moveGameplayItem, type GameplayDesign, type GameplayLink, type GameplaySources, type GameplayStatus } from './gameplay';
@@ -7,11 +8,12 @@ import { GameplayDependencies, GameplayRules, GameplayStateFlow } from './Gamepl
 import { GameplaySpace, GameplayTime } from './GameplayStage';
 type EditorTab = 'design' | 'relations' | 'rules' | 'flow' | 'space' | 'time';
 
-type ImplementationProps = { renderImplementation?: (design: GameplayDesign) => ReactNode; initialSource?: { kind: string; id: string } };
+type ImplementationProps = { initialSpatialView?: SpatialView; objectReferences?: (designId: string, objectId: string) => string[]; renderImplementation?: (design: GameplayDesign) => ReactNode; initialSource?: { kind: string; id: string } };
 const sourceTab = (kind?: string): EditorTab => kind === 'rule' ? 'rules' : kind === 'state' ? 'flow' : kind === 'event' ? 'time' : kind === 'object' ? 'space' : 'design';
 type Props = ImplementationProps & { selectedId: string; onSelect: (id: string) => void; controller: GameplayController; sources: GameplaySources; onOpenLink: (link: GameplayLink) => void };
-export function GameplayDesigns({ controller, selectedId, onSelect: setSelectedId, sources, onOpenLink, renderImplementation, initialSource }: Props) {
+export function GameplayDesigns({ controller, selectedId, onSelect: setSelectedId, sources, onOpenLink, renderImplementation, initialSource, objectReferences }: Props) {
   const { store, blocked, update } = controller;
+  const [spatialNavigation, setSpatialNavigation] = useState<{ id: string; view?: SpatialView }>();
   const [editorTab, setEditorTab] = useState<EditorTab>(sourceTab(initialSource?.kind));
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('all');
@@ -44,14 +46,14 @@ export function GameplayDesigns({ controller, selectedId, onSelect: setSelectedI
       <label className="gp-search"><Search size={16} /><input type="search" aria-label="搜索玩法" value={query} onChange={e => setQuery(e.target.value)} placeholder="搜索名称或说明…" /></label>
       <div className="gp-filters"><label>设计状态<select aria-label="玩法状态筛选" value={status} onChange={e => setStatus(e.target.value)}><option value="all">全部状态</option>{gameplayStatuses.map(s => <option key={s}>{s}</option>)}</select></label>
         <label>显示范围<select aria-label="玩法范围" value={archived ? 'archived' : 'active'} onChange={e => setArchived(e.target.value === 'archived')}><option value="active">有效玩法</option><option value="archived">已归档（{store.designs.length - activeCount}）</option></select></label></div>
-      <div className="gp-list">{visible.map(d => <button key={d.id} className={'gp-list-card' + (selected?.id === d.id ? ' selected' : '')} aria-label={'打开玩法：' + (d.title || '未命名玩法')} aria-pressed={selected?.id === d.id} onClick={() => setSelectedId(d.id)}>
+      <div className="gp-list">{visible.map(d => <button key={d.id} className={'gp-list-card' + (selected?.id === d.id ? ' selected' : '')} aria-label={'打开玩法：' + (d.title || '未命名玩法')} aria-pressed={selected?.id === d.id} onClick={() => { setSpatialNavigation(undefined); setSelectedId(d.id); }}>
         <span className={'gp-badge' + (d.status === '已验证' ? ' verified' : '')}>{d.status}</span><strong>{d.title || '未命名玩法'}</strong><p>{d.summary || '补充一句话，描述玩家在这里做什么。'}</p>
         <small>{d.prototype.filter(i => i.done).length}/{d.prototype.length} 项制作完成 · {d.checks.filter(c => c.result === '通过').length}/{d.checks.length} 项验证通过</small></button>)}</div>
       {!visible.length && <p className="gp-muted gp-list-empty">{store.designs.length ? '当前筛选下没有玩法' : '从一个想法开始，逐步补充规则和验证方式。'}</p>}
     </div>
     <div className="gp-detail">
       {blocked ? <div className="gp-empty" role="status"><FileText size={34} /><h2>玩法存档暂时无法读取</h2><p>请恢复存档后重新打开项目，现有内容未被覆盖。</p></div>
-        : selected ? <GameplayEditor renderImplementation={renderImplementation} initialSource={initialSource} key={selected.id} design={selected} designs={store.designs} tab={editorTab} onTab={setEditorTab} onNavigate={id => { const next = store.designs.find(d => d.id === id); if (next) { setQuery(''); setStatus('all'); setArchived(next.archived); setSelectedId(id); } }} sources={sources} onChange={changes => patch(selected.id, changes)}
+        : selected ? <GameplayEditor initialSpatialView={spatialNavigation?.id === selected.id ? spatialNavigation.view : undefined} objectReferences={objectReferences} renderImplementation={renderImplementation} initialSource={initialSource} key={selected.id} design={selected} designs={store.designs} tab={editorTab} onTab={setEditorTab} onNavigate={(id, view) => { setSpatialNavigation({ id, view }); const next = store.designs.find(d => d.id === id); if (next) { setQuery(''); setStatus('all'); setArchived(next.archived); setSelectedId(id); } }} sources={sources} onChange={changes => patch(selected.id, changes)}
           onCopy={() => addDesign(duplicateGameplay(selected))} onArchive={() => { patch(selected.id, { archived: !selected.archived }); setArchived(!selected.archived); setSelectedId(selected.id); }} onOpenLink={onOpenLink} />
           : <div className="gp-empty"><Gamepad2 size={36} /><span className="gp-kicker">从想法到第一次试玩</span><h2>{store.designs.length ? '选择或新建一个玩法' : '设计你的第一个玩法'}</h2><p>写下玩家的目标、行动与反馈，再确定这次原型要验证什么。无需连接引擎。</p>
             <div className="gp-empty-flow"><span>体验目标</span><ArrowRight size={15} /><span>玩法规则</span><ArrowRight size={15} /><span>试玩验证</span></div>
@@ -65,8 +67,8 @@ export function GameplayDesigns({ controller, selectedId, onSelect: setSelectedI
     </dialog>
   </section>;
 }
-function GameplayEditor({ design: d, designs, tab, onTab, onNavigate, sources, onChange, onCopy, onArchive, onOpenLink, renderImplementation, initialSource }: ImplementationProps & {
-  design: GameplayDesign; designs: GameplayDesign[]; tab: EditorTab; onTab: (tab: EditorTab) => void; onNavigate: (id: string) => void; sources: GameplaySources; onChange: (changes: Partial<GameplayDesign>) => void; onCopy: () => void; onArchive: () => void; onOpenLink: (link: GameplayLink) => void;
+function GameplayEditor({ design: d, designs, tab, onTab, onNavigate, sources, onChange, onCopy, onArchive, onOpenLink, renderImplementation, initialSource, objectReferences, initialSpatialView }: ImplementationProps & {
+  design: GameplayDesign; designs: GameplayDesign[]; tab: EditorTab; onTab: (tab: EditorTab) => void; onNavigate: (id: string, view?: SpatialView) => void; sources: GameplaySources; onChange: (changes: Partial<GameplayDesign>) => void; onCopy: () => void; onArchive: () => void; onOpenLink: (link: GameplayLink) => void;
 }) {
   const [linkKind, setLinkKind] = useState<GameplayLink['kind']>('story');
   const [targetId, setTargetId] = useState('');
@@ -84,8 +86,8 @@ function GameplayEditor({ design: d, designs, tab, onTab, onNavigate, sources, o
     {tab === 'relations' && <GameplayDependencies design={d} designs={designs} disabled={d.archived} onChange={onChange} onNavigate={onNavigate} />}
     {tab === 'rules' && <GameplayRules initialRuleId={initialSource?.kind === 'rule' ? initialSource.id : undefined} design={d} disabled={d.archived} onChange={onChange} />}
     {tab === 'flow' && <GameplayStateFlow initialStateId={initialSource?.kind === 'state' ? initialSource.id : undefined} design={d} disabled={d.archived} onChange={onChange} />}
-    {tab === 'space' && <GameplaySpace initialObjectId={initialSource?.kind === 'object' ? initialSource.id : undefined} design={d} designs={designs} disabled={d.archived} onChange={onChange} onNavigate={id => { onNavigate(id); onTab('space'); }} />}
-    {tab === 'time' && <GameplayTime initialEventId={initialSource?.kind === 'event' ? initialSource.id : undefined} design={d} designs={designs} disabled={d.archived} onChange={onChange} onNavigate={id => { onNavigate(id); onTab('space'); }} />}
+    {tab === 'space' && <GameplaySpace initialView={initialSpatialView} objectReferences={objectReferences} initialObjectId={initialSource?.kind === 'object' ? initialSource.id : undefined} design={d} designs={designs} disabled={d.archived} onChange={onChange} onNavigate={(id, view) => { onNavigate(id, view); onTab('space'); }} />}
+    {tab === 'time' && <GameplayTime initialEventId={initialSource?.kind === 'event' ? initialSource.id : undefined} design={d} designs={designs} disabled={d.archived} onChange={onChange} onNavigate={(id, view) => { onNavigate(id, view); onTab('space'); }} />}
     {tab === 'design' && <><div className="gp-stats"><div><span>原型制作</span><strong>{completed}<small> / {d.prototype.length}</small></strong><div className="gp-progress" aria-label={'制作完成 ' + progress + '%'}><span style={{ width: progress + '%' }} /></div></div>
       <div><span>试玩验证</span><strong>{passed}<small> / {d.checks.length} 通过</small></strong><p>制作完成后，仍需实际试玩验证。</p></div></div>
     {renderImplementation?.(d)}

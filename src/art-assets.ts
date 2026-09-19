@@ -1,3 +1,4 @@
+import { objectGeometry, spatialObjectLocation } from './spatial-layout.ts';
 import type { GameplayDesign } from './gameplay';
 import type { FunctionalStore } from './functional-systems';
 
@@ -147,7 +148,7 @@ function sourceParts(source: ArtSource, sources: ArtSources) {
     detail = event ? `开始 ${event.start} 秒，持续 ${event.duration} 秒；条件：${event.condition || '无附加条件'}；${event.notes}` : '';
   } else if (source.sourceKind === 'object') {
     const object = design.space.objects.find(o => o.id === source.sourceId);
-    detail = object ? `R${object.row} / C${object.column}，${object.width}×${object.height}；${object.notes}` : '';
+    detail = object ? `${!object.geometry && !object.roomId && object.anchor === 'cell' ? `R${object.row} / C${object.column}` : spatialObjectLocation(object, design.space)}，${objectGeometry(object, design.space).width}×${objectGeometry(object, design.space).height} ${design.space.unit}；${object.notes}` : '';
   }
   return { title: (design.title || '未命名玩法') + ' / ' + sourceKinds[source.sourceKind] + (source.sourceKind === 'design' ? '' : '：' + (specific ? specific.name || '未命名来源' : '来源已失效（' + (source.sourceId || '尚未选择') + '）')), detail, issues };
 }

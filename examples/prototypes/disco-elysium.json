@@ -3149,7 +3149,8 @@
               "direction": "right",
               "rangeShape": "none",
               "range": 0,
-              "notes": "NPC：搭档/店主；汇报、住宿"
+              "notes": "NPC：搭档/店主；汇报、住宿",
+              "roomId": "de-room-hotel"
             },
             {
               "id": "de-obj-yard",
@@ -3164,7 +3165,8 @@
               "direction": "right",
               "rangeShape": "none",
               "range": 0,
-              "notes": "断绳与家书；主要现场"
+              "notes": "断绳与家书；主要现场",
+              "roomId": "de-room-yard"
             },
             {
               "id": "de-obj-pier",
@@ -3179,7 +3181,8 @@
               "direction": "right",
               "rangeShape": "none",
               "range": 0,
-              "notes": "证人和工头依日程出现"
+              "notes": "证人和工头依日程出现",
+              "roomId": "de-room-pier"
             },
             {
               "id": "de-obj-archive",
@@ -3194,7 +3197,8 @@
               "direction": "right",
               "rangeShape": "none",
               "range": 0,
-              "notes": "09:00–18:00；账册"
+              "notes": "09:00–18:00；账册",
+              "roomId": "de-room-archive"
             },
             {
               "id": "de-obj-clinic",
@@ -3209,7 +3213,8 @@
               "direction": "right",
               "rangeShape": "none",
               "range": 0,
-              "notes": "18:00–23:00；复写件与恢复物"
+              "notes": "18:00–23:00；复写件与恢复物",
+              "roomId": "de-room-clinic"
             },
             {
               "id": "de-obj-partner",
@@ -3224,7 +3229,8 @@
               "direction": "right",
               "rangeShape": "none",
               "range": 0,
-              "notes": "对话根opening/report_hub"
+              "notes": "对话根opening/report_hub",
+              "roomId": "de-room-hotel"
             },
             {
               "id": "de-obj-host",
@@ -3239,7 +3245,8 @@
               "direction": "right",
               "rangeShape": "none",
               "range": 0,
-              "notes": "对话根host_hub"
+              "notes": "对话根host_hub",
+              "roomId": "de-room-hotel"
             },
             {
               "id": "de-obj-witness",
@@ -3254,7 +3261,8 @@
               "direction": "right",
               "rangeShape": "none",
               "range": 0,
-              "notes": "对话根witness_hub；09:00–17:00"
+              "notes": "对话根witness_hub；09:00–17:00",
+              "roomId": "de-room-pier"
             },
             {
               "id": "de-obj-foreman",
@@ -3269,7 +3277,8 @@
               "direction": "right",
               "rangeShape": "none",
               "range": 0,
-              "notes": "对话根foreman_hub；09:00–18:00"
+              "notes": "对话根foreman_hub；09:00–18:00",
+              "roomId": "de-room-pier"
             },
             {
               "id": "de-obj-clerk",
@@ -3284,7 +3293,8 @@
               "direction": "right",
               "rangeShape": "none",
               "range": 0,
-              "notes": "对话根clerk_hub；09:00–18:00"
+              "notes": "对话根clerk_hub；09:00–18:00",
+              "roomId": "de-room-archive"
             },
             {
               "id": "de-obj-doctor",
@@ -3299,7 +3309,8 @@
               "direction": "right",
               "rangeShape": "none",
               "range": 0,
-              "notes": "对话根doctor_hub；18:00–23:00"
+              "notes": "对话根doctor_hub；18:00–23:00",
+              "roomId": "de-room-clinic"
             },
             {
               "id": "de-obj-rope",
@@ -3314,7 +3325,8 @@
               "direction": "right",
               "rangeShape": "none",
               "range": 0,
-              "notes": "de_clues/rope；失败可协助收集"
+              "notes": "de_clues/rope；失败可协助收集",
+              "roomId": "de-room-yard"
             },
             {
               "id": "de-obj-parcel",
@@ -3329,7 +3341,8 @@
               "direction": "right",
               "rangeShape": "none",
               "range": 0,
-              "notes": "只推进letter支线"
+              "notes": "只推进letter支线",
+              "roomId": "de-room-yard"
             },
             {
               "id": "de-obj-ledger",
@@ -3344,7 +3357,8 @@
               "direction": "right",
               "rangeShape": "none",
               "range": 0,
-              "notes": "de_clues/ledger"
+              "notes": "de_clues/ledger",
+              "roomId": "de-room-archive"
             },
             {
               "id": "de-obj-copy",
@@ -3359,9 +3373,107 @@
               "direction": "right",
               "rangeShape": "none",
               "range": 0,
-              "notes": "de_clues/copy；替代书面证据来源"
+              "notes": "de_clues/copy；替代书面证据来源",
+              "roomId": "de-room-clinic"
             }
-          ]
+          ],
+          "spatial": {
+            "version": 1,
+            "view": "rooms",
+            "rooms": [
+              {
+                "id": "de-room-hotel",
+                "name": "旧灯旅馆",
+                "x": 0,
+                "y": 0,
+                "view": "free",
+                "sourceDesignId": "",
+                "notes": "醒来、欠费、案情汇报与休息"
+              },
+              {
+                "id": "de-room-yard",
+                "name": "卸货后院",
+                "x": 350,
+                "y": 0,
+                "view": "free",
+                "sourceDesignId": "",
+                "notes": "尸体、断绳、劳动痕迹"
+              },
+              {
+                "id": "de-room-pier",
+                "name": "盐雾码头",
+                "x": 700,
+                "y": 0,
+                "view": "free",
+                "sourceDesignId": "",
+                "notes": "证人、工头与可冲突的证词"
+              },
+              {
+                "id": "de-room-archive",
+                "name": "值班档案室",
+                "x": 0,
+                "y": 260,
+                "view": "free",
+                "sourceDesignId": "",
+                "notes": "账册、时间表与值班记录"
+              },
+              {
+                "id": "de-room-clinic",
+                "name": "夜班诊所",
+                "x": 350,
+                "y": 260,
+                "view": "free",
+                "sourceDesignId": "",
+                "notes": "伤口判断、药品与旁证"
+              }
+            ],
+            "connections": [
+              {
+                "id": "de-road-yard",
+                "name": "前往卸货后院",
+                "from": "de-room-hotel",
+                "to": "de-room-yard",
+                "fromObjectId": "de-obj-hotel",
+                "toObjectId": "de-obj-yard",
+                "direction": "both",
+                "condition": "case_open=1",
+                "ruleId": ""
+              },
+              {
+                "id": "de-road-pier",
+                "name": "前往盐雾码头",
+                "from": "de-room-hotel",
+                "to": "de-room-pier",
+                "fromObjectId": "de-obj-hotel",
+                "toObjectId": "de-obj-pier",
+                "direction": "both",
+                "condition": "case_open=1",
+                "ruleId": ""
+              },
+              {
+                "id": "de-road-archive",
+                "name": "前往值班档案室",
+                "from": "de-room-hotel",
+                "to": "de-room-archive",
+                "fromObjectId": "de-obj-hotel",
+                "toObjectId": "de-obj-archive",
+                "direction": "both",
+                "condition": "09:00–18:00；关闭后可从医师取得复写件",
+                "ruleId": ""
+              },
+              {
+                "id": "de-road-clinic",
+                "name": "前往夜班诊所",
+                "from": "de-room-hotel",
+                "to": "de-room-clinic",
+                "fromObjectId": "de-obj-hotel",
+                "toObjectId": "de-obj-clinic",
+                "direction": "both",
+                "condition": "18:00–23:00；缺席可等次日，不封死主线",
+                "ruleId": ""
+              }
+            ]
+          }
         },
         "timeline": {
           "duration": 86400,
