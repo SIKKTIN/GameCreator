@@ -6,7 +6,7 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import {
   PROJECT_CATALOG_KEY, addSavedProject, defaultCatalog, readProjectCatalog,
-  selectSavedProject, updateSavedConfig, validateCatalog,
+  removeSavedProject, selectSavedProject, updateSavedConfig, validateCatalog,
 } from '../src/project-catalog.ts';
 
 const require = createRequire(import.meta.url);
@@ -270,4 +270,41 @@ test('a fresh installation starts without legacy demo content and keeps that cho
   assert.equal(catalog.projects[0].initialContent, 'empty');
   assert.equal(readProjectCatalog(storage, config, 'ignored').projects[0].initialContent, 'empty');
   assert.equal(storage.getItem(enumKey(catalog.activeId)), null);
+});
+
+test('deletion targets permanent IDs, preserves inactive selection and chooses the adjacent remaining project', () => {
+  const a = defaultCatalog(config, '重复名称');
+  const b = addSavedProject(a, '重复名称');
+  const c = addSavedProject(b, '第三项目');
+  const before = JSON.stringify(c);
+  const inactive = removeSavedProject({ ...c, mode: 'test' }, b.activeId);
+  assert.equal(inactive.activeId, c.activeId);
+  assert.equal(inactive.mode, 'test');
+  assert.deepEqual(inactive.projects.map(p => p.id), [a.activeId, c.activeId]);
+  const middle = removeSavedProject(selectSavedProject(c, b.activeId), b.activeId);
+  assert.equal(middle.activeId, c.activeId);
+  const last = removeSavedProject({ ...c, mode: 'test' }, c.activeId);
+  assert.equal(last.activeId, b.activeId);
+  assert.equal(last.mode, 'project');
+  assert.equal(JSON.stringify(c), before);
+  assert.throws(() => removeSavedProject(c, 'missing'), /不存在/);
+});
+
+test('deleting the last project persists an empty catalog and never revives legacy archives', async t => {
+  const directory = await temporaryDirectory(t), storage = createWorkspaceStorage(directory);
+  const catalog = defaultCatalog(config, '旧项目');
+  const oldArchives = { 'gamecreator.engine-config.v1': JSON.stringify(config),
+    [workspaceKey(catalog.activeId, 'project')]: JSON.stringify({ name: '旧项目', description: '保留原存档' }) };
+  for (const [key, value] of Object.entries(oldArchives)) storage.setItem(key, value);
+  const empty = removeSavedProject({ ...catalog, mode: 'test' }, catalog.activeId);
+  assert.deepEqual(empty, { schema: 2, mode: 'project', activeId: '', projects: [] });
+  storage.setItem(PROJECT_CATALOG_KEY, JSON.stringify(empty));
+  assert.deepEqual(readProjectCatalog(createWorkspaceStorage(directory), config, '不要重建默认项目'), empty);
+  for (const [key, value] of Object.entries(oldArchives)) assert.equal(storage.getItem(key), value);
+  const created = addSavedProject(empty, '旧项目');
+  assert.equal(created.projects.length, 1);
+  assert.notEqual(created.activeId, catalog.activeId);
+  assert.equal(created.projects[0].initialContent, 'empty');
+  assert.throws(() => validateCatalog({ ...empty, mode: 'test' }), /当前工程/);
+  assert.throws(() => readProjectCatalog(memoryStorage({ [PROJECT_CATALOG_KEY]: JSON.stringify({ ...empty, schema: 1 }) }), config, 'none'), /格式异常/);
 });

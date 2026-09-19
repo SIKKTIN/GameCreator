@@ -1,1 +1,10 @@
 .auth-page{min-height:100vh;display:grid;place-items:center;background:#10121b;color:#f4f2ff}.auth-card{width:min(420px,calc(100vw - 40px));padding:38px;border:1px solid #303344;border-radius:18px;background:#191c29;box-shadow:0 24px 80px #0005}.auth-logo{font-size:34px;color:#9a8cff;margin-bottom:16px}.auth-card h1{margin:8px 0}.auth-card p{color:#a9adbf;margin:0 0 24px}.auth-card label{display:grid;gap:7px;margin-top:15px;color:#c5c8d6}.auth-card input{border:1px solid #3b3e50;border-radius:8px;background:#11131d;color:#fff;padding:11px 12px}.auth-submit{width:100%;justify-content:center;margin-top:22px}.auth-error{margin-top:14px;color:#ff8e9a}.auth-hint{display:block;color:#85899c;margin-top:18px}.authenticated-shell{min-height:100vh}.auth-toolbar{height:36px;display:flex;align-items:center;justify-content:flex-end;gap:14px;padding:0 24px;background:#11131d;color:#aeb2c5;font-size:12px}.auth-toolbar em{font-style:normal;color:#9a8cff;margin-left:8px}.auth-logout{border:0;background:transparent;color:#aeb2c5;cursor:pointer}.role-user .local-workspace input,.role-user .local-workspace textarea,.role-user .local-workspace select{pointer-events:none;opacity:.72}.role-user .local-workspace .milestone,.role-user .local-workspace .invite-button,.role-user .local-workspace .icon-button,.role-user .local-workspace .primary{pointer-events:none;opacity:.55}
+
+/* Keep the navigation control available while the editor is scrolled. */
+.auth-toolbar { position: sticky; top: 0; z-index: 40; }
+.auth-navigation-toggle { margin-right: auto; flex: none; width: 28px; height: 28px; display: grid; place-items: center; padding: 0; border: 1px solid transparent; border-radius: 6px; background: transparent; color: #aaa5c0; cursor: pointer; }
+.auth-navigation-toggle:hover { color: #e6deff; background: #2a253c; border-color: #514665; }
+.auth-navigation-toggle:focus-visible { outline: 2px solid #b19aff; outline-offset: 2px; }
+.auth-preference-status { font-size: 11px; color: #e5bc82; }
+.authenticated-shell.navigation-hidden .app > .workspace-sidebar { display: none; }
+.authenticated-shell .app > main { min-width: 0; }

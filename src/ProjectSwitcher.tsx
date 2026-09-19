@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
-import { Check, ChevronDown, CloudUpload, CopyPlus, FolderInput, FolderOutput, FolderOpen, LoaderCircle, Plus, X } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { Trash2, Check, ChevronDown, CloudUpload, CopyPlus, FolderInput, FolderOutput, FolderOpen, LoaderCircle, Plus, X } from 'lucide-react';
 import './project-switcher.css';
 
 export type SwitchableProject = { id: string; name: string; projectPath: string; kind?: 'local' | 'team'; detail?: string };
@@ -14,6 +15,7 @@ export type ProjectSwitcherProps = {
   busy: boolean;
   onSelect: (id: string) => Promise<boolean> | boolean;
   onAdd: (input: AddProjectInput) => Promise<boolean>;
+  onDelete?: (id: string) => Promise<boolean>;
   onConnectTeam?: () => void;
   onCreateTeam?: () => void;
   onPublishProject?: () => void;
@@ -26,8 +28,15 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : '操作未完成，请稍后重试。';
 }
 
-export function ProjectSwitcher({ projects, currentId, currentName, testName, teamNotice, canAdd, busy, onSelect, onAdd, onConnectTeam, onCreateTeam, onPublishProject, onImportPrototype, onImportProject, onExportProject }: ProjectSwitcherProps) {
+export function ProjectSwitcher({ projects, currentId, currentName, testName, teamNotice, canAdd, busy, onSelect, onAdd, onDelete, onConnectTeam, onCreateTeam, onPublishProject, onImportPrototype, onImportProject, onExportProject }: ProjectSwitcherProps) {
   const [open, setOpen] = useState(false);
+  const [context, setContext] = useState<{ id: string; x: number; y: number } | null>(null);
+  const [deleting, setDeleting] = useState<SwitchableProject | null>(null);
+  const [deleteError, setDeleteError] = useState('');
+  const contextRef = useRef<HTMLDivElement>(null);
+  const contextOrigin = useRef<HTMLButtonElement | null>(null);
+  const deleteDialog = useRef<HTMLDialogElement>(null);
+  const deleteCancel = useRef<HTMLButtonElement>(null);
   const [pending, setPending] = useState(false);
   const [menuError, setMenuError] = useState('');
   const [formError, setFormError] = useState('');
@@ -42,14 +51,14 @@ export function ProjectSwitcher({ projects, currentId, currentName, testName, te
   const locked = busy || pending;
 
   function closeMenu(restoreFocus = false) {
-    setOpen(false);
+    setOpen(false); setContext(null);
     if (restoreFocus) requestAnimationFrame(() => triggerRef.current?.focus());
   }
 
   useEffect(() => {
     if (!open) return;
     function onOutside(event: PointerEvent) {
-      if (event.target instanceof Node && !rootRef.current?.contains(event.target)) setOpen(false);
+      if (event.target instanceof Node && !rootRef.current?.contains(event.target) && !contextRef.current?.contains(event.target)) closeMenu();
     }
     document.addEventListener('pointerdown', onOutside);
     return () => document.removeEventListener('pointerdown', onOutside);
@@ -61,6 +70,40 @@ export function ProjectSwitcher({ projects, currentId, currentName, testName, te
     const first = menuRef.current?.querySelector<HTMLButtonElement>('[role^="menuitem"]:not(:disabled)');
     (active ?? first)?.focus();
   }, [open]);
+
+  const contextProject = context ? projects.find(project => project.id === context.id) : undefined;
+  function closeContext(restoreFocus = false) {
+    setContext(null);
+    if (restoreFocus) requestAnimationFrame(() => contextOrigin.current?.focus());
+  }
+  function openContext(project: SwitchableProject, button: HTMLButtonElement, x: number, y: number) {
+    if (locked || !canAdd || !onDelete || project.kind === 'team') return;
+    contextOrigin.current = button;
+    setContext({ id: project.id, x: Math.max(8, Math.min(x, window.innerWidth - 232)), y: Math.max(8, Math.min(y, window.innerHeight - 100)) });
+  }
+  useEffect(() => {
+    if (!context) return;
+    if (!contextProject || locked) { setContext(null); return; }
+    contextRef.current?.querySelector<HTMLButtonElement>('button')?.focus();
+    const close = () => setContext(null);
+    const scroll = (event: Event) => { if (!(event.target instanceof Node) || !contextRef.current?.contains(event.target)) close(); };
+    window.addEventListener('resize', close);
+    window.addEventListener('scroll', scroll, true);
+    return () => { window.removeEventListener('resize', close); window.removeEventListener('scroll', scroll, true); };
+  }, [context, contextProject, locked]);
+  useEffect(() => {
+    if (deleting) { deleteDialog.current?.showModal(); deleteCancel.current?.focus(); }
+  }, [deleting]);
+  async function confirmDelete(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!deleting || !onDelete || !canAdd || locked || operationRef.current) return;
+    operationRef.current = true; setPending(true); setDeleteError('');
+    try {
+      if (await onDelete(deleting.id)) deleteDialog.current?.close();
+      else setDeleteError('项目尚未删除，请检查保存状态后重试。');
+    } catch (error) { setDeleteError(errorMessage(error)); }
+    finally { operationRef.current = false; setPending(false); }
+  }
 
   function onMenuKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (event.key === 'Escape') {
@@ -161,7 +204,7 @@ export function ProjectSwitcher({ projects, currentId, currentName, testName, te
       </div>}
       <div id={`${id}-menu`} role="menu" aria-label="项目列表" ref={menuRef} className="ps-menu" onKeyDown={onMenuKeyDown}
         onBlur={event => {
-          if (event.relatedTarget instanceof Node && !rootRef.current?.contains(event.relatedTarget)) closeMenu();
+          if (event.relatedTarget instanceof Node && !rootRef.current?.contains(event.relatedTarget) && !contextRef.current?.contains(event.relatedTarget)) closeMenu();
         }}>
         {projects.map(project => <button
           type="button"
@@ -172,6 +215,19 @@ export function ProjectSwitcher({ projects, currentId, currentName, testName, te
           disabled={locked}
           title={`${project.name}\n${project.kind === 'team' ? '团队项目' : '本地项目'} · ${project.detail || project.projectPath || '尚未配置引擎'}`}
           onClick={() => void selectProject(project.id)}
+          onContextMenu={event => {
+            if (!canAdd || !onDelete || project.kind === 'team') return;
+            event.preventDefault(); event.stopPropagation();
+            openContext(project, event.currentTarget, event.clientX, event.clientY);
+          }}
+          onKeyDown={event => {
+            if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) {
+              if (!canAdd || !onDelete || project.kind === 'team') return;
+              event.preventDefault(); event.stopPropagation();
+              const rect = event.currentTarget.getBoundingClientRect();
+              openContext(project, event.currentTarget, rect.left + 20, rect.bottom);
+            }
+          }}
         >
           <FolderOpen size={16} aria-hidden="true" />
           <span className="ps-project-copy"><strong>{project.name}</strong><small>{project.kind === 'team' ? '团队项目' : '本地项目'} · {project.detail || project.projectPath || '尚未配置引擎'}</small></span>
@@ -188,6 +244,31 @@ export function ProjectSwitcher({ projects, currentId, currentName, testName, te
       </div>
       {menuError && <p className="ps-error" role="alert">{menuError}</p>}
     </div>}
+    {context && contextProject && createPortal(<div ref={contextRef} role="menu" aria-label={`项目操作：${contextProject.name}`} className="ps-context-menu"
+      style={{ left: context.x, top: context.y }} onContextMenu={event => event.preventDefault()}
+      onKeyDown={event => {
+        if (event.key === 'Escape' || event.key === 'Tab') { event.preventDefault(); event.stopPropagation(); closeContext(true); }
+        if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) { event.preventDefault(); event.stopPropagation(); }
+      }}>
+      <div className="ps-context-name" title={contextProject.name}>{contextProject.name}</div>
+      <button type="button" role="menuitem" className="ps-delete-action" disabled={locked} onClick={() => {
+        setDeleting(contextProject); setDeleteError(''); closeMenu();
+      }}><Trash2 size={15} aria-hidden="true" />删除项目</button>
+    </div>, document.body)}
+    <dialog ref={deleteDialog} className="ps-dialog ps-delete-dialog" aria-labelledby={`${id}-delete-title`} aria-describedby={`${id}-delete-description`}
+      onCancel={event => { if (pending) event.preventDefault(); }}
+      onClose={() => { setDeleting(null); setDeleteError(''); requestAnimationFrame(() => triggerRef.current?.focus()); }}>
+      <form onSubmit={event => void confirmDelete(event)} aria-busy={pending}>
+        <div className="ps-dialog-heading"><div><span className="ps-dialog-kicker">LOCAL PROJECT</span><h2 id={`${id}-delete-title`}>删除本地项目</h2></div>
+          <button type="button" className="ps-close-button" aria-label="关闭删除项目" disabled={pending} onClick={() => deleteDialog.current?.close()}><X size={19} /></button></div>
+        <p className="ps-delete-name">{deleting?.name}</p>
+        <p id={`${id}-delete-description`} className="ps-dialog-description">将此项目从本机项目列表删除。项目存档、外部游戏工程和已导出的文件夹会保留。</p>
+        {deleting?.id === currentId && <p className="ps-dialog-description">删除后将切换到其他本地项目；没有其他项目时显示空工作区。</p>}
+        {deleteError && <p role="alert" className="ps-error ps-form-error">{deleteError}</p>}
+        <div className="ps-dialog-actions"><button ref={deleteCancel} type="button" className="ps-secondary-button" disabled={pending} onClick={() => deleteDialog.current?.close()}>取消</button>
+          <button type="submit" className="ps-submit-button ps-delete-submit" disabled={locked}>{pending ? <LoaderCircle className="ps-spinner" size={16} /> : <Trash2 size={16} />}{pending ? '正在删除…' : '删除项目'}</button></div>
+      </form>
+    </dialog>
     <dialog
       ref={dialogRef}
       className="ps-dialog"

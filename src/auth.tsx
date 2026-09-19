@@ -1,5 +1,7 @@
 import { FormEvent, useState } from 'react';
 import './auth.css';
+import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { useWorkspaceNavigation } from './useWorkspaceNavigation';
 
 export const beforeLogoutEvent = 'gamecreator:before-logout';
 export type UserRole = 'admin' | 'user';
@@ -21,6 +23,7 @@ function readSession(): Session | null {
 
 export function AuthGate({ children }: { children: (session: Session) => React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(readSession);
+  const navigation = useWorkspaceNavigation();
   const [username, setUsername] = useState('admin');
   const [password, setPassword] = useState('admin123');
   const [error, setError] = useState('');
@@ -54,8 +57,15 @@ export function AuthGate({ children }: { children: (session: Session) => React.R
     if (window.desktopClient?.auth) window.desktopClient.auth.logout();
     localStorage.removeItem(SESSION_KEY); setSession(null);
   };
-  return <div className={`authenticated-shell role-${session.role}`}>
-    <div className="auth-toolbar"><span>本机账号：<b>{session.username}</b><em>{ACCOUNTS[session.username]?.label}</em></span><button className="auth-logout" onClick={logout}>退出登录</button></div>
+  return <div className={`authenticated-shell role-${session.role}${navigation.visible ? '' : ' navigation-hidden'}`}>
+    <div className="auth-toolbar">
+      <button className="auth-navigation-toggle" type="button" onClick={navigation.toggle}
+        aria-label={navigation.visible ? '隐藏主导航栏' : '显示主导航栏'} title={navigation.visible ? '隐藏主导航栏' : '显示主导航栏'}
+        aria-expanded={navigation.visible} aria-controls="workspace-navigation">
+        {navigation.visible ? <PanelLeftClose size={18} aria-hidden="true" /> : <PanelLeftOpen size={18} aria-hidden="true" />}
+      </button>
+      {navigation.saveError && <span className="auth-preference-status" role="status">导航状态仅在本次会话生效，未能保存偏好</span>}
+      <span>本机账号：<b>{session.username}</b><em>{ACCOUNTS[session.username]?.label}</em></span><button className="auth-logout" onClick={logout}>退出登录</button></div>
     {children(session)}
   </div>;
 }
