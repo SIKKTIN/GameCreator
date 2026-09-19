@@ -111,6 +111,7 @@ async function copyChecked(source, destination, expected) {
 
 function validateDocument(value) {
   if (!record(value) || value.schema !== 1 || !record(value.project) || typeof value.project.name !== 'string' || !value.project.name.trim() || value.project.name.length > 100 || !record(value.project.config) || !record(value.archives) || SECTIONS.some(section => !Object.hasOwn(value.archives, section)) || Object.keys(value.archives).some(section => ![...SECTIONS, ...OPTIONAL_SECTIONS].includes(section))) throw new Error('项目文件夹数据格式无效');
+  if (value.project.defaultTablesVersion !== undefined && value.project.defaultTablesVersion !== 1) throw new Error('不支持的配置表默认值版本');
   const art = value.archives['art-assets'];
   if (!record(art) || !Array.isArray(art.assets)) throw new Error('美术资产存档格式无效');
   return value;
@@ -181,6 +182,7 @@ function createProjectPackages({dataDirectory, storage}) {
   function checkSnapshot(projectId, document, expectedEntries) {
     sourceProject(projectId);
     const required = new Set([CATALOG_KEY, ...SECTIONS.map(section => archiveKey(projectId, section)), ...OPTIONAL_SECTIONS.map(section => archiveKey(projectId, section))]);
+    if (document.project.defaultTablesVersion === 1) required.add(archiveKey(projectId, 'default-table-migration'));
     if (!Array.isArray(expectedEntries) || expectedEntries.length !== required.size) throw new Error('项目导出快照不完整');
     for (const entry of expectedEntries) {
       if (!record(entry) || !required.delete(entry.key) || entry.value !== null && typeof entry.value !== 'string') throw new Error('项目导出快照包含未知或重复存档');
@@ -295,7 +297,7 @@ function createProjectPackages({dataDirectory, storage}) {
     if (!NEW_PROJECT.test(projectId)) throw new Error('导入目标必须是新项目标识');
     const raw = storage.getItem(CATALOG_KEY), catalog = raw === null ? null : JSON.parse(raw);
     if (catalog && (!Array.isArray(catalog.projects) || catalog.projects.some(project => project.id === projectId))) throw new Error('导入目标项目已存在');
-    for (const section of [...SECTIONS, ...OPTIONAL_SECTIONS]) if (storage.getItem(archiveKey(projectId, section)) !== null) throw new Error('导入目标已有项目数据，未覆盖');
+    for (const section of [...SECTIONS, ...OPTIONAL_SECTIONS, 'default-table-migration']) if (storage.getItem(archiveKey(projectId, section)) !== null) throw new Error('导入目标已有项目数据，未覆盖');
   }
   async function restoreAssets({token, projectId}) {
     const entry = imports.get(token);

@@ -68,7 +68,6 @@ export function validatePrototypeExample(value: unknown): PrototypeExample {
   unique(value.definitions, 'key', '配置表目录');
   requireValid(record(value.data) && record(value.data.datasets) && record(value.data.columns), '配置数据不完整');
   const tableKeys = value.definitions.map(definition => definition.key as string);
-  requireValid(['items', 'characters', 'skills', 'economy', 'shop'].every(key => tableKeys.includes(key)), '缺少基础配置表');
   requireValid(Object.keys(value.data.datasets).sort().join(',') === [...tableKeys].sort().join(',') &&
     Object.keys(value.data.columns).sort().join(',') === [...tableKeys].sort().join(','), '配置表目录与数据不一致');
   for (const definition of value.definitions) {

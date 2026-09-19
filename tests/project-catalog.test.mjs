@@ -262,3 +262,12 @@ test('directory validation accepts real project folders and rejects missing, fil
   await assert.rejects(validateProjectLocation(project, 'C:outside'), /相对路径/);
   await assert.rejects(validateProjectLocation(project, ''), /相对路径/);
 });
+
+
+test('a fresh installation starts without legacy demo content and keeps that choice after restart', () => {
+  const storage = memoryStorage();
+  const catalog = readProjectCatalog(storage, config, '新工作区');
+  assert.equal(catalog.projects[0].initialContent, 'empty');
+  assert.equal(readProjectCatalog(storage, config, 'ignored').projects[0].initialContent, 'empty');
+  assert.equal(storage.getItem(enumKey(catalog.activeId)), null);
+});

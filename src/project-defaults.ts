@@ -56,4 +56,5 @@ export const initialProject = {
 
 export const emptyStories: StoryDoc[] = [];
 export const emptyMilestones: Milestone[] = [];
-export const emptyProjectData: ProjectData = { columns: initialData.columns, datasets: Object.fromEntries(datasetDefinitions.map(item => [item.key, []])) };
+export const emptyDatasetDefinitions: DatasetDef[] = [];
+export const emptyProjectData: ProjectData = { columns: {}, datasets: {} };

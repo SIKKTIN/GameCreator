@@ -40,6 +40,11 @@ function assertUntouched(storage, previous) { for (const [key, value] of Object.
 for (const summary of prototypeExamples) {
   test(summary.id + ': complete editable archives preserve all design/reference maps and match the example card', () => {
     const example = fixture(summary.id);
+    const expectedTables = { 'hollow-knight': 8, 'stardew-valley': 9, 'plants-vs-zombies': 4 };
+    assert.equal(example.definitions.length, expectedTables[summary.id]);
+    assert.ok(['items', 'characters', 'skills', 'economy', 'shop'].every(key => !Object.hasOwn(example.data.datasets, key)));
+    assert.deepEqual(Object.keys(example.data.datasets).sort(), example.definitions.map(definition => definition.key).sort());
+    assert.deepEqual(Object.keys(example.data.columns).sort(), example.definitions.map(definition => definition.key).sort());
     const baseline = structuredClone(example);
     const originalCatalog = structuredClone(catalog);
     assert.equal(validatePrototypeExample(example), example);
@@ -199,13 +204,14 @@ test('malformed or nonportable snapshots and broken references fail before prepa
     ['unexpected engine configuration', x => { x.config = config; }],
     ['unsupported schema', x => { x.schema = 2; }],
     ['missing module', x => { delete x.artAssets; }],
-    ['missing base table', x => { x.definitions = x.definitions.filter(d => d.key !== 'items'); }],
+    ['missing table definition', x => { x.definitions = x.definitions.filter(d => d.key !== 'hk_params'); }],
     ['mismatched column maps', x => { delete x.data.columns.hk_params; }],
-    ['mismatched field definition', x => { x.definitions[5].columns[0].label = 'changed'; }],
+    ['mismatched field definition', x => { x.definitions.find(definition => definition.key === 'hk_params').columns[0].label = 'changed'; }],
     ['non-string cell', x => { x.data.datasets.hk_params[0].value = 5; }],
     ['extra cell', x => { x.data.datasets.hk_params[0].unknown = 'extra'; }],
     ['duplicate record', x => { x.data.datasets.hk_params.push(x.data.datasets.hk_params[0]); }],
-    ['external engine enum', x => { x.definitions[0].columns[2].enumId = 'private#Type'; x.data.columns.items[2].enumId = 'private#Type'; }],
+    ['external engine enum', x => { x.definitions.find(definition => definition.key === 'hk_params').columns[0].enumId = 'private#Type'; x.data.columns.hk_params[0].enumId = 'private#Type'; }],
+    ['missing reference table', x => { delete x.data.datasets.hk_rooms; delete x.data.columns.hk_rooms; x.definitions = x.definitions.filter(definition => definition.key !== 'hk_rooms'); }],
     ['dangling record reference', x => { x.data.datasets.hk_points[0].room = 'missing-room'; }],
     ['missing story link', x => { x.gameplay.designs[0].links.push({ kind: 'story', targetId: 'missing-story' }); }],
     ['missing capability', x => { x.functionalSystems.usages[0].capabilityId = 'missing-capability'; }],

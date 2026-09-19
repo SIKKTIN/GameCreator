@@ -54,7 +54,7 @@ export function validateCell(column: ColumnDef, value: string, data: ProjectData
     return '未知枚举成员：' + value + '，请重新选择';
   }
   if (column.type === 'reference' && (!column.reference ||
-    !data.datasets[column.reference].some((record) => record.id === value))) return '引用记录不存在：' + value;
+    !data.datasets[column.reference]?.some((record) => record.id === value))) return '引用记录不存在：' + value;
   return '';
 }
 

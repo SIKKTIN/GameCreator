@@ -278,3 +278,18 @@ test('project package preload exposes selection and opaque handles without direc
   await api.projectPackages.release('opaque');
   assert.deepEqual(JSON.parse(JSON.stringify(calls)), [['project-package-choose-import'], ['project-package-restore-assets', {token: 'opaque', projectId: 'new'}], ['project-package-release', 'opaque']]);
 });
+
+
+test('modern table-default state survives folder export and participates in snapshot checks', async t => {
+  const f = await fixture(t), key = archiveKey(f.id, 'default-table-migration');
+  const value = JSON.stringify({schema:1,state:'done',removed:[]});
+  f.storage.setItem(key,value);
+  const document = {...f.document,project:{...f.document.project,defaultTablesVersion:1}};
+  const expectedEntries = [...f.args.expectedEntries,{key,value}];
+  await assert.rejects(f.service.exportFolder({...f.args,document}), /快照不完整/);
+  await f.service.exportFolder({...f.args,document,expectedEntries});
+  assert.equal((await f.service.readFolder(f.directory)).document.project.defaultTablesVersion,1);
+  const blocked = newId(); f.storage.setItem(archiveKey(blocked, 'default-table-migration'),value);
+  const prepared = await f.service.prepareImport(f.directory);
+  await assert.rejects(f.service.restoreAssets({token:prepared.token,projectId:blocked}), /已有项目数据/);
+});

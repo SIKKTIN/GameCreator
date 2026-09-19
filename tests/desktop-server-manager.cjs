@@ -52,8 +52,17 @@ const waitUntil = async (check, message) => {
     await page.getByRole('button',{name:'退出登录',exact:true}).click(); await login('admin');
     console.log('PASS: administrator permissions and forged-role rejection');
     assert.equal(await page.locator('.auth-toolbar').getByRole('button',{name:'服务器管理',exact:true}).count(),0);
+    await page.getByRole('navigation',{name:'工作区模块',exact:true}).getByRole('button',{name:'数据配置',exact:true}).click();
+    await page.getByRole('heading',{name:'还没有配置表',exact:true}).waitFor();
+    assert.equal(await page.locator('.data-directory-heading small').innerText(),'0');
+    await openManager(); await closeManager();
+    await page.getByRole('heading',{name:'还没有配置表',exact:true}).waitFor();
+    assert.equal(await page.locator('.data-directory-heading small').innerText(),'0');
     await page.getByRole('navigation',{name:'工作区模块',exact:true}).getByRole('button',{name:'故事文档',exact:true}).click();
-    await page.getByRole('button',{name:/^打开故事文档：/}).last().click();
+    // A fresh workspace has no built-in tables or stories. Create the local
+    // document through the same UI that the navigation regression exercises.
+    await page.getByRole('button',{name:'新建故事文档',exact:true}).click();
+    await page.getByLabel('文档标题',{exact:true}).fill('服务器管理导航测试');
     const localTitle = await page.getByLabel('文档标题',{exact:true}).inputValue();
     await page.getByLabel('文档正文',{exact:true}).fill('切换服务器管理后保留的本地内容');
     await openManager(); await manager().getByText('未启动',{exact:true}).waitFor();
@@ -125,7 +134,7 @@ const waitUntil = async (check, message) => {
     await userConnection.getByRole('button',{name:'连接并进入项目',exact:true}).click(); await page.locator('.team-project .story-workspace').waitFor();
     assert.equal(await page.getByRole('button',{name:'服务器管理',exact:true}).count(),0); await assertDenied();
     assert.deepEqual(errors,[]);
-    console.log('PASS: independent admin module; hidden for local user even with team-admin identity; two administrators sync status; local document and team draft survive navigation; connection form preserved; background lifecycle, restart and external-service protection.');
+    console.log('PASS: independent admin module; hidden for local user even with team-admin identity; two administrators sync status; empty data configuration, local document and team draft survive navigation; connection form preserved; background lifecycle, restart and external-service protection.');
   } catch(error) {
     if(page&&!page.isClosed()) console.error((await page.locator('body').innerText()).slice(0,5000));
     throw error;

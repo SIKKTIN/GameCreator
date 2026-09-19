@@ -96,7 +96,7 @@ export function DataConfiguration({ workspaceKey, ...props }: Props) {
           {!!empty.length && <><button type="button" className="data-empty-toggle" disabled={!!tableQuery.trim()} aria-label={emptyVisible ? '收起空表' : '展开空表'} aria-expanded={emptyVisible}
             onClick={() => patchDirectory({ emptyExpanded: !emptyVisible })}>{emptyVisible ? <ChevronDown size={14} /> : <ChevronRight size={14} />}<span>空表</span><small>{empty.length}</small></button>
             {emptyVisible && empty.map(renderTable)}</>}
-          {!matching.length && <p className="data-directory-empty">没有匹配的配置表。</p>}
+          {!matching.length && <p className="data-directory-empty">{definitions.length ? '没有匹配的配置表。' : '按项目需要新建配置表。'}</p>}
         </div>
       </div>
       <button type="button" className="data-directory-resize" role="separator" aria-label="调整表目录宽度" aria-orientation="vertical"
@@ -252,7 +252,7 @@ function FieldManager({ columns, definitions, registry, onApply, onClose, onBusy
 }) {
   const [draft, setDraft] = useState(columns);
   const [saving, setSaving] = useState(false);
-  const apply = async () => { setSaving(true); onBusyChange(true); setError(''); try { if (!await onApply(draft)) setError('字段定义未能保存，请重试。'); } finally { setSaving(false); onBusyChange(false); } };
+  const apply = async () => { if (bindingErrors.length || referenceErrors.length) return; setSaving(true); onBusyChange(true); setError(''); try { if (!await onApply(draft)) setError('字段定义未能保存，请重试。'); } finally { setSaving(false); onBusyChange(false); } };
   const [newKey, setNewKey] = useState('');
   const [error, setError] = useState('');
   const update = (index: number, patch: Partial<ColumnDef>) =>
@@ -266,6 +266,7 @@ function FieldManager({ columns, definitions, registry, onApply, onClose, onBusy
   };
   const bindingErrors = draft.filter((column) => column.type === 'enum' &&
     (column.enumId ? !registry.ready || !findEnum(column, registry) : !column.options?.length));
+  const referenceErrors = draft.filter(column => column.type === 'reference' && !definitions.some(item => item.key === column.reference));
   return <div className="field-manager"><fieldset disabled={saving} style={{ border: 0, margin: 0, padding: 0, minWidth: 0 }}>
     <div className="field-manager-head"><div><span>SCHEMA EDITOR</span><h3>字段定义</h3></div><button onClick={onClose}>关闭</button></div>
     <p className="field-hint">仅可绑定稳定版本中的枚举，选项在审核发布后更新。已有记录保留原成员名，不匹配的值会显示校验提示。</p>
@@ -274,7 +275,7 @@ function FieldManager({ columns, definitions, registry, onApply, onClose, onBusy
       <code>{column.key}</code>
       <select aria-label={column.key + ' 字段类型'} disabled={column.key === 'id'} value={column.type ?? 'text'} onChange={(event) =>
         update(index, { type: event.target.value as ColumnDef['type'], enumId: undefined, enumName: undefined, options: undefined,
-          reference: event.target.value === 'reference' ? 'items' : undefined })}>
+          reference: event.target.value === 'reference' ? definitions[0]?.key ?? '' : undefined })}>
         <option value="text">文本</option><option value="enum">枚举</option><option value="reference">跨表引用</option></select>
       {column.type === 'enum' && <div className="enum-binding">
         <select aria-label={column.key + ' 绑定枚举'} disabled={!registry.ready} value={column.enumId ?? ''} onChange={(event) => {
@@ -290,15 +291,19 @@ function FieldManager({ columns, definitions, registry, onApply, onClose, onBusy
         <small>{column.enumId ? findEnum(column, registry)?.source ?? '定义已失效，请重新绑定。' :
           column.options?.join('、') || '成员从代码工程导入'}</small>
       </div>}
-      {column.type === 'reference' && <select aria-label={column.key + ' 引用表'} value={column.reference}
+      {column.type === 'reference' && <select aria-label={column.key + ' 引用表'} value={column.reference ?? ''}
         onChange={(event) => update(index, { reference: event.target.value as DatasetKey })}>
+        <option value="" disabled>请选择引用表</option>
+        {column.reference && !definitions.some(item => item.key === column.reference) && <option value={column.reference}>引用表已失效：{column.reference}</option>}
         {definitions.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}</select>}
     </div>)}</div>
     <div className="field-add"><input aria-label="新字段 key" value={newKey} onChange={(event) => setNewKey(event.target.value)} placeholder="新字段 key，例如 modeID" />
       <button onClick={add}><Plus size={14} />添加字段</button></div>
     {error && <p className="field-error">{error}</p>}
-    <div className="field-manager-foot"><small>{bindingErrors.length ?
-      '有 ' + bindingErrors.length + ' 个枚举字段需要绑定有效定义。' : '应用后自动保存到当前项目，重新打开后保留。'}</small>
-      <button className="primary" disabled={saving || !!bindingErrors.length} onClick={() => void apply()}>{saving ? '正在保存…' : '应用定义'}</button></div>
+    <div className="field-manager-foot"><small>{[
+      bindingErrors.length ? '有 ' + bindingErrors.length + ' 个枚举字段需要绑定有效定义' : '',
+      referenceErrors.length ? '有 ' + referenceErrors.length + ' 个引用字段需要选择有效配置表' : '',
+    ].filter(Boolean).join('；') || '应用后自动保存到当前项目，重新打开后保留。'}</small>
+      <button className="primary" disabled={saving || !!bindingErrors.length || !!referenceErrors.length} onClick={() => void apply()}>{saving ? '正在保存…' : '应用定义'}</button></div>
   </fieldset></div>;
 }
