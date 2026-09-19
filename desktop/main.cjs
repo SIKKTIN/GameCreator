@@ -6,6 +6,8 @@ const { createWorkspaceStorage, prepareTestWorkspace } = require('./test-workspa
 const { validateProjectLocation } = require('./project-locations.cjs');
 const { migrateLegacy } = require('./legacy-storage.cjs');
 const { createArtFiles, validateWorkspaceId } = require('./art-files.cjs');
+const { createLocalAuth } = require('./local-auth.cjs');
+const { createCollaborationHost } = require('./collaboration-host.cjs');
 
 const root = path.resolve(__dirname, '..');
 const dataDirectory = process.env.GAMECREATOR_DATA_DIR || path.join(root, '.gamecreator');
@@ -16,6 +18,11 @@ let localServer, mainWindow;
 let initializing = true;
 if (!app.requestSingleInstanceLock()) app.quit();
 else {
+  const localAuth = createLocalAuth();
+  let collaborationHost;
+  const host = () => collaborationHost ??= createCollaborationHost({ root,
+    directory: process.env.GAMECREATOR_TEAM_DATA_DIR || path.join(root, '.gamecreator/collaboration'),
+    port: Number(process.env.GAMECREATOR_TEAM_PORT || 4747), nodeExecutable: process.env.GAMECREATOR_NODE_PATH || 'node' });
   app.on('second-instance', () => {
     if (mainWindow) { if (mainWindow.isMinimized()) mainWindow.restore(); mainWindow.focus(); }
   });
@@ -27,6 +34,21 @@ else {
         new URL(frame.url).origin === localServer?.url;
     } catch { return false; } // An IPC frame may detach while a native dialog is open.
   };
+  ipcMain.on('local-auth', (event, request) => {
+    try {
+      if (!trusted(event)) throw new Error('不允许访问本机登录');
+      if (request?.operation === 'session') event.returnValue = { ok: true, value: localAuth.current() };
+      else if (request?.operation === 'login') event.returnValue = { ok: true, value: localAuth.login(request.input) };
+      else if (request?.operation === 'logout') { localAuth.logout(); event.returnValue = { ok: true }; }
+      else throw new Error('未知本机登录操作');
+    } catch (error) { event.returnValue = { ok: false, error: error.message }; }
+  });
+  ipcMain.handle('collaboration-host', async (event, operation) => {
+    if (!trusted(event)) throw new Error('不允许管理本机服务器');
+    localAuth.requireAdmin();
+    if (!['status', 'start', 'stop'].includes(operation)) throw new Error('未知服务器管理操作');
+    return host()[operation]();
+  });
   ipcMain.on('workspace-storage', (event, request) => {
     try {
       if (!trusted(event)) throw new Error('不允许访问本地存档');

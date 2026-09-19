@@ -4,6 +4,7 @@ import { beforeLogoutEvent } from './auth';
 import { StoryDocuments } from './StoryDocuments';
 import { StoryImportDialog } from './StoryImportDialog';
 import { WorkspaceSidebar } from './WorkspaceSidebar';
+import type { ServerModuleNavigation } from './ServerManager';
 import { workspaceStorage } from './workspace-storage';
 import type { SavedProject } from './project-catalog';
 import { canLeaveTeam, leaveTeamEvent, roleLabels, sameFields, storyFields, teamStoryDocument, TeamError, teamRequest,
@@ -13,9 +14,10 @@ import './team.css';
 const displayTime = (value: string) => new Date(value).toLocaleString('zh-CN', { hour12: false });
 type Draft = { base: TeamStory; fields: TeamStoryFields };
 
-export function TeamProjectWorkspace({ project, session, picker, localProjects, onConnection, onDisconnect }: {
+export function TeamProjectWorkspace({ project, session, picker, localProjects, onConnection, onDisconnect, localAdmin, serverPage, onManageServer, onLeaveServer }: {
   project: TeamProject; session: TeamSession; picker: ReactNode; localProjects: SavedProject[]; onConnection: () => void; onDisconnect: () => void;
-}) {
+  localAdmin: boolean;
+} & ServerModuleNavigation) {
   const [stories, setStories] = useState<TeamStory[]>([]), [selectedId, setSelectedId] = useState('');
   const [members, setMembers] = useState<{ username: string; role: TeamRole }[]>([]);
   const [syncError, setSyncError] = useState(''), [loaded, setLoaded] = useState(false), [role, setRole] = useState(project.role);
@@ -69,11 +71,12 @@ export function TeamProjectWorkspace({ project, session, picker, localProjects, 
   };
   const selected = stories.find(item => item.id === selectedId);
   return <div className="app team-project">
-    <WorkspaceSidebar picker={picker} team active="故事文档" onNavigate={() => {}} footer={<>
+    <WorkspaceSidebar picker={picker} team admin={localAdmin} active={serverPage ? '服务器管理' : '故事文档'} onManageServer={onManageServer} onNavigate={onLeaveServer} footer={<>
       <div className="user"><div className="avatar">{session.user.username[0].toUpperCase()}</div><span>{session.user.username}<small>团队成员 · {roleLabels[role]}</small></span></div>
       <details className="team-members"><summary>项目成员 · {members.length}</summary>{members.map(item => <p key={item.username}>{item.username}<small>{roleLabels[item.role]}</small></p>)}</details>
     </>} />
-    <main><header><div><div className="crumb">{project.name} <span>/</span> 团队项目</div><h1>故事文档</h1></div>
+    {serverPage}
+    <main hidden={!!serverPage}><header><div><div className="crumb">{project.name} <span>/</span> 团队项目</div><h1>故事文档</h1></div>
       <div className="team-actions"><button onClick={onConnection}>连接设置</button><button onClick={onDisconnect}>断开团队连接</button></div></header>
       <div className="team-project-info"><span>团队项目 · {session.url}</span><span>当前成员：{session.user.username} · {roleLabels[role]}</span><span>已共享：故事文档</span></div>
       <div className={'team-sync ' + (syncError ? 'offline' : '')} role="status">{syncError ? <CloudOff size={16} /> : <Cloud size={16} />}

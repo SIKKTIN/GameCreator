@@ -1,0 +1,31 @@
+.app > main[hidden] { display: none; }
+.authenticated-shell > .app { height: calc(100vh - 36px); }
+.workspace-sidebar > nav { min-height: 0; overflow-y: auto; flex: 1; align-content: start; scrollbar-width: thin; scrollbar-color: #494357 transparent; }
+.workspace-sidebar > .side-bottom { flex-shrink: 0; }
+.workspace-admin-nav { margin: 24px 0 12px; padding-top: 16px; border-top: 1px solid #292936; }
+.workspace-admin-nav > span { padding: 0 13px 6px; color: #77768a; font-size: 10px; letter-spacing: 1px; }
+.server-manager-page { min-width: 0; }
+.server-manager-page > header { gap: 20px; }
+.server-manager-page button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; border: 1px solid #484158; background: #2b263a; color: #e1d8f2; padding: 10px 14px; border-radius: 7px; cursor: pointer; font: inherit; font-size: 12px; }
+.server-manager-page button:disabled { opacity: .5; cursor: not-allowed; }
+.server-manager-page button:hover:not(:disabled) { border-color: #9b84df; background: #39304b; }
+.server-manager-intro { color: #b9adc9; font-size: 13px; line-height: 1.8; margin: -10px 0 24px; }
+.server-manager-card { max-width: 980px; padding: 28px; border: 1px solid #3d354f; border-radius: 12px; background: #1c1927; }
+.server-manager-card > h2 { font-size: 17px; margin: 0 0 22px; }
+.server-manager-state { display: flex; align-items: center; gap: 10px; padding: 15px; background: #292332; border: 1px solid #484054; border-radius: 9px; font-size: 14px; }
+.server-manager-state.is-running { background: #1c302b; border-color: #355b4e; color: #9dd7bf; }
+.server-manager-state button { margin-left: auto; border: 0; padding: 5px; background: transparent; }
+.server-manager-details { display: grid; gap: 22px; margin: 28px 0; }
+.server-manager-details > div { display: grid; grid-template-columns: 165px minmax(0, 1fr); gap: 18px; font-size: 13px; line-height: 1.8; }
+.server-manager-details dt { color: #a396b9; }
+.server-manager-details dd { margin: 0; overflow-wrap: anywhere; color: #ddd4ec; }
+.server-manager-details code { font-family: inherit; font-size: 14px; }
+.server-manager-details dd button { margin-left: 12px; padding: 4px 8px; font-size: 11px; }
+.server-manager-notice, .server-manager-error, .server-manager-confirm { padding: 13px 15px; border: 1px solid #695839; border-radius: 8px; background: #30291e; color: #e3c698; font-size: 12px; line-height: 1.8; margin: 16px 0; }
+.server-manager-error { border-color: #7a4859; background: #321f2c; color: #efb2c4; white-space: pre-wrap; overflow-wrap: anywhere; }
+.server-manager-confirm p { margin: 0 0 12px; }
+.server-manager-confirm button { margin-right: 10px; }
+.server-manager-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 28px; }
+.server-manager-actions .server-manager-start { background: #7761d1; border-color: #9d86e8; color: #fff; }
+.server-manager-footnote { color: #9e91b0; font-size: 12px; line-height: 1.8; margin: 24px 0 0; padding-top: 20px; border-top: 1px solid #3d354f; }
+@media (max-width: 1100px) { .server-manager-details > div { grid-template-columns: 135px minmax(0, 1fr); } }
