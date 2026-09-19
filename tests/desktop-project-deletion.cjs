@@ -92,6 +92,11 @@ const root = path.resolve(__dirname, '..'), catalogKey = 'gamecreator.projects.v
     await app.close(); app = null; await launch();
     await page.getByRole('heading', { name: '暂无本地项目', exact: true }).waitFor();
     assert.equal(read().projects.length, 0);
+    await button('用户与权限').click();
+    const users = page.getByRole('main', { name: '用户与权限', exact: true });
+    await users.getByRole('button', { name: '连接服务器管理员', exact: true }).waitFor();
+    await users.getByRole('button', { name: '返回工作区', exact: true }).click();
+    await page.getByRole('heading', { name: '暂无本地项目', exact: true }).waitFor();
     await page.locator('.ps-trigger').click(); await menu().getByRole('menuitem', { name: '新建项目', exact: true }).click();
     const create = page.getByRole('dialog', { name: '新建项目', exact: true });
     await create.getByLabel('项目名称', { exact: true }).fill('其他项目'); await create.getByRole('button', { name: '创建并切换', exact: true }).click();
