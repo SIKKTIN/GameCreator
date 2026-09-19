@@ -8,6 +8,12 @@ interface Window {
       readPreview: (workspaceId: string, storagePath: string) => Promise<{ dataUrl: string } | null>;
       reveal: (workspaceId: string, storagePath: string) => Promise<void>;
     };
+    projectPackages?: {
+      exportFolder: (input: { projectId: string; document: import('./project-package').ProjectPackageDocument; expectedEntries: { key: string; value: string | null }[] }) => Promise<{ directory: string; fileCount: number } | null>;
+      chooseImport: () => Promise<{ token: string; document: unknown } | null>;
+      restoreAssets: (input: { token: string; projectId: string }) => Promise<void>;
+      release: (token: string) => Promise<void>;
+    };
     pickProjectDirectory?: () => Promise<string | null>;
     validateProjectLocation?: (input: { projectPath: string; enumPath: string }) => Promise<{ projectPath: string; enumPath: string }>;
     prepareTestWorkspace?: (scenario: import('./test-scenarios').TestScenarioId) => Promise<import('./test-scenarios').PreparedTest>;

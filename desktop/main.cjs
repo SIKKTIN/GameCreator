@@ -6,12 +6,15 @@ const { createWorkspaceStorage, prepareTestWorkspace } = require('./test-workspa
 const { validateProjectLocation } = require('./project-locations.cjs');
 const { migrateLegacy } = require('./legacy-storage.cjs');
 const { createArtFiles, validateWorkspaceId } = require('./art-files.cjs');
+const { createProjectPackages, safeProjectDirectoryName } = require('./project-package.cjs');
 
 const root = path.resolve(__dirname, '..');
 const dataDirectory = process.env.GAMECREATOR_DATA_DIR || path.join(root, '.gamecreator');
 if (process.env.GAMECREATOR_USER_DATA_DIR) app.setPath('userData', process.env.GAMECREATOR_USER_DATA_DIR);
 const storage = createWorkspaceStorage(dataDirectory);
 const artFiles = createArtFiles(dataDirectory);
+const projectPackages = createProjectPackages({dataDirectory, storage});
+const packageTokens = new Map();
 let localServer, mainWindow;
 let initializing = true;
 if (!app.requestSingleInstanceLock()) app.quit();
@@ -72,6 +75,34 @@ else {
       shell.showItemInFolder(filename);
     });
   });
+  ipcMain.handle('project-package-export', async (event, payload) => {
+    if (!trusted(event)) throw new Error('不允许导出本地项目');
+    const requestingWindow = mainWindow;
+    const result = await dialog.showOpenDialog(requestingWindow, {title: '选择项目导出位置（将在其中创建项目文件夹）', properties: ['openDirectory', 'createDirectory']});
+    if (result.canceled || !result.filePaths.length) return null;
+    if (mainWindow !== requestingWindow || !trusted(event)) throw new Error('原工作区窗口已关闭，请重新导出');
+    return projectPackages.exportFolder({projectId: payload?.projectId, document: payload?.document, expectedEntries: payload?.expectedEntries,
+      directory: path.join(result.filePaths[0], safeProjectDirectoryName(payload?.document?.project?.name))});
+  });
+  ipcMain.handle('project-package-choose-import', async event => {
+    if (!trusted(event)) throw new Error('不允许导入本地项目');
+    const requestingWindow = mainWindow;
+    const result = await dialog.showOpenDialog(requestingWindow, {title: '选择包含 manifest.json 的项目文件夹', properties: ['openDirectory']});
+    if (result.canceled || !result.filePaths.length) return null;
+    if (mainWindow !== requestingWindow || !trusted(event)) throw new Error('原工作区窗口已关闭，请重新导入');
+    const prepared = await projectPackages.prepareImport(result.filePaths[0]);
+    if (mainWindow !== requestingWindow || !trusted(event)) { projectPackages.release(prepared.token); throw new Error('原工作区窗口已关闭，请重新导入'); }
+    packageTokens.set(prepared.token, event.sender);
+    return prepared;
+  });
+  ipcMain.handle('project-package-restore-assets', async (event, payload) => {
+    if (!trusted(event) || packageTokens.get(payload?.token) !== event.sender) throw new Error('不允许恢复此项目文件夹');
+    return projectPackages.restoreAssets({token: payload.token, projectId: payload.projectId});
+  });
+  ipcMain.handle('project-package-release', (event, token) => {
+    if (!trusted(event) || packageTokens.get(token) !== event.sender) throw new Error('不允许释放此项目文件夹');
+    projectPackages.release(token); packageTokens.delete(token);
+  });
   ipcMain.handle('write-markdown', async (event, payload) => {
     if (!trusted(event)) throw new Error('不允许写入文件');
     const filename = String(payload?.filename ?? 'context.md').replace(/[^a-zA-Z0-9._-]/g, '_');
@@ -92,7 +123,10 @@ else {
       return { action: 'deny' };
     });
     mainWindow.webContents.on('will-navigate', (event, url) => { if (new URL(url).origin !== localServer.url) event.preventDefault(); });
-    mainWindow.on('closed', () => { mainWindow = null; });
+    mainWindow.on('closed', () => {
+      for (const token of packageTokens.keys()) { try { projectPackages.release(token); } catch {} }
+      packageTokens.clear(); mainWindow = null;
+    });
     const teamAccount = process.env.GAMECREATOR_TEAM_ACCOUNT;
     await mainWindow.loadURL(localServer.url + '/' + (teamAccount ? '?team=' + encodeURIComponent(teamAccount) : ''));
   }

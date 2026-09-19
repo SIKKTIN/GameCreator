@@ -12,6 +12,12 @@ contextBridge.exposeInMainWorld('desktopClient', {
     readPreview: (workspaceId, storagePath) => ipcRenderer.invoke('art-files-preview', { workspaceId, storagePath }),
     reveal: (workspaceId, storagePath) => ipcRenderer.invoke('art-files-reveal', { workspaceId, storagePath }),
   },
+  projectPackages: {
+    exportFolder: input => ipcRenderer.invoke('project-package-export', input),
+    chooseImport: () => ipcRenderer.invoke('project-package-choose-import'),
+    restoreAssets: input => ipcRenderer.invoke('project-package-restore-assets', input),
+    release: token => ipcRenderer.invoke('project-package-release', token),
+  },
   pickProjectDirectory: () => ipcRenderer.invoke('pick-project-directory'),
   validateProjectLocation: input => ipcRenderer.invoke('validate-project-location', input),
   prepareTestWorkspace: scenario => ipcRenderer.invoke('prepare-test-workspace', scenario),

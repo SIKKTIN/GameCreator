@@ -169,6 +169,7 @@ test('art IPC accepts only the trusted main frame and imports only native-dialog
   const context = {require: name => {
     if (name === 'electron') return electron;
     if (name === './art-files.cjs') return {createArtFiles: () => service, validateWorkspaceId};
+    if (name === './project-package.cjs') return {createProjectPackages: () => ({}), safeProjectDirectoryName: value => value};
     if (name === './test-workspaces.cjs') return {createWorkspaceStorage: () => ({}), prepareTestWorkspace: () => {}};
     if (name === './server.cjs') return {createDesktopServer: () => {}};
     if (name === './project-locations.cjs') return {validateProjectLocation: () => {}};

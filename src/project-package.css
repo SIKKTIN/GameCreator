@@ -1,0 +1,13 @@
+.pp-dialog { width:min(660px,calc(100vw - 32px)); }
+.pp-summary { padding:18px; border:1px solid #494052; border-radius:8px; background:#17141f; }
+.pp-summary > strong { display:block; overflow-wrap:anywhere; font-size:15px; }
+.pp-summary dl { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; margin:18px 0 0; }
+.pp-summary dt { color:#aa9ebc; font-size:11px; }
+.pp-summary dd { color:#e9dff7; margin:5px 0 0; font-size:19px; font-variant-numeric:tabular-nums; }
+.pp-progress { display:flex; align-items:center; gap:12px; padding:18px; background:#292137; color:#cdb8ee; border-radius:8px; }
+.pp-success { display:flex; gap:12px; padding:18px; border:1px solid #325b4d; border-radius:8px; background:#1b3029; color:#8bddbd; }
+.pp-success > svg { flex:none; }
+.pp-success p { color:#ddede6; line-height:1.7; overflow-wrap:anywhere; user-select:text; }
+.pp-success small { color:#a8c2b7; }
+.pp-dialog .pi-actions { flex-wrap:wrap; }
+.pp-dialog .pi-actions > div { flex-wrap:wrap; }

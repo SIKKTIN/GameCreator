@@ -7,3 +7,4 @@ dist-withdraw/
 generate/*.md
 .DS_Store
 .gamecreator/
+ProjectCache/

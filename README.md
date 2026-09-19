@@ -23,7 +23,7 @@ npm run desktop   # Electron 本地客户端
 
 点击左上角项目名称，可切换已有项目。管理员可使用“新建项目”，只填写名称即可创建并切换到空白项目，先编写介绍、故事和配置数据。需要连接游戏工程时，再到“引擎设置”填写工程目录与枚举目录并点击“保存设置”。各项目的内容和引擎设置独立保存，后续修改目录不会更换项目存档，重启恢复上次选择。
 
-详细操作见 [项目切换与独立存档](docs/project-switching.md)。
+详细操作见 [项目切换与独立存档](docs/project-switching.md)。管理员还可从项目菜单导出完整的普通文件夹，再从文件夹导入为独立项目，连同美术原始文件和版本历史一起迁移。见 [项目文件夹导出与迁移](docs/project-package.md)。
 
 ## 玩法设计
 
@@ -61,6 +61,7 @@ npm run mcp:debug
 
 - [项目切换与独立存档](docs/project-switching.md)
 - [从原型示例创建项目](docs/prototype-examples.md)
+- [项目文件夹导出与迁移](docs/project-package.md)
 - [分支与原型数据管理](docs/branch-workflow.md)
 - [枚举版本审核流程](docs/enum-version-workflow.md)
 - [Withdraw 枚举导入说明](docs/withdraw-enum-import.md)
