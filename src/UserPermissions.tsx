@@ -2,15 +2,17 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { beforeLogoutEvent } from './auth';
 import { canLeaveTeam, leaveTeamEvent, teamRequest, TeamError, type TeamProject, type TeamSession } from './team-api';
 import { TeamProjectDialog } from './TeamProjectDialog';
+import { DeleteTeamProjectDialog } from './DeleteTeamProjectDialog';
 import './user-permissions.css';
 
 type Account = { id:string; username:string; serverRole:'admin'|'member'; enabled:boolean; revision:number };
 type Audit = { id:number;actor:string;action:string;target:string;createdAt:string;details:{projectName?:string} };
 type Action = { kind:'create' } | { kind:'edit'|'password'; account:Account };
+type ManagedProject = { id:string;name:string;role:TeamProject['role']|null;memberCount?:number;storyCount?:number };
 export function UserPermissions({ session,onConnect,onBack,onChanged }: { session:TeamSession|null;onConnect:()=>void;onBack:()=>void;onChanged:()=>void }) {
   return <main className="user-permissions-page" aria-label="用户与权限">
     <header><div><div className="crumb">管理 <span>/</span> 协作服务器</div><h1>用户与权限</h1></div><button onClick={()=>{if(canLeaveTeam())onBack();}}>返回工作区</button></header>
-    <p>服务器管理员管理账号；项目管理员配置各自项目的成员及模块权限。</p>
+    <p>服务器管理员管理账号及协作项目；项目管理员配置各自项目的成员及模块权限。</p>
     {!session||session.invalid||session.user.serverRole!=='admin'?<section className="overview-panel"><h2>连接服务器管理员</h2>
       <p>{session?.invalid?'团队登录已失效，请重新连接。':session?`当前团队账号 ${session.user.username} 没有服务器管理员权限。`:'连接协作服务器后管理用户和权限。'}</p>
       <button onClick={onConnect}>连接服务器管理员</button></section>
@@ -19,23 +21,25 @@ export function UserPermissions({ session,onConnect,onBack,onChanged }: { sessio
   </main>;
 }
 function UserPermissionsContent({session,onConnect,onChanged}:{session:TeamSession;onConnect:()=>void;onChanged:()=>void}) {
-  const [accounts,setAccounts]=useState<Account[]>([]),[projects,setProjects]=useState<TeamProject[]>([]),[audit,setAudit]=useState<Audit[]>([]);
+  const [accounts,setAccounts]=useState<Account[]>([]),[projects,setProjects]=useState<ManagedProject[]>([]),[audit,setAudit]=useState<Audit[]>([]);
   const [error,setError]=useState(''),[denied,setDenied]=useState(false),[loaded,setLoaded]=useState(false),[notice,setNotice]=useState('');
   const [action,setAction]=useState<Action|null>(null),[project,setProject]=useState<TeamProject|null>(null);
+  const [deleting,setDeleting]=useState<ManagedProject|null>(null);
+  const deletionEnabled=(session.apiVersion??0)>=8;
   const alive=useRef(true),sequence=useRef(0);
   const refresh=useCallback(async()=>{
     const read=++sequence.current;
     try{
       const [users,directory,events]=await Promise.all([
         teamRequest<{accounts:Account[]}>(session.url,'/admin/users',session.token),
-        teamRequest<{projects:TeamProject[]}>(session.url,'/projects',session.token),
+        teamRequest<{projects:ManagedProject[]}>(session.url,deletionEnabled?'/admin/projects':'/projects',session.token),
         teamRequest<{audit:Audit[]}>(session.url,'/admin/audit',session.token),
       ]);
       if(!alive.current||read!==sequence.current)return;
-      setAccounts(users.accounts);setProjects(directory.projects.filter(item=>item.role==='admin'));setAudit(events.audit);setLoaded(true);setDenied(false);setError('');
+      setAccounts(users.accounts);setProjects(directory.projects.filter(item=>deletionEnabled||item.role==='admin'));setAudit(events.audit);setLoaded(true);setDenied(false);setError('');
       setProject(current=>current&&directory.projects.some(item=>item.id===current.id&&item.role==='admin')?current:null);
-    }catch(reason){if(alive.current&&read===sequence.current){setError((reason as Error).message);if(reason instanceof TeamError&&[401,403].includes(reason.status)){setDenied(true);setAction(null);setProject(null);}}}
-  },[session.url,session.token]);
+    }catch(reason){if(alive.current&&read===sequence.current){setError((reason as Error).message);if(reason instanceof TeamError&&[401,403].includes(reason.status)){setDenied(true);setAction(null);setProject(null);setDeleting(null);}}}
+  },[session.url,session.token,deletionEnabled]);
   useEffect(()=>{alive.current=true;let active=true,timer:number;const poll=async()=>{await refresh();if(active)timer=window.setTimeout(poll,3000);};void poll();return()=>{alive.current=false;active=false;window.clearTimeout(timer);++sequence.current;};},[refresh]);
   const changed=()=>{void refresh();onChanged();};
   return <>
@@ -52,14 +56,17 @@ function UserPermissionsContent({session,onConnect,onChanged}:{session:TeamSessi
             <button aria-label={'重置密码：'+account.username} onClick={()=>{if(canLeaveTeam())setAction({kind:'password',account});}}>重置密码</button></div></td>
         </tr>)}</tbody></table></div>
       </section>
-      <section className="overview-panel" aria-label="项目权限管理"><h2>我管理的协作项目</h2><p>编辑者默认概览只读、故事可编辑。每个项目可以单独调整，授权不会扩展到其他项目。</p>
-        {!projects.length?<p>当前账号尚未担任任何项目的管理员。</p>:<ul className="user-manager-projects">{projects.map(item=><li key={item.id}><strong>{item.name}</strong>
-          <button aria-label={'配置项目权限：'+item.name} onClick={()=>{if(canLeaveTeam())setProject(item);}}>配置成员与权限</button></li>)}</ul>}
+      <section className="overview-panel" aria-label="项目权限管理"><h2>{deletionEnabled?'协作项目管理':'我管理的协作项目'}</h2><p>编辑者默认概览只读，故事和玩法核心可编辑。项目管理员配置成员权限；服务器管理员可删除此服务器的协作项目。</p>
+        {!deletionEnabled&&<p>删除项目需要升级服务器后重新连接。</p>}
+        {!projects.length?<p>当前没有可管理的协作项目。</p>:<ul className="user-manager-projects">{projects.map(item=><li key={item.id} data-project-id={item.id}><div><strong>{item.name}</strong><small className="user-project-id">{item.id}</small>{item.memberCount!==undefined&&<small>{item.memberCount} 位成员 · {item.storyCount} 篇故事</small>}</div>
+          <div className="team-actions">{item.role==='admin'&&<button aria-label={'配置项目权限：'+item.name} onClick={()=>{if(canLeaveTeam())setProject({...item,role:'admin'});}}>配置成员与权限</button>}
+          {deletionEnabled&&<button className="delete-project-button" aria-label={'删除协作项目：'+item.name} onClick={()=>{if(canLeaveTeam())setDeleting(item);}}>删除项目</button>}</div></li>)}</ul>}
       </section>
-      <section className="overview-panel"><h2>最近权限变更</h2>{audit.length?<ol className="user-manager-audit">{audit.map(item=><li key={item.id}><strong>{item.action} · {item.details.projectName??item.target}</strong><span>{item.actor} · {new Date(item.createdAt).toLocaleString('zh-CN')}</span></li>)}</ol>:<p>暂无权限变更记录</p>}</section>
+      <section className="overview-panel"><h2>最近管理操作</h2>{audit.length?<ol className="user-manager-audit">{audit.map(item=><li key={item.id}><strong>{item.action} · {item.details.projectName??item.target}</strong><span>{item.actor} · {new Date(item.createdAt).toLocaleString('zh-CN')}</span></li>)}</ol>:<p>暂无管理操作记录</p>}</section>
     </>}
     {action&&!denied&&<AccountDialog session={session} action={action} onClose={()=>setAction(null)} onSaved={()=>{setNotice(action.kind==='create'?'账号已创建，请在项目中添加成员并配置权限。':action.kind==='password'?'密码已重置，该账号需要重新登录。':'账号配置已保存。');setAction(null);changed();}}/>}
     {project&&!denied&&<TeamProjectDialog session={session} project={project} onClose={()=>setProject(null)} onSaved={changed}/>}
+    {deleting&&!denied&&<DeleteTeamProjectDialog session={session} project={deleting} onClose={()=>setDeleting(null)} onDeleted={()=>{setNotice(`协作项目「${deleting.name}」已删除，原本地项目和本机草稿保留。`);setDeleting(null);changed();}}/>}
   </>;
 }
 function AccountDialog({session,action,onClose,onSaved}:{session:TeamSession;action:Action;onClose:()=>void;onSaved:()=>void}) {

@@ -16,3 +16,5 @@
 .user-manager-audit { max-height:320px; overflow:auto; }.user-manager-audit li { display:grid; gap:7px; padding:12px 0; border-bottom:1px solid #37303f; font-size:13px; }.user-manager-audit span { color:#a99bb9; }
 .user-manager-notice { background:#19352c; color:#a4d4bf!important; border:1px solid #335346; padding:12px 16px; border-radius:7px; }
 .user-account-dialog p { font-size:13px; line-height:1.8; }.user-account-dialog label { margin:15px 0; }
+
+.user-manager-projects small{display:block;color:#a99bb9;margin-top:6px;font-size:12px}.user-project-id,.delete-project-id{overflow-wrap:anywhere}.user-permissions-page .delete-project-button,.delete-team-project-dialog .delete-project-button{border-color:#9f4f61;background:#422631;color:#ffc6ce}.delete-team-project-dialog{max-height:85vh;overflow:auto}.delete-team-project-dialog p,.delete-team-project-dialog li{line-height:1.7;font-size:13px}.delete-team-project-dialog input{width:100%;box-sizing:border-box;margin-top:8px}.delete-team-project-dialog label{display:block;margin-top:16px}.user-manager-projects li>div:first-child{min-width:0}.user-manager-projects .team-actions{flex-wrap:wrap;flex-shrink:0}

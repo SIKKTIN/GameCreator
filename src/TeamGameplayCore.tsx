@@ -8,7 +8,7 @@ import { workspaceStorage } from './workspace-storage';
 import type { GameplayCoreController } from './useGameplayCore';
 
 type Response = CoreSnapshot & { role: TeamRole; capabilities: TeamCapabilities };
-export function TeamGameplayCore({ session, projectId, blocked, onDenied }: { session: TeamSession; projectId: string; blocked: boolean; onDenied: () => void }) {
+export function TeamGameplayCore({ session, projectId, blocked, onDenied }: { session: TeamSession; projectId: string; blocked: boolean; onDenied: (status?: number) => void }) {
   const key = `gamecreator.team-draft.v1:${session.serverId}:${session.user.id}:${projectId}:gameplay-core`;
   const layoutKey = `gamecreator.team-core-layout.v1:${session.serverId}:${session.user.id}:${projectId}`;
   const [initial] = useState(() => {
@@ -55,7 +55,7 @@ export function TeamGameplayCore({ session, projectId, blocked, onDenied }: { se
           if (active && started === generation.current && !savingRef.current) { receive(value); setSyncError(''); }
         }
       } catch (reason) {
-        if (active) { setSyncError((reason as Error).message); if (reason instanceof TeamError && [401,403].includes(reason.status)) { setResponse(undefined); onDenied(); } }
+        if (active) { setSyncError((reason as Error).message); if (reason instanceof TeamError && [401,403,410].includes(reason.status)) { setResponse(undefined); onDenied(reason.status); } }
       } finally { if (active) timer = window.setTimeout(poll,2000); }
     };
     void poll(); return () => { active = false; alive.current = false; window.clearTimeout(timer); };
@@ -80,7 +80,7 @@ export function TeamGameplayCore({ session, projectId, blocked, onDenied }: { se
         setError((reason as Error).message);
         if (reason instanceof TeamError) {
           if (reason.status === 409 && reason.currentRecord) receive(reason.currentRecord as Response);
-          if ([401,403].includes(reason.status)) setResponse(undefined);
+          if ([401,403,410].includes(reason.status)) setResponse(undefined);
         }
       }
     } finally { savingRef.current = false; ++generation.current; if (alive.current) setSaving(false); }
