@@ -29,6 +29,7 @@ async function fixture(t) {
   archives.project = {name: project.name, description: '包含全部历史、采用版本与真实文件'};
   archives.stories = [{id: 'story', content: '原始文档'}];
   archives.milestones = [];
+  archives['gameplay-core'] = {schema: 1, rootId: 'root', graphs: [{id: 'root', title: '核心', summary: '', nodes: [{id: 'entry', kind: 'entry', title: '开始', description: '', x: 12.5, y: 87, childGraphId: '', gameplayIds: ['gameplay-1']}], edges: []}]};
   archives['data-view'] = {schema: 1, activeTable: 'crops'};
   const document = {schema: 1, project, archives};
   storage.setItem(CATALOG, JSON.stringify({schema: 2, activeId: id, mode: 'project', projects: [{id, ...project, initialContent: 'empty'}]}));
@@ -292,4 +293,47 @@ test('modern table-default state survives folder export and participates in snap
   const blocked = newId(); f.storage.setItem(archiveKey(blocked, 'default-table-migration'),value);
   const prepared = await f.service.prepareImport(f.directory);
   await assert.rejects(f.service.restoreAssets({token:prepared.token,projectId:blocked}), /已有项目数据/);
+});
+
+test('legacy folders without gameplay core remain readable while new core archives are hash-protected', async t => {
+  const f = await fixture(t);
+  delete f.document.archives['gameplay-core'];
+  await f.export();
+  const legacy = await f.service.readFolder(f.directory);
+  assert.equal(Object.hasOwn(legacy.document.archives, 'gameplay-core'), false);
+  const next = await fixture(t);
+  await next.export();
+  const manifest = await next.manifest();
+  const coreFile = manifest.files.find(file => file.path === 'data/gameplay-core.json');
+  assert.ok(coreFile);
+  const bytes = await fs.readFile(path.join(next.directory, coreFile.path));
+  assert.equal(sha(bytes), coreFile.sha256);
+  const changed = JSON.parse(bytes.toString('utf8')); changed.graphs[0].nodes[0].x += 1;
+  await fs.writeFile(path.join(next.directory, coreFile.path), JSON.stringify(changed));
+  await assert.rejects(next.service.readFolder(next.directory), /校验失败/);
+});
+
+test('malformed core graphs are rejected before export creates a directory', async t => {
+  for (const mutate of [
+    core => { core.schema = 2; },
+    core => { core.rootId = ' '; core.graphs[0].id = ' '; },
+    core => { core.graphs[0].nodes[0].id = ' '; },
+    core => { core.graphs[0].nodes[0].gameplayIds = [' ']; },
+    core => { core.graphs[0].edges.push({id: ' ', fromId: 'entry', toId: 'entry', label: '', condition: ''}); },
+    core => { core.graphs[0].nodes[0].x = null; },
+    core => { core.graphs[0].edges.push({id: 'invalid', fromId: 'entry', toId: 'missing', label: '', condition: ''}); },
+    core => { core.graphs[0].nodes[0].kind = 'module'; core.graphs[0].nodes[0].childGraphId = 'root'; },
+  ]) {
+    const f = await fixture(t); mutate(f.document.archives['gameplay-core']);
+    await assert.rejects(f.export(), /玩法核心存档格式无效/);
+    assert.equal(await exists(f.directory), false);
+  }
+});
+
+test('core edits during export invalidate its captured snapshot', async t => {
+  const f = await fixture(t), coreKey = archiveKey(f.id, 'gameplay-core');
+  const core = structuredClone(f.document.archives['gameplay-core']); core.graphs[0].nodes[0].x = 700;
+  f.storage.setItem(coreKey, JSON.stringify(core));
+  await assert.rejects(f.export(), /导出期间发生变化/);
+  assert.equal(await exists(f.directory), false);
 });

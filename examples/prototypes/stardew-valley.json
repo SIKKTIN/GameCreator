@@ -7186,5 +7186,611 @@
         ]
       }
     }
-  ]
+  ],
+  "gameplayCore": {
+    "schema": 1,
+    "rootId": "farm-core-root",
+    "graphs": [
+      {
+        "id": "farm-core-root",
+        "title": "农场生活：开放的每日循环",
+        "summary": "早晨规划、自由活动、夜间结算构成主循环。没有必须抵达的终点；钓鱼和矿洞是本原型下一步可展开的模块。",
+        "nodes": [
+          {
+            "id": "farm-core-root-entry",
+            "kind": "entry",
+            "title": "开始农场生活",
+            "description": "",
+            "x": 40,
+            "y": 220,
+            "childGraphId": "",
+            "gameplayIds": [
+              "11fe1000-35a3-4c5e-b2b6-21a9f33902cb"
+            ]
+          },
+          {
+            "id": "farm-core-root-morning",
+            "kind": "activity",
+            "title": "新的一天",
+            "description": "查看作物、精力与今日安排。",
+            "x": 280,
+            "y": 220,
+            "childGraphId": "",
+            "gameplayIds": [
+              "612eb5c5-d3b8-466e-b590-7a645e01acfe",
+              "c0b157ac-9c4b-46fe-bbdc-fee604d57452"
+            ]
+          },
+          {
+            "id": "farm-core-root-choose",
+            "kind": "decision",
+            "title": "安排活动",
+            "description": "",
+            "x": 520,
+            "y": 220,
+            "childGraphId": "",
+            "gameplayIds": []
+          },
+          {
+            "id": "farm-core-root-farm",
+            "kind": "module",
+            "title": "农场劳作",
+            "description": "",
+            "x": 770,
+            "y": 20,
+            "childGraphId": "farm-core-farm",
+            "gameplayIds": [
+              "d3491dbb-2524-461c-84e6-62c7c3cb924c",
+              "612eb5c5-d3b8-466e-b590-7a645e01acfe"
+            ]
+          },
+          {
+            "id": "farm-core-root-fish",
+            "kind": "module",
+            "title": "钓鱼",
+            "description": "拓展方向，待设计具体操作。",
+            "x": 770,
+            "y": 170,
+            "childGraphId": "farm-core-fishing",
+            "gameplayIds": []
+          },
+          {
+            "id": "farm-core-root-mine",
+            "kind": "module",
+            "title": "矿洞探索",
+            "description": "拓展方向，待设计风险与收益。",
+            "x": 770,
+            "y": 320,
+            "childGraphId": "farm-core-mine",
+            "gameplayIds": []
+          },
+          {
+            "id": "farm-core-root-social",
+            "kind": "module",
+            "title": "村庄社交",
+            "description": "",
+            "x": 770,
+            "y": 470,
+            "childGraphId": "farm-core-social",
+            "gameplayIds": [
+              "c21a2dab-5e57-4f0e-a0a4-1af66918c5e3"
+            ]
+          },
+          {
+            "id": "farm-core-root-settle",
+            "kind": "activity",
+            "title": "休息与日结算",
+            "description": "出售货物，推进作物成长并恢复精力。",
+            "x": 1040,
+            "y": 220,
+            "childGraphId": "",
+            "gameplayIds": [
+              "c0b157ac-9c4b-46fe-bbdc-fee604d57452",
+              "cb74278b-710d-4c58-a373-64feedef5b37"
+            ]
+          }
+        ],
+        "edges": [
+          {
+            "id": "farm-core-root-edge-1",
+            "fromId": "farm-core-root-entry",
+            "toId": "farm-core-root-morning",
+            "label": "",
+            "condition": ""
+          },
+          {
+            "id": "farm-core-root-edge-2",
+            "fromId": "farm-core-root-morning",
+            "toId": "farm-core-root-choose",
+            "label": "",
+            "condition": ""
+          },
+          {
+            "id": "farm-core-root-edge-3",
+            "fromId": "farm-core-root-choose",
+            "toId": "farm-core-root-farm",
+            "label": "",
+            "condition": ""
+          },
+          {
+            "id": "farm-core-root-edge-4",
+            "fromId": "farm-core-root-farm",
+            "toId": "farm-core-root-choose",
+            "label": "还有时间",
+            "condition": "时间与精力允许"
+          },
+          {
+            "id": "farm-core-root-edge-5",
+            "fromId": "farm-core-root-farm",
+            "toId": "farm-core-root-settle",
+            "label": "结束一天",
+            "condition": "到达晚间或选择休息"
+          },
+          {
+            "id": "farm-core-root-edge-6",
+            "fromId": "farm-core-root-choose",
+            "toId": "farm-core-root-fish",
+            "label": "",
+            "condition": ""
+          },
+          {
+            "id": "farm-core-root-edge-7",
+            "fromId": "farm-core-root-fish",
+            "toId": "farm-core-root-choose",
+            "label": "还有时间",
+            "condition": "时间与精力允许"
+          },
+          {
+            "id": "farm-core-root-edge-8",
+            "fromId": "farm-core-root-fish",
+            "toId": "farm-core-root-settle",
+            "label": "结束一天",
+            "condition": "到达晚间或选择休息"
+          },
+          {
+            "id": "farm-core-root-edge-9",
+            "fromId": "farm-core-root-choose",
+            "toId": "farm-core-root-mine",
+            "label": "",
+            "condition": ""
+          },
+          {
+            "id": "farm-core-root-edge-10",
+            "fromId": "farm-core-root-mine",
+            "toId": "farm-core-root-choose",
+            "label": "还有时间",
+            "condition": "时间与精力允许"
+          },
+          {
+            "id": "farm-core-root-edge-11",
+            "fromId": "farm-core-root-mine",
+            "toId": "farm-core-root-settle",
+            "label": "结束一天",
+            "condition": "到达晚间或选择休息"
+          },
+          {
+            "id": "farm-core-root-edge-12",
+            "fromId": "farm-core-root-choose",
+            "toId": "farm-core-root-social",
+            "label": "",
+            "condition": ""
+          },
+          {
+            "id": "farm-core-root-edge-13",
+            "fromId": "farm-core-root-social",
+            "toId": "farm-core-root-choose",
+            "label": "还有时间",
+            "condition": "时间与精力允许"
+          },
+          {
+            "id": "farm-core-root-edge-14",
+            "fromId": "farm-core-root-social",
+            "toId": "farm-core-root-settle",
+            "label": "结束一天",
+            "condition": "到达晚间或选择休息"
+          },
+          {
+            "id": "farm-core-root-edge-15",
+            "fromId": "farm-core-root-settle",
+            "toId": "farm-core-root-morning",
+            "label": "下一天",
+            "condition": ""
+          },
+          {
+            "id": "farm-core-root-edge-16",
+            "fromId": "farm-core-root-choose",
+            "toId": "farm-core-root-settle",
+            "label": "直接休息",
+            "condition": ""
+          }
+        ]
+      },
+      {
+        "id": "farm-core-farm",
+        "title": "农场：投入与跨日成长",
+        "summary": "工具操作与种植结合；未成熟作物要在后续日子继续照料。",
+        "nodes": [
+          {
+            "id": "farm-core-farm-entry",
+            "kind": "entry",
+            "title": "返回田地",
+            "description": "",
+            "x": 40,
+            "y": 160,
+            "childGraphId": "",
+            "gameplayIds": []
+          },
+          {
+            "id": "farm-core-farm-work",
+            "kind": "activity",
+            "title": "耕地、播种与浇水",
+            "description": "",
+            "x": 280,
+            "y": 160,
+            "childGraphId": "",
+            "gameplayIds": [
+              "d3491dbb-2524-461c-84e6-62c7c3cb924c",
+              "612eb5c5-d3b8-466e-b590-7a645e01acfe"
+            ]
+          },
+          {
+            "id": "farm-core-farm-ready",
+            "kind": "decision",
+            "title": "作物是否成熟",
+            "description": "",
+            "x": 520,
+            "y": 160,
+            "childGraphId": "",
+            "gameplayIds": []
+          },
+          {
+            "id": "farm-core-farm-harvest",
+            "kind": "activity",
+            "title": "收获与出货",
+            "description": "",
+            "x": 760,
+            "y": 80,
+            "childGraphId": "",
+            "gameplayIds": [
+              "612eb5c5-d3b8-466e-b590-7a645e01acfe",
+              "cb74278b-710d-4c58-a373-64feedef5b37"
+            ]
+          },
+          {
+            "id": "farm-core-farm-exit",
+            "kind": "exit",
+            "title": "返回当天安排",
+            "description": "未成熟作物留待以后照料。",
+            "x": 1000,
+            "y": 160,
+            "childGraphId": "",
+            "gameplayIds": []
+          }
+        ],
+        "edges": [
+          {
+            "id": "farm-core-farm-edge-1",
+            "fromId": "farm-core-farm-entry",
+            "toId": "farm-core-farm-work",
+            "label": "",
+            "condition": ""
+          },
+          {
+            "id": "farm-core-farm-edge-2",
+            "fromId": "farm-core-farm-work",
+            "toId": "farm-core-farm-ready",
+            "label": "",
+            "condition": ""
+          },
+          {
+            "id": "farm-core-farm-edge-3",
+            "fromId": "farm-core-farm-ready",
+            "toId": "farm-core-farm-harvest",
+            "label": "成熟",
+            "condition": ""
+          },
+          {
+            "id": "farm-core-farm-edge-4",
+            "fromId": "farm-core-farm-ready",
+            "toId": "farm-core-farm-exit",
+            "label": "等待成长",
+            "condition": ""
+          },
+          {
+            "id": "farm-core-farm-edge-5",
+            "fromId": "farm-core-farm-harvest",
+            "toId": "farm-core-farm-exit",
+            "label": "",
+            "condition": ""
+          },
+          {
+            "id": "farm-core-farm-edge-6",
+            "fromId": "farm-core-farm-harvest",
+            "toId": "farm-core-farm-work",
+            "label": "继续农活",
+            "condition": "仍有可用田地与精力"
+          }
+        ]
+      },
+      {
+        "id": "farm-core-fishing",
+        "title": "钓鱼：尝试、收获、再尝试",
+        "summary": "扩展玩法草图，钓鱼操作与鱼种规则尚未建立独立玩法文档。",
+        "nodes": [
+          {
+            "id": "farm-core-fishing-entry",
+            "kind": "entry",
+            "title": "选择水域",
+            "description": "",
+            "x": 40,
+            "y": 160,
+            "childGraphId": "",
+            "gameplayIds": []
+          },
+          {
+            "id": "farm-core-fishing-cast",
+            "kind": "activity",
+            "title": "抛竿与钓取",
+            "description": "",
+            "x": 280,
+            "y": 160,
+            "childGraphId": "",
+            "gameplayIds": []
+          },
+          {
+            "id": "farm-core-fishing-catch",
+            "kind": "activity",
+            "title": "收获或空手",
+            "description": "",
+            "x": 520,
+            "y": 160,
+            "childGraphId": "",
+            "gameplayIds": []
+          },
+          {
+            "id": "farm-core-fishing-again",
+            "kind": "decision",
+            "title": "继续钓鱼",
+            "description": "",
+            "x": 760,
+            "y": 160,
+            "childGraphId": "",
+            "gameplayIds": []
+          },
+          {
+            "id": "farm-core-fishing-exit",
+            "kind": "exit",
+            "title": "返回当天安排",
+            "description": "",
+            "x": 760,
+            "y": 360,
+            "childGraphId": "",
+            "gameplayIds": []
+          }
+        ],
+        "edges": [
+          {
+            "id": "farm-core-fishing-edge-1",
+            "fromId": "farm-core-fishing-entry",
+            "toId": "farm-core-fishing-cast",
+            "label": "",
+            "condition": ""
+          },
+          {
+            "id": "farm-core-fishing-edge-2",
+            "fromId": "farm-core-fishing-cast",
+            "toId": "farm-core-fishing-catch",
+            "label": "",
+            "condition": ""
+          },
+          {
+            "id": "farm-core-fishing-edge-3",
+            "fromId": "farm-core-fishing-catch",
+            "toId": "farm-core-fishing-again",
+            "label": "",
+            "condition": ""
+          },
+          {
+            "id": "farm-core-fishing-edge-4",
+            "fromId": "farm-core-fishing-again",
+            "toId": "farm-core-fishing-cast",
+            "label": "再次尝试",
+            "condition": "时间与精力足够"
+          },
+          {
+            "id": "farm-core-fishing-edge-5",
+            "fromId": "farm-core-fishing-again",
+            "toId": "farm-core-fishing-exit",
+            "label": "离开",
+            "condition": ""
+          }
+        ]
+      },
+      {
+        "id": "farm-core-mine",
+        "title": "矿洞：探索与风险取舍",
+        "summary": "扩展玩法草图，矿层战斗与资源规则尚未建立独立玩法文档。",
+        "nodes": [
+          {
+            "id": "farm-core-mine-entry",
+            "kind": "entry",
+            "title": "进入矿洞",
+            "description": "",
+            "x": 40,
+            "y": 160,
+            "childGraphId": "",
+            "gameplayIds": []
+          },
+          {
+            "id": "farm-core-mine-explore",
+            "kind": "activity",
+            "title": "采集与遭遇",
+            "description": "",
+            "x": 280,
+            "y": 160,
+            "childGraphId": "",
+            "gameplayIds": []
+          },
+          {
+            "id": "farm-core-mine-risk",
+            "kind": "decision",
+            "title": "深入还是返回",
+            "description": "",
+            "x": 520,
+            "y": 160,
+            "childGraphId": "",
+            "gameplayIds": []
+          },
+          {
+            "id": "farm-core-mine-exit",
+            "kind": "exit",
+            "title": "带回资源",
+            "description": "",
+            "x": 760,
+            "y": 160,
+            "childGraphId": "",
+            "gameplayIds": []
+          }
+        ],
+        "edges": [
+          {
+            "id": "farm-core-mine-edge-1",
+            "fromId": "farm-core-mine-entry",
+            "toId": "farm-core-mine-explore",
+            "label": "",
+            "condition": ""
+          },
+          {
+            "id": "farm-core-mine-edge-2",
+            "fromId": "farm-core-mine-explore",
+            "toId": "farm-core-mine-risk",
+            "label": "",
+            "condition": ""
+          },
+          {
+            "id": "farm-core-mine-edge-3",
+            "fromId": "farm-core-mine-risk",
+            "toId": "farm-core-mine-explore",
+            "label": "深入",
+            "condition": "资源与风险可接受"
+          },
+          {
+            "id": "farm-core-mine-edge-4",
+            "fromId": "farm-core-mine-risk",
+            "toId": "farm-core-mine-exit",
+            "label": "返回",
+            "condition": "背包已满、精力不足或主动离开"
+          }
+        ]
+      },
+      {
+        "id": "farm-core-social",
+        "title": "社交：相遇、委托与关系",
+        "summary": "按 NPC 日程相遇，交流或完成委托，再回到当天安排。",
+        "nodes": [
+          {
+            "id": "farm-core-social-entry",
+            "kind": "entry",
+            "title": "前往村庄",
+            "description": "",
+            "x": 40,
+            "y": 160,
+            "childGraphId": "",
+            "gameplayIds": [
+              "c21a2dab-5e57-4f0e-a0a4-1af66918c5e3"
+            ]
+          },
+          {
+            "id": "farm-core-social-meet",
+            "kind": "activity",
+            "title": "寻找 NPC 与交流",
+            "description": "",
+            "x": 280,
+            "y": 160,
+            "childGraphId": "",
+            "gameplayIds": [
+              "c21a2dab-5e57-4f0e-a0a4-1af66918c5e3"
+            ]
+          },
+          {
+            "id": "farm-core-social-quest",
+            "kind": "decision",
+            "title": "是否有委托可交付",
+            "description": "",
+            "x": 520,
+            "y": 160,
+            "childGraphId": "",
+            "gameplayIds": []
+          },
+          {
+            "id": "farm-core-social-deliver",
+            "kind": "activity",
+            "title": "交付与获得反馈",
+            "description": "",
+            "x": 760,
+            "y": 80,
+            "childGraphId": "",
+            "gameplayIds": [
+              "cb74278b-710d-4c58-a373-64feedef5b37",
+              "c21a2dab-5e57-4f0e-a0a4-1af66918c5e3"
+            ]
+          },
+          {
+            "id": "farm-core-social-exit",
+            "kind": "exit",
+            "title": "返回当天安排",
+            "description": "",
+            "x": 1000,
+            "y": 160,
+            "childGraphId": "",
+            "gameplayIds": []
+          }
+        ],
+        "edges": [
+          {
+            "id": "farm-core-social-edge-1",
+            "fromId": "farm-core-social-entry",
+            "toId": "farm-core-social-meet",
+            "label": "",
+            "condition": ""
+          },
+          {
+            "id": "farm-core-social-edge-2",
+            "fromId": "farm-core-social-meet",
+            "toId": "farm-core-social-quest",
+            "label": "",
+            "condition": ""
+          },
+          {
+            "id": "farm-core-social-edge-3",
+            "fromId": "farm-core-social-quest",
+            "toId": "farm-core-social-deliver",
+            "label": "满足委托",
+            "condition": ""
+          },
+          {
+            "id": "farm-core-social-edge-4",
+            "fromId": "farm-core-social-quest",
+            "toId": "farm-core-social-exit",
+            "label": "暂不交付",
+            "condition": ""
+          },
+          {
+            "id": "farm-core-social-edge-5",
+            "fromId": "farm-core-social-deliver",
+            "toId": "farm-core-social-exit",
+            "label": "",
+            "condition": ""
+          },
+          {
+            "id": "farm-core-social-edge-6",
+            "fromId": "farm-core-social-deliver",
+            "toId": "farm-core-social-meet",
+            "label": "继续拜访",
+            "condition": ""
+          }
+        ]
+      }
+    ]
+  }
 }

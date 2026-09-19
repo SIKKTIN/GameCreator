@@ -72,7 +72,7 @@ for (const summary of prototypeExamples) {
     const storage = memoryStorage(prior);
     writePrototypeProject(storage, prepared);
     assertUntouched(storage, prior);
-    assert.equal(storage.writes.length, 8);
+    assert.equal(storage.writes.length, 9);
     assert.ok(!storage.writes.includes(PROJECT_CATALOG_KEY));
     const id = prepared.project.id;
     assert.deepEqual(readGameplay(storage, workspaceKey(id, 'gameplay')).store, example.gameplay);
@@ -90,6 +90,7 @@ for (const summary of prototypeExamples) {
     assert.equal(versions.activeId, null);
     assert.equal(versions.candidateId, null);
     assert.deepEqual(versions.snapshots, []);
+    assert.deepEqual(JSON.parse(storage.getItem(workspaceKey(prepared.project.id, 'gameplay-core'))), example.gameplayCore);
     assert.deepEqual(versions.releases, []);
     assert.deepEqual(versions.reviews, {});
     example.gameplay.designs[0].title = '修改载入源不应改变已序列化副本';
@@ -130,7 +131,7 @@ test('repeat imports keep stable module IDs in separate namespaces and edits rem
 });
 
 test('every partial archive failure leaves the old project/catalog untouched and allows a fresh-identity retry', () => {
-  for (let failAt = 0; failAt < 8; failAt++) {
+  for (let failAt = 0; failAt < 9; failAt++) {
     const prior = originals();
     const storage = memoryStorage(prior);
     const prepared = preparePrototypeProject(catalog, fixture(), '失败导入');
@@ -168,7 +169,7 @@ test('catalog publication failure leaves complete but unreachable new archives a
     failingStorage.setItem(PROJECT_CATALOG_KEY, JSON.stringify(prepared.catalog));
   }, /catalog write failed/);
   assertUntouched(storage, prior);
-  assert.equal(storage.writes.length, 8);
+  assert.equal(storage.writes.length, 9);
 });
 
 test('collision preflight checks all archive keys before writing any, including a collision at the last key', () => {
@@ -182,7 +183,7 @@ test('collision preflight checks all archive keys before writing any, including 
   const storage = memoryStorage();
   writePrototypeProject(storage, prepared);
   assert.throws(() => writePrototypeProject(storage, prepared), /已有数据/);
-  assert.equal(storage.writes.length, 8);
+  assert.equal(storage.writes.length, 9);
 });
 
 test('write guard rejects keys outside the fresh project and preflight read failures write nothing', () => {

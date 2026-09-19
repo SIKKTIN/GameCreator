@@ -11,6 +11,8 @@ import { useArtAssets } from './useArtAssets';
 import { FunctionalSystems, GameplayFunctions, type FunctionalSelection } from './FunctionalSystems';
 import { useFunctionalSystems } from './useFunctionalSystems';
 import { GameplayDesigns } from './GameplayDesigns';
+import { GameplayCore } from './GameplayCore';
+import { useGameplayCore } from './useGameplayCore';
 import { useGameplayDesigns } from './useGameplayDesigns';
 import { ProjectSwitcher, type SwitchableProject } from './ProjectSwitcher';
 import { useProjectCatalog } from './useProjectCatalog';
@@ -279,13 +281,14 @@ function WorkspaceApp({ role, username, testSession, onLoadTest, onExitTest, pre
   const creatingDataset = useRef(false);
   const registry = useEnumRegistry(engineConfig, isNewProject ? emptyProjectData : initialData, username, dataKey);
   const gameplay = useGameplayDesigns(dataKey);
+  const core = useGameplayCore(dataKey);
   const functional = useFunctionalSystems(dataKey);
   const art = useArtAssets(dataKey, testSession ? 'test:' + testSession.id : 'project:' + formalProject.id);
   useEffect(() => {
-    const guard = (event: Event) => { if (gameplay.pending || functional.pending || art.pending) event.preventDefault(); };
+    const guard = (event: Event) => { if (gameplay.pending || functional.pending || art.pending || core.pending) event.preventDefault(); };
     window.addEventListener(beforeLogoutEvent, guard);
     return () => window.removeEventListener(beforeLogoutEvent, guard);
-  }, [gameplay.pending, functional.pending, art.pending]);
+  }, [gameplay.pending, functional.pending, art.pending, core.pending]);
   const currentData = registry.data;
   const [allDefinitions, setDefinitions, definitionsError] = useStoredState<DatasetDef[]>('gamecreator.workspace.v1:' + dataKey + ':definitions', isNewProject ? emptyDatasetDefinitions : datasetDefinitions);
   const definitions = Object.keys(currentData.datasets).map(key =>
@@ -310,11 +313,11 @@ function WorkspaceApp({ role, username, testSession, onLoadTest, onExitTest, pre
   const openGameplay = (id: string, kind = 'design', sourceId = '') => { setActiveGameplayId(id); setGameplaySource({ kind, id: sourceId }); setActive('玩法设计'); };
   const completedMilestones = milestones.filter((milestone) => milestone.status === 'done').length;
   const progress = milestones.length ? Math.round((completedMilestones / milestones.length) * 100) : 0;
-  const storageError = [definitionsError, milestoneError, storyError, projectError, registry.error, gameplay.error, functional.error, art.error].filter(Boolean).join('；');
+  const storageError = [definitionsError, milestoneError, storyError, projectError, registry.error, gameplay.error, functional.error, art.error, core.error].filter(Boolean).join('；');
 
   const exportAiContext = async () => {
-    if (testSession || gameplay.blocked || gameplay.pending || functional.blocked || functional.pending || art.blocked || art.pending) return;
-    const markdown = buildAiMarkdown(project, storyDocs, currentData, definitions, engineConfig, registry, gameplay.store.designs, functional.store, art.store);
+    if (testSession || gameplay.blocked || gameplay.pending || functional.blocked || functional.pending || art.blocked || art.pending || core.blocked || core.pending) return;
+    const markdown = buildAiMarkdown(project, storyDocs, currentData, definitions, engineConfig, registry, gameplay.store.designs, functional.store, art.store, core.store);
     const location = await saveAiMarkdown(markdown, formalProject.id);
 
     window.alert(`AI 文档已生成：${location}`);
@@ -392,31 +395,33 @@ function WorkspaceApp({ role, username, testSession, onLoadTest, onExitTest, pre
     <div className="app local-workspace">
       <WorkspaceSidebar picker={<ProjectSwitcher projects={projectOptions} currentId={testSession ? null : formalProject.id} currentName={project.name}
           testName={testSession ? testScenarios.find(item=>item.id===testSession.scenario)?.name : undefined}
-          canAdd={role === 'admin'} busy={preparingTest || registry.busy || registry.loading || gameplay.pending || functional.pending || functional.blocked || art.pending || art.blocked} onSelect={onSelectProject} onAdd={onAddProject} onConnectTeam={onConnectTeam} onImportPrototype={onImportPrototype} onImportProject={onImportProject} onExportProject={!testSession && !storageError ? onExportProject : undefined} />} active={serverPage ? '服务器管理' : active}
+          canAdd={role === 'admin'} busy={preparingTest || registry.busy || registry.loading || gameplay.pending || functional.pending || functional.blocked || art.pending || art.blocked || core.pending} onSelect={onSelectProject} onAdd={onAddProject} onConnectTeam={onConnectTeam} onImportPrototype={onImportPrototype} onImportProject={onImportProject} onExportProject={!testSession && !storageError ? onExportProject : undefined} />} active={serverPage ? '服务器管理' : active}
         onNavigate={name => { onLeaveServer(); setActive(name); }} admin={role === 'admin'} onManageServer={onManageServer} footer={<>
         <button><Settings2 size={17} />工作区设置</button><div className="user"><div className="avatar">G</div><span>{username}<small>本地项目</small></span></div>
       </>} />
 
       {serverPage}
-      <main hidden={!!serverPage}>
+      <main hidden={!!serverPage} className={active === '玩法核心' ? 'core-workspace-page' : undefined}>
         <header>
           <div><div className="crumb">{project.name.toUpperCase()} <span>/</span> {active.toUpperCase()}</div><h1>{active}</h1></div>
           <div className="header-actions">
             {role === 'admin' && <TestPanel page={active} username={username} config={engineConfig} registry={registry} testSession={testSession}
-              busy={preparingTest || gameplay.pending || functional.pending || functional.blocked || art.pending || art.blocked} error={testError || storageError} onLoad={onLoadTest} onExit={onExitTest} onNavigate={setActive} />}
+              busy={preparingTest || gameplay.pending || functional.pending || functional.blocked || art.pending || art.blocked || core.pending} error={testError || storageError} onLoad={onLoadTest} onExit={onExitTest} onNavigate={setActive} />}
             <div className="search"><Search size={16} /><input placeholder="搜索内容..." /></div>
-            <button className="save" disabled={!!testSession || gameplay.blocked || gameplay.pending || functional.blocked || functional.pending || art.blocked || art.pending} title={testSession ? "测试工作区可在面板复制诊断信息" : undefined} onClick={exportAiContext}><FileText size={16} />生成 AI 文档</button>
+            <button className="save" disabled={!!testSession || gameplay.blocked || gameplay.pending || functional.blocked || functional.pending || art.blocked || art.pending || core.blocked || core.pending} title={testSession ? "测试工作区可在面板复制诊断信息" : undefined} onClick={exportAiContext}><FileText size={16} />生成 AI 文档</button>
             <span className="save" role="status">{storageError ? <AlertTriangle size={16} /> : <Check size={16} />}{storageError ? '请检查保存状态' : registry.busy ? '正在保存…' : '已自动保存'}</span>
           </div>
         </header>
 
         {testSession && <div className="test-workspace-banner" role="status"><span><b>测试工作区</b> · {testScenarios.find(item=>item.id===testSession.scenario)?.name} · 数据独立保存</span>
-          <button disabled={preparingTest || registry.busy || registry.loading || gameplay.pending || functional.pending || functional.blocked || art.pending || art.blocked} onClick={onExitTest}>返回原工作区</button></div>}
+          <button disabled={preparingTest || registry.busy || registry.loading || gameplay.pending || functional.pending || functional.blocked || art.pending || art.blocked || core.pending} onClick={onExitTest}>返回原工作区</button></div>}
         {testError && <p className="field-error" role="alert">{testError}</p>}
-        {storageError && !gameplay.error && !functional.error && !art.error && <p className="field-error" role="alert">{storageError}</p>}
+        {storageError && !gameplay.error && !functional.error && !art.error && !core.error && <p className="field-error" role="alert">{storageError}</p>}
         {gameplay.error && <div className="gp-save-error" role="alert"><span>{gameplay.error}{gameplay.pending && "。草稿保留在当前窗口，请重试保存后再切换项目。"}</span>{gameplay.pending && <button className="gp-secondary" onClick={gameplay.retry}>重试保存玩法</button>}</div>}
         {functional.error && <div className="gp-save-error" role="alert"><span>{functional.error}{functional.pending && '。草稿保留在当前窗口，请重试保存后再切换项目。'}</span>{functional.pending && <button className="gp-secondary" onClick={functional.retry}>重试保存功能系统</button>}</div>}
         {art.error && <div className="gp-save-error" role="alert"><span>{art.error}{art.pending && '。草稿保留在当前窗口，请重试保存后再切换项目。'}</span>{art.pending && <button className="gp-secondary" onClick={art.retry}>重试保存美术资产</button>}</div>}
+        {core.error && <div className="gp-save-error" role="alert"><span>{core.error}{core.pending && '。草稿保留在当前窗口，请重试保存后再切换项目。'}</span>{core.pending && <button className="gp-secondary" onClick={core.retry}>重试保存玩法核心</button>}</div>}
+        <div hidden={active !== '玩法核心'}><GameplayCore controller={core} designs={gameplay.store.designs} onOpenGameplay={openGameplay} /></div>
         {active === '项目概览' && (
           <ProjectOverview
             project={project}
@@ -450,7 +455,7 @@ function WorkspaceApp({ role, username, testSession, onLoadTest, onExitTest, pre
         {active === '枚举定义' && <EnumDefinitions registry={registry} />}
         {active === '枚举管理' && <EnumManager config={engineConfig} registry={registry} />}
         {active === '引擎设置' && <fieldset disabled={!!testSession} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>{testSession && <p>测试场景使用固定来源，请通过测试面板加载或重置场景。</p>}<EngineSettings config={engineConfig} registry={registry} onPickDirectory={window.desktopClient?.pickProjectDirectory} setConfig={(next) => testSession ? Promise.resolve(false) : onConfigChange(next)} /></fieldset>}
-        {active !== '项目概览' && active !== '玩法设计' && active !== '功能系统' && active !== '美术资产' && active !== '故事文档' && active !== '数据配置' && active !== '枚举定义' && active !== '枚举管理' && active !== '引擎设置' && (
+        {active !== '项目概览' && active !== '玩法核心' && active !== '玩法设计' && active !== '功能系统' && active !== '美术资产' && active !== '故事文档' && active !== '数据配置' && active !== '枚举定义' && active !== '枚举管理' && active !== '引擎设置' && (
           <section className="empty">
             <div className="empty-icon"><Layers size={34} /></div>
             <h2>{active}</h2>
