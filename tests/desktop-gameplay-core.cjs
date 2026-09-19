@@ -16,7 +16,7 @@ const root = path.resolve(__dirname, '..');
   const { validateGameplayCore } = await import('../src/gameplay-core.ts');
   const design = createGameplay('防守关卡详细设计');
   storage.setItem(section(a, 'gameplay'), JSON.stringify({ schema: 3, designs: [design] }));
-  for (const slug of ['plants-vs-zombies', 'stardew-valley', 'hollow-knight', 'disco-elysium']) {
+  for (const slug of ['plants-vs-zombies', 'stardew-valley', 'hollow-knight', 'disco-elysium', 'vampire-survivors']) {
     const example = JSON.parse(await fs.readFile(path.join(root, 'examples/prototypes', slug + '.json'), 'utf8'));
     validateGameplayCore(example.gameplayCore);
     const id = 'project-' + crypto.randomUUID();

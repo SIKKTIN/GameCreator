@@ -1,6 +1,6 @@
 # 原型设计示例
 
-四份示例保存 GameCreator 中已经填写的玩法、程序功能与美术台账，以及它们引用的配置和故事。规则、数值、像素尺寸与动画规格均为本工具中的原型设计约定。
+五份示例保存 GameCreator 中已经填写的玩法、程序功能与美术台账，以及它们引用的配置和故事。规则、数值、像素尺寸与动画规格均为本工具中的原型设计约定。
 
 | 文件 | 玩法 | 功能系统 / 功能 | 美术需求 / 资产 |
 | --- | ---: | ---: | ---: |
@@ -8,6 +8,7 @@
 | [stardew-valley.json](stardew-valley.json) | 6 | 8 / 19 | 23 / 34 |
 | [plants-vs-zombies.json](plants-vs-zombies.json) | 5 | 7 / 17 | 20 / 32 |
 | [disco-elysium.json](disco-elysium.json) | 8 | 9 / 21 | 22 / 40 |
+| [vampire-survivors.json](vampire-survivors.json) | 9 | 9 / 24 | 26 / 42 |
 
 ## 快照内容
 
@@ -20,7 +21,7 @@
 - artAssets：schema 1 美术需求、资产台账、需求来源及复用关系。
 - data、definitions、stories：引用所需的配置记录、字段定义和故事文档。
 
-四份示例仅包含实际使用的配置表：空洞骑士 8 张、星露谷物语 9 张、植物大战僵尸 4 张、极乐迪斯科 15 张；不附带 Items、Characters、Skills、Economy、Shop 通用空表。
+五份示例仅包含实际使用的配置表：空洞骑士 8 张、星露谷物语 9 张、植物大战僵尸 4 张、极乐迪斯科 15 张、吸血鬼幸存者 16 张；不附带 Items、Characters、Skills、Economy、Shop 通用空表。
 
 模块内的稳定 ID 被保留，确保人物动作、规则、状态、时间事件、场景对象、程序功能与美术需求可以相互定位。定义中的配置字段采用实际数据字段，不能只靠默认表模板解释。
 
@@ -47,3 +48,5 @@ node scripts/validate-prototype-examples.mjs
 需要更新示例时，应一起更新关联模块，并重新运行校验；不要直接把 .gamecreator 整个目录提交到 Git。
 
 极乐迪斯科示例采用原创港区案件和台词，含两天日程、五个场景、六名人物及三种阶段结果。完整条件、运行契约与参考来源见 [港区疑案说明](../../docs/disco-elysium-prototype.md)。
+
+吸血鬼幸存者示例用一张30分钟荒原表达自动攻击、经验三选一、六武器六被动、三条进化与跨局成长。时空、结算与取整规则见 [暮色荒原说明](../../docs/vampire-survivors-prototype.md)。

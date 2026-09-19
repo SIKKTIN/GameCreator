@@ -18,7 +18,7 @@ const digest = value => createHash('sha256').update(value).digest('hex');
   const dataDir = path.join(dir, 'data'), storage = createWorkspaceStorage(dataDir);
   const oldId = 'project-qa-existing', oldName = 'QA 已有项目 · 保留内容';
   const fixtures = [];
-  for (const [slug, title] of [['hollow-knight', '空洞骑士'], ['stardew-valley', '星露谷物语'], ['plants-vs-zombies', '植物大战僵尸'], ['disco-elysium', '极乐迪斯科']]) {
+  for (const [slug, title] of [['hollow-knight', '空洞骑士'], ['stardew-valley', '星露谷物语'], ['plants-vs-zombies', '植物大战僵尸'], ['disco-elysium', '极乐迪斯科'], ['vampire-survivors', '吸血鬼幸存者']]) {
     const file = path.join(root, 'examples', 'prototypes', slug + '.json');
     const raw = await fs.readFile(file, 'utf8');
     fixtures.push({ slug, title, file, hash: digest(raw), value: JSON.parse(raw) });
@@ -174,8 +174,8 @@ const digest = value => createHash('sha256').update(value).digest('hex');
     assert.equal(await page.getByRole('menuitem', { name: '从原型示例创建项目', exact: true }).count(), 0);
     assert.deepEqual(errors, []);
     await fs.writeFile(path.join(artifacts, 'prototype-import-results.json'), JSON.stringify({ examples: results, importedProjects: catalog().projects.length - 1,
-      verified: ['four complete imports', 'module rendering', 'repeat import isolation', 'edit/restart persistence', 'module-write failure/retry', 'catalog-write failure/retry', 'existing archives unchanged', 'repository examples unchanged', 'admin-only entry'] }, null, 2));
-    console.log('PASS prototype import: four examples, module rendering, independent repeat copies, edit/restart, module and catalog write failures/retry, unchanged existing projects and examples, admin-only entry');
+      verified: ['five complete imports', 'module rendering', 'repeat import isolation', 'edit/restart persistence', 'module-write failure/retry', 'catalog-write failure/retry', 'existing archives unchanged', 'repository examples unchanged', 'admin-only entry'] }, null, 2));
+    console.log('PASS prototype import: five examples, module rendering, independent repeat copies, edit/restart, module and catalog write failures/retry, unchanged existing projects and examples, admin-only entry');
   } catch (error) {
     if (page && !page.isClosed()) {
       await page.screenshot({ path: path.join(artifacts, 'prototype-import-failure.png') }).catch(() => {});

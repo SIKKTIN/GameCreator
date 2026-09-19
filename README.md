@@ -96,4 +96,4 @@ npm run mcp:debug
 
 ## 原型示例
 
-[四套完整设计快照](examples/prototypes/README.md)保存空洞骑士、星露谷、植物大战僵尸和极乐迪斯科原型的玩法、功能系统、美术需求、资产台账及引用数据。管理员可从左上角项目列表选择“从原型示例创建项目”，只填写名称即可复制为独立本地项目；已有项目不会被覆盖，重复创建也互相独立。操作与保存规则见 [原型示例](docs/prototype-examples.md)。示例独立于本机存档，可以使用 `node scripts/validate-prototype-examples.mjs` 校验。
+[五套完整设计快照](examples/prototypes/README.md)保存空洞骑士、星露谷、植物大战僵尸、极乐迪斯科和吸血鬼幸存者原型的玩法、功能系统、美术需求、资产台账及引用数据。管理员可从左上角项目列表选择“从原型示例创建项目”，只填写名称即可复制为独立本地项目；已有项目不会被覆盖，重复创建也互相独立。操作与保存规则见 [原型示例](docs/prototype-examples.md)。示例独立于本机存档，可以使用 `node scripts/validate-prototype-examples.mjs` 校验。
