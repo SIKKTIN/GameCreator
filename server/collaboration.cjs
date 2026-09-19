@@ -7,6 +7,7 @@ const publicationLimits = require('../shared/publication-limits.json');
 const { createOverviewStore } = require('./team-overview.cjs');
 const { createAccessStore } = require('./team-access.cjs');
 const { createCoreStore } = require('./team-core.cjs');
+const { createProjectAdminStore } = require('./team-project-admin.cjs');
 
 const demoAccounts = ['admin', 'alice', 'bob', 'viewer'];
 class RequestError extends Error {
@@ -134,6 +135,7 @@ async function createCollaborationServer({ directory, port = 4747, root = path.r
   const { membership, requireServerAdmin, memberRows, memberInput, writeMembers } = access;
   const overview = createOverviewStore(db, { fail, textField });
   const core = createCoreStore(db, { fail, activity: overview.activity });
+  const projectAdmin = createProjectAdminStore(db, { fail, audit: access.audit });
   const serverRole = user => access.activeUser(user).server_role;
   const publicationSource = input => ({
     sourceInstanceId: textField(input.sourceInstanceId, '本机标识', 100, true),
@@ -143,6 +145,7 @@ async function createCollaborationServer({ directory, port = 4747, root = path.r
     const published = db.prepare(`SELECT project_id AS projectId, published_at AS publishedAt, story_count AS storyCount
       FROM project_publications WHERE source_instance_id=? AND source_project_id=?`).get(source.sourceInstanceId, source.sourceProjectId);
     if (!published) return null;
+    if (projectAdmin.deletedPublication(source)) return null;
     const member = membership(published.projectId, user);
     const project = db.prepare('SELECT id,name FROM projects WHERE id=?').get(published.projectId);
     return { project: { ...project, ...member }, publishedAt: published.publishedAt, storyCount: published.storyCount, overviewInitialized: overview.info(published.projectId).initialized, coreInitialized: core.read(published.projectId).initialized };
@@ -184,7 +187,7 @@ async function createCollaborationServer({ directory, port = 4747, root = path.r
         response.setHeader('Access-Control-Allow-Origin', origin);
         response.setHeader('Vary', 'Origin');
         response.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
-        response.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS');
+        response.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
       }
       if (request.method === 'OPTIONS') { response.writeHead(204); response.end(); return; }
       const url = new URL(request.url, 'http://127.0.0.1');
@@ -202,7 +205,7 @@ async function createCollaborationServer({ directory, port = 4747, root = path.r
         }
         fail(405, '不支持此操作');
       }
-      if (route === '/api/team/health' && request.method === 'GET') return send(response, 200, { service: 'gamecreator-collaboration', serverId, apiVersion: 7 });
+      if (route === '/api/team/health' && request.method === 'GET') return send(response, 200, { service: 'gamecreator-collaboration', serverId, apiVersion: 8 });
       if (route === '/api/team/login' && request.method === 'POST') {
         const input = await readBody(request);
         const username = textField(input.username, '账号', 80, true).toLowerCase();
@@ -213,13 +216,28 @@ async function createCollaborationServer({ directory, port = 4747, root = path.r
         for (const [token, session] of sessions) if (session.expires < Date.now()) sessions.delete(token);
         const token = randomBytes(32).toString('hex');
         sessions.set(token, { userId: user.id, username: user.username, authRevision: user.auth_revision, expires: Date.now() + 12 * 60 * 60 * 1000 });
-        return send(response, 200, { token, serverId, apiVersion: 7, user: { id: user.id, username: user.username, serverRole: user.server_role } });
+        return send(response, 200, { token, serverId, apiVersion: 8, user: { id: user.id, username: user.username, serverRole: user.server_role } });
       }
       if (route.startsWith('/api/team/')) {
         const session = authenticate(request);
         // Recheck credentials after reading a body: account changes may arrive while it streams.
         const authorized = operation => transaction(() => { authenticate(request); return operation(); });
         if (route === '/api/team/logout' && request.method === 'POST') { sessions.delete(session.token); return send(response, 200, { ok: true }); }
+        if (route === '/api/team/admin/projects' && request.method === 'GET') {
+          requireServerAdmin(session.userId);
+          return send(response,200,{projects:projectAdmin.list(session.userId)});
+        }
+        const projectAdminMatch = /^\/api\/team\/admin\/projects\/([^/]+)$/.exec(route);
+        if (projectAdminMatch) {
+          requireServerAdmin(session.userId);
+          const project = projectAdminMatch[1];
+          if (request.method === 'GET') return send(response,200,projectAdmin.preview(project));
+          if (request.method === 'DELETE') {
+            const input = await readBody(request);
+            return send(response,200,authorized(() => { requireServerAdmin(session.userId); return projectAdmin.remove(project,input,session.userId); }));
+          }
+          fail(405,'不支持此操作');
+        }
         if (route === '/api/team/admin/users' || route === '/api/team/admin/audit' || route.startsWith('/api/team/admin/users/')) {
           requireServerAdmin(session.userId);
           if (route === '/api/team/admin/users' && request.method === 'GET') return send(response, 200, { accounts: access.accounts() });
@@ -243,13 +261,13 @@ async function createCollaborationServer({ directory, port = 4747, root = path.r
         }
         if (route === '/api/team/projects' && request.method === 'GET') {
           return send(response, 200, { user: { id: session.userId, username: session.username, serverRole: serverRole(session.userId) }, projects: db.prepare(`SELECT p.id, p.name, m.role FROM projects p
-            JOIN members m ON m.project_id=p.id WHERE m.user_id=? ORDER BY p.name`).all(session.userId).map(project => ({ ...project, capabilities: membership(project.id,session.userId).capabilities })) });
+            JOIN members m ON m.project_id=p.id WHERE m.user_id=? AND p.deleted_at IS NULL ORDER BY p.name`).all(session.userId).map(project => ({ ...project, capabilities: membership(project.id,session.userId).capabilities })) });
         }
         if (route === '/api/team/publications/lookup' && request.method === 'POST') {
           requireServerAdmin(session.userId);
           const source = publicationSource(await readBody(request));
           requireServerAdmin(session.userId);
-          return send(response, 200, { publication: findPublication(source, session.userId) });
+          return send(response, 200, { publication: findPublication(source, session.userId), deletedPublication: projectAdmin.deletedPublication(source) });
         }
         if (route === '/api/team/publications/core' && request.method === 'POST') {
           requireServerAdmin(session.userId);
@@ -286,6 +304,9 @@ async function createCollaborationServer({ directory, port = 4747, root = path.r
             // team edits or memberships, even if the local snapshot has changed.
             const previous = findPublication(source, session.userId);
             if (previous) return { ...previous, reused: true };
+            const deleted = projectAdmin.deletedPublication(source);
+            if (deleted && input.replacesProjectId !== deleted.projectId) fail(410,'原协作副本已删除，请重新读取发布预览并明确确认重新发布');
+            if (!deleted && input.replacesProjectId !== undefined) fail(409,'发布记录已变化，请重新读取预览');
             const name = textField(input.name, '项目名称', 100, true), members = memberInput(input.members, session.userId);
             const imports = prepareImports(input.stories, source, publicationLimits.maxStories, 0);
             const id = randomUUID(), publishedAt = new Date().toISOString();
@@ -294,7 +315,8 @@ async function createCollaborationServer({ directory, port = 4747, root = path.r
             if (input.overview !== undefined) overview.initialize(id,input.overview,session.userId,name);
             if (input.core !== undefined) core.initialize(id,input.core,session.userId);
             for (const entry of imports) insertImportedStory(id, entry, session.userId);
-            db.prepare('INSERT INTO project_publications VALUES (?, ?, ?, ?, ?, ?)')
+            db.prepare(`INSERT INTO project_publications VALUES (?, ?, ?, ?, ?, ?)
+              ON CONFLICT(source_instance_id,source_project_id) DO UPDATE SET project_id=excluded.project_id,published_by=excluded.published_by,published_at=excluded.published_at,story_count=excluded.story_count`)
               .run(source.sourceInstanceId, source.sourceProjectId, id, session.userId, publishedAt, imports.length);
             return { project: { id, name, ...membership(id,session.userId) }, publishedAt, storyCount: imports.length, reused: false, overviewInitialized: overview.info(id).initialized, coreInitialized: core.read(id).initialized };
           });

@@ -24,6 +24,7 @@ export function TeamProjectWorkspace({ project, session, picker, localProjects, 
   const [stories, setStories] = useState<TeamStory[]>([]), [selectedId, setSelectedId] = useState('');
   const [members, setMembers] = useState<{ username: string; role: TeamRole }[]>([]);
   const [syncError, setSyncError] = useState(''), [loaded, setLoaded] = useState(false), [role, setRole] = useState(project.role);
+  const [projectDeleted,setProjectDeleted] = useState(false);
   const [accessDenied, setAccessDenied] = useState(false), [manageMembers, setManageMembers] = useState(false);
   const [capabilities,setCapabilities] = useState<TeamCapabilities>();
   const accessBlocked = accessDenied || !!session.invalid;
@@ -51,7 +52,7 @@ export function TeamProjectWorkspace({ project, session, picker, localProjects, 
           return existing && existing.revision > story.revision ? existing : story;
         }).concat(previous.filter(item => !result.stories.some(story => story.id === item.id))));
         setSelectedId(current => current || result.stories[0]?.id || ''); setSyncError(''); setAccessDenied(false); setLoaded(true); setRole(result.role);setCapabilities(result.capabilities);
-      } catch (reason) { if (active) { setSyncError((reason as Error).message); if (reason instanceof TeamError && [401,403].includes(reason.status)) { setAccessDenied(true); setManageMembers(false);setCapabilities(undefined); } } }
+      } catch (reason) { if (active) { setSyncError((reason as Error).message); if (reason instanceof TeamError && [401,403,410].includes(reason.status)) { setAccessDenied(true); if (reason.status === 410) setProjectDeleted(true); setManageMembers(false);setCapabilities(undefined); } } }
       finally { if (active) timer = window.setTimeout(poll, 2000); }
     };
     void poll(); return () => { active = false; window.clearTimeout(timer); };
@@ -98,9 +99,9 @@ export function TeamProjectWorkspace({ project, session, picker, localProjects, 
       <div className={'team-sync ' + (syncError ? 'offline' : '')} role="status">{syncError ? <CloudOff size={16} /> : <Cloud size={16} />}
         <span>{syncError || (loaded ? '已连接 · 每 2 秒检查团队更新' : '正在读取团队故事…')}</span>
         <button aria-label="立即刷新团队内容" onClick={() => setRefresh(value => value + 1)}><RefreshCw size={15} /></button></div>
-      {accessBlocked && <p className="team-message" role="alert">{session.invalid?'团队登录已失效，请重新连接。本机未提交草稿仍保留。':'你已无权访问这个项目。本机未提交草稿仍保留，请选择其他项目或联系项目管理员。'}</p>}
-      {overviewEnabled&&<div hidden={accessBlocked||active!=='项目概览'}><TeamOverview blocked={accessBlocked} session={session} projectId={project.id} members={members} onMembers={()=>setManageMembers(true)} onDenied={()=>setAccessDenied(true)}/></div>}
-      {(session.apiVersion ?? 0) >= 7 && <div hidden={accessBlocked || active !== '玩法核心'}><TeamGameplayCore session={session} projectId={project.id} blocked={accessBlocked} onDenied={() => setAccessDenied(true)}/></div>}
+      {accessBlocked && <p className="team-message" role="alert">{projectDeleted?'此协作项目已被管理员删除。本机项目和未提交草稿仍保留，请从项目列表选择其他项目。':session.invalid?'团队登录已失效，请重新连接。本机未提交草稿仍保留。':'你已无权访问这个项目。本机未提交草稿仍保留，请选择其他项目或联系项目管理员。'}</p>}
+      {overviewEnabled&&<div hidden={accessBlocked||active!=='项目概览'}><TeamOverview blocked={accessBlocked} session={session} projectId={project.id} members={members} onMembers={()=>setManageMembers(true)} onDenied={status=>{setAccessDenied(true);if(status===410)setProjectDeleted(true);}}/></div>}
+      {(session.apiVersion ?? 0) >= 7 && <div hidden={accessBlocked || active !== '玩法核心'}><TeamGameplayCore session={session} projectId={project.id} blocked={accessBlocked} onDenied={status=>{setAccessDenied(true);if(status===410)setProjectDeleted(true);}}/></div>}
       <div hidden={active!=='故事文档'}>
       {writableStories && <div className="team-import-toolbar"><StoryImportDialog projects={localProjects} session={session} projectId={project.id} onImported={imported => {
         imported.forEach(receive); if (imported.length) setSelectedId(imported[0].id);

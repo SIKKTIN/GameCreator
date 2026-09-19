@@ -29,6 +29,7 @@ function createAccessStore(db, { fail, textField }) {
   };
   const membership = (project, user, writeModule) => {
     activeUser(user);
+    if (db.prepare('SELECT deleted_at FROM projects WHERE id=?').get(project)?.deleted_at) fail(410,'这个协作项目已被管理员删除。本机项目和未提交草稿仍保留，请选择其他项目。');
     const row = db.prepare('SELECT role FROM members WHERE project_id=? AND user_id=?').get(project, user);
     if (!row) fail(403, '你不是这个项目的成员');
     const capabilities = effective(row.role, permissions(project, user));
