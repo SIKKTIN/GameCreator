@@ -3,6 +3,13 @@
 .team-project-dialog .team-project-server { color: #a89bdd; padding: 10px 12px; border: 1px solid #40384f; border-radius: 7px; overflow-wrap: anywhere; }
 .team-project-members { margin: 16px 0; }
 .team-project-members > strong { display: block; font-size: 13px; color: #dbd2ec; margin-bottom: 10px; }
-.team-project-dialog .team-project-members > label { display: grid; grid-template-columns: 1fr 190px; align-items: center; gap: 16px; margin: 0; padding: 8px 0; border-top: 1px solid #3b334a; }
+.team-member-config { padding: 12px 0; border-top: 1px solid #3b334a; }
+.team-project-dialog .team-member-config > label { display: grid; grid-template-columns: 1fr 190px; align-items: center; gap: 16px; margin: 0; }
+.team-module-permissions { padding: 12px 0 0 16px; display: grid; gap: 10px; }
+.team-project-dialog .team-module-permissions label { display: grid; grid-template-columns: 1fr 190px; align-items: center; margin: 0; gap: 16px; }
+.team-dialog.team-members-dialog { padding:0; max-height:85vh; overflow:hidden; }
+.team-members-dialog > form { display:flex; flex-direction:column; max-height:85vh; overflow:hidden; }
+.team-member-dialog-content { min-height:0; overflow:auto; padding:24px; }
+.team-members-dialog .team-dialog-actions { flex-shrink:0; padding:16px 24px; margin:0; border-top:1px solid #3b334a; background:#1f1c2b; }
 .team-project-members small { display: block; margin-top: 4px; }
 .team-project-members select:disabled { opacity: .6; }

@@ -26,7 +26,7 @@ test('empty projects, idempotent creation, per-project membership, role changes 
     assert.equal(admin.user.serverRole, 'admin'); assert.equal(alice.user.serverRole, 'member');
     assert.equal((await request('/accounts', viewer.token)).status, 403);
     const accounts = await request('/accounts', admin.token);
-    assert.deepEqual(accounts.data.accounts.map(row => Object.keys(row).sort()), Array(4).fill(['userId', 'username']));
+    assert.deepEqual(accounts.data.accounts.map(row => Object.keys(row).sort()), Array(4).fill(['enabled', 'userId', 'username']));
     const createBody = { name: ' 独立项目 ', requestId: randomUUID(), members: members(aliceAdmin, bobEditor) };
     for (const token of ['', alice.token, bob.token, viewer.token]) {
       assert.equal((await request('/projects', token, 'POST', { ...createBody, role: 'admin', serverRole: 'admin' })).status, token ? 403 : 401);

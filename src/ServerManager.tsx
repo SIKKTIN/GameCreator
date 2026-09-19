@@ -10,7 +10,8 @@ export type HostStatus = {
 };
 const labels: Record<HostStatus['state'], string> = { stopped: '未启动', running: '运行中', external: '外部服务运行中', unavailable: '端口不可用', stopping: '正在停止' };
 
-export type ServerModuleNavigation = { serverPage: ReactNode; onManageServer: () => void; onLeaveServer: () => void };
+export type ServerModuleNavigation = { serverPage: ReactNode; onManageServer: () => void; onLeaveServer: () => void;
+  adminPageName?: '服务器管理'|'用户与权限'; onManageUsers?: () => void };
 type ServerManagerProps = { role: UserRole; onBack: () => void; returnToConnection: boolean; onUseAddress: (address: string) => void };
 
 export function ServerManager(props: ServerManagerProps) {
