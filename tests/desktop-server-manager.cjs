@@ -82,7 +82,7 @@ const waitUntil = async (check, message) => {
     assert.equal(await page.getByLabel('文档正文',{exact:true}).inputValue(),'切换服务器管理后保留的本地内容');
     await page.locator('.ps-trigger').click(); await page.getByRole('menuitem',{name:'连接团队服务器',exact:true}).click();
     const connection = page.getByRole('dialog',{name:'连接团队服务器',exact:true});
-    await connection.getByLabel('模拟成员',{exact:true}).selectOption('bob');
+    await connection.getByLabel('团队账号',{exact:true}).fill('bob');
     await connection.getByLabel('团队密码',{exact:true}).fill('保留连接表单');
     await connection.getByRole('button',{name:'前往服务器管理',exact:true}).click();
     await manager().getByRole('button',{name:'返回连接设置',exact:true}).click();
@@ -92,7 +92,7 @@ const waitUntil = async (check, message) => {
     await manager().getByText('运行中',{exact:true}).waitFor();
     await manager().getByRole('button',{name:'使用此地址连接',exact:true}).click();
     assert.equal(await connection.getByLabel('协作服务地址',{exact:true}).inputValue(),url);
-    assert.equal(await connection.getByLabel('模拟成员',{exact:true}).inputValue(),'bob');
+    assert.equal(await connection.getByLabel('团队账号',{exact:true}).inputValue(),'bob');
     await connection.getByRole('button',{name:'连接并进入项目',exact:true}).click(); await page.locator('.team-project .story-workspace').waitFor();
     await page.getByRole('button',{name:'打开故事文档：第一章剧情',exact:true}).click();
     await page.getByLabel('文档正文',{exact:true}).fill('管理员退出后仍可共享的内容');
@@ -130,7 +130,8 @@ const waitUntil = async (check, message) => {
     const userConnection = page.getByRole('dialog',{name:'连接团队服务器',exact:true});
     assert.equal(await userConnection.getByRole('button',{name:'前往服务器管理',exact:true}).count(),0);
     await userConnection.getByLabel('协作服务地址',{exact:true}).fill(url);
-    await userConnection.getByLabel('模拟成员',{exact:true}).selectOption('admin');
+    await userConnection.getByLabel('团队账号',{exact:true}).fill('admin');
+    await userConnection.getByLabel('团队密码',{exact:true}).fill('admin123');
     await userConnection.getByRole('button',{name:'连接并进入项目',exact:true}).click(); await page.locator('.team-project .story-workspace').waitFor();
     assert.equal(await page.getByRole('button',{name:'服务器管理',exact:true}).count(),0); await assertDenied();
     assert.deepEqual(errors,[]);

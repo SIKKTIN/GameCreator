@@ -10,6 +10,8 @@ const until=async(check,message)=>{const end=Date.now()+20000;while(Date.now()<e
   const apps=new Set(),pages=[],errors=[];
   const api=async(route,token,method='GET',body)=>{const response=await fetch(service.url+'/api/team'+route,{method,headers:{'Content-Type':'application/json',Authorization:'Bearer '+(token||'')},body:body===undefined?undefined:JSON.stringify(body)});assert.ok(response.ok,route+' '+response.status);return response.json();};
   const token=(await api('/login','','POST',{username:'admin',password:'admin123'})).token;
+  assert.deepEqual((await api('/projects/team-demo/overview',token)).activity,[]);
+  await api('/projects/team-demo/members',token,'PUT',{revision:1,members:[{userId:'admin',role:'admin'},{userId:'viewer',role:'viewer'},...['alice','bob'].map(userId=>({userId,role:'editor',permissions:{overview:'edit',stories:'inherit'}}))]});
   const launch=async profile=>{
     const env={...process.env,GAMECREATOR_DATA_DIR:path.join(directory,profile,'data'),GAMECREATOR_USER_DATA_DIR:path.join(directory,profile,'profile'),GAMECREATOR_TEAM_DATA_DIR:path.join(directory,'server'),GAMECREATOR_TEAM_PORT:new URL(service.url).port};
     delete env.ELECTRON_RUN_AS_NODE;delete env.GAMECREATOR_TEAM_ACCOUNT;
@@ -21,7 +23,7 @@ const until=async(check,message)=>{const end=Date.now()+20000;while(Date.now()<e
   const connect=async(page,user)=>{
     await page.locator('.ps-trigger').click();await page.getByRole('menuitem',{name:'连接团队服务器',exact:true}).click();
     const dialog=page.getByRole('dialog',{name:'连接团队服务器',exact:true});await dialog.getByLabel('协作服务地址',{exact:true}).fill(service.url);
-    await dialog.getByLabel('模拟成员',{exact:true}).selectOption(user);await dialog.getByRole('button',{name:'连接并进入项目',exact:true}).click();
+    await dialog.getByLabel('团队账号',{exact:true}).fill(user);await dialog.getByLabel('团队密码',{exact:true}).fill(user+'123');await dialog.getByRole('button',{name:'连接并进入项目',exact:true}).click();
     await page.locator('.team-project .story-workspace').waitFor();await nav(page,'项目概览');await info(page).waitFor();
   };
   const info=page=>page.getByRole('form',{name:'项目基本信息',exact:true});
@@ -32,7 +34,7 @@ const until=async(check,message)=>{const end=Date.now()+20000;while(Date.now()<e
   let release;
   try{
     let a=await launch('alice');const b=await launch('bob');await connect(a.page,'alice');await connect(b.page,'bob');
-    assert.equal(await info(a.page).getByLabel('项目简介',{exact:true}).inputValue(),'');await a.page.getByText('暂无项目动态',{exact:true}).waitFor();
+    assert.equal(await info(a.page).getByLabel('项目简介',{exact:true}).inputValue(),'');await a.page.getByText('更新了项目成员配置',{exact:true}).waitFor();
     assert.equal(await a.page.locator('.team-overview-members strong').count(),4);
     await info(a.page).getByLabel('项目名称',{exact:true}).fill('双人概览验收');await info(a.page).getByLabel('项目简介',{exact:true}).fill('共享初稿');
     await info(a.page).getByRole('button',{name:'保存基本信息到团队',exact:true}).click();await saved(info(a.page));

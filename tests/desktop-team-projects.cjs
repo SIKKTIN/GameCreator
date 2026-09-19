@@ -30,7 +30,8 @@ const waitUntil = async (check, message) => {
   const connection = page => page.getByRole('dialog', { name: '连接团队服务器', exact: true });
   const connect = async (page, username) => {
     await connection(page).getByLabel('协作服务地址', { exact: true }).fill(service.url);
-    await connection(page).getByLabel('模拟成员', { exact: true }).selectOption(username);
+    await connection(page).getByLabel('团队账号', { exact: true }).fill(username);
+    await connection(page).getByLabel('团队密码', { exact: true }).fill(username+'123');
     await connection(page).getByRole('button', { name: '连接并进入项目', exact: true }).click();
   };
   const choose = async (page, name) => { const list = await menu(page); await list.getByRole('menuitemradio', { name: new RegExp('^' + name) }).click(); };
@@ -59,7 +60,7 @@ const waitUntil = async (check, message) => {
     await userMenu.getByRole('menuitem', { name: '连接团队服务器', exact: true }).click(); await connect(b, 'bob');
     await b.locator('.team-project .story-workspace').waitFor();
     await (await menu(a)).getByRole('menuitem', { name: '新建协作项目', exact: true }).click();
-    assert.equal(await connection(a).getByLabel('模拟成员', { exact: true }).inputValue(), 'admin');
+    assert.equal(await connection(a).getByLabel('团队账号', { exact: true }).inputValue(), 'admin');
     await connection(a).getByLabel('团队密码', { exact: true }).fill('保留已输入密码');
     await connection(a).getByRole('button', { name: '前往服务器管理', exact: true }).click();
     await a.getByRole('main', { name: '服务器管理', exact: true }).getByRole('button', { name: '返回连接设置', exact: true }).click();

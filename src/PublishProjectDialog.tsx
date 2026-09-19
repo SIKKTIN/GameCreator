@@ -96,7 +96,7 @@ export function PublishProjectDialog({ session, project, onClose, onPublished }:
           </details>
           <TeamMemberFields accounts={accounts} roles={roles} currentUserId={session.user.id} onChange={(userId, role) => setRoles(previous => ({ ...previous, [userId]: role }))} />
         </fieldset>
-        <small>管理员可编辑共享内容和管理成员；编辑者可编辑；只读成员只能查看。单次最多 {publicationLimits.maxStories} 篇故事、200 个里程碑，提交内容不超过 10 MiB。</small>
+        <small>项目管理员可编辑并管理成员；编辑者默认概览只读、故事可编辑，发布后可在成员管理中单独授权；只读成员只能查看。单次最多 {publicationLimits.maxStories} 篇故事、200 个里程碑，提交内容不超过 10 MiB。</small>
       </>}
       {error && <p ref={errorNotice} className="team-message" role="alert">{error}</p>}
       {error && <button type="button" disabled={busy || loading} onClick={() => void load()}>重新读取预览</button>}

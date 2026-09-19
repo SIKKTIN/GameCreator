@@ -5,6 +5,7 @@ const { randomUUID, randomBytes, scryptSync, timingSafeEqual } = require('node:c
 const { DatabaseSync } = require('node:sqlite');
 const publicationLimits = require('../shared/publication-limits.json');
 const { createOverviewStore } = require('./team-overview.cjs');
+const { createAccessStore } = require('./team-access.cjs');
 
 const demoAccounts = ['admin', 'alice', 'bob', 'viewer'];
 class RequestError extends Error {
@@ -116,6 +117,7 @@ async function createCollaborationServer({ directory, port = 4747, root = path.r
   });
   const serverId = db.prepare("SELECT value FROM metadata WHERE key='serverId'").get().value;
   const sessions = new Map();
+  const access = createAccessStore(db, { fail, textField });
   const allowedOrigin = origin => {
     try { const url = new URL(origin); return url.protocol === 'http:' && ['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname); }
     catch { return false; }
@@ -124,34 +126,13 @@ async function createCollaborationServer({ directory, port = 4747, root = path.r
     const token = request.headers.authorization?.replace(/^Bearer /, '');
     const session = sessions.get(token);
     if (!session || session.expires < Date.now()) { sessions.delete(token); fail(401, '登录已失效，请重新登录。草稿仍保留在本机。'); }
+    const user = access.activeUser(session.userId);
+    if (session.authRevision !== user.auth_revision) { sessions.delete(token); fail(401, '账号凭据已更新，请重新连接。草稿仍保留在本机。'); }
     return { ...session, token };
   };
-  const membership = (project, user, write = false) => {
-    const member = db.prepare('SELECT role FROM members WHERE project_id=? AND user_id=?').get(project, user);
-    if (!member) fail(403, '你不是这个项目的成员');
-    if (write && member.role === 'viewer') fail(403, '当前账号只有查看权限');
-    return member;
-  };
+  const { membership, requireServerAdmin, memberRows, memberInput, writeMembers } = access;
   const overview = createOverviewStore(db, { fail, textField });
-  const serverRole = user => db.prepare('SELECT server_role FROM users WHERE id=?').get(user)?.server_role;
-  const requireServerAdmin = user => { if (serverRole(user) !== 'admin') fail(403, '只有服务器管理员可以新建协作项目'); };
-  const memberRows = project => db.prepare(`SELECT u.id AS userId, u.username, m.role FROM members m JOIN users u ON u.id=m.user_id
-    WHERE m.project_id=? ORDER BY u.username`).all(project);
-  const memberInput = (input, actor) => {
-    if (!Array.isArray(input) || input.length < 1 || input.length > 200) fail(400, '请选择 1–200 位项目成员');
-    const seen = new Set();
-    const members = input.map(item => {
-      if (!item || typeof item.userId !== 'string' || !['admin', 'editor', 'viewer'].includes(item.role) || seen.has(item.userId) ||
-        !db.prepare('SELECT id FROM users WHERE id=?').get(item.userId)) fail(400, '成员不存在、重复或权限无效');
-      seen.add(item.userId); return { userId: item.userId, role: item.role };
-    });
-    if (!members.some(item => item.userId === actor && item.role === 'admin')) fail(400, '当前管理账号必须保留项目管理员权限');
-    return members.sort((a, b) => a.userId.localeCompare(b.userId));
-  };
-  const writeMembers = (project, members) => {
-    db.prepare('DELETE FROM members WHERE project_id=?').run(project);
-    for (const member of members) db.prepare('INSERT INTO members VALUES (?, ?, ?)').run(project, member.userId, member.role);
-  };
+  const serverRole = user => access.activeUser(user).server_role;
   const publicationSource = input => ({
     sourceInstanceId: textField(input.sourceInstanceId, '本机标识', 100, true),
     sourceProjectId: textField(input.sourceProjectId, '来源项目', 1000, true),
@@ -162,7 +143,7 @@ async function createCollaborationServer({ directory, port = 4747, root = path.r
     if (!published) return null;
     const member = membership(published.projectId, user);
     const project = db.prepare('SELECT id,name FROM projects WHERE id=?').get(published.projectId);
-    return { project: { ...project, role: member.role }, publishedAt: published.publishedAt, storyCount: published.storyCount, overviewInitialized: overview.info(published.projectId).initialized };
+    return { project: { ...project, ...member }, publishedAt: published.publishedAt, storyCount: published.storyCount, overviewInitialized: overview.info(published.projectId).initialized };
   };
   const prepareImports = (stories, source, maximum, minimum = 1) => {
     if (!Array.isArray(stories) || stories.length < minimum || stories.length > maximum) fail(400, `本次应包含 ${minimum}–${maximum} 篇故事文档`);
@@ -219,29 +200,48 @@ async function createCollaborationServer({ directory, port = 4747, root = path.r
         }
         fail(405, '不支持此操作');
       }
-      if (route === '/api/team/health' && request.method === 'GET') return send(response, 200, { service: 'gamecreator-collaboration', serverId, apiVersion: 5 });
+      if (route === '/api/team/health' && request.method === 'GET') return send(response, 200, { service: 'gamecreator-collaboration', serverId, apiVersion: 6 });
       if (route === '/api/team/login' && request.method === 'POST') {
         const input = await readBody(request);
         const username = textField(input.username, '账号', 80, true).toLowerCase();
-        const password = textField(input.password, '密码', 256, true);
+        const password = textField(input.password, '密码', 256);
         const user = db.prepare('SELECT * FROM users WHERE username=?').get(username);
         const hash = scryptSync(password, user?.salt ?? 'invalid-account', 64);
-        if (!user || !timingSafeEqual(hash, Buffer.from(user.hash, 'hex'))) fail(401, '账号或密码错误');
+        if (!user || !user.enabled || !timingSafeEqual(hash, Buffer.from(user.hash, 'hex'))) fail(401, '账号或密码错误，或账号已停用');
         for (const [token, session] of sessions) if (session.expires < Date.now()) sessions.delete(token);
         const token = randomBytes(32).toString('hex');
-        sessions.set(token, { userId: user.id, username: user.username, expires: Date.now() + 12 * 60 * 60 * 1000 });
-        return send(response, 200, { token, serverId, apiVersion: 5, user: { id: user.id, username: user.username, serverRole: user.server_role } });
+        sessions.set(token, { userId: user.id, username: user.username, authRevision: user.auth_revision, expires: Date.now() + 12 * 60 * 60 * 1000 });
+        return send(response, 200, { token, serverId, apiVersion: 6, user: { id: user.id, username: user.username, serverRole: user.server_role } });
       }
       if (route.startsWith('/api/team/')) {
         const session = authenticate(request);
+        // Recheck credentials after reading a body: account changes may arrive while it streams.
+        const authorized = operation => transaction(() => { authenticate(request); return operation(); });
         if (route === '/api/team/logout' && request.method === 'POST') { sessions.delete(session.token); return send(response, 200, { ok: true }); }
+        if (route === '/api/team/admin/users' || route === '/api/team/admin/audit' || route.startsWith('/api/team/admin/users/')) {
+          requireServerAdmin(session.userId);
+          if (route === '/api/team/admin/users' && request.method === 'GET') return send(response, 200, { accounts: access.accounts() });
+          if (route === '/api/team/admin/audit' && request.method === 'GET') return send(response, 200, { audit: access.auditRows() });
+          if (route === '/api/team/admin/users' && request.method === 'POST') {
+            const input = await readBody(request);
+            const account = authorized(() => { requireServerAdmin(session.userId); return access.createAccount(session.userId, input); });
+            return send(response, 201, { account });
+          }
+          const target = /^\/api\/team\/admin\/users\/([^/]+)(\/password)?$/.exec(route);
+          if (target && ((!target[2] && request.method === 'PUT') || (target[2] && request.method === 'POST'))) {
+            const input = await readBody(request);
+            const account = authorized(() => { requireServerAdmin(session.userId); return target[2] ? access.resetPassword(session.userId,target[1],input) : access.updateAccount(session.userId,target[1],input); });
+            return send(response, 200, { account });
+          }
+          fail(405, '不支持此操作');
+        }
         if (route === '/api/team/accounts' && request.method === 'GET') {
           if (serverRole(session.userId) !== 'admin' && !db.prepare("SELECT 1 FROM members WHERE user_id=? AND role='admin'").get(session.userId)) fail(403, '只有管理员可以配置项目成员');
-          return send(response, 200, { accounts: db.prepare('SELECT id AS userId, username FROM users ORDER BY username').all() });
+          return send(response, 200, { accounts: db.prepare('SELECT id AS userId, username, enabled FROM users ORDER BY username').all().map(row => ({ ...row, enabled: !!row.enabled })) });
         }
         if (route === '/api/team/projects' && request.method === 'GET') {
-          return send(response, 200, { projects: db.prepare(`SELECT p.id, p.name, m.role FROM projects p
-            JOIN members m ON m.project_id=p.id WHERE m.user_id=? ORDER BY p.name`).all(session.userId) });
+          return send(response, 200, { user: { id: session.userId, username: session.username, serverRole: serverRole(session.userId) }, projects: db.prepare(`SELECT p.id, p.name, m.role FROM projects p
+            JOIN members m ON m.project_id=p.id WHERE m.user_id=? ORDER BY p.name`).all(session.userId).map(project => ({ ...project, capabilities: membership(project.id,session.userId).capabilities })) });
         }
         if (route === '/api/team/publications/lookup' && request.method === 'POST') {
           requireServerAdmin(session.userId);
@@ -252,7 +252,7 @@ async function createCollaborationServer({ directory, port = 4747, root = path.r
         if (route === '/api/team/publications/overview' && request.method === 'POST') {
           requireServerAdmin(session.userId);
           const input = await readBody(request), source = publicationSource(input);
-          const result = transaction(() => {
+          const result = authorized(() => {
             requireServerAdmin(session.userId);
             const previous = findPublication(source, session.userId);
             if (!previous) fail(404,'找不到这个本地项目的发布记录');
@@ -265,7 +265,7 @@ async function createCollaborationServer({ directory, port = 4747, root = path.r
         if (route === '/api/team/publications' && request.method === 'POST') {
           requireServerAdmin(session.userId);
           const input = await readBody(request, publicationLimits.maxBytes), source = publicationSource(input);
-          const result = transaction(() => {
+          const result = authorized(() => {
             requireServerAdmin(session.userId);
             // A source is published once on this server. Retrying never overwrites
             // team edits or memberships, even if the local snapshot has changed.
@@ -290,11 +290,13 @@ async function createCollaborationServer({ directory, port = 4747, root = path.r
           const name = textField(input.name, '项目名称', 100, true), requestKey = textField(input.requestId, '创建请求标识', 100, true);
           if (!/^[a-zA-Z0-9-]{16,100}$/.test(requestKey)) fail(400, '创建请求标识无效');
           const members = memberInput(input.members, session.userId), signature = JSON.stringify({ name, members });
-          const result = transaction(() => {
+          const result = authorized(() => {
             requireServerAdmin(session.userId);
             const previous = db.prepare('SELECT project_id,signature FROM project_creations WHERE user_id=? AND request_key=?').get(session.userId, requestKey);
             if (previous) {
-              if (previous.signature !== signature) fail(409, '同一创建请求的内容已变化，请重新发起创建');
+              const legacySignature = members.every(item => Object.values(item.permissions).every(value => value === 'inherit'))
+                ? JSON.stringify({ name, members: members.map(({ userId, role }) => ({ userId, role })) }) : null;
+              if (previous.signature !== signature && previous.signature !== legacySignature) fail(409, '同一创建请求的内容已变化，请重新发起创建');
               const member = membership(previous.project_id, session.userId);
               const project = db.prepare('SELECT id,name FROM projects WHERE id=?').get(previous.project_id);
               return { project: { ...project, role: member.role }, reused: true };
@@ -310,12 +312,12 @@ async function createCollaborationServer({ directory, port = 4747, root = path.r
         const overviewMatch = /^\/api\/team\/projects\/([^/]+)\/(overview|milestones)(?:\/([^/]+))?$/.exec(route);
         if (overviewMatch) {
           const [,project,resource,id] = overviewMatch, member = membership(project,session.userId);
-          if (resource === 'overview' && !id && request.method === 'GET') return send(response,200,{...overview.read(project),role:member.role});
+          if (resource === 'overview' && !id && request.method === 'GET') return send(response,200,{...overview.read(project),...member});
           if (request.method === 'PUT' && ((resource === 'overview' && !id) || (resource === 'milestones' && id))) {
-            membership(project,session.userId,true);
+            membership(project,session.userId,'overview');
             const input = await readBody(request);
-            const record = transaction(() => {
-              membership(project,session.userId,true);
+            const record = authorized(() => {
+              membership(project,session.userId,'overview');
               return resource === 'overview' ? overview.updateInfo(project,input,session.userId) : overview.updateMilestone(project,id,input,session.userId);
             });
             return send(response,200,{record});
@@ -331,26 +333,28 @@ async function createCollaborationServer({ directory, port = 4747, root = path.r
         }
         if (resource === 'members' && !id && request.method === 'PUT') {
           if (member.role !== 'admin') fail(403, '只有项目管理员可以修改成员');
-          const input = await readBody(request), members = memberInput(input.members, session.userId);
+          const input = await readBody(request), members = memberInput(input.members, session.userId, project);
           if (!Number.isSafeInteger(input.revision) || input.revision < 1) fail(400, '必须提供有效的成员配置版本');
-          const result = transaction(() => {
+          const result = authorized(() => {
             if (membership(project, session.userId).role !== 'admin') fail(403, '只有项目管理员可以修改成员');
             const current = db.prepare('SELECT member_revision FROM projects WHERE id=?').get(project).member_revision;
             if (current !== input.revision) fail(409, '其他管理员已修改成员配置，请重新读取后再保存');
+            const before = memberRows(project);
             writeMembers(project, members);
             db.prepare('UPDATE projects SET member_revision=member_revision+1 WHERE id=?').run(project);
             overview.activity(project,session.userId,'更新了项目成员配置');
+            access.audit(session.userId, '修改项目权限', project, { projectName: db.prepare('SELECT name FROM projects WHERE id=?').get(project).name, before, after: memberRows(project) });
             return { members: memberRows(project), revision: current + 1 };
           });
           return send(response, 200, result);
         }
         if (resource !== 'stories') fail(404, '接口不存在');
         if (id === 'import' && !history && request.method === 'POST') {
-          membership(project, session.userId, true);
+          membership(project, session.userId, 'stories');
           const input = await readBody(request, 5000000);
           const imports = prepareImports(input.stories, publicationSource(input), 50);
-          const result = transaction(() => {
-            membership(project, session.userId, true);
+          const result = authorized(() => {
+            membership(project, session.userId, 'stories');
             const imported = []; let skipped = 0;
             for (const entry of imports) {
               if (db.prepare('SELECT story_id FROM story_imports WHERE project_id=? AND source_key=?').get(project, entry.sourceKey)) { skipped++; continue; }
@@ -362,7 +366,7 @@ async function createCollaborationServer({ directory, port = 4747, root = path.r
         }
         if (!id && request.method === 'GET') {
           const ids = db.prepare('SELECT id FROM stories WHERE project_id=? ORDER BY updated_at DESC, id').all(project);
-          return send(response, 200, { stories: ids.map(row => getStory(project, row.id)), role: member.role });
+          return send(response, 200, { stories: ids.map(row => getStory(project, row.id)), ...member });
         }
         if (id && request.method === 'GET') {
           const story = getStory(project, id);
@@ -373,12 +377,12 @@ async function createCollaborationServer({ directory, port = 4747, root = path.r
         }
         if (history) fail(405, '不支持此操作');
         if ((!id && request.method === 'POST') || (id && request.method === 'PUT')) {
-          membership(project, session.userId, true);
+          membership(project, session.userId, 'stories');
           const input = await readBody(request);
           if (id && (!Number.isSafeInteger(input.revision) || input.revision < 1)) fail(400, '必须提供有效的文档版本');
-          const story = transaction(() => {
+          const story = authorized(() => {
             // Recheck permissions inside the same transaction as the content update.
-            membership(project, session.userId, true);
+            membership(project, session.userId, 'stories');
             const storyId = id || randomUUID(), now = new Date().toISOString();
             const previous = id ? getStory(project, id) : undefined;
             const fields = storyFields(input, previous);

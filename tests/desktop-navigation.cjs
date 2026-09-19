@@ -96,7 +96,8 @@ const root = path.resolve(__dirname, '..'), key = 'gamecreator.ui-preferences.v1
     await page.getByRole('menuitem', { name: '连接团队服务器', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: '连接团队服务器', exact: true });
     await dialog.getByLabel('协作服务地址', { exact: true }).fill(service.url);
-    await dialog.getByLabel('模拟成员', { exact: true }).selectOption('bob');
+    await dialog.getByLabel('团队账号', { exact: true }).fill('bob');
+    await dialog.getByLabel('团队密码', { exact: true }).fill('bob123');
     await dialog.getByRole('button', { name: '连接并进入项目', exact: true }).click();
     await page.locator('.team-project .story-workspace').waitFor();
     const teamWidth = (await page.locator('.team-project > main').boundingBox()).width;
