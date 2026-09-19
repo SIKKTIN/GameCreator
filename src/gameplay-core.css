@@ -171,3 +171,6 @@ main.core-workspace-page > header .header-actions { flex-wrap: wrap; }
 .gc-alert { flex-wrap: wrap; }
 .gc-alert > span { flex: 1 1 280px; overflow-wrap: anywhere; }
 .gc-recovery-actions { display: flex; flex-wrap: wrap; gap: 7px; }
+
+/* Right-button panning takes priority over node/link pointer cursors. */
+.gc-canvas-scroll.is-panning, .gc-canvas-scroll.is-panning * { cursor: grabbing !important; user-select: none; }
