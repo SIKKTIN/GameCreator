@@ -3,6 +3,7 @@ import { Check, Cloud, CloudOff, History, RefreshCw } from 'lucide-react';
 import { beforeLogoutEvent } from './auth';
 import { StoryDocuments } from './StoryDocuments';
 import { StoryImportDialog } from './StoryImportDialog';
+import { TeamProjectDialog } from './TeamProjectDialog';
 import { WorkspaceSidebar } from './WorkspaceSidebar';
 import type { ServerModuleNavigation } from './ServerManager';
 import { workspaceStorage } from './workspace-storage';
@@ -21,6 +22,7 @@ export function TeamProjectWorkspace({ project, session, picker, localProjects, 
   const [stories, setStories] = useState<TeamStory[]>([]), [selectedId, setSelectedId] = useState('');
   const [members, setMembers] = useState<{ username: string; role: TeamRole }[]>([]);
   const [syncError, setSyncError] = useState(''), [loaded, setLoaded] = useState(false), [role, setRole] = useState(project.role);
+  const [accessDenied, setAccessDenied] = useState(false), [manageMembers, setManageMembers] = useState(false);
   const [createBusy, setCreateBusy] = useState(false), [createError, setCreateError] = useState(''), [refresh, setRefresh] = useState(0);
   const alive = useRef(true), creating = useRef(false);
   const route = `/projects/${encodeURIComponent(project.id)}/stories`;
@@ -41,17 +43,22 @@ export function TeamProjectWorkspace({ project, session, picker, localProjects, 
           const existing = previous.find(item => item.id === story.id);
           return existing && existing.revision > story.revision ? existing : story;
         }).concat(previous.filter(item => !result.stories.some(story => story.id === item.id))));
-        setSelectedId(current => current || result.stories[0]?.id || ''); setSyncError(''); setLoaded(true); setRole(result.role);
-      } catch (reason) { if (active) setSyncError((reason as Error).message); }
+        setSelectedId(current => current || result.stories[0]?.id || ''); setSyncError(''); setAccessDenied(false); setLoaded(true); setRole(result.role);
+      } catch (reason) { if (active) { setSyncError((reason as Error).message); if (reason instanceof TeamError && reason.status === 403) { setAccessDenied(true); setManageMembers(false); } } }
       finally { if (active) timer = window.setTimeout(poll, 2000); }
     };
     void poll(); return () => { active = false; window.clearTimeout(timer); };
   }, [session, route, refresh]);
   useEffect(() => {
-    let active = true;
-    teamRequest<{ members: { username: string; role: TeamRole }[] }>(session.url, `/projects/${project.id}/members`, session.token)
-      .then(result => { if (active) setMembers(result.members); }).catch(() => {});
-    return () => { active = false; };
+    let active = true, timer: number;
+    const poll = async () => {
+      try {
+        const result = await teamRequest<{ members: { username: string; role: TeamRole }[] }>(session.url, `/projects/${project.id}/members`, session.token);
+        if (active) setMembers(result.members);
+      } catch { if (active) setMembers([]); }
+      if (active) timer = window.setTimeout(poll, 3000);
+    };
+    void poll(); return () => { active = false; window.clearTimeout(timer); };
   }, [session, project.id, refresh]);
   const receive = (story: TeamStory) => setStories(previous => {
     const existing = previous.find(item => item.id === story.id);
@@ -71,25 +78,29 @@ export function TeamProjectWorkspace({ project, session, picker, localProjects, 
   };
   const selected = stories.find(item => item.id === selectedId);
   return <div className="app team-project">
+    {manageMembers && !accessDenied && role === 'admin' && <TeamProjectDialog session={session} project={project} onClose={() => setManageMembers(false)} onSaved={() => setRefresh(value => value + 1)} />}
     <WorkspaceSidebar picker={picker} team admin={localAdmin} active={serverPage ? '服务器管理' : '故事文档'} onManageServer={onManageServer} onNavigate={onLeaveServer} footer={<>
       <div className="user"><div className="avatar">{session.user.username[0].toUpperCase()}</div><span>{session.user.username}<small>团队成员 · {roleLabels[role]}</small></span></div>
       <details className="team-members"><summary>项目成员 · {members.length}</summary>{members.map(item => <p key={item.username}>{item.username}<small>{roleLabels[item.role]}</small></p>)}</details>
     </>} />
     {serverPage}
     <main hidden={!!serverPage}><header><div><div className="crumb">{project.name} <span>/</span> 团队项目</div><h1>故事文档</h1></div>
-      <div className="team-actions"><button onClick={onConnection}>连接设置</button><button onClick={onDisconnect}>断开团队连接</button></div></header>
+      <div className="team-actions">{!accessDenied && role === 'admin' && <button onClick={() => { if (canLeaveTeam()) setManageMembers(true); }}>成员管理</button>}<button onClick={onConnection}>连接设置</button><button onClick={onDisconnect}>断开团队连接</button></div></header>
       <div className="team-project-info"><span>团队项目 · {session.url}</span><span>当前成员：{session.user.username} · {roleLabels[role]}</span><span>已共享：故事文档</span></div>
       <div className={'team-sync ' + (syncError ? 'offline' : '')} role="status">{syncError ? <CloudOff size={16} /> : <Cloud size={16} />}
         <span>{syncError || (loaded ? '已连接 · 每 2 秒检查团队更新' : '正在读取团队故事…')}</span>
         <button aria-label="立即刷新团队内容" onClick={() => setRefresh(value => value + 1)}><RefreshCw size={15} /></button></div>
-      {loaded && role !== 'viewer' && <div className="team-import-toolbar"><StoryImportDialog projects={localProjects} session={session} projectId={project.id} onImported={imported => {
+      {accessDenied && <p className="team-message" role="alert">你已无权访问这个项目。本机未提交草稿仍保留，请选择其他项目或联系项目管理员。</p>}
+      {loaded && !accessDenied && role !== 'viewer' && <div className="team-import-toolbar"><StoryImportDialog projects={localProjects} session={session} projectId={project.id} onImported={imported => {
         imported.forEach(receive); if (imported.length) setSelectedId(imported[0].id);
       }} /></div>}
       {createError && <p className="team-message" role="alert">{createError}</p>}
-      {selected ? <TeamStoryEditor key={selected.id} story={selected} documents={stories} session={session} role={role} onSaved={receive} busy={createBusy}
+      <div hidden={accessDenied}>
+      {selected ? <TeamStoryEditor key={selected.id} story={selected} documents={stories} session={session} role={accessDenied ? 'viewer' : role} onSaved={receive} busy={createBusy}
         onSelect={id => { if (canLeaveTeam()) setSelectedId(id); }} onCreate={() => void create()} />
         : loaded ? <StoryDocuments documents={[]} activeStoryId="" setActiveStoryId={() => {}} updateStory={() => {}} addStoryDoc={() => void create()} readOnly={role === 'viewer'} busy={createBusy} />
           : <p className="team-empty">等待团队内容…</p>}
+      </div>
     </main>
   </div>;
 }

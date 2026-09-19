@@ -1,0 +1,8 @@
+.team-dialog.team-project-dialog { width: min(620px, calc(100vw - 40px)); padding: 24px; }
+.team-project-dialog fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+.team-project-dialog .team-project-server { color: #a89bdd; padding: 10px 12px; border: 1px solid #40384f; border-radius: 7px; overflow-wrap: anywhere; }
+.team-project-members { margin: 16px 0; }
+.team-project-members > strong { display: block; font-size: 13px; color: #dbd2ec; margin-bottom: 10px; }
+.team-project-dialog .team-project-members > label { display: grid; grid-template-columns: 1fr 190px; align-items: center; gap: 16px; margin: 0; padding: 8px 0; border-top: 1px solid #3b334a; }
+.team-project-members small { display: block; margin-top: 4px; }
+.team-project-members select:disabled { opacity: .6; }
