@@ -64,6 +64,15 @@ async function createCollaborationServer({ directory, port = 4747, root = path.r
   if (!db.prepare('PRAGMA table_info(stories)').all().some(column => column.name === 'details')) {
     db.exec("ALTER TABLE stories ADD COLUMN details TEXT NOT NULL DEFAULT '{}'");
   }
+  if (!db.prepare('PRAGMA table_info(users)').all().some(column => column.name === 'server_role')) {
+    db.exec("BEGIN IMMEDIATE; ALTER TABLE users ADD COLUMN server_role TEXT NOT NULL DEFAULT 'member'; UPDATE users SET server_role='admin' WHERE id='admin' AND username='admin'; COMMIT");
+  }
+  if (!db.prepare('PRAGMA table_info(projects)').all().some(column => column.name === 'member_revision')) {
+    db.exec('ALTER TABLE projects ADD COLUMN member_revision INTEGER NOT NULL DEFAULT 1');
+  }
+  db.exec(`CREATE TABLE IF NOT EXISTS project_creations (user_id TEXT NOT NULL REFERENCES users(id),
+    request_key TEXT NOT NULL, project_id TEXT NOT NULL REFERENCES projects(id), signature TEXT NOT NULL,
+    PRIMARY KEY(user_id, request_key))`);
   const transaction = operation => {
     db.exec('BEGIN IMMEDIATE');
     try { const result = operation(); db.exec('COMMIT'); return result; }
@@ -84,9 +93,9 @@ async function createCollaborationServer({ directory, port = 4747, root = path.r
     for (const username of demoAccounts) {
       const salt = randomBytes(16).toString('hex');
       const hash = scryptSync(username + '123', salt, 64).toString('hex');
-      db.prepare('INSERT INTO users VALUES (?, ?, ?, ?)').run(username, username, salt, hash);
+      db.prepare('INSERT INTO users (id,username,salt,hash,server_role) VALUES (?, ?, ?, ?, ?)').run(username, username, salt, hash, username === 'admin' ? 'admin' : 'member');
     }
-    db.prepare('INSERT INTO projects VALUES (?, ?)').run('team-demo', '多人协作验证项目');
+    db.prepare('INSERT INTO projects (id,name) VALUES (?, ?)').run('team-demo', '多人协作验证项目');
     for (const username of demoAccounts) db.prepare('INSERT INTO members VALUES (?, ?, ?)')
       .run('team-demo', username, username === 'admin' ? 'admin' : username === 'viewer' ? 'viewer' : 'editor');
     for (const [id, title, content] of [
@@ -115,6 +124,25 @@ async function createCollaborationServer({ directory, port = 4747, root = path.r
     if (!member) fail(403, '你不是这个项目的成员');
     if (write && member.role === 'viewer') fail(403, '当前账号只有查看权限');
     return member;
+  };
+  const serverRole = user => db.prepare('SELECT server_role FROM users WHERE id=?').get(user)?.server_role;
+  const requireServerAdmin = user => { if (serverRole(user) !== 'admin') fail(403, '只有服务器管理员可以新建协作项目'); };
+  const memberRows = project => db.prepare(`SELECT u.id AS userId, u.username, m.role FROM members m JOIN users u ON u.id=m.user_id
+    WHERE m.project_id=? ORDER BY u.username`).all(project);
+  const memberInput = (input, actor) => {
+    if (!Array.isArray(input) || input.length < 1 || input.length > 200) fail(400, '请选择 1–200 位项目成员');
+    const seen = new Set();
+    const members = input.map(item => {
+      if (!item || typeof item.userId !== 'string' || !['admin', 'editor', 'viewer'].includes(item.role) || seen.has(item.userId) ||
+        !db.prepare('SELECT id FROM users WHERE id=?').get(item.userId)) fail(400, '成员不存在、重复或权限无效');
+      seen.add(item.userId); return { userId: item.userId, role: item.role };
+    });
+    if (!members.some(item => item.userId === actor && item.role === 'admin')) fail(400, '当前管理账号必须保留项目管理员权限');
+    return members.sort((a, b) => a.userId.localeCompare(b.userId));
+  };
+  const writeMembers = (project, members) => {
+    db.prepare('DELETE FROM members WHERE project_id=?').run(project);
+    for (const member of members) db.prepare('INSERT INTO members VALUES (?, ?, ?)').run(project, member.userId, member.role);
   };
   const send = (response, status, value) => {
     response.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
@@ -149,7 +177,7 @@ async function createCollaborationServer({ directory, port = 4747, root = path.r
         }
         fail(405, '不支持此操作');
       }
-      if (route === '/api/team/health' && request.method === 'GET') return send(response, 200, { service: 'gamecreator-collaboration', serverId, apiVersion: 2 });
+      if (route === '/api/team/health' && request.method === 'GET') return send(response, 200, { service: 'gamecreator-collaboration', serverId, apiVersion: 3 });
       if (route === '/api/team/login' && request.method === 'POST') {
         const input = await readBody(request);
         const username = textField(input.username, '账号', 80, true).toLowerCase();
@@ -160,22 +188,62 @@ async function createCollaborationServer({ directory, port = 4747, root = path.r
         for (const [token, session] of sessions) if (session.expires < Date.now()) sessions.delete(token);
         const token = randomBytes(32).toString('hex');
         sessions.set(token, { userId: user.id, username: user.username, expires: Date.now() + 12 * 60 * 60 * 1000 });
-        return send(response, 200, { token, serverId, apiVersion: 2, user: { id: user.id, username: user.username } });
+        return send(response, 200, { token, serverId, apiVersion: 3, user: { id: user.id, username: user.username, serverRole: user.server_role } });
       }
       if (route.startsWith('/api/team/')) {
         const session = authenticate(request);
         if (route === '/api/team/logout' && request.method === 'POST') { sessions.delete(session.token); return send(response, 200, { ok: true }); }
+        if (route === '/api/team/accounts' && request.method === 'GET') {
+          if (serverRole(session.userId) !== 'admin' && !db.prepare("SELECT 1 FROM members WHERE user_id=? AND role='admin'").get(session.userId)) fail(403, '只有管理员可以配置项目成员');
+          return send(response, 200, { accounts: db.prepare('SELECT id AS userId, username FROM users ORDER BY username').all() });
+        }
         if (route === '/api/team/projects' && request.method === 'GET') {
           return send(response, 200, { projects: db.prepare(`SELECT p.id, p.name, m.role FROM projects p
             JOIN members m ON m.project_id=p.id WHERE m.user_id=? ORDER BY p.name`).all(session.userId) });
+        }
+        if (route === '/api/team/projects' && request.method === 'POST') {
+          requireServerAdmin(session.userId);
+          const input = await readBody(request);
+          const name = textField(input.name, '项目名称', 100, true), requestKey = textField(input.requestId, '创建请求标识', 100, true);
+          if (!/^[a-zA-Z0-9-]{16,100}$/.test(requestKey)) fail(400, '创建请求标识无效');
+          const members = memberInput(input.members, session.userId), signature = JSON.stringify({ name, members });
+          const result = transaction(() => {
+            requireServerAdmin(session.userId);
+            const previous = db.prepare('SELECT project_id,signature FROM project_creations WHERE user_id=? AND request_key=?').get(session.userId, requestKey);
+            if (previous) {
+              if (previous.signature !== signature) fail(409, '同一创建请求的内容已变化，请重新发起创建');
+              const member = membership(previous.project_id, session.userId);
+              const project = db.prepare('SELECT id,name FROM projects WHERE id=?').get(previous.project_id);
+              return { project: { ...project, role: member.role }, reused: true };
+            }
+            const id = randomUUID();
+            db.prepare('INSERT INTO projects (id,name) VALUES (?, ?)').run(id, name);
+            writeMembers(id, members);
+            db.prepare('INSERT INTO project_creations VALUES (?, ?, ?, ?)').run(session.userId, requestKey, id, signature);
+            return { project: { id, name, role: 'admin' }, reused: false };
+          });
+          return send(response, result.reused ? 200 : 201, result);
         }
         const match = /^\/api\/team\/projects\/([^/]+)\/(stories|members)(?:\/([^/]+))?(?:\/(history))?$/.exec(route);
         if (!match) fail(404, '接口不存在');
         const [, project, resource, id, history] = match;
         const member = membership(project, session.userId);
         if (resource === 'members' && !id && request.method === 'GET') {
-          return send(response, 200, { members: db.prepare(`SELECT u.username, m.role FROM members m JOIN users u ON u.id=m.user_id
-            WHERE m.project_id=? ORDER BY u.username`).all(project) });
+          return send(response, 200, { members: memberRows(project), revision: db.prepare('SELECT member_revision FROM projects WHERE id=?').get(project).member_revision });
+        }
+        if (resource === 'members' && !id && request.method === 'PUT') {
+          if (member.role !== 'admin') fail(403, '只有项目管理员可以修改成员');
+          const input = await readBody(request), members = memberInput(input.members, session.userId);
+          if (!Number.isSafeInteger(input.revision) || input.revision < 1) fail(400, '必须提供有效的成员配置版本');
+          const result = transaction(() => {
+            if (membership(project, session.userId).role !== 'admin') fail(403, '只有项目管理员可以修改成员');
+            const current = db.prepare('SELECT member_revision FROM projects WHERE id=?').get(project).member_revision;
+            if (current !== input.revision) fail(409, '其他管理员已修改成员配置，请重新读取后再保存');
+            writeMembers(project, members);
+            db.prepare('UPDATE projects SET member_revision=member_revision+1 WHERE id=?').run(project);
+            return { members: memberRows(project), revision: current + 1 };
+          });
+          return send(response, 200, result);
         }
         if (resource !== 'stories') fail(404, '接口不存在');
         if (id === 'import' && !history && request.method === 'POST') {

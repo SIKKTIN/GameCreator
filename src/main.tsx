@@ -2,8 +2,9 @@ import { StoryDocuments } from './StoryDocuments';
 import { WorkspaceSidebar } from './WorkspaceSidebar';
 import { ServerManager, type ServerModuleNavigation } from './ServerManager';
 import { TeamProjectWorkspace } from './TeamWorkspace';
+import { TeamProjectDialog } from './TeamProjectDialog';
 import { TeamConnectionDialog, teamProjectKey, useTeamConnection } from './team-connection';
-import { canLeaveTeam, leaveTeamEvent } from './team-api';
+import { canLeaveTeam, leaveTeamEvent, type TeamProject } from './team-api';
 import { initialStoryDocs, type StoryDoc } from './story-model';
 import { datasetDefinitions, emptyDatasetDefinitions, initialData, initialMilestones, initialProject, emptyProjectData, emptyMilestones, emptyStories, type Milestone } from './project-defaults';
 import { ArtAssets, ArtReferences, type ArtSelection } from './ArtAssets';
@@ -63,6 +64,8 @@ function WorkspaceController({ role, username }: { role: UserRole; username: str
   const projects = useProjectCatalog();
   const team = useTeamConnection();
   const [activeTeamId, setActiveTeamId] = useState<string | null>(null);
+  const [creatingTeam, setCreatingTeam] = useState(false), [createAfterConnection, setCreateAfterConnection] = useState(false);
+  const lastTeamProject = useRef<{ key: string; project: TeamProject } | null>(null);
   const [serverOpen, setServerOpen] = useState(false), [returnToConnection, setReturnToConnection] = useState(false);
   const [addressRequest, setAddressRequest] = useState<{ url: string } | null>(null);
   const allowSwitch = () => window.dispatchEvent(new Event(beforeLogoutEvent, { cancelable: true })) && canLeaveTeam();
@@ -78,7 +81,12 @@ function WorkspaceController({ role, username }: { role: UserRole; username: str
       onBack={() => { leaveServer(); if (returnToConnection) team.resume(); }}
       onUseAddress={url => { setAddressRequest({ url }); leaveServer(); if (returnToConnection) team.resume(); else team.show(); }} /> : null,
   };
-  const connectTeam = () => { if (allowSwitch()) team.show(); };
+  const connectTeam = () => { if (allowSwitch()) { setCreateAfterConnection(false); team.show(); } };
+  const createTeam = () => {
+    if (role !== 'admin' || !allowSwitch()) return;
+    if (team.session?.user.serverRole === 'admin') setCreatingTeam(true);
+    else { setCreateAfterConnection(true); team.show(null, true); }
+  };
   const formalProject = projects.catalog.projects.find(item => item.id === projects.catalog.activeId)!;
   const [storedTest, setStoredTest, sessionError] = useStoredState<TestSession | null>('gamecreator.test-session.v1', null);
   const [preparing, setPreparing] = useState(false);
@@ -204,14 +212,22 @@ function WorkspaceController({ role, username }: { role: UserRole; username: str
   });
   for (const item of team.saved?.projects ?? []) options.push({ id: teamProjectKey(team.saved!.serverId, item.id), name: item.name,
     projectPath: '', kind: 'team', detail: `${team.saved!.url} · ${team.session ? team.session.user.username : '未连接'}` });
-  const selectedTeam = team.session && team.saved?.projects.find(item => item.id === activeTeamId);
+  const selectedTeamKey = team.session ? `${team.session.token}:${activeTeamId}` : '';
+  const availableTeam = team.session && team.saved?.projects.find(item => item.id === activeTeamId);
+  if (availableTeam) lastTeamProject.current = { key: selectedTeamKey, project: availableTeam };
+  // Retain the editor after revocation so its local draft and save guards survive.
+  const selectedTeam = availableTeam || (lastTeamProject.current?.key === selectedTeamKey ? lastTeamProject.current.project : null);
+  const teamNotice = team.session && !team.saved?.projects.length ? `已连接 ${team.session.user.username}，尚未加入协作项目。请联系项目管理员添加。` : undefined;
   if (projects.blocked) return <main className="enum-catalog-empty" role="alert">
     <AlertTriangle size={32} /><h1>项目列表读取失败</h1>
     <p>无法确定当前项目，已停止加载和保存工作区。请恢复项目列表存档后重新打开软件。</p>
     <p>{projects.error}</p><button className="primary" onClick={() => window.location.reload()}>重新读取</button>
   </main>;
-  return <><TeamConnectionDialog connection={team} onConnected={id => { leaveServer(); setActiveTeamId(id); }} addressRequest={addressRequest}
+  return <><TeamConnectionDialog connection={team} onConnected={id => { leaveServer(); setActiveTeamId(id); if (createAfterConnection) setCreatingTeam(true); setCreateAfterConnection(false); }} addressRequest={addressRequest}
+    onDismiss={() => setCreateAfterConnection(false)}
     onManageServer={role === 'admin' ? () => openServer(true) : undefined} />
+    {creatingTeam && role === 'admin' && team.session && <TeamProjectDialog session={team.session} onClose={() => setCreatingTeam(false)}
+      onCreated={project => { team.addProject(project); setCreatingTeam(false); leaveServer(); setActiveTeamId(project.id); }} />}
     <ProjectPackageDialog state={transfer.state} names={options.filter(item => item.kind === 'local').map(item => item.name)}
       onClose={transfer.close} onChoose={transfer.reselect} onImport={transfer.importProject} />
     <PrototypeImportDialog open={prototypeOpen} busy={prototypeBusy} projects={options.filter(item => item.kind === 'local')}
@@ -219,13 +235,13 @@ function WorkspaceController({ role, username }: { role: UserRole; username: str
     {selectedTeam && team.session ? <TeamProjectWorkspace key={`${team.session.serverId}:${team.session.user.id}:${selectedTeam.id}:${team.session.token}`} project={selectedTeam} session={team.session}
       {...serverNavigation} localAdmin={role === 'admin'}
       localProjects={projects.catalog.projects.map(item => ({ ...item, name: options.find(option => option.id === item.id)?.name || item.name }))}
-      picker={<ProjectSwitcher projects={options} currentId={teamProjectKey(team.session.serverId, selectedTeam.id)} currentName={selectedTeam.name} canAdd={role === 'admin'} busy={preparing || prototypeBusy || transfer.busy || projects.blocked}
-        onSelect={selectProject} onAdd={addProject} onConnectTeam={connectTeam} onImportPrototype={openPrototypeImport} onImportProject={transfer.enabled ? transfer.openImport : undefined} />}
+      picker={<ProjectSwitcher projects={options} teamNotice={teamNotice} currentId={teamProjectKey(team.session.serverId, selectedTeam.id)} currentName={selectedTeam.name} canAdd={role === 'admin'} busy={preparing || prototypeBusy || transfer.busy || projects.blocked}
+        onSelect={selectProject} onAdd={addProject} onConnectTeam={connectTeam} onCreateTeam={createTeam} onImportPrototype={openPrototypeImport} onImportProject={transfer.enabled ? transfer.openImport : undefined} />}
       onConnection={connectTeam} onDisconnect={() => { if (allowSwitch()) { team.disconnect(); setActiveTeamId(null); } }} />
     : <ProjectDataUpgrade key={testSession?.id ?? 'project:' + formalProject.id} role={role} username={username}
     {...serverNavigation}
     formalProject={formalProject} projectOptions={options} onSelectProject={selectProject} onAddProject={addProject}
-    onConnectTeam={connectTeam} onImportPrototype={openPrototypeImport}
+    onConnectTeam={connectTeam} onCreateTeam={createTeam} teamNotice={teamNotice} onImportPrototype={openPrototypeImport}
     onImportProject={transfer.enabled ? transfer.openImport : undefined}
     onExportProject={transfer.enabled ? () => transfer.openExport(formalProject) : undefined}
     onConfigChange={configureProject}
@@ -253,9 +269,10 @@ function ProjectDataUpgrade(props: ComponentProps<typeof WorkspaceApp>) {
 }
 
 const initialTestProject = { ...initialProject, name: '枚举测试工作区' };
-function WorkspaceApp({ role, username, testSession, onLoadTest, onExitTest, preparingTest, testError, formalProject, projectOptions, onSelectProject, onAddProject, onConfigChange, onRenameProject, onConnectTeam, onImportPrototype, onImportProject, onExportProject, serverPage, onManageServer, onLeaveServer }: {
+function WorkspaceApp({ role, username, testSession, onLoadTest, onExitTest, preparingTest, testError, formalProject, projectOptions, onSelectProject, onAddProject, onConfigChange, onRenameProject, onConnectTeam, onCreateTeam, teamNotice, onImportPrototype, onImportProject, onExportProject, serverPage, onManageServer, onLeaveServer }: {
   onImportProject?: () => void; onExportProject?: () => void;
-  formalProject: SavedProject; projectOptions: SwitchableProject[]; onConnectTeam: () => void; onImportPrototype: () => void;
+  teamNotice?: string;
+  formalProject: SavedProject; projectOptions: SwitchableProject[]; onConnectTeam: () => void; onCreateTeam: () => void; onImportPrototype: () => void;
   onSelectProject: (id: string) => boolean; onAddProject: (input: { name: string }) => Promise<boolean>;
   onConfigChange: (config: EngineConfig) => Promise<boolean>; onRenameProject: (name: string) => boolean;
   role: UserRole; username: string; testSession: TestSession | null; onLoadTest: (scenario: TestScenarioId) => Promise<void>;
@@ -393,9 +410,9 @@ function WorkspaceApp({ role, username, testSession, onLoadTest, onExitTest, pre
 
   return (
     <div className="app local-workspace">
-      <WorkspaceSidebar picker={<ProjectSwitcher projects={projectOptions} currentId={testSession ? null : formalProject.id} currentName={project.name}
+      <WorkspaceSidebar picker={<ProjectSwitcher projects={projectOptions} teamNotice={teamNotice} currentId={testSession ? null : formalProject.id} currentName={project.name}
           testName={testSession ? testScenarios.find(item=>item.id===testSession.scenario)?.name : undefined}
-          canAdd={role === 'admin'} busy={preparingTest || registry.busy || registry.loading || gameplay.pending || functional.pending || functional.blocked || art.pending || art.blocked || core.pending} onSelect={onSelectProject} onAdd={onAddProject} onConnectTeam={onConnectTeam} onImportPrototype={onImportPrototype} onImportProject={onImportProject} onExportProject={!testSession && !storageError ? onExportProject : undefined} />} active={serverPage ? '服务器管理' : active}
+          canAdd={role === 'admin'} busy={preparingTest || registry.busy || registry.loading || gameplay.pending || functional.pending || functional.blocked || art.pending || art.blocked || core.pending} onSelect={onSelectProject} onAdd={onAddProject} onConnectTeam={onConnectTeam} onCreateTeam={onCreateTeam} onImportPrototype={onImportPrototype} onImportProject={onImportProject} onExportProject={!testSession && !storageError ? onExportProject : undefined} />} active={serverPage ? '服务器管理' : active}
         onNavigate={name => { onLeaveServer(); setActive(name); }} admin={role === 'admin'} onManageServer={onManageServer} footer={<>
         <button><Settings2 size={17} />工作区设置</button><div className="user"><div className="avatar">G</div><span>{username}<small>本地项目</small></span></div>
       </>} />

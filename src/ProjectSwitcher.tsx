@@ -9,11 +9,13 @@ export type ProjectSwitcherProps = {
   currentId: string | null;
   currentName: string;
   testName?: string;
+  teamNotice?: string;
   canAdd: boolean;
   busy: boolean;
   onSelect: (id: string) => Promise<boolean> | boolean;
   onAdd: (input: AddProjectInput) => Promise<boolean>;
   onConnectTeam?: () => void;
+  onCreateTeam?: () => void;
   onImportPrototype?: () => void;
   onImportProject?: () => void;
   onExportProject?: () => void;
@@ -23,7 +25,7 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : '操作未完成，请稍后重试。';
 }
 
-export function ProjectSwitcher({ projects, currentId, currentName, testName, canAdd, busy, onSelect, onAdd, onConnectTeam, onImportPrototype, onImportProject, onExportProject }: ProjectSwitcherProps) {
+export function ProjectSwitcher({ projects, currentId, currentName, testName, teamNotice, canAdd, busy, onSelect, onAdd, onConnectTeam, onCreateTeam, onImportPrototype, onImportProject, onExportProject }: ProjectSwitcherProps) {
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [menuError, setMenuError] = useState('');
@@ -151,6 +153,7 @@ export function ProjectSwitcher({ projects, currentId, currentName, testName, ca
     </button>
     {open && <div className="ps-dropdown">
       <div className="ps-menu-heading">切换项目</div>
+      {teamNotice && <p className="ps-no-projects" role="status">{teamNotice}</p>}
       {testName && <div className="ps-test-current">
         <span className="ps-status-dot ps-status-test" aria-hidden="true" />
         <div><strong>{testName}</strong><small>测试工作区 · 选择项目可返回</small></div>
@@ -175,6 +178,7 @@ export function ProjectSwitcher({ projects, currentId, currentName, testName, ca
         </button>)}
         {projects.length === 0 && <p className="ps-no-projects">暂无已创建的项目</p>}
         {canAdd && <button type="button" role="menuitem" className="ps-add-button" disabled={locked} onClick={openAddDialog}><Plus size={16} aria-hidden="true" />新建项目</button>}
+        {canAdd && onCreateTeam && <button type="button" role="menuitem" className="ps-add-button" disabled={locked} onClick={() => { closeMenu(); onCreateTeam(); }}><Plus size={16} />新建协作项目</button>}
         {canAdd && onImportPrototype && <button type="button" role="menuitem" className="ps-add-button" disabled={locked} onClick={() => { closeMenu(); triggerRef.current?.focus(); onImportPrototype(); }}><CopyPlus size={16} aria-hidden="true" />从原型示例创建项目</button>}
         {canAdd && onImportProject && <button type="button" role="menuitem" className="ps-add-button" disabled={locked} onClick={() => { closeMenu(); triggerRef.current?.focus(); onImportProject(); }}><FolderInput size={16} aria-hidden="true" />从文件夹导入项目</button>}
         {canAdd && onExportProject && <button type="button" role="menuitem" className="ps-add-button" disabled={locked} onClick={() => { closeMenu(); triggerRef.current?.focus(); onExportProject(); }}><FolderOutput size={16} aria-hidden="true" />导出项目到文件夹</button>}

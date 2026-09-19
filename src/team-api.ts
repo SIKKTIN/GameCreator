@@ -1,5 +1,6 @@
 export type TeamRole = 'admin' | 'editor' | 'viewer';
-export type TeamSession = { token: string; serverId: string; user: { id: string; username: string }; url: string };
+export type TeamSession = { token: string; serverId: string; apiVersion?: number; user: { id: string; username: string; serverRole?: 'admin' | 'member' }; url: string };
+export type TeamMember = { userId: string; username: string; role: TeamRole };
 export type TeamProject = { id: string; name: string; role: TeamRole };
 import type { StoryDoc } from './story-model';
 export type TeamStoryFields = Omit<StoryDoc, 'id' | 'updated'>;

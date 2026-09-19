@@ -83,7 +83,7 @@ test('team authentication, membership, independent edits, atomic conflicts, hist
     assert.equal((await request('/health', { headers: { Origin: 'http://127.0.0.1:5173' } })).status, 200);
     // Member checks apply to private projects, document IDs and history alike.
     const database = new DatabaseSync(path.join(directory, 'team.sqlite'));
-    database.exec("INSERT INTO projects VALUES ('private', 'Private'); INSERT INTO members VALUES ('private', 'admin', 'admin');");
+    database.exec("INSERT INTO projects (id,name) VALUES ('private', 'Private'); INSERT INTO members VALUES ('private', 'admin', 'admin');");
     database.close();
     assert.equal((await request('/projects/private/stories', { token: alice })).status, 403);
     assert.equal((await request('/projects/private/stories/world/history', { token: bob })).status, 403);
@@ -111,7 +111,7 @@ test('upgrade the original team database without rewriting existing stories or h
   try {
     await service.close();
     const database = new DatabaseSync(path.join(directory, 'team.sqlite'));
-    database.exec('ALTER TABLE stories DROP COLUMN details; DROP TABLE story_imports;');
+    database.exec('ALTER TABLE stories DROP COLUMN details; DROP TABLE story_imports; ALTER TABLE users DROP COLUMN server_role; ALTER TABLE projects DROP COLUMN member_revision; DROP TABLE project_creations;');
     for (const row of database.prepare('SELECT story_id,revision,snapshot FROM history').all()) {
       const snapshot = JSON.parse(row.snapshot); for (const key of ['status','tags','outlines','relations']) delete snapshot[key];
       database.prepare('UPDATE history SET snapshot=? WHERE story_id=? AND revision=?').run(JSON.stringify(snapshot), row.story_id, row.revision);
@@ -121,9 +121,11 @@ test('upgrade the original team database without rewriting existing stories or h
     service = await createCollaborationServer({ directory, port: 0 });
     const login = await fetch(service.url + '/api/team/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username:'alice', password:'alice123' }) }).then(response => response.json());
     const read = await fetch(service.url + '/api/team/projects/team-demo/stories', { headers: { Authorization: 'Bearer ' + login.token } }).then(response => response.json());
-    assert.equal(login.apiVersion, 2); assert.equal(read.stories.length, 2);
+    assert.equal(login.apiVersion, 3); assert.equal(login.user.serverRole, 'member'); assert.equal(read.stories.length, 2);
     assert.equal(read.stories[0].status, '草稿'); assert.deepEqual(read.stories[0].relations, { characters: [], locations: [], systems: [] });
     const verify = new DatabaseSync(path.join(directory, 'team.sqlite'));
+    assert.equal(verify.prepare("SELECT server_role FROM users WHERE id='admin'").get().server_role, 'admin');
+    assert.equal(verify.prepare("SELECT member_revision FROM projects WHERE id='team-demo'").get().member_revision, 1);
     assert.deepEqual(verify.prepare('SELECT * FROM history ORDER BY story_id').all(), historyBefore);
     assert.deepEqual(verify.prepare('SELECT id,project_id,title,category,summary,content,revision,updated_at,updated_by FROM stories ORDER BY id').all(), storiesBefore);
     verify.close();
