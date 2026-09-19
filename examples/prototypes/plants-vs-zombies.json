@@ -5562,5 +5562,473 @@
         ]
       }
     }
-  ]
+  ],
+  "gameplayCore": {
+    "schema": 1,
+    "rootId": "pvz-core-root",
+    "graphs": [
+      {
+        "id": "pvz-core-root",
+        "title": "草坪保卫战：玩法核心",
+        "summary": "从入口选择挑战、无尽或花园。挑战有明确终局；无尽与花园支持持续循环。无尽、花园与最终首领作为可扩展原型方向。",
+        "nodes": [
+          {
+            "id": "pvz-core-root-entry",
+            "kind": "entry",
+            "title": "进入游戏",
+            "description": "",
+            "x": 40,
+            "y": 170,
+            "childGraphId": "",
+            "gameplayIds": [
+              "5e930f5b-bcc6-4e98-85a5-5e6a667968b2",
+              "8aeab67b-f854-4da9-aa49-d196107fbf9a"
+            ]
+          },
+          {
+            "id": "pvz-core-root-mode",
+            "kind": "decision",
+            "title": "选择玩法",
+            "description": "",
+            "x": 290,
+            "y": 170,
+            "childGraphId": "",
+            "gameplayIds": []
+          },
+          {
+            "id": "pvz-core-root-challenge",
+            "kind": "module",
+            "title": "挑战",
+            "description": "逐关推进的有限流程。",
+            "x": 540,
+            "y": 40,
+            "childGraphId": "pvz-core-challenge",
+            "gameplayIds": [
+              "5e930f5b-bcc6-4e98-85a5-5e6a667968b2",
+              "39bc4c47-ac6e-4abe-9863-422df4b55ab7"
+            ]
+          },
+          {
+            "id": "pvz-core-root-endless",
+            "kind": "module",
+            "title": "无尽",
+            "description": "持续守卫与压力循环，后续细化。",
+            "x": 540,
+            "y": 210,
+            "childGraphId": "pvz-core-endless",
+            "gameplayIds": [
+              "f980e205-82fa-4bda-945e-970dd7dc8eea",
+              "39bc4c47-ac6e-4abe-9863-422df4b55ab7"
+            ]
+          },
+          {
+            "id": "pvz-core-root-garden",
+            "kind": "module",
+            "title": "花园",
+            "description": "轻量培育与资源循环，后续细化。",
+            "x": 540,
+            "y": 380,
+            "childGraphId": "pvz-core-garden",
+            "gameplayIds": []
+          },
+          {
+            "id": "pvz-core-root-ending",
+            "kind": "exit",
+            "title": "挑战通关",
+            "description": "最终首领被击败。",
+            "x": 810,
+            "y": 40,
+            "childGraphId": "",
+            "gameplayIds": []
+          }
+        ],
+        "edges": [
+          {
+            "id": "pvz-core-root-edge-1",
+            "fromId": "pvz-core-root-entry",
+            "toId": "pvz-core-root-mode",
+            "label": "",
+            "condition": ""
+          },
+          {
+            "id": "pvz-core-root-edge-2",
+            "fromId": "pvz-core-root-mode",
+            "toId": "pvz-core-root-challenge",
+            "label": "挑战",
+            "condition": ""
+          },
+          {
+            "id": "pvz-core-root-edge-3",
+            "fromId": "pvz-core-root-mode",
+            "toId": "pvz-core-root-endless",
+            "label": "无尽",
+            "condition": ""
+          },
+          {
+            "id": "pvz-core-root-edge-4",
+            "fromId": "pvz-core-root-mode",
+            "toId": "pvz-core-root-garden",
+            "label": "花园",
+            "condition": ""
+          },
+          {
+            "id": "pvz-core-root-edge-5",
+            "fromId": "pvz-core-root-challenge",
+            "toId": "pvz-core-root-ending",
+            "label": "通关",
+            "condition": "最终首领被击败"
+          },
+          {
+            "id": "pvz-core-root-edge-6",
+            "fromId": "pvz-core-root-endless",
+            "toId": "pvz-core-root-mode",
+            "label": "结束本轮",
+            "condition": ""
+          },
+          {
+            "id": "pvz-core-root-edge-7",
+            "fromId": "pvz-core-root-garden",
+            "toId": "pvz-core-root-mode",
+            "label": "返回选择",
+            "condition": ""
+          }
+        ]
+      },
+      {
+        "id": "pvz-core-challenge",
+        "title": "挑战：逐关推进",
+        "summary": "选择植物、守住草坪、领取奖励后进入下一关；完成最终首领挑战结束这条主线。",
+        "nodes": [
+          {
+            "id": "pvz-core-challenge-entry",
+            "kind": "entry",
+            "title": "开始挑战",
+            "description": "",
+            "x": 40,
+            "y": 140,
+            "childGraphId": "",
+            "gameplayIds": [
+              "8aeab67b-f854-4da9-aa49-d196107fbf9a"
+            ]
+          },
+          {
+            "id": "pvz-core-challenge-select",
+            "kind": "activity",
+            "title": "选择植物",
+            "description": "根据关卡压力安排植物组合。",
+            "x": 280,
+            "y": 140,
+            "childGraphId": "",
+            "gameplayIds": [
+              "5b70b418-773b-4630-b7c9-b9e545b2c3b0"
+            ]
+          },
+          {
+            "id": "pvz-core-challenge-stage",
+            "kind": "activity",
+            "title": "守卫关卡",
+            "description": "阳光、种植、射击与波次共同构成单局。",
+            "x": 520,
+            "y": 140,
+            "childGraphId": "",
+            "gameplayIds": [
+              "5b70b418-773b-4630-b7c9-b9e545b2c3b0",
+              "f980e205-82fa-4bda-945e-970dd7dc8eea",
+              "39bc4c47-ac6e-4abe-9863-422df4b55ab7"
+            ]
+          },
+          {
+            "id": "pvz-core-challenge-reward",
+            "kind": "activity",
+            "title": "领取奖励",
+            "description": "完成关卡后解锁后续内容。",
+            "x": 760,
+            "y": 140,
+            "childGraphId": "",
+            "gameplayIds": []
+          },
+          {
+            "id": "pvz-core-challenge-next",
+            "kind": "decision",
+            "title": "下一关还是终局",
+            "description": "",
+            "x": 1000,
+            "y": 140,
+            "childGraphId": "",
+            "gameplayIds": []
+          },
+          {
+            "id": "pvz-core-challenge-boss",
+            "kind": "activity",
+            "title": "最终首领挑战",
+            "description": "扩展的终局节点，具体首领玩法待细化。",
+            "x": 1000,
+            "y": 350,
+            "childGraphId": "",
+            "gameplayIds": [
+              "f980e205-82fa-4bda-945e-970dd7dc8eea"
+            ]
+          },
+          {
+            "id": "pvz-core-challenge-exit",
+            "kind": "exit",
+            "title": "挑战完成",
+            "description": "",
+            "x": 760,
+            "y": 350,
+            "childGraphId": "",
+            "gameplayIds": []
+          }
+        ],
+        "edges": [
+          {
+            "id": "pvz-core-challenge-edge-1",
+            "fromId": "pvz-core-challenge-entry",
+            "toId": "pvz-core-challenge-select",
+            "label": "",
+            "condition": ""
+          },
+          {
+            "id": "pvz-core-challenge-edge-2",
+            "fromId": "pvz-core-challenge-select",
+            "toId": "pvz-core-challenge-stage",
+            "label": "",
+            "condition": ""
+          },
+          {
+            "id": "pvz-core-challenge-edge-3",
+            "fromId": "pvz-core-challenge-stage",
+            "toId": "pvz-core-challenge-reward",
+            "label": "胜利",
+            "condition": "最后一波已清空"
+          },
+          {
+            "id": "pvz-core-challenge-edge-4",
+            "fromId": "pvz-core-challenge-stage",
+            "toId": "pvz-core-challenge-select",
+            "label": "重试",
+            "condition": "草坪防线被突破"
+          },
+          {
+            "id": "pvz-core-challenge-edge-5",
+            "fromId": "pvz-core-challenge-reward",
+            "toId": "pvz-core-challenge-next",
+            "label": "",
+            "condition": ""
+          },
+          {
+            "id": "pvz-core-challenge-edge-6",
+            "fromId": "pvz-core-challenge-next",
+            "toId": "pvz-core-challenge-select",
+            "label": "下一关",
+            "condition": "仍有普通关卡"
+          },
+          {
+            "id": "pvz-core-challenge-edge-7",
+            "fromId": "pvz-core-challenge-next",
+            "toId": "pvz-core-challenge-boss",
+            "label": "最终挑战",
+            "condition": "普通关卡全部通过"
+          },
+          {
+            "id": "pvz-core-challenge-edge-8",
+            "fromId": "pvz-core-challenge-boss",
+            "toId": "pvz-core-challenge-exit",
+            "label": "首领被击败",
+            "condition": ""
+          },
+          {
+            "id": "pvz-core-challenge-edge-9",
+            "fromId": "pvz-core-challenge-boss",
+            "toId": "pvz-core-challenge-select",
+            "label": "重试",
+            "condition": "玩家失败"
+          }
+        ]
+      },
+      {
+        "id": "pvz-core-endless",
+        "title": "无尽：持续守卫",
+        "summary": "波次压力持续递增，玩家在整备与防守之间循环，直到失败或主动结束。",
+        "nodes": [
+          {
+            "id": "pvz-core-endless-entry",
+            "kind": "entry",
+            "title": "进入无尽",
+            "description": "",
+            "x": 40,
+            "y": 160,
+            "childGraphId": "",
+            "gameplayIds": []
+          },
+          {
+            "id": "pvz-core-endless-prepare",
+            "kind": "activity",
+            "title": "整备防线",
+            "description": "",
+            "x": 280,
+            "y": 160,
+            "childGraphId": "",
+            "gameplayIds": [
+              "5b70b418-773b-4630-b7c9-b9e545b2c3b0"
+            ]
+          },
+          {
+            "id": "pvz-core-endless-wave",
+            "kind": "activity",
+            "title": "迎接一轮波次",
+            "description": "",
+            "x": 520,
+            "y": 160,
+            "childGraphId": "",
+            "gameplayIds": [
+              "f980e205-82fa-4bda-945e-970dd7dc8eea",
+              "39bc4c47-ac6e-4abe-9863-422df4b55ab7"
+            ]
+          },
+          {
+            "id": "pvz-core-endless-result",
+            "kind": "decision",
+            "title": "继续守卫",
+            "description": "",
+            "x": 760,
+            "y": 160,
+            "childGraphId": "",
+            "gameplayIds": []
+          },
+          {
+            "id": "pvz-core-endless-exit",
+            "kind": "exit",
+            "title": "结束本轮",
+            "description": "",
+            "x": 760,
+            "y": 370,
+            "childGraphId": "",
+            "gameplayIds": []
+          }
+        ],
+        "edges": [
+          {
+            "id": "pvz-core-endless-edge-1",
+            "fromId": "pvz-core-endless-entry",
+            "toId": "pvz-core-endless-prepare",
+            "label": "",
+            "condition": ""
+          },
+          {
+            "id": "pvz-core-endless-edge-2",
+            "fromId": "pvz-core-endless-prepare",
+            "toId": "pvz-core-endless-wave",
+            "label": "",
+            "condition": ""
+          },
+          {
+            "id": "pvz-core-endless-edge-3",
+            "fromId": "pvz-core-endless-wave",
+            "toId": "pvz-core-endless-result",
+            "label": "",
+            "condition": ""
+          },
+          {
+            "id": "pvz-core-endless-edge-4",
+            "fromId": "pvz-core-endless-result",
+            "toId": "pvz-core-endless-prepare",
+            "label": "继续",
+            "condition": "守卫成功且玩家继续"
+          },
+          {
+            "id": "pvz-core-endless-edge-5",
+            "fromId": "pvz-core-endless-result",
+            "toId": "pvz-core-endless-exit",
+            "label": "结束",
+            "condition": "失败或主动退出"
+          }
+        ]
+      },
+      {
+        "id": "pvz-core-garden",
+        "title": "花园：培育与收获",
+        "summary": "照料植物、等待成熟、收获资源，再投入下一轮培育。",
+        "nodes": [
+          {
+            "id": "pvz-core-garden-entry",
+            "kind": "entry",
+            "title": "进入花园",
+            "description": "",
+            "x": 40,
+            "y": 160,
+            "childGraphId": "",
+            "gameplayIds": []
+          },
+          {
+            "id": "pvz-core-garden-care",
+            "kind": "activity",
+            "title": "培育与照料",
+            "description": "园艺扩展方向，尚未拆分具体玩法文档。",
+            "x": 280,
+            "y": 160,
+            "childGraphId": "",
+            "gameplayIds": []
+          },
+          {
+            "id": "pvz-core-garden-ripe",
+            "kind": "decision",
+            "title": "植物是否成熟",
+            "description": "",
+            "x": 520,
+            "y": 160,
+            "childGraphId": "",
+            "gameplayIds": []
+          },
+          {
+            "id": "pvz-core-garden-harvest",
+            "kind": "activity",
+            "title": "收获并投入培育",
+            "description": "",
+            "x": 760,
+            "y": 160,
+            "childGraphId": "",
+            "gameplayIds": []
+          }
+        ],
+        "edges": [
+          {
+            "id": "pvz-core-garden-edge-1",
+            "fromId": "pvz-core-garden-entry",
+            "toId": "pvz-core-garden-care",
+            "label": "",
+            "condition": ""
+          },
+          {
+            "id": "pvz-core-garden-edge-2",
+            "fromId": "pvz-core-garden-care",
+            "toId": "pvz-core-garden-ripe",
+            "label": "",
+            "condition": ""
+          },
+          {
+            "id": "pvz-core-garden-edge-3",
+            "fromId": "pvz-core-garden-ripe",
+            "toId": "pvz-core-garden-care",
+            "label": "继续照料",
+            "condition": "尚未成熟"
+          },
+          {
+            "id": "pvz-core-garden-edge-4",
+            "fromId": "pvz-core-garden-ripe",
+            "toId": "pvz-core-garden-harvest",
+            "label": "收获",
+            "condition": "已成熟"
+          },
+          {
+            "id": "pvz-core-garden-edge-5",
+            "fromId": "pvz-core-garden-harvest",
+            "toId": "pvz-core-garden-care",
+            "label": "开始下一轮",
+            "condition": ""
+          }
+        ]
+      }
+    ]
+  }
 }

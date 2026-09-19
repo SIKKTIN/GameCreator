@@ -8385,5 +8385,526 @@
         ]
       }
     }
-  ]
+  ],
+  "gameplayCore": {
+    "schema": 1,
+    "rootId": "hk-core-root",
+    "graphs": [
+      {
+        "id": "hk-core-root",
+        "title": "裂隙回路：探索推动成长",
+        "summary": "探索发现挑战与门槛，战斗和试炼带来成长，能力解锁新路径并引导重访旧区域。",
+        "nodes": [
+          {
+            "id": "hk-core-root-entry",
+            "kind": "entry",
+            "title": "进入裂隙",
+            "description": "",
+            "x": 40,
+            "y": 210,
+            "childGraphId": "",
+            "gameplayIds": [
+              "0c79d9bf-0830-4e5b-9680-a05f096e6ec8"
+            ]
+          },
+          {
+            "id": "hk-core-root-explore",
+            "kind": "module",
+            "title": "探索冒险",
+            "description": "",
+            "x": 290,
+            "y": 210,
+            "childGraphId": "hk-core-explore",
+            "gameplayIds": [
+              "60da293c-d4d3-418a-9138-df9648a5bad5",
+              "3569edee-b95b-4bfd-97e1-8a816e94b184"
+            ]
+          },
+          {
+            "id": "hk-core-root-found",
+            "kind": "decision",
+            "title": "发现什么",
+            "description": "",
+            "x": 540,
+            "y": 210,
+            "childGraphId": "",
+            "gameplayIds": []
+          },
+          {
+            "id": "hk-core-root-combat",
+            "kind": "module",
+            "title": "战斗挑战",
+            "description": "",
+            "x": 800,
+            "y": 40,
+            "childGraphId": "hk-core-combat",
+            "gameplayIds": [
+              "f2d2bb4b-7764-433f-9c19-67c7982637e8",
+              "adcd86ce-5557-4fec-96e4-c1f42b638c7e",
+              "846da304-6fa2-4332-9f3f-36a96af8e455"
+            ]
+          },
+          {
+            "id": "hk-core-root-growth",
+            "kind": "module",
+            "title": "能力成长",
+            "description": "",
+            "x": 800,
+            "y": 230,
+            "childGraphId": "hk-core-growth",
+            "gameplayIds": [
+              "8ac7f8f8-455d-46ab-ba80-87ab4c579173"
+            ]
+          },
+          {
+            "id": "hk-core-root-routes",
+            "kind": "module",
+            "title": "解锁路径",
+            "description": "",
+            "x": 800,
+            "y": 420,
+            "childGraphId": "hk-core-routes",
+            "gameplayIds": [
+              "d217ca56-8558-443b-994e-c39838c7a49d"
+            ]
+          }
+        ],
+        "edges": [
+          {
+            "id": "hk-core-root-edge-1",
+            "fromId": "hk-core-root-entry",
+            "toId": "hk-core-root-explore",
+            "label": "",
+            "condition": ""
+          },
+          {
+            "id": "hk-core-root-edge-2",
+            "fromId": "hk-core-root-explore",
+            "toId": "hk-core-root-found",
+            "label": "",
+            "condition": ""
+          },
+          {
+            "id": "hk-core-root-edge-3",
+            "fromId": "hk-core-root-found",
+            "toId": "hk-core-root-combat",
+            "label": "敌人与首领",
+            "condition": ""
+          },
+          {
+            "id": "hk-core-root-edge-4",
+            "fromId": "hk-core-root-found",
+            "toId": "hk-core-root-growth",
+            "label": "试炼与奖励",
+            "condition": ""
+          },
+          {
+            "id": "hk-core-root-edge-5",
+            "fromId": "hk-core-root-found",
+            "toId": "hk-core-root-routes",
+            "label": "门槛与岔路",
+            "condition": ""
+          },
+          {
+            "id": "hk-core-root-edge-6",
+            "fromId": "hk-core-root-combat",
+            "toId": "hk-core-root-explore",
+            "label": "继续探索",
+            "condition": ""
+          },
+          {
+            "id": "hk-core-root-edge-7",
+            "fromId": "hk-core-root-growth",
+            "toId": "hk-core-root-routes",
+            "label": "获得新能力",
+            "condition": ""
+          },
+          {
+            "id": "hk-core-root-edge-8",
+            "fromId": "hk-core-root-routes",
+            "toId": "hk-core-root-explore",
+            "label": "前往新区域或重访",
+            "condition": ""
+          }
+        ]
+      },
+      {
+        "id": "hk-core-explore",
+        "title": "探索：观察、移动与发现",
+        "summary": "房间、岔路和近路组织可反复探索的空间。",
+        "nodes": [
+          {
+            "id": "hk-core-explore-entry",
+            "kind": "entry",
+            "title": "进入房间",
+            "description": "",
+            "x": 40,
+            "y": 160,
+            "childGraphId": "",
+            "gameplayIds": [
+              "3569edee-b95b-4bfd-97e1-8a816e94b184"
+            ]
+          },
+          {
+            "id": "hk-core-explore-observe",
+            "kind": "activity",
+            "title": "观察岔路与落点",
+            "description": "",
+            "x": 280,
+            "y": 160,
+            "childGraphId": "",
+            "gameplayIds": [
+              "3569edee-b95b-4bfd-97e1-8a816e94b184",
+              "d217ca56-8558-443b-994e-c39838c7a49d"
+            ]
+          },
+          {
+            "id": "hk-core-explore-move",
+            "kind": "activity",
+            "title": "跑跳、冲刺与探索",
+            "description": "",
+            "x": 520,
+            "y": 160,
+            "childGraphId": "",
+            "gameplayIds": [
+              "60da293c-d4d3-418a-9138-df9648a5bad5"
+            ]
+          },
+          {
+            "id": "hk-core-explore-discover",
+            "kind": "exit",
+            "title": "发现挑战或路径",
+            "description": "",
+            "x": 760,
+            "y": 160,
+            "childGraphId": "",
+            "gameplayIds": []
+          }
+        ],
+        "edges": [
+          {
+            "id": "hk-core-explore-edge-1",
+            "fromId": "hk-core-explore-entry",
+            "toId": "hk-core-explore-observe",
+            "label": "",
+            "condition": ""
+          },
+          {
+            "id": "hk-core-explore-edge-2",
+            "fromId": "hk-core-explore-observe",
+            "toId": "hk-core-explore-move",
+            "label": "",
+            "condition": ""
+          },
+          {
+            "id": "hk-core-explore-edge-3",
+            "fromId": "hk-core-explore-move",
+            "toId": "hk-core-explore-observe",
+            "label": "继续观察",
+            "condition": "尚有未探明区域"
+          },
+          {
+            "id": "hk-core-explore-edge-4",
+            "fromId": "hk-core-explore-move",
+            "toId": "hk-core-explore-discover",
+            "label": "触发发现",
+            "condition": ""
+          }
+        ]
+      },
+      {
+        "id": "hk-core-combat",
+        "title": "战斗：应对、治疗与重试",
+        "summary": "对抗普通敌人与首领；死亡通过长椅和残影回收返回循环。",
+        "nodes": [
+          {
+            "id": "hk-core-combat-entry",
+            "kind": "entry",
+            "title": "遭遇敌人",
+            "description": "",
+            "x": 40,
+            "y": 160,
+            "childGraphId": "",
+            "gameplayIds": []
+          },
+          {
+            "id": "hk-core-combat-fight",
+            "kind": "activity",
+            "title": "攻击、躲避与聚焦",
+            "description": "",
+            "x": 280,
+            "y": 160,
+            "childGraphId": "",
+            "gameplayIds": [
+              "60da293c-d4d3-418a-9138-df9648a5bad5",
+              "f2d2bb4b-7764-433f-9c19-67c7982637e8",
+              "adcd86ce-5557-4fec-96e4-c1f42b638c7e"
+            ]
+          },
+          {
+            "id": "hk-core-combat-result",
+            "kind": "decision",
+            "title": "战斗结果",
+            "description": "",
+            "x": 520,
+            "y": 160,
+            "childGraphId": "",
+            "gameplayIds": []
+          },
+          {
+            "id": "hk-core-combat-reward",
+            "kind": "exit",
+            "title": "存活并继续前进",
+            "description": "",
+            "x": 800,
+            "y": 40,
+            "childGraphId": "",
+            "gameplayIds": []
+          },
+          {
+            "id": "hk-core-combat-recover",
+            "kind": "activity",
+            "title": "长椅重生与残影回收",
+            "description": "",
+            "x": 800,
+            "y": 280,
+            "childGraphId": "",
+            "gameplayIds": [
+              "846da304-6fa2-4332-9f3f-36a96af8e455"
+            ]
+          }
+        ],
+        "edges": [
+          {
+            "id": "hk-core-combat-edge-1",
+            "fromId": "hk-core-combat-entry",
+            "toId": "hk-core-combat-fight",
+            "label": "",
+            "condition": ""
+          },
+          {
+            "id": "hk-core-combat-edge-2",
+            "fromId": "hk-core-combat-fight",
+            "toId": "hk-core-combat-result",
+            "label": "",
+            "condition": ""
+          },
+          {
+            "id": "hk-core-combat-edge-3",
+            "fromId": "hk-core-combat-result",
+            "toId": "hk-core-combat-fight",
+            "label": "战斗继续",
+            "condition": "双方尚存活"
+          },
+          {
+            "id": "hk-core-combat-edge-4",
+            "fromId": "hk-core-combat-result",
+            "toId": "hk-core-combat-reward",
+            "label": "战胜或脱离",
+            "condition": ""
+          },
+          {
+            "id": "hk-core-combat-edge-5",
+            "fromId": "hk-core-combat-result",
+            "toId": "hk-core-combat-recover",
+            "label": "死亡",
+            "condition": ""
+          },
+          {
+            "id": "hk-core-combat-edge-6",
+            "fromId": "hk-core-combat-recover",
+            "toId": "hk-core-combat-fight",
+            "label": "重试",
+            "condition": ""
+          }
+        ]
+      },
+      {
+        "id": "hk-core-growth",
+        "title": "成长：试炼与永久能力",
+        "summary": "通过试炼取得永久冲刺，改变之后的移动与路径选择。",
+        "nodes": [
+          {
+            "id": "hk-core-growth-entry",
+            "kind": "entry",
+            "title": "发现能力试炼",
+            "description": "",
+            "x": 40,
+            "y": 160,
+            "childGraphId": "",
+            "gameplayIds": [
+              "8ac7f8f8-455d-46ab-ba80-87ab4c579173"
+            ]
+          },
+          {
+            "id": "hk-core-growth-trial",
+            "kind": "activity",
+            "title": "完成静默试炼",
+            "description": "",
+            "x": 280,
+            "y": 160,
+            "childGraphId": "",
+            "gameplayIds": [
+              "8ac7f8f8-455d-46ab-ba80-87ab4c579173"
+            ]
+          },
+          {
+            "id": "hk-core-growth-unlock",
+            "kind": "activity",
+            "title": "获得永久冲刺",
+            "description": "",
+            "x": 520,
+            "y": 160,
+            "childGraphId": "",
+            "gameplayIds": [
+              "60da293c-d4d3-418a-9138-df9648a5bad5",
+              "8ac7f8f8-455d-46ab-ba80-87ab4c579173"
+            ]
+          },
+          {
+            "id": "hk-core-growth-exit",
+            "kind": "exit",
+            "title": "带能力返回探索",
+            "description": "",
+            "x": 760,
+            "y": 160,
+            "childGraphId": "",
+            "gameplayIds": []
+          }
+        ],
+        "edges": [
+          {
+            "id": "hk-core-growth-edge-1",
+            "fromId": "hk-core-growth-entry",
+            "toId": "hk-core-growth-trial",
+            "label": "",
+            "condition": ""
+          },
+          {
+            "id": "hk-core-growth-edge-2",
+            "fromId": "hk-core-growth-trial",
+            "toId": "hk-core-growth-trial",
+            "label": "重试",
+            "condition": "尚未完成"
+          },
+          {
+            "id": "hk-core-growth-edge-3",
+            "fromId": "hk-core-growth-trial",
+            "toId": "hk-core-growth-unlock",
+            "label": "通过",
+            "condition": ""
+          },
+          {
+            "id": "hk-core-growth-edge-4",
+            "fromId": "hk-core-growth-unlock",
+            "toId": "hk-core-growth-exit",
+            "label": "",
+            "condition": ""
+          }
+        ]
+      },
+      {
+        "id": "hk-core-routes",
+        "title": "路径：门槛与回访",
+        "summary": "根据能力检查门槛，打通近路，再去新的区域或重访旧路。",
+        "nodes": [
+          {
+            "id": "hk-core-routes-entry",
+            "kind": "entry",
+            "title": "发现通路门槛",
+            "description": "",
+            "x": 40,
+            "y": 160,
+            "childGraphId": "",
+            "gameplayIds": [
+              "d217ca56-8558-443b-994e-c39838c7a49d"
+            ]
+          },
+          {
+            "id": "hk-core-routes-check",
+            "kind": "decision",
+            "title": "能力是否足够",
+            "description": "",
+            "x": 280,
+            "y": 160,
+            "childGraphId": "",
+            "gameplayIds": []
+          },
+          {
+            "id": "hk-core-routes-open",
+            "kind": "activity",
+            "title": "越过门槛并打开近路",
+            "description": "",
+            "x": 520,
+            "y": 40,
+            "childGraphId": "",
+            "gameplayIds": [
+              "60da293c-d4d3-418a-9138-df9648a5bad5",
+              "d217ca56-8558-443b-994e-c39838c7a49d"
+            ]
+          },
+          {
+            "id": "hk-core-routes-remember",
+            "kind": "activity",
+            "title": "记住位置并寻找能力",
+            "description": "",
+            "x": 520,
+            "y": 290,
+            "childGraphId": "",
+            "gameplayIds": [
+              "3569edee-b95b-4bfd-97e1-8a816e94b184",
+              "8ac7f8f8-455d-46ab-ba80-87ab4c579173"
+            ]
+          },
+          {
+            "id": "hk-core-routes-exit",
+            "kind": "exit",
+            "title": "继续探索或回访",
+            "description": "",
+            "x": 800,
+            "y": 160,
+            "childGraphId": "",
+            "gameplayIds": []
+          }
+        ],
+        "edges": [
+          {
+            "id": "hk-core-routes-edge-1",
+            "fromId": "hk-core-routes-entry",
+            "toId": "hk-core-routes-check",
+            "label": "",
+            "condition": ""
+          },
+          {
+            "id": "hk-core-routes-edge-2",
+            "fromId": "hk-core-routes-check",
+            "toId": "hk-core-routes-open",
+            "label": "能力满足",
+            "condition": "已经获得冲刺"
+          },
+          {
+            "id": "hk-core-routes-edge-3",
+            "fromId": "hk-core-routes-check",
+            "toId": "hk-core-routes-remember",
+            "label": "暂时受阻",
+            "condition": "尚未获得冲刺"
+          },
+          {
+            "id": "hk-core-routes-edge-4",
+            "fromId": "hk-core-routes-open",
+            "toId": "hk-core-routes-exit",
+            "label": "",
+            "condition": ""
+          },
+          {
+            "id": "hk-core-routes-edge-5",
+            "fromId": "hk-core-routes-remember",
+            "toId": "hk-core-routes-exit",
+            "label": "",
+            "condition": ""
+          }
+        ]
+      }
+    ]
+  }
 }

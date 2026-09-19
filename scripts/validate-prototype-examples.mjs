@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { validateGameplayCore, coreIssues } from '../src/gameplay-core.ts';
 import { validateGameplay } from '../src/gameplay.ts';
 import { dependencyIssues, stateFlowIssues } from '../src/gameplay-structure.ts';
 import { stageIssues } from '../src/gameplay-stage.ts';
@@ -57,12 +58,14 @@ async function validateExample(expected) {
   const url = new URL(`../examples/prototypes/${expected.file}`, import.meta.url);
   const example = JSON.parse(await readFile(url, 'utf8'));
   assert.ok(record(example), 'example must be an object');
-  assert.deepEqual(Object.keys(example).sort(), ['schema', 'name', 'description', 'gameplay', 'functionalSystems', 'artAssets', 'data', 'definitions', 'stories'].sort(), 'example contains missing or nonportable top-level fields');
+  assert.deepEqual(Object.keys(example).sort(), ['schema', 'name', 'description', 'gameplay', 'gameplayCore', 'functionalSystems', 'artAssets', 'data', 'definitions', 'stories'].sort(), 'example contains missing or nonportable top-level fields');
   assert.equal(example.schema, 1, 'example schema');
   assert.ok(nonempty(example.name) && nonempty(example.description), 'example needs a name and description');
   validateDocuments(example);
   assert.equal(example.gameplay?.schema, 3, 'gameplay must use the current portable schema');
   const gameplay = validateGameplay(example.gameplay);
+  const core = validateGameplayCore(example.gameplayCore);
+  assert.deepEqual(coreIssues(core, gameplay.designs), [], 'gameplay core references');
   const functional = validateFunctionalSystems(example.functionalSystems);
   const art = validateArtAssets(example.artAssets);
   validateArtMutation(emptyArtAssets(), art);

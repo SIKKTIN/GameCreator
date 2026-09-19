@@ -1,4 +1,5 @@
 import { PROJECT_CATALOG_KEY, addSavedProject, validateCatalog, type ProjectCatalog, type SavedProject } from './project-catalog.ts';
+import { emptyGameplayCore, validateGameplayCore, type GameplayCoreStore } from './gameplay-core.ts';
 import { emptyGameplay, validateGameplay, type GameplayStore } from './gameplay.ts';
 import { emptyFunctionalSystems, validateFunctionalSystems, type FunctionalStore } from './functional-systems.ts';
 import { emptyArtAssets, validateArtAssets, type ArtStore } from './art-assets.ts';
@@ -15,7 +16,7 @@ export type ProjectPackageDocument = {
   schema: 1;
   project: { name: string; config: EngineConfig; defaultTablesVersion?: 1 };
   archives: {
-    gameplay: GameplayStore; 'functional-systems': FunctionalStore; 'art-assets': ArtStore;
+    gameplay: GameplayStore; 'gameplay-core': GameplayCoreStore; 'functional-systems': FunctionalStore; 'art-assets': ArtStore;
     definitions: DatasetDef[]; stories: StoryDoc[]; project: typeof initialProject;
     milestones: Milestone[]; 'enum-versions': VersionStore; 'data-view'?: DataViewState;
   };
@@ -28,7 +29,7 @@ export type PreparedProjectPackageImport = {
   catalog: ProjectCatalog; project: SavedProject; entries: { key: string; value: string }[]; defaultTablesVersion?: 1;
 };
 type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
-export const projectPackageSections = ['gameplay', 'functional-systems', 'art-assets', 'definitions', 'stories', 'project', 'milestones', 'enum-versions'] as const;
+export const projectPackageSections = ['gameplay', 'gameplay-core', 'functional-systems', 'art-assets', 'definitions', 'stories', 'project', 'milestones', 'enum-versions'] as const;
 const workspaceKey = (id: string, section: string) => section === 'enum-versions' ? 'gamecreator.enum-versions.v1:' + id : 'gamecreator.workspace.v1:' + id + ':' + section;
 const completedDefaultTableMigration = JSON.stringify({ schema: 1, state: 'done', removed: [] });
 const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
@@ -99,7 +100,7 @@ export function validateProjectPackage(value: unknown): ProjectPackageDocument {
   requireValid(project.defaultTablesVersion === undefined || project.defaultTablesVersion === 1, '不支持的配置表版本');
   requireValid(typeof project.name === 'string' && !!project.name.trim() && record(project.config), '项目名称或引擎配置无效');
   requireValid(fields(project.config, ['engine', 'projectPath', 'enumPath', 'dataPath', 'outputFormat']) && typeof project.config.autoSync === 'boolean' && typeof project.config.backupBeforeSync === 'boolean', '引擎配置不完整');
-  requireValid(projectPackageSections.every(section => Object.prototype.hasOwnProperty.call(archives, section)) && Object.keys(archives).every(key => [...projectPackageSections, 'data-view'].includes(key as typeof projectPackageSections[number])), '项目模块缺失或版本不受支持');
+  requireValid(projectPackageSections.filter(section => section !== 'gameplay-core').every(section => Object.prototype.hasOwnProperty.call(archives, section)) && Object.keys(archives).every(key => [...projectPackageSections, 'data-view'].includes(key as typeof projectPackageSections[number])), '项目模块缺失或版本不受支持');
   const gameplay = validateGameplay(archives.gameplay);
   validateFunctionalSystems(archives['functional-systems']);
   const art = validateArtAssets(archives['art-assets']);
@@ -122,6 +123,7 @@ export function validateProjectPackage(value: unknown): ProjectPackageDocument {
   requireValid(Array.isArray(archives.milestones) && archives.milestones.every(item => record(item) && fields(item, ['title', 'owner', 'due']) && ['done', 'active', 'planned'].includes(item.status as string)), '里程碑结构无效');
   const normalized = structuredClone(value) as unknown as ProjectPackageDocument;
   normalized.archives.gameplay = structuredClone(gameplay);
+  normalized.archives['gameplay-core'] = Object.prototype.hasOwnProperty.call(archives, 'gameplay-core') ? structuredClone(validateGameplayCore(archives['gameplay-core'])) : emptyGameplayCore();
   if (Object.prototype.hasOwnProperty.call(archives, 'data-view')) normalized.archives['data-view'] = normalizeDataViewState(archives['data-view']);
   return normalized;
 }
@@ -154,7 +156,7 @@ export function captureProjectPackage(storage: Pick<Storage, 'getItem'>, project
   };
   const empty = project.initialContent === 'empty';
   const archives = {
-    gameplay: read('gameplay', emptyGameplay()), 'functional-systems': read('functional-systems', emptyFunctionalSystems()),
+    gameplay: read('gameplay', emptyGameplay()), 'gameplay-core': read('gameplay-core', emptyGameplayCore()), 'functional-systems': read('functional-systems', emptyFunctionalSystems()),
     'art-assets': read('art-assets', emptyArtAssets()), definitions: read('definitions', empty ? emptyDatasetDefinitions : datasetDefinitions),
     stories: read('stories', empty ? [] : initialStoryDocs),
     project: read('project', empty ? { ...initialProject, name: project.name, version: 'v0.1.0', description: '' } : { ...initialProject, name: project.name }),

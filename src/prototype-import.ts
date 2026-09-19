@@ -1,4 +1,5 @@
 import { addSavedProject, validateCatalog, type ProjectCatalog, type SavedProject } from './project-catalog.ts';
+import { emptyGameplayCore, validateGameplayCore, coreIssues, type GameplayCoreStore } from './gameplay-core.ts';
 import { validateGameplay, type GameplayStore } from './gameplay.ts';
 import { dependencyIssues, stateFlowIssues } from './gameplay-structure.ts';
 import { stageIssues } from './gameplay-stage.ts';
@@ -9,7 +10,7 @@ import type { ColumnDef, DatasetDef, ProjectData } from './data-model.ts';
 import type { StoryDoc } from './story-model.ts';
 
 export type PrototypeExample = {
-  schema: 1; name: string; description: string; gameplay: GameplayStore;
+  schema: 1; name: string; description: string; gameplay: GameplayStore; gameplayCore?: GameplayCoreStore;
   functionalSystems: FunctionalStore; artAssets: ArtStore; data: ProjectData;
   definitions: DatasetDef[]; stories: StoryDoc[];
 };
@@ -18,7 +19,7 @@ export type PreparedPrototypeProject = {
   entries: { key: string; value: string }[];
 };
 type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
-const sections = ['gameplay', 'functional-systems', 'art-assets', 'definitions', 'stories', 'project', 'milestones'] as const;
+const sections = ['gameplay', 'gameplay-core', 'functional-systems', 'art-assets', 'definitions', 'stories', 'project', 'milestones'] as const;
 const workspaceKey = (id: string, section: string) => 'gamecreator.workspace.v1:' + id + ':' + section;
 const enumKey = (id: string) => 'gamecreator.enum-versions.v1:' + id;
 const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
@@ -51,10 +52,14 @@ function validateColumns(items: unknown, label: string): asserts items is Column
 export function validatePrototypeExample(value: unknown): PrototypeExample {
   requireValid(record(value), '内容必须是对象');
   const fields = ['schema', 'name', 'description', 'gameplay', 'functionalSystems', 'artAssets', 'data', 'definitions', 'stories'];
-  requireValid(Object.keys(value).sort().join(',') === fields.sort().join(','), '包含缺失字段或非便携配置');
+  requireValid(fields.every(field => Object.prototype.hasOwnProperty.call(value, field)) && Object.keys(value).every(field => [...fields, 'gameplayCore'].includes(field)), '包含缺失字段或非便携配置');
   requireValid(value.schema === 1 && nonempty(value.name) && nonempty(value.description), '版本或名称无效');
   requireValid(record(value.gameplay) && value.gameplay.schema === 3, '玩法版本无效');
   const gameplay = validateGameplay(value.gameplay);
+  if (Object.prototype.hasOwnProperty.call(value, 'gameplayCore')) {
+    const core = validateGameplayCore(value.gameplayCore);
+    requireValid(coreIssues(core, gameplay.designs).length === 0, '玩法核心包含失效的关联或未连接的节点');
+  }
   const functional = validateFunctionalSystems(value.functionalSystems);
   const art = validateArtAssets(value.artAssets);
   validateArtMutation(emptyArtAssets(), art);
@@ -120,7 +125,7 @@ export function preparePrototypeProject(catalog: ProjectCatalog, value: unknown,
   const next = addSavedProject(catalog, name);
   const project = next.projects.find(item => item.id === next.activeId)!;
   const archives = {
-    gameplay: example.gameplay, 'functional-systems': example.functionalSystems, 'art-assets': example.artAssets,
+    gameplay: example.gameplay, 'gameplay-core': example.gameplayCore ?? emptyGameplayCore(), 'functional-systems': example.functionalSystems, 'art-assets': example.artAssets,
     definitions: example.definitions, stories: example.stories,
     project: { name: project.name, description: example.description, genre: '未指定', platform: '未指定', version: 'v0.1.0', status: '原型设计' },
     milestones: [],

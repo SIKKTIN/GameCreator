@@ -7,7 +7,7 @@ const { workspaceHash } = require('./art-files.cjs');
 
 const CATALOG_KEY = 'gamecreator.projects.v1';
 const SECTIONS = ['gameplay', 'functional-systems', 'art-assets', 'definitions', 'stories', 'project', 'milestones', 'enum-versions'];
-const OPTIONAL_SECTIONS = ['data-view'];
+const OPTIONAL_SECTIONS = ['data-view', 'gameplay-core'];
 const FILE_TOKEN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.[a-z0-9]{1,12}$/;
 const NEW_PROJECT = /^project-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_METADATA_BYTES = 20 * 1024 * 1024;
@@ -109,9 +109,44 @@ async function copyChecked(source, destination, expected) {
   } finally { await handle.close(); }
 }
 
+function validateCoreArchive(value) {
+  const invalid = () => { throw new Error('玩法核心存档格式无效'); };
+  const strings = (object, keys) => keys.every(key => typeof object[key] === 'string');
+  if (!record(value) || value.schema !== 1 || typeof value.rootId !== 'string' || !value.rootId.trim() || !Array.isArray(value.graphs) || !value.graphs.length) invalid();
+  const graphs = new Map(), nodeIds = new Set(), edgeIds = new Set(), parents = new Map();
+  for (const graph of value.graphs) {
+    if (!record(graph) || !strings(graph, ['id', 'title', 'summary']) || !graph.id.trim() || graphs.has(graph.id) || !Array.isArray(graph.nodes) || !Array.isArray(graph.edges)) invalid();
+    graphs.set(graph.id, graph);
+    const local = new Set();
+    for (const node of graph.nodes) {
+      if (!record(node) || !strings(node, ['id', 'kind', 'title', 'description', 'childGraphId']) || !node.id.trim() || nodeIds.has(node.id) ||
+        !['entry', 'activity', 'module', 'decision', 'exit'].includes(node.kind) || !Number.isFinite(node.x) || !Number.isFinite(node.y) ||
+        !Array.isArray(node.gameplayIds) || node.gameplayIds.some(id => typeof id !== 'string' || !id.trim()) || new Set(node.gameplayIds).size !== node.gameplayIds.length ||
+        node.kind !== 'module' && node.childGraphId) invalid();
+      nodeIds.add(node.id); local.add(node.id);
+      if (node.childGraphId) parents.set(node.childGraphId, (parents.get(node.childGraphId) || 0) + 1);
+    }
+    for (const edge of graph.edges) {
+      if (!record(edge) || !strings(edge, ['id', 'fromId', 'toId', 'label', 'condition']) || !edge.id.trim() || edgeIds.has(edge.id) || !local.has(edge.fromId) || !local.has(edge.toId)) invalid();
+      edgeIds.add(edge.id);
+    }
+  }
+  if (!graphs.has(value.rootId) || parents.has(value.rootId)) invalid();
+  for (const [id, count] of parents) if (!graphs.has(id) || count !== 1) invalid();
+  for (const id of graphs.keys()) if (id !== value.rootId && parents.get(id) !== 1) invalid();
+  const visited = new Set(), pending = [value.rootId];
+  while (pending.length) {
+    const id = pending.pop();
+    if (visited.has(id)) invalid(); visited.add(id);
+    for (const node of graphs.get(id).nodes) if (node.childGraphId) pending.push(node.childGraphId);
+  }
+  if (visited.size !== graphs.size) invalid();
+}
+
 function validateDocument(value) {
   if (!record(value) || value.schema !== 1 || !record(value.project) || typeof value.project.name !== 'string' || !value.project.name.trim() || value.project.name.length > 100 || !record(value.project.config) || !record(value.archives) || SECTIONS.some(section => !Object.hasOwn(value.archives, section)) || Object.keys(value.archives).some(section => ![...SECTIONS, ...OPTIONAL_SECTIONS].includes(section))) throw new Error('项目文件夹数据格式无效');
   if (value.project.defaultTablesVersion !== undefined && value.project.defaultTablesVersion !== 1) throw new Error('不支持的配置表默认值版本');
+  if (Object.hasOwn(value.archives, 'gameplay-core')) validateCoreArchive(value.archives['gameplay-core']);
   const art = value.archives['art-assets'];
   if (!record(art) || !Array.isArray(art.assets)) throw new Error('美术资产存档格式无效');
   return value;
