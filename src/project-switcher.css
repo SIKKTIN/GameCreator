@@ -67,3 +67,15 @@
 .engine-settings button:disabled, .engine-settings input:disabled, .engine-settings select:disabled { opacity:.5; cursor:not-allowed; }
 .engine-settings button:focus-visible, .engine-settings input:focus-visible, .engine-settings select:focus-visible { outline:2px solid #ba9ff7; outline-offset:2px; }
 @media (max-width:600px) { .engine-directory-field { flex-wrap:wrap; } .engine-directory-field input { flex-basis:100%; } .engine-settings-actions { width:100%; justify-content:flex-end; } }
+
+.ps-context-menu { position:fixed; z-index:100; width:224px; padding:6px; border:1px solid #554765; border-radius:8px; background:#211d2d; color:#ebe4f4; box-shadow:0 12px 32px #0008; font-size:12px; }
+.ps-context-name { padding:5px 8px 9px; color:#a99ab9; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; border-bottom:1px solid #3a3046; margin-bottom:4px; }
+.ps-delete-action { display:flex; align-items:center; gap:9px; width:100%; padding:9px 8px; background:transparent; border:0; border-radius:5px; color:#ffabb4; text-align:left; cursor:pointer; font:inherit; }
+.ps-delete-action:hover, .ps-delete-action:focus-visible { background:#432837; outline:1px solid #995062; }
+.ps-delete-dialog .ps-delete-name { padding:15px; margin:22px 0 12px; border-radius:8px; background:#282131; color:#f0e7fa; font-size:16px; overflow-wrap:anywhere; }
+.ps-delete-dialog .ps-delete-submit { background:#913c50; border-color:#b65168; }
+.ps-delete-dialog .ps-delete-submit:hover { background:#a0445a; }
+.empty-project-main { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; color:#b7aacb; text-align:center; }
+.empty-project-main h1 { color:#eee7f6; margin:8px 0; }
+.empty-project-main p { max-width:550px; margin:0; line-height:1.8; }
+.empty-project-main button { margin-top:12px; }

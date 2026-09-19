@@ -24,7 +24,7 @@ import { migrateUnusedDefaultTables } from './default-table-migration';
 import { PrototypeImportDialog } from './PrototypeImportDialog';
 import { loadPrototypeExample, type PrototypeImportInput } from './prototype-examples';
 import { preparePrototypeProject, writePrototypeProject } from './prototype-import';
-import { addSavedProject, selectSavedProject, updateSavedConfig, type SavedProject } from './project-catalog';
+import { addSavedProject, removeSavedProject, selectSavedProject, updateSavedConfig, type SavedProject } from './project-catalog';
 import { TestPanel } from './TestPanel';
 import { buildTestWorkspace, testScenarios, type TestSession, type TestScenarioId } from './test-scenarios';
 import { workspaceStorage } from './workspace-storage';
@@ -39,6 +39,7 @@ import {
   Clock3,
   Database,
   FileText,
+  FolderOpen,
   Layers,
   Pencil,
   Plus,
@@ -90,7 +91,7 @@ function WorkspaceController({ role, username }: { role: UserRole; username: str
     if (team.session?.user.serverRole === 'admin') setCreatingTeam(true);
     else { setCreateAfterConnection(true); team.show(null, true); }
   };
-  const formalProject = projects.catalog.projects.find(item => item.id === projects.catalog.activeId)!;
+  const formalProject = projects.catalog.projects.find(item => item.id === projects.catalog.activeId);
   const [storedTest, setStoredTest, sessionError] = useStoredState<TestSession | null>('gamecreator.test-session.v1', null);
   const [preparing, setPreparing] = useState(false);
   const [error, setError] = useState('');
@@ -153,7 +154,7 @@ function WorkspaceController({ role, username }: { role: UserRole; username: str
     && storedTest.config?.projectPath && storedTest.config.projectPath.replace(/\\/g, '/').toLowerCase().endsWith('/test-workspaces/' + storedTest.id + '/project');
   const testSession = role === 'admin' && projects.catalog.mode === 'test' && valid ? storedTest : null;
   const publishProject = () => {
-    if (role !== 'admin' || testSession || activeTeamId || lock.current || projects.blocked || !allowSwitch()) return;
+    if (!formalProject || role !== 'admin' || testSession || activeTeamId || lock.current || projects.blocked || !allowSwitch()) return;
     setCreateAfterConnection(false);
     const source = structuredClone(formalProject);
     if (team.session?.user.serverRole === 'admin') setPublishingProject(source);
@@ -182,8 +183,19 @@ function WorkspaceController({ role, username }: { role: UserRole; username: str
     setError(''); logDebug('新建项目', 'success', input.name);
     return true;
   };
-  const configureProject = async (config: EngineConfig) => {
+  const deleteProject = async (id: string) => {
     if (role !== 'admin' || lock.current || projects.blocked) return false;
+    const target = projects.catalog.projects.find(item => item.id === id);
+    if (!target) throw new Error('所选本地项目不存在，可能已被删除。');
+    const deletingActive = id === projects.catalog.activeId;
+    if (deletingActive && !activeTeamId && !allowSwitch()) throw new Error('当前内容尚未保存或仍有操作进行中，请处理后再删除项目。');
+    if (!projects.commit(catalog => removeSavedProject(catalog, id))) throw new Error('项目列表未能保存，项目尚未删除。请检查存储状态后重试。');
+    if (deletingActive && storedTest) setStoredTest(null);
+    setError(''); logDebug('删除本地项目', 'success', target.name);
+    return true;
+  };
+  const configureProject = async (config: EngineConfig) => {
+    if (!formalProject || role !== 'admin' || lock.current || projects.blocked) return false;
     lock.current = true; setPreparing(true); setError('');
     try {
       let location = { projectPath: config.projectPath.trim(), enumPath: config.enumPath.trim() };
@@ -198,7 +210,7 @@ function WorkspaceController({ role, username }: { role: UserRole; username: str
     } finally { lock.current = false; setPreparing(false); }
   };
   const load = async (scenario: TestScenarioId) => {
-    if (role !== 'admin' || lock.current || projects.blocked) return;
+    if (!formalProject || role !== 'admin' || lock.current || projects.blocked) return;
     lock.current = true; setPreparing(true); setError('');
     try {
       if (!window.desktopClient?.prepareTestWorkspace) throw new Error('请使用桌面客户端加载测试场景');
@@ -253,18 +265,30 @@ function WorkspaceController({ role, username }: { role: UserRole; username: str
       {...serverNavigation} localAdmin={role === 'admin'}
       localProjects={projects.catalog.projects.map(item => ({ ...item, name: options.find(option => option.id === item.id)?.name || item.name }))}
       picker={<ProjectSwitcher projects={options} teamNotice={teamNotice} currentId={teamProjectKey(team.session.serverId, selectedTeam.id)} currentName={selectedTeam.name} canAdd={role === 'admin'} busy={preparing || prototypeBusy || transfer.busy || projects.blocked}
-        onSelect={selectProject} onAdd={addProject} onConnectTeam={connectTeam} onCreateTeam={createTeam} onImportPrototype={openPrototypeImport} onImportProject={transfer.enabled ? transfer.openImport : undefined} />}
+        onSelect={selectProject} onAdd={addProject} onDelete={deleteProject} onConnectTeam={connectTeam} onCreateTeam={createTeam} onImportPrototype={openPrototypeImport} onImportProject={transfer.enabled ? transfer.openImport : undefined} />}
       onConnection={connectTeam} onDisconnect={() => { if (allowSwitch()) { team.disconnect(); setActiveTeamId(null); } }} />
-    : <ProjectDataUpgrade key={testSession?.id ?? 'project:' + formalProject.id} role={role} username={username}
+    : formalProject ? <ProjectDataUpgrade key={testSession?.id ?? 'project:' + formalProject.id} role={role} username={username}
     {...serverNavigation}
-    formalProject={formalProject} projectOptions={options} onSelectProject={selectProject} onAddProject={addProject}
+    formalProject={formalProject} projectOptions={options} onSelectProject={selectProject} onAddProject={addProject} onDeleteProject={deleteProject}
     onConnectTeam={connectTeam} onCreateTeam={createTeam} onPublishProject={publishProject} teamNotice={teamNotice} onImportPrototype={openPrototypeImport}
     onImportProject={transfer.enabled ? transfer.openImport : undefined}
     onExportProject={transfer.enabled ? () => transfer.openExport(formalProject) : undefined}
     onConfigChange={configureProject}
     onRenameProject={name => projects.commit(catalog => ({ ...catalog, projects: catalog.projects.map(item => item.id === formalProject.id ? { ...item, name } : item) }))}
     testSession={testSession} onLoadTest={load} onExitTest={exit} preparingTest={preparing || prototypeBusy || transfer.busy || projects.blocked}
-    testError={error || projects.error || sessionError || (storedTest && !valid ? '测试会话信息无效，已回到正式工作区。' : '')} />}</>;
+    testError={error || projects.error || sessionError || (storedTest && !valid ? '测试会话信息无效，已回到正式工作区。' : '')} />
+    : <div className="app local-workspace empty-project-workspace">
+      <WorkspaceSidebar active={serverOpen ? '服务器管理' : ''} onNavigate={() => leaveServer()} admin={role === 'admin'} onManageServer={() => openServer()} empty
+        picker={<ProjectSwitcher projects={options} teamNotice={teamNotice} currentId={null} currentName="未选择项目" canAdd={role === 'admin'} busy={prototypeBusy || transfer.busy}
+          onSelect={selectProject} onAdd={addProject} onDelete={deleteProject} onConnectTeam={connectTeam} onCreateTeam={createTeam} onImportPrototype={openPrototypeImport} onImportProject={transfer.enabled ? transfer.openImport : undefined} />}
+        footer={<div className="user"><div className="avatar">{username.slice(0, 1).toUpperCase()}</div><div><b>{username}</b><small>本地项目</small></div></div>} />
+      {serverNavigation.serverPage || <main className="empty-project-main"><FolderOpen size={40} /><h1>暂无本地项目</h1>
+        <p>{role === 'admin' ? '从左上角项目菜单新建项目、导入原型示例或项目文件夹。' : '请联系管理员创建或导入本地项目。'}</p>
+        <p>也可以连接团队服务器，选择已有的协作项目。</p>
+        <button type="button" className="ps-secondary-button" onClick={connectTeam}>连接团队服务器</button>
+        {projects.error && <p role="alert">{projects.error}</p>}
+      </main>}
+    </div>}</>;
 }
 
 function ProjectDataUpgrade(props: ComponentProps<typeof WorkspaceApp>) {
@@ -280,17 +304,18 @@ function ProjectDataUpgrade(props: ComponentProps<typeof WorkspaceApp>) {
     <p>默认空表清理未完成，请重试或切换到其他项目。</p><p>{error}</p>
     <button className="primary" onClick={() => setError(upgrade())}>重试更新</button>
     <ProjectSwitcher projects={props.projectOptions} currentId={props.formalProject.id} currentName={props.formalProject.name}
-      canAdd={props.role === 'admin'} busy={props.preparingTest} onSelect={props.onSelectProject} onAdd={props.onAddProject} />
+      canAdd={props.role === 'admin'} busy={props.preparingTest} onSelect={props.onSelectProject} onAdd={props.onAddProject} onDelete={props.onDeleteProject} />
   </main>;
   return <WorkspaceApp {...props} />;
 }
 
 const initialTestProject = { ...initialProject, name: '枚举测试工作区' };
-function WorkspaceApp({ role, username, testSession, onLoadTest, onExitTest, preparingTest, testError, formalProject, projectOptions, onSelectProject, onAddProject, onConfigChange, onRenameProject, onConnectTeam, onCreateTeam, onPublishProject, teamNotice, onImportPrototype, onImportProject, onExportProject, serverPage, onManageServer, onLeaveServer }: {
+function WorkspaceApp({ role, username, testSession, onLoadTest, onExitTest, preparingTest, testError, formalProject, projectOptions, onSelectProject, onAddProject, onDeleteProject, onConfigChange, onRenameProject, onConnectTeam, onCreateTeam, onPublishProject, teamNotice, onImportPrototype, onImportProject, onExportProject, serverPage, onManageServer, onLeaveServer }: {
   onImportProject?: () => void; onExportProject?: () => void;
   teamNotice?: string;
   onPublishProject: () => void;
   formalProject: SavedProject; projectOptions: SwitchableProject[]; onConnectTeam: () => void; onCreateTeam: () => void; onImportPrototype: () => void;
+  onDeleteProject: (id: string) => Promise<boolean>;
   onSelectProject: (id: string) => boolean; onAddProject: (input: { name: string }) => Promise<boolean>;
   onConfigChange: (config: EngineConfig) => Promise<boolean>; onRenameProject: (name: string) => boolean;
   role: UserRole; username: string; testSession: TestSession | null; onLoadTest: (scenario: TestScenarioId) => Promise<void>;
@@ -430,7 +455,7 @@ function WorkspaceApp({ role, username, testSession, onLoadTest, onExitTest, pre
     <div className="app local-workspace">
       <WorkspaceSidebar picker={<ProjectSwitcher projects={projectOptions} teamNotice={teamNotice} currentId={testSession ? null : formalProject.id} currentName={project.name}
           testName={testSession ? testScenarios.find(item=>item.id===testSession.scenario)?.name : undefined}
-          canAdd={role === 'admin'} busy={preparingTest || registry.busy || registry.loading || gameplay.pending || functional.pending || functional.blocked || art.pending || art.blocked || core.pending} onSelect={onSelectProject} onAdd={onAddProject} onConnectTeam={onConnectTeam} onCreateTeam={onCreateTeam} onPublishProject={!testSession && !storageError ? onPublishProject : undefined} onImportPrototype={onImportPrototype} onImportProject={onImportProject} onExportProject={!testSession && !storageError ? onExportProject : undefined} />} active={serverPage ? '服务器管理' : active}
+          canAdd={role === 'admin'} busy={preparingTest || registry.busy || registry.loading || gameplay.pending || functional.pending || functional.blocked || art.pending || art.blocked || core.pending} onSelect={onSelectProject} onAdd={onAddProject} onDelete={onDeleteProject} onConnectTeam={onConnectTeam} onCreateTeam={onCreateTeam} onPublishProject={!testSession && !storageError ? onPublishProject : undefined} onImportPrototype={onImportPrototype} onImportProject={onImportProject} onExportProject={!testSession && !storageError ? onExportProject : undefined} />} active={serverPage ? '服务器管理' : active}
         onNavigate={name => { onLeaveServer(); setActive(name); }} admin={role === 'admin'} onManageServer={onManageServer} footer={<>
         <button><Settings2 size={17} />工作区设置</button><div className="user"><div className="avatar">G</div><span>{username}<small>本地项目</small></span></div>
       </>} />

@@ -9,7 +9,7 @@ export type ProjectCatalog = { schema: 2; activeId: string; mode: 'project' | 't
 type LegacyProjectCatalog = Omit<ProjectCatalog, 'schema'> & { schema: 1 };
 
 function validateCatalogVersion(value: ProjectCatalog | LegacyProjectCatalog, schema: 1 | 2) {
-  if (!value || value.schema !== schema || !Array.isArray(value.projects) || !value.projects.length ||
+  if (!value || value.schema !== schema || !Array.isArray(value.projects) || (schema === 1 && !value.projects.length) ||
       !['project', 'test'].includes(value.mode)) throw new Error('项目列表存档格式异常，已停止写入');
   const ids = new Set<string>();
   for (const project of value.projects) {
@@ -25,7 +25,7 @@ function validateCatalogVersion(value: ProjectCatalog | LegacyProjectCatalog, sc
     }
     ids.add(project.id);
   }
-  if (!ids.has(value.activeId)) throw new Error('项目列表中的当前工程不存在');
+  if (value.projects.length ? !ids.has(value.activeId) : value.activeId !== '' || value.mode !== 'project') throw new Error('项目列表中的当前工程不存在');
 }
 export function validateCatalog(value: ProjectCatalog): ProjectCatalog {
   validateCatalogVersion(value, 2);
@@ -94,4 +94,16 @@ export function selectSavedProject(catalog: ProjectCatalog, id: string): Project
 export function updateSavedConfig(catalog: ProjectCatalog, id: string, config: EngineConfig): ProjectCatalog {
   if (!catalog.projects.some(project => project.id === id)) throw new Error('当前项目不存在');
   return validateCatalog({ ...catalog, projects: catalog.projects.map(project => project.id === id ? { ...project, config: { ...config } } : project) });
+}
+
+/** Remove only the catalog entry. Archives and external project files are retained. */
+export function removeSavedProject(catalog: ProjectCatalog, id: string): ProjectCatalog {
+  validateCatalog(catalog);
+  const index = catalog.projects.findIndex(project => project.id === id);
+  if (index < 0) throw new Error('所选项目不存在，可能已被删除');
+  const projects = catalog.projects.filter(project => project.id !== id);
+  const wasActive = catalog.activeId === id;
+  return validateCatalog({ ...catalog, projects,
+    activeId: wasActive ? (projects[Math.min(index, projects.length - 1)]?.id ?? '') : catalog.activeId,
+    mode: wasActive ? 'project' : catalog.mode });
 }
