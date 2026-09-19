@@ -43,8 +43,9 @@ export function resizeSpace(s: StageLayout, rows: number, columns: number) {
 }
 export function removeStageObject(design: GameplayDesign, designs: GameplayDesign[], id: string) {
   const references = designs.filter(d => spaceOwner(d, designs)?.id === design.id).flatMap(d => d.timeline.events.filter(e => e.objectId === id).map(e => `${d.title} / ${e.name || '未命名事件'}`));
-  references.push(...spatialObjectReferences(design, designs, id));
   if (references.length) throw new Error('对象被时间事件引用：' + references.join('、') + '。请先调整关联。');
+  const ports = spatialObjectReferences(design, designs, id);
+  if (ports.length) throw new Error('对象被房间连接引用：' + ports.join('、') + '。请先调整出入口。');
   return { ...design.space, objects: design.space.objects.filter(o => o.id !== id) };
 }
 const rounded = (n: number) => Math.round(n * 1e6) / 1e6;
