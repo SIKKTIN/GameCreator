@@ -1,0 +1,21 @@
+#!/bin/sh
+# GameCreator remote branch policy. This hook checks destination branch names.
+while read -r local_ref local_oid remote_ref remote_oid
+do
+  case "$remote_ref" in
+    refs/heads/master|refs/heads/main|refs/heads/release)
+      if [ "$local_ref" = "(delete)" ]; then
+        echo "GameCreator: cannot delete reserved branch ${remote_ref#refs/heads/}." >&2
+        exit 1
+      fi
+      ;;
+    refs/heads/*)
+      if [ "$local_ref" != "(delete)" ]; then
+        echo "GameCreator: feature branches stay local; push only master, main or release." >&2
+        echo "Rejected destination: $remote_ref" >&2
+        exit 1
+      fi
+      ;;
+  esac
+done
+exit 0
