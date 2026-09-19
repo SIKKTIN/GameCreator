@@ -1,0 +1,74 @@
+.fs-workspace { grid-template-columns:260px minmax(0,1fr); }
+.fs-library { padding:20px 14px; }
+.fs-library .gp-library-heading>svg { color:#9382d6; }
+.fs-create-actions { display:flex; gap:7px; margin-top:22px; }
+.fs-create-actions button { flex:1; padding:9px 7px; }
+.fs-library .gp-search { margin-top:16px; }
+.fs-tree { display:grid; gap:16px; margin-top:22px; }
+.fs-tree-group { min-width:0; }
+.fs-tree-system, .fs-tree-capability { display:flex; align-items:center; width:100%; text-align:left; border:1px solid transparent; border-radius:6px; color:#bcb1cd; background:none; gap:9px; }
+.fs-tree-system { padding:9px 8px; background:#25202e; }
+.fs-tree-system svg { flex:none; color:#a899d2; }
+.fs-tree-system strong { font-size:12px; flex:1; overflow-wrap:anywhere; line-height:1.5; }
+.fs-tree-system small { font-size:10px; color:#9287a7; }
+.fs-tree-capability { width:calc(100% - 14px); margin:5px 0 0 14px; padding:8px 8px 8px 11px; border-left:1px solid #46364e; gap:6px; }
+.fs-tree-capability span { flex:1; font-size:12px; line-height:1.5; overflow-wrap:anywhere; }
+.fs-tree-capability small { flex:none; color:#9b8aaf; font-size:9px; }
+.fs-tree-capability small.complete { color:#68c5a2; }
+.fs-tree-system:hover, .fs-tree-capability:hover { background:#2b2338; }
+.fs-tree-system.selected, .fs-tree-capability.selected { background:#342747; border-color:#8567bb; color:#efddff; }
+.fs-detail .gp-editor-heading h2 { font-size:24px; }
+.fs-detail .gp-kicker { overflow-wrap:anywhere; }
+.fs-detail .gp-editor-heading { margin-top:3px; }
+.fs-panel { display:grid; gap:18px; }
+.fs-fields { padding:0; margin:0; border:0; min-width:0; }
+.fs-fields:disabled { opacity:.7; }
+.fs-notice { font-size:12px; line-height:1.75; color:#edc58d; background:#32291d; border:1px solid #645239; padding:13px 16px; border-radius:8px; margin:0 0 17px; }
+.fs-issues { border:1px solid #5d4a32; background:#2b251d; color:#d6b989; border-radius:8px; margin:0 0 18px; font-size:12px; line-height:1.8; padding:12px 15px; }
+.fs-issues summary { cursor:pointer; }
+.fs-issues ul { margin:10px 0 0; padding-left:20px; max-height:220px; overflow:auto; }
+.fs-three-fields { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:13px; }
+.fs-capability-cards { display:grid; gap:10px; }
+.fs-capability-card { padding:15px 35px 15px 16px; color:#ddd2ec; position:relative; background:#221c2c; border:1px solid #40324e; border-radius:7px; text-align:left; width:100%; }
+.fs-capability-card:hover { border-color:#806496; background:#2b2237; }
+.fs-capability-card>div { display:flex; gap:10px; align-items:center; justify-content:space-between; }
+.fs-capability-card strong { font-size:13px; overflow-wrap:anywhere; }
+.fs-capability-card .gp-badge { flex:none; }
+.fs-capability-card p { margin:8px 0 0; color:#a896b8; font-size:12px; line-height:1.7; white-space:pre-wrap; }
+.fs-capability-card>svg { position:absolute; right:12px; top:calc(50% - 7px); color:#9a80b8; }
+.fs-reference-list, .fs-dependency-list, .fs-usage-summary { display:grid; gap:12px; margin-top:16px; }
+.fs-reference, .fs-dependency { padding:16px; border:1px solid #42344e; border-radius:8px; background:#221b2c; min-width:0; }
+.fs-reference-heading { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.fs-reference-heading>div { min-width:0; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.fs-reference-heading .gp-link-name, .fs-usage-summary .gp-link-name { display:inline-flex; align-items:center; gap:8px; flex:initial; line-height:1.6; }
+.fs-reference-heading .gp-link-name svg, .fs-usage-summary .gp-link-name svg { flex:none; }
+.fs-current-value { display:block; margin-top:13px; color:#b6caaf; font-size:12px; line-height:1.75; background:#17171e; border:1px solid #38333c; border-radius:5px; padding:11px; white-space:pre-wrap; overflow-wrap:anywhere; max-height:230px; overflow:auto; }
+.fs-reference .gp-field { margin-top:12px; }
+.fs-add-box { border-top:1px solid #3f344b; margin-top:22px; padding-top:3px; }
+.fs-add-box>.gp-secondary, .fs-fields>.gp-secondary { margin-top:17px; }
+.fs-inline-field { display:grid; gap:6px; font-size:10px; color:#ac9ebb; flex:none; }
+.fs-inline-field select { min-width:105px; }
+.fs-dependency-columns { display:grid; grid-template-columns:1fr 1fr; gap:17px; }
+.fs-dependency-columns h3 small { font-size:11px; color:#a68eba; margin-left:5px; }
+.fs-relation-kind { display:inline-block; padding:3px 7px; border-radius:4px; font-size:10px; color:#bd9cf0; background:#372745; }
+.fs-relation-kind.data { color:#9dbfea; background:#253448; }
+.fs-relation-kind.event { color:#8acbbf; background:#203e38; }
+.fs-dependency .gp-field { margin-top:11px; }
+.fs-dependency>p { white-space:pre-wrap; overflow-wrap:anywhere; margin:12px 0 0; }
+.fs-usage-summary article { padding:14px; border:1px solid #3e334a; border-radius:7px; background:#221c2b; display:flex; flex-wrap:wrap; gap:9px; align-items:flex-start; }
+.fs-usage-summary article>div { flex:1; min-width:180px; }
+.fs-usage-summary small { display:block; font-size:10px; line-height:1.7; color:#a596b6; margin-top:3px; }
+.fs-usage-summary p { width:100%; color:#b8a7c6; font-size:12px; line-height:1.75; margin:2px 0 0; white-space:pre-wrap; }
+.fs-cap-chip { border:1px solid #5a456e; padding:5px 9px; background:#332640; color:#cfb4e9; font-size:11px; border-radius:5px; max-width:100%; overflow-wrap:anywhere; }
+.fs-source-text { font-size:11px; color:#ab96bd; line-height:1.8; margin:10px 0 0; }
+.fs-reference-warning { color:#e2b67b; font-size:11px; line-height:1.8; margin:10px 0 0; }
+.fs-error { color:#f3acae; font-size:12px; line-height:1.7; margin:12px 0 0; }
+.fs-usages { margin-top:0; }
+.fs-usages>.gp-card-heading { align-items:flex-start; }
+.fs-usages button:disabled { opacity:.5; cursor:default; }
+.gp-dialog .gp-field select { min-width:0; background:#17141e; border:1px solid #40364d; color:#e9e2f4; padding:10px 12px; border-radius:6px; font:inherit; }
+@media(max-width:1300px) { .fs-workspace { grid-template-columns:225px minmax(0,1fr); } .fs-dependency-columns { grid-template-columns:1fr; } .fs-library { padding:17px 11px; } }
+@media(max-width:1000px) { .fs-workspace { grid-template-columns:1fr; } .fs-library { position:static; max-height:340px; } .fs-three-fields { grid-template-columns:1fr; gap:0; } .fs-detail .gp-card-heading { flex-wrap:wrap; } }
+
+.fs-orphan-group>.fs-tree-system { color:#e5bd86; background:#302619; border-color:#5c472f; }
+.fs-orphan-group>.fs-tree-system svg { color:#c6a36e; }

@@ -15,7 +15,7 @@ export function GameplayDependencies({ design, designs, disabled, onChange, onNa
   const edgeInfo = edgeOwner?.dependencies.find(e => edgeOwner.id + '/' + e.id === selectedEdge);
   return <div className="gs-page">
     <div className="gs-intro"><div><span className="gp-kicker">SYSTEM RELATIONS</span><h3>玩法依赖关联</h3><p>箭头从当前玩法指向它依赖、包含或协作的玩法。点击节点可直接切换。</p></div><div className="gs-legend"><span>依赖</span><span>包含</span><span>协作</span></div></div>
-    <GameplayGraph label="玩法系统关系图" nodes={designs.map(d => ({ id: d.id, label: d.title || '未命名玩法', tag: d.archived ? '已归档' : d.status, tone: d.archived ? 'archived' : '' }))} edges={edges} selectedNode={design.id} selectedEdge={selectedEdge} onNode={onNavigate} onEdge={setSelectedEdge} />
+    <GameplayGraph label="玩法关联图" nodes={designs.map(d => ({ id: d.id, label: d.title || '未命名玩法', tag: d.archived ? '已归档' : d.status, tone: d.archived ? 'archived' : '' }))} edges={edges} selectedNode={design.id} selectedEdge={selectedEdge} onNode={onNavigate} onEdge={setSelectedEdge} />
     {edgeInfo && edgeOwner && <div className="gs-edge-detail"><span>{edgeOwner.title} <ArrowRight size={13} /> {dependencyKinds[edgeInfo.kind]} <ArrowRight size={13} /> {designs.find(d => d.id === edgeInfo.targetId)?.title || '关联已失效'}</span><p>{edgeInfo.note || '暂无关系说明'}</p>{edgeOwner.id !== design.id && <button className="gp-secondary" onClick={() => onNavigate(edgeOwner.id)}>前往关系所属玩法</button>}</div>}
     <Issues items={dependencyIssues(design, designs)} />
     <section className="gp-card"><h3>当前玩法的关系</h3><fieldset disabled={disabled} className="gs-fieldset"><div className="gs-dependency-add">
@@ -33,8 +33,8 @@ export function GameplayDependencies({ design, designs, disabled, onChange, onNa
     <section className="gp-card"><h3>哪些玩法引用了它</h3><div className="gs-incoming">{incoming.map(({ source, edge }) => <button className="gp-secondary" key={source.id + edge.id} onClick={() => onNavigate(source.id)}>{source.title || '未命名玩法'} <ArrowRight size={13} /> {dependencyKinds[edge.kind]}当前玩法{source.archived ? '（已归档）' : ''}</button>)}</div>{!incoming.length && <p className="gp-muted">暂无反向引用。</p>}</section>
   </div>;
 }
-export function GameplayRules({ design, disabled, onChange }: { design: GameplayDesign; disabled: boolean; onChange: (changes: Partial<GameplayDesign>) => void }) {
-  const [selectedId, setSelectedId] = useState(''); const rule = design.conditionRules.find(r => r.id === selectedId) ?? design.conditionRules[0];
+export function GameplayRules({ design, disabled, onChange, initialRuleId }: { initialRuleId?: string; design: GameplayDesign; disabled: boolean; onChange: (changes: Partial<GameplayDesign>) => void }) {
+  const [selectedId, setSelectedId] = useState(initialRuleId ?? ''); const rule = design.conditionRules.find(r => r.id === selectedId) ?? design.conditionRules[0];
   const patch = (changes: Partial<GameplayRule>) => { if (rule) onChange({ conditionRules: design.conditionRules.map(r => r.id === rule.id ? { ...r, ...changes } : r) }); };
   return <div className="gs-page"><div className="gs-intro"><div><span className="gp-kicker">CONDITIONAL RULES</span><h3>条件规则</h3><p>将规则拆成触发事件、判断条件和两条结果分支。这里只描述设计，不运行游戏代码。</p></div><button className="gp-secondary" disabled={disabled} onClick={() => { const next = createRule(); onChange({ conditionRules: [...design.conditionRules, next] }); setSelectedId(next.id); }}><Plus size={15} />新建条件规则</button></div>
     <div className="gs-rule-list">{design.conditionRules.map((r, i) => <button key={r.id} className={'gs-rule-tab' + (r.id === rule?.id ? ' selected' : '')} aria-label={'打开规则：' + (r.name || '未命名规则 ' + (i + 1))} aria-pressed={r.id === rule?.id} onClick={() => setSelectedId(r.id)}><small>规则 {i + 1}</small><strong>{r.name || '未命名规则'}</strong><span>{r.conditions.length} 条条件 · {r.actions.length} 个满足动作</span></button>)}</div>
@@ -58,9 +58,9 @@ export function GameplayRules({ design, disabled, onChange }: { design: Gameplay
     </>}
   </div>;
 }
-export function GameplayStateFlow({ design, disabled, onChange }: { design: GameplayDesign; disabled: boolean; onChange: (changes: Partial<GameplayDesign>) => void }) {
+export function GameplayStateFlow({ design, disabled, onChange, initialStateId }: { initialStateId?: string; design: GameplayDesign; disabled: boolean; onChange: (changes: Partial<GameplayDesign>) => void }) {
   const flow = design.stateFlow;
-  const [nodeId, setNodeId] = useState(''), [edgeId, setEdgeId] = useState(''), [error, setError] = useState('');
+  const [nodeId, setNodeId] = useState(initialStateId ?? ''), [edgeId, setEdgeId] = useState(''), [error, setError] = useState('');
   const [preview, setPreview] = useState(false), [currentId, setCurrentId] = useState(''), [trace, setTrace] = useState<string[]>([]);
   const node = flow.states.find(s => s.id === nodeId) ?? flow.states[0], edge = flow.transitions.find(t => t.id === edgeId) ?? flow.transitions[0];
   const patch = (changes: Partial<GameplayFlow>) => { onChange({ stateFlow: { ...flow, ...changes } }); setError(''); setPreview(false); };

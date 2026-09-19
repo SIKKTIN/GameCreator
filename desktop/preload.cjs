@@ -7,6 +7,11 @@ function storageRequest(operation, key, value) {
 contextBridge.exposeInMainWorld('desktopClient', {
   platform: 'electron', localFiles: true,
   storage: { getItem: key => storageRequest('get', key), setItem: (key, value) => storageRequest('set', key, value), info: key => storageRequest('info', key) },
+  artFiles: {
+    importFiles: workspaceId => ipcRenderer.invoke('art-files-import', workspaceId),
+    readPreview: (workspaceId, storagePath) => ipcRenderer.invoke('art-files-preview', { workspaceId, storagePath }),
+    reveal: (workspaceId, storagePath) => ipcRenderer.invoke('art-files-reveal', { workspaceId, storagePath }),
+  },
   pickProjectDirectory: () => ipcRenderer.invoke('pick-project-directory'),
   validateProjectLocation: input => ipcRenderer.invoke('validate-project-location', input),
   prepareTestWorkspace: scenario => ipcRenderer.invoke('prepare-test-workspace', scenario),

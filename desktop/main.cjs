@@ -5,11 +5,13 @@ const { createDesktopServer } = require('./server.cjs');
 const { createWorkspaceStorage, prepareTestWorkspace } = require('./test-workspaces.cjs');
 const { validateProjectLocation } = require('./project-locations.cjs');
 const { migrateLegacy } = require('./legacy-storage.cjs');
+const { createArtFiles, validateWorkspaceId } = require('./art-files.cjs');
 
 const root = path.resolve(__dirname, '..');
 const dataDirectory = process.env.GAMECREATOR_DATA_DIR || path.join(root, '.gamecreator');
 if (process.env.GAMECREATOR_USER_DATA_DIR) app.setPath('userData', process.env.GAMECREATOR_USER_DATA_DIR);
 const storage = createWorkspaceStorage(dataDirectory);
+const artFiles = createArtFiles(dataDirectory);
 let localServer, mainWindow;
 let initializing = true;
 if (!app.requestSingleInstanceLock()) app.quit();
@@ -17,8 +19,14 @@ else {
   app.on('second-instance', () => {
     if (mainWindow) { if (mainWindow.isMinimized()) mainWindow.restore(); mainWindow.focus(); }
   });
-  const trusted = event => mainWindow && event.sender === mainWindow.webContents &&
-    event.senderFrame === mainWindow.webContents.mainFrame && new URL(event.senderFrame.url).origin === localServer?.url;
+  const trusted = event => {
+    try {
+      if (!mainWindow || mainWindow.isDestroyed?.() || event.sender?.isDestroyed?.()) return false;
+      const frame = event.senderFrame;
+      return !!frame && event.sender === mainWindow.webContents && frame === mainWindow.webContents.mainFrame &&
+        new URL(frame.url).origin === localServer?.url;
+    } catch { return false; } // An IPC frame may detach while a native dialog is open.
+  };
   ipcMain.on('workspace-storage', (event, request) => {
     try {
       if (!trusted(event)) throw new Error('不允许访问本地存档');
@@ -40,6 +48,29 @@ else {
   ipcMain.handle('prepare-test-workspace', async (event, scenario) => {
     if (!trusted(event)) throw new Error('不允许创建测试工程');
     return prepareTestWorkspace(root, dataDirectory, scenario);
+  });
+  ipcMain.handle('art-files-import', async (event, workspaceId) => {
+    if (!trusted(event)) throw new Error('不允许导入美术文件');
+    validateWorkspaceId(workspaceId);
+    const requestingWindow = mainWindow;
+    const result = await dialog.showOpenDialog(requestingWindow, {
+      title: '导入美术文件', properties: ['openFile', 'multiSelections'],
+    });
+    if (result.canceled || !result.filePaths.length) return null;
+    if (mainWindow !== requestingWindow || !trusted(event)) throw new Error('原工作区窗口已关闭，请重新导入');
+    return artFiles.importFiles(workspaceId, result.filePaths);
+  });
+  ipcMain.handle('art-files-preview', async (event, payload) => {
+    if (!trusted(event)) throw new Error('不允许读取美术文件');
+    return artFiles.readPreview(payload?.workspaceId, payload?.storagePath);
+  });
+  ipcMain.handle('art-files-reveal', async (event, payload) => {
+    if (!trusted(event)) throw new Error('不允许定位美术文件');
+    const requestingWindow = mainWindow;
+    await artFiles.reveal(payload?.workspaceId, payload?.storagePath, filename => {
+      if (mainWindow !== requestingWindow || !trusted(event)) throw new Error('原工作区窗口已关闭，未打开文件夹');
+      shell.showItemInFolder(filename);
+    });
   });
   ipcMain.handle('write-markdown', async (event, payload) => {
     if (!trusted(event)) throw new Error('不允许写入文件');

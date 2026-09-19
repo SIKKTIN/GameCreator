@@ -34,8 +34,8 @@ export function StageBoard({ space, selectedId, onCell, onObject, counts, label 
       </g>; })}
     </svg></div></div>;
 }
-export function GameplaySpace({ design: d, designs, disabled, onChange }: Common) {
-  const s = d.space; const [selected, setSelected] = useState(''), [mode, setMode] = useState<'select' | 'place' | 'move'>('select'), [kind, setKind] = useState<StageObject['kind']>('actor'), [error, setError] = useState('');
+export function GameplaySpace({ design: d, designs, disabled, onChange, initialObjectId }: Common & { initialObjectId?: string }) {
+  const s = d.space; const [selected, setSelected] = useState(initialObjectId ?? ''), [mode, setMode] = useState<'select' | 'place' | 'move'>('select'), [kind, setKind] = useState<StageObject['kind']>('actor'), [error, setError] = useState('');
   const o = s.objects.find(x => x.id === selected); const patch = (changes: Partial<StageLayout>) => { onChange({ space: { ...s, ...changes } }); setError(''); };
   const patchObject = (changes: Partial<StageObject>) => { if (o) patch({ objects: s.objects.map(x => x.id === o.id ? { ...x, ...changes } : x) }); };
   const cellClick = (row: number, column: number) => { if (disabled || mode === 'select') { const hit = [...s.objects].reverse().find(x => x.anchor === 'cell' && row >= x.row && row < x.row + x.height && column >= x.column && column < x.column + x.width); setSelected(hit?.id ?? ''); return; }
@@ -77,8 +77,8 @@ function TimelineBoard({ timeline: t, cursor, selected, onSelect, onCursor }: { 
     <rect x={left} y="0" width={plot} height="31" fill="transparent" role="slider" tabIndex={0} aria-label="时间轴刻度游标" aria-valuemin={0} aria-valuemax={t.duration} aria-valuenow={cursor} onClick={e => { const box = e.currentTarget.getBoundingClientRect(); onCursor(Math.max(0, Math.min(t.duration, Math.round((e.clientX - box.left) / box.width * domain * 10) / 10))); }} onKeyDown={e => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); onCursor(Math.min(t.duration, Math.max(0, cursor + (e.key === 'ArrowRight' ? 1 : -1)))); } }} />
   </svg></div></div>;
 }
-export function GameplayTime({ design: d, designs, disabled, onChange, onNavigate }: Common) {
-  const t = d.timeline, owner = spaceOwner(d, designs); const [trackId, setTrackId] = useState(''), [eventId, setEventId] = useState(''), [error, setError] = useState(''), [cursor, setCursor] = useState(0), [playing, setPlaying] = useState(false), [speed, setSpeed] = useState(10);
+export function GameplayTime({ design: d, designs, disabled, onChange, onNavigate, initialEventId }: Common & { initialEventId?: string }) {
+  const t = d.timeline, owner = spaceOwner(d, designs); const [trackId, setTrackId] = useState(t.events.find(e => e.id === initialEventId)?.trackId ?? ''), [eventId, setEventId] = useState(initialEventId ?? ''), [error, setError] = useState(''), [cursor, setCursor] = useState(0), [playing, setPlaying] = useState(false), [speed, setSpeed] = useState(10);
   const track = t.tracks.find(x => x.id === trackId) ?? t.tracks[0], event = t.events.find(e => e.id === eventId), frame = useRef(0);
   useEffect(() => { if (!playing) return; let before = performance.now(); const step = (now: number) => { const elapsed = (now - before) / 1000 * speed; before = now; setCursor(v => Math.min(t.duration, v + elapsed)); frame.current = requestAnimationFrame(step); }; frame.current = requestAnimationFrame(step); return () => cancelAnimationFrame(frame.current); }, [playing, speed, t.duration]);
   useEffect(() => { if (cursor >= t.duration) { setPlaying(false); if (cursor > t.duration) setCursor(t.duration); } }, [cursor, t.duration]);

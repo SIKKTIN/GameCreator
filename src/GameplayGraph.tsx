@@ -29,7 +29,7 @@ export function GameplayGraph({ nodes, edges, rootId, selectedNode, selectedEdge
   });
   const width = Math.max(600, rightmost + 32, 310 + (columns.length - 1) * 265 + (sideCount ? 170 : 0));
   const height = coreHeight + (backCount ? 48 + backCount * 42 : 18);
-  const colors: Record<string, string> = { depends: '#aa90ed', contains: '#7ea9db', collaborates: '#63b9a5', flow: '#ac92df' };
+  const colors: Record<string, string> = { depends: '#aa90ed', contains: '#7ea9db', collaborates: '#63b9a5', flow: '#ac92df', call: '#aa90ed', data: '#7ea9db', event: '#63b9a5' };
   const short = (s: string) => s.length > 13 ? s.slice(0, 12) + '…' : s;
   return <div className="gs-graph-shell">
     <div className="gs-graph-tools"><span>{label} · 点击节点查看{onEdge ? '，点击连线编辑' : ''}</span><div className="gp-actions">
@@ -42,7 +42,7 @@ export function GameplayGraph({ nodes, edges, rootId, selectedNode, selectedEdge
           aria-label={`${label}连线：${nodes.find(n => n.id === edge.from)?.label} → ${nodes.find(n => n.id === edge.to)?.label} · ${edge.label || '未命名事件'}`}
           onClick={() => onEdge?.(edge.id)} onKeyDown={e => { if (onEdge && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onEdge(edge.id); } }}>
           <title>{edge.label || '未命名事件'}</title><path d={edge.path} fill="none" stroke="transparent" strokeWidth="18" />
-          <path d={edge.path} fill="none" stroke={color} strokeWidth={active ? 3 : 1.7} opacity={selectedEdge && !active ? .35 : .85} markerEnd={`url(#${prefix + (edge.tone ?? 'flow')})`} strokeDasharray={edge.tone === 'collaborates' ? '5 4' : undefined} />
+          <path d={edge.path} fill="none" stroke={color} strokeWidth={active ? 3 : 1.7} opacity={selectedEdge && !active ? .35 : .85} markerEnd={`url(#${prefix + (edge.tone ?? 'flow')})`} strokeDasharray={['collaborates', 'event'].includes(edge.tone ?? '') ? '5 4' : undefined} />
           <rect x={edge.x - Math.min(91, short(edge.label).length * 6 + 10)} y={edge.y - 14} width={Math.min(182, short(edge.label).length * 12 + 20)} height="26" rx="5" fill="#211c30" stroke={active ? color : '#493954'} />
           <text x={edge.x} y={edge.y + 3} textAnchor="middle" fill={color} fontSize="12">{short(edge.label || '未命名事件')}</text>
         </g>; })}

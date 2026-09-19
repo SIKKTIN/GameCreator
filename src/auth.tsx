@@ -1,6 +1,7 @@
 import { FormEvent, useState } from 'react';
 import './auth.css';
 
+export const beforeLogoutEvent = 'gamecreator:before-logout';
 export type UserRole = 'admin' | 'user';
 type Session = { username: string; role: UserRole };
 
@@ -42,7 +43,10 @@ export function AuthGate({ children }: { children: (session: Session) => React.R
     <small className="auth-hint">演示账号：admin / admin123；用户：user / user123</small>
   </form></main>;
 
-  const logout = () => { localStorage.removeItem(SESSION_KEY); setSession(null); };
+  const logout = () => {
+    if (!window.dispatchEvent(new Event(beforeLogoutEvent, { cancelable: true }))) return;
+    localStorage.removeItem(SESSION_KEY); setSession(null);
+  };
   return <div className={`authenticated-shell role-${session.role}`}>
     <div className="auth-toolbar"><span>当前账号：<b>{session.username}</b><em>{ACCOUNTS[session.username]?.label}</em></span><button className="auth-logout" onClick={logout}>退出登录</button></div>
     {children(session)}

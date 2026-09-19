@@ -81,7 +81,7 @@ export function writeGameplay(storage: Pick<Storage, 'getItem' | 'setItem'>, key
 export function gameplayLinkName(link: GameplayLink, sources: GameplaySources): string | undefined {
   return link.kind === 'story' ? sources.stories.find(s => s.id === link.targetId)?.title : sources.datasets.find(d => d.key === link.targetId)?.label;
 }
-export function gameplayMarkdown(designs: GameplayDesign[], sources: GameplaySources): string {
+export function gameplayMarkdown(designs: GameplayDesign[], sources: GameplaySources, implementation?: (design: GameplayDesign) => string): string {
   const text = (s: string) => s.trim() || '待补充';
   const lines = ['## 玩法设计', ''];
   if (!designs.length) lines.push('暂无玩法设计。', '');
@@ -93,6 +93,7 @@ export function gameplayMarkdown(designs: GameplayDesign[], sources: GameplaySou
     lines.push(...(design.prototype.length ? design.prototype.map(i => `- [${i.done ? 'x' : ' '}] ${text(i.text)}`) : ['待补充']), '', '暂缓内容：', '', text(design.deferred), '', '#### 验证记录', '');
     if (!design.checks.length) lines.push('尚未记录试玩验证。', '');
     for (const [i, check] of design.checks.entries()) lines.push(`${i + 1}. ${text(check.question)}（${check.result}）`, '', '试玩步骤：', text(check.steps), '', '预期结果：', text(check.expected), '', '实际结果：', text(check.actual), '');
+    if (implementation) lines.push(implementation(design), '');
     lines.push('#### 关联内容', '');
     lines.push(...(design.links.length ? design.links.map(link => `- ${link.kind === 'story' ? '故事文档' : '配置表'}：${gameplayLinkName(link, sources) ?? '关联已失效（' + link.targetId + '）'}`) : ['暂无关联']), '');
   }

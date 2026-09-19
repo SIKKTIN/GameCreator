@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent } from 'react';
+import { useRef, useState, type ReactNode, type FormEvent } from 'react';
 import { Archive, ArrowDown, ArrowRight, ArrowUp, CheckCircle2, Copy, FileText, FlaskConical, Gamepad2, Link2, Plus, RotateCcw, Search, Trash2, X } from 'lucide-react';
 import { createGameplay, duplicateGameplay, gameplayLinkName, gameplayResults, gameplayStatuses, moveGameplayItem, type GameplayDesign, type GameplayLink, type GameplaySources, type GameplayStatus } from './gameplay';
 import type { GameplayController } from './useGameplayDesigns';
@@ -7,13 +7,15 @@ import { GameplayDependencies, GameplayRules, GameplayStateFlow } from './Gamepl
 import { GameplaySpace, GameplayTime } from './GameplayStage';
 type EditorTab = 'design' | 'relations' | 'rules' | 'flow' | 'space' | 'time';
 
-type Props = { selectedId: string; onSelect: (id: string) => void; controller: GameplayController; sources: GameplaySources; onOpenLink: (link: GameplayLink) => void };
-export function GameplayDesigns({ controller, selectedId, onSelect: setSelectedId, sources, onOpenLink }: Props) {
+type ImplementationProps = { renderImplementation?: (design: GameplayDesign) => ReactNode; initialSource?: { kind: string; id: string } };
+const sourceTab = (kind?: string): EditorTab => kind === 'rule' ? 'rules' : kind === 'state' ? 'flow' : kind === 'event' ? 'time' : kind === 'object' ? 'space' : 'design';
+type Props = ImplementationProps & { selectedId: string; onSelect: (id: string) => void; controller: GameplayController; sources: GameplaySources; onOpenLink: (link: GameplayLink) => void };
+export function GameplayDesigns({ controller, selectedId, onSelect: setSelectedId, sources, onOpenLink, renderImplementation, initialSource }: Props) {
   const { store, blocked, update } = controller;
-  const [editorTab, setEditorTab] = useState<EditorTab>('design');
+  const [editorTab, setEditorTab] = useState<EditorTab>(sourceTab(initialSource?.kind));
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('all');
-  const [archived, setArchived] = useState(false);
+  const [archived, setArchived] = useState(!!store.designs.find(d => d.id === selectedId)?.archived);
   const [title, setTitle] = useState('');
   const [formError, setFormError] = useState('');
   const dialog = useRef<HTMLDialogElement>(null);
@@ -49,7 +51,7 @@ export function GameplayDesigns({ controller, selectedId, onSelect: setSelectedI
     </div>
     <div className="gp-detail">
       {blocked ? <div className="gp-empty" role="status"><FileText size={34} /><h2>玩法存档暂时无法读取</h2><p>请恢复存档后重新打开项目，现有内容未被覆盖。</p></div>
-        : selected ? <GameplayEditor key={selected.id} design={selected} designs={store.designs} tab={editorTab} onTab={setEditorTab} onNavigate={id => { const next = store.designs.find(d => d.id === id); if (next) { setQuery(''); setStatus('all'); setArchived(next.archived); setSelectedId(id); } }} sources={sources} onChange={changes => patch(selected.id, changes)}
+        : selected ? <GameplayEditor renderImplementation={renderImplementation} initialSource={initialSource} key={selected.id} design={selected} designs={store.designs} tab={editorTab} onTab={setEditorTab} onNavigate={id => { const next = store.designs.find(d => d.id === id); if (next) { setQuery(''); setStatus('all'); setArchived(next.archived); setSelectedId(id); } }} sources={sources} onChange={changes => patch(selected.id, changes)}
           onCopy={() => addDesign(duplicateGameplay(selected))} onArchive={() => { patch(selected.id, { archived: !selected.archived }); setArchived(!selected.archived); setSelectedId(selected.id); }} onOpenLink={onOpenLink} />
           : <div className="gp-empty"><Gamepad2 size={36} /><span className="gp-kicker">从想法到第一次试玩</span><h2>{store.designs.length ? '选择或新建一个玩法' : '设计你的第一个玩法'}</h2><p>写下玩家的目标、行动与反馈，再确定这次原型要验证什么。无需连接引擎。</p>
             <div className="gp-empty-flow"><span>体验目标</span><ArrowRight size={15} /><span>玩法规则</span><ArrowRight size={15} /><span>试玩验证</span></div>
@@ -63,7 +65,7 @@ export function GameplayDesigns({ controller, selectedId, onSelect: setSelectedI
     </dialog>
   </section>;
 }
-function GameplayEditor({ design: d, designs, tab, onTab, onNavigate, sources, onChange, onCopy, onArchive, onOpenLink }: {
+function GameplayEditor({ design: d, designs, tab, onTab, onNavigate, sources, onChange, onCopy, onArchive, onOpenLink, renderImplementation, initialSource }: ImplementationProps & {
   design: GameplayDesign; designs: GameplayDesign[]; tab: EditorTab; onTab: (tab: EditorTab) => void; onNavigate: (id: string) => void; sources: GameplaySources; onChange: (changes: Partial<GameplayDesign>) => void; onCopy: () => void; onArchive: () => void; onOpenLink: (link: GameplayLink) => void;
 }) {
   const [linkKind, setLinkKind] = useState<GameplayLink['kind']>('story');
@@ -77,15 +79,16 @@ function GameplayEditor({ design: d, designs, tab, onTab, onNavigate, sources, o
     <div className="gp-editor-heading"><div><span className="gp-kicker">GAMEPLAY DESIGN</span><h2>{d.title || '未命名玩法'}</h2><p className="gp-muted">最后编辑：{new Date(d.updatedAt).toLocaleString()}</p></div>
       <div className="gp-actions"><button className="gp-secondary" onClick={onCopy}><Copy size={15} />复制玩法</button><button className="gp-secondary" onClick={onArchive}>{d.archived ? <RotateCcw size={15} /> : <Archive size={15} />}{d.archived ? '恢复玩法' : '归档玩法'}</button></div></div>
     {d.archived && <p className="gp-archive-notice" role="status">此玩法已归档。恢复后可以继续编辑，也可以复制成新的方案。</p>}
-    <div className="gp-structure-tabs" role="tablist" aria-label="玩法设计分页">{([['design', '设计说明', null], ['relations', '系统关系', d.dependencies.length], ['rules', '条件规则', d.conditionRules.length], ['flow', '状态流程', d.stateFlow.states.length], ['space', '空间布局', d.space.objects.length], ['time', '时间轴', d.timeline.events.length]] as const).map(([id, name, count]) => <button role="tab" key={id} id={'gp-tab-' + id} aria-controls={'gp-panel-' + id} aria-selected={tab === id} tabIndex={tab === id ? 0 : -1} onKeyDown={e => { const ids: EditorTab[] = ['design', 'relations', 'rules', 'flow', 'space', 'time']; const index = ids.indexOf(tab); const next = e.key === 'ArrowRight' ? ids[(index + 1) % ids.length] : e.key === 'ArrowLeft' ? ids[(index + ids.length - 1) % ids.length] : e.key === 'Home' ? ids[0] : e.key === 'End' ? ids[ids.length - 1] : null; if (next) { e.preventDefault(); onTab(next); document.getElementById('gp-tab-' + next)?.focus(); } }} onClick={() => onTab(id)}>{name}{count !== null && <small>{count}</small>}</button>)}</div>
+    <div className="gp-structure-tabs" role="tablist" aria-label="玩法设计分页">{([['design', '设计说明', null], ['relations', '玩法关联', d.dependencies.length], ['rules', '条件规则', d.conditionRules.length], ['flow', '状态流程', d.stateFlow.states.length], ['space', '空间布局', d.space.objects.length], ['time', '时间轴', d.timeline.events.length]] as const).map(([id, name, count]) => <button role="tab" key={id} id={'gp-tab-' + id} aria-controls={'gp-panel-' + id} aria-selected={tab === id} tabIndex={tab === id ? 0 : -1} onKeyDown={e => { const ids: EditorTab[] = ['design', 'relations', 'rules', 'flow', 'space', 'time']; const index = ids.indexOf(tab); const next = e.key === 'ArrowRight' ? ids[(index + 1) % ids.length] : e.key === 'ArrowLeft' ? ids[(index + ids.length - 1) % ids.length] : e.key === 'Home' ? ids[0] : e.key === 'End' ? ids[ids.length - 1] : null; if (next) { e.preventDefault(); onTab(next); document.getElementById('gp-tab-' + next)?.focus(); } }} onClick={() => onTab(id)}>{name}{count !== null && <small>{count}</small>}</button>)}</div>
     <div className="gs-panel" role="tabpanel" id={'gp-panel-' + tab} aria-labelledby={'gp-tab-' + tab}>
     {tab === 'relations' && <GameplayDependencies design={d} designs={designs} disabled={d.archived} onChange={onChange} onNavigate={onNavigate} />}
-    {tab === 'rules' && <GameplayRules design={d} disabled={d.archived} onChange={onChange} />}
-    {tab === 'flow' && <GameplayStateFlow design={d} disabled={d.archived} onChange={onChange} />}
-    {tab === 'space' && <GameplaySpace design={d} designs={designs} disabled={d.archived} onChange={onChange} onNavigate={id => { onNavigate(id); onTab('space'); }} />}
-    {tab === 'time' && <GameplayTime design={d} designs={designs} disabled={d.archived} onChange={onChange} onNavigate={id => { onNavigate(id); onTab('space'); }} />}
+    {tab === 'rules' && <GameplayRules initialRuleId={initialSource?.kind === 'rule' ? initialSource.id : undefined} design={d} disabled={d.archived} onChange={onChange} />}
+    {tab === 'flow' && <GameplayStateFlow initialStateId={initialSource?.kind === 'state' ? initialSource.id : undefined} design={d} disabled={d.archived} onChange={onChange} />}
+    {tab === 'space' && <GameplaySpace initialObjectId={initialSource?.kind === 'object' ? initialSource.id : undefined} design={d} designs={designs} disabled={d.archived} onChange={onChange} onNavigate={id => { onNavigate(id); onTab('space'); }} />}
+    {tab === 'time' && <GameplayTime initialEventId={initialSource?.kind === 'event' ? initialSource.id : undefined} design={d} designs={designs} disabled={d.archived} onChange={onChange} onNavigate={id => { onNavigate(id); onTab('space'); }} />}
     {tab === 'design' && <><div className="gp-stats"><div><span>原型制作</span><strong>{completed}<small> / {d.prototype.length}</small></strong><div className="gp-progress" aria-label={'制作完成 ' + progress + '%'}><span style={{ width: progress + '%' }} /></div></div>
       <div><span>试玩验证</span><strong>{passed}<small> / {d.checks.length} 通过</small></strong><p>制作完成后，仍需实际试玩验证。</p></div></div>
+    {renderImplementation?.(d)}
     <fieldset className="gp-editor-fields" disabled={d.archived}>
       <section className="gp-card"><div className="gp-card-heading"><h3>基本信息</h3><span className="gp-muted">可以逐步补充</span></div><div className="gp-two-fields">
         <label className="gp-field">玩法名称<input value={d.title} onChange={e => onChange({ title: e.target.value })} placeholder="为这个玩法起个名字" /></label>

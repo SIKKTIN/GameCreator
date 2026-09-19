@@ -4,6 +4,7 @@
 
 Electron 客户端将工作区数据保存在 GameCreator 根目录的 `.gamecreator/`：
 
+- `art-files/`：按正式项目或测试工作区隔离的交付文件副本，历史版本持续保留。
 - `storage/`：当前存档，每个键一个 JSON 文件，文件名由键的 SHA-256 生成。
 - `storage/*.bak`：该存档上一次成功写入前的副本。
 - `legacy-backups/`：首次升级时找到的旧版浏览器存档，按来源地址完整备份。
@@ -22,6 +23,8 @@ Electron 客户端将工作区数据保存在 GameCreator 根目录的 `.gamecre
 | --- | --- |
 | 枚举稳定版本、候选版本、审核决定、发布与迁移历史、配置表字段和数据记录 | `gamecreator.enum-versions.v1:<项目标识>` |
 | 玩法设计、依赖关系、条件规则、状态流程、空间布局、时间轴、原型清单、验证记录和关联 | `gamecreator.workspace.v1:<项目标识>:gameplay` |
+| 功能系统、功能规格、程序依赖与玩法引用（独立 schema 1） | `gamecreator.workspace.v1:<项目标识>:functional-systems` |
+| 美术需求、交付版本、审核、采用与来源关系（独立 schema 1） | `gamecreator.workspace.v1:<项目标识>:art-assets` |
 | 配置表目录和显示名称 | `gamecreator.workspace.v1:<项目标识>:definitions` |
 | 项目信息、故事文档、里程碑 | `gamecreator.workspace.v1:<项目标识>:project`、`:stories`、`:milestones` |
 
