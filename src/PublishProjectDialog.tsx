@@ -4,7 +4,7 @@ import { beforeLogoutEvent } from './auth';
 import type { SavedProject } from './project-catalog';
 import { localSourceIdentity } from './story-import';
 import { assertPublicationCurrent, publicationBody, publicationLimits, readPublicationPreview, type PublicationPreview, type PublicationSource } from './team-publish';
-import { leaveTeamEvent, TeamError, teamRequest, type TeamProject, type TeamPublication, type TeamRole, type TeamSession } from './team-api';
+import { leaveTeamEvent, TeamError, teamRequest, type TeamProject, type TeamPublication, type DeletedPublication, type TeamRole, type TeamSession } from './team-api';
 import { TeamMemberFields } from './TeamProjectDialog';
 import { OverviewPublicationPreview, OverviewSupplementDialog } from './OverviewSupplementDialog';
 import { workspaceStorage } from './workspace-storage';
@@ -16,19 +16,20 @@ export function PublishProjectDialog({ session, project, onClose, onPublished }:
   const dialog = useRef<HTMLDialogElement>(null), operating = useRef(false), alive = useRef(true), reads = useRef(0);
   const initialized = useRef(false), errorNotice = useRef<HTMLParagraphElement>(null);
   const [source, setSource] = useState<PublicationSource | null>(null), [preview, setPreview] = useState<PublicationPreview | null>(null);
+  const [deletedPublication,setDeletedPublication] = useState<DeletedPublication|null>(null),[confirmRepublish,setConfirmRepublish] = useState(false);
   const [published, setPublished] = useState<TeamPublication | null>(null), [name, setName] = useState('');
   const [accounts, setAccounts] = useState<{ userId: string; username: string }[]>([]), [roles, setRoles] = useState<Record<string, TeamRole | 'none'>>({});
   const [loading, setLoading] = useState(true), [busy, setBusy] = useState(false), [error, setError] = useState('');
   const [supplement,setSupplement] = useState(false), [coreSupplement,setCoreSupplement] = useState(false);
-  const lookup = useCallback((origin: PublicationSource) => teamRequest<{ publication: TeamPublication | null }>(session.url, '/publications/lookup', session.token, 'POST', origin), [session]);
+  const lookup = useCallback((origin: PublicationSource) => teamRequest<{ publication: TeamPublication | null; deletedPublication?: DeletedPublication | null }>(session.url, '/publications/lookup', session.token, 'POST', origin), [session]);
   const load = useCallback(async () => {
-    const read = ++reads.current; setLoading(true); setError(''); setPreview(null); setPublished(null);
+    const read = ++reads.current; setLoading(true); setError(''); setPreview(null); setPublished(null);setDeletedPublication(null);setConfirmRepublish(false);
     try {
       if ((session.apiVersion ?? 0) < 7) throw new Error('请先重启并升级协作服务器，再重新连接，以启用玩法核心和完整项目发布。');
       const origin = { sourceInstanceId: localSourceIdentity(workspaceStorage), sourceProjectId: project.id };
       const result = await lookup(origin);
       if (!alive.current || read !== reads.current) return;
-      setSource(origin);
+      setSource(origin);setDeletedPublication(result.deletedPublication??null);
       if (result.publication) { setPublished(result.publication); return; }
       const { accounts: available } = await teamRequest<{ accounts: { userId: string; username: string }[] }>(session.url, '/accounts', session.token);
       if (!alive.current || read !== reads.current) return;
@@ -51,18 +52,19 @@ export function PublishProjectDialog({ session, project, onClose, onPublished }:
   const submit = async (event: FormEvent) => {
     event.preventDefault(); if (operating.current || loading || !source) return;
     if (published) { onPublished(published.project); return; }
-    if (!preview) return;
+    if (!preview || (deletedPublication && !confirmRepublish)) return;
     operating.current = true; setBusy(true); setError('');
     try {
       // Check durable server state first, including after an uncertain timeout.
       const existing = await lookup(source);
       if (!alive.current) return;
       if (existing.publication) { onPublished(existing.publication.project); return; }
+      if ((existing.deletedPublication?.projectId??null) !== (deletedPublication?.projectId??null)) throw new Error('协作副本的删除状态已变化，请重新读取预览后确认发布。');
       assertPublicationCurrent(workspaceStorage, project, preview);
       const members = accounts.filter(account => roles[account.userId] && roles[account.userId] !== 'none')
         .map(account => ({ userId: account.userId, role: roles[account.userId] as TeamRole }));
       const body = publicationBody(preview, source, name, members);
-      const result = await teamRequest<TeamPublication>(session.url, '/publications', session.token, 'POST', body);
+      const result = await teamRequest<TeamPublication>(session.url, '/publications', session.token, 'POST', {...body,...(deletedPublication ? {replacesProjectId:deletedPublication.projectId} : {})});
       if (alive.current) onPublished(result.project);
     } catch (reason) {
       if (alive.current) setError(reason instanceof TeamError && reason.status === 0
@@ -83,6 +85,7 @@ export function PublishProjectDialog({ session, project, onClose, onPublished }:
         {published.coreInitialized===false&&published.project.role==='admin'&&<button type="button" onClick={()=>setCoreSupplement(true)}>补充玩法核心</button>}
         {published.overviewInitialized===false&&published.project.role==='admin'&&<button type="button" onClick={()=>setSupplement(true)}>补充项目概览</button>}</div>}
       {!loading && preview && <>
+        {deletedPublication&&<div className="team-message"><p>原协作项目「{deletedPublication.name}」已删除。重新发布会从当前本地内容建立一个新的协作项目，不会恢复已删除的团队修改。</p><label className="republish-confirmation"><input type="checkbox" checked={confirmRepublish} disabled={busy} onChange={event=>setConfirmRepublish(event.target.checked)}/>我确认重新发布为新的协作项目</label></div>}
         <div className="team-publication-scope"><strong>来源本地项目：{preview.name}</strong>
           <p>发布全部 {preview.stories.length} 篇故事文档，保留正文、分类、状态、摘要、标签、大纲及关联设定。</p>
           <p>同时发布项目基本信息和 {preview.overview.milestones.length} 个里程碑。</p>
@@ -104,7 +107,7 @@ export function PublishProjectDialog({ session, project, onClose, onPublished }:
       {error && <button type="button" disabled={busy || loading} onClick={() => void load()}>重新读取预览</button>}
       </div>
       <div className="team-dialog-actions"><button type="button" disabled={busy} onClick={onClose}>取消</button>
-        <button className="primary" disabled={busy || loading || (!published && (!preview || !name.trim()))}>
+        <button className="primary" disabled={busy || loading || (!published && (!preview || !name.trim() || (!!deletedPublication && !confirmRepublish)))}>
           {busy ? '正在发布…' : published ? '进入已发布项目' : '发布并进入协作项目'}</button></div>
     </form>
   </dialog></>;

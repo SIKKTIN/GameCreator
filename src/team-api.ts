@@ -12,6 +12,7 @@ export const effectivePermissions = (role: TeamRole, permissions = defaultPermis
 });
 export const canEditModule = (session: TeamSession, role: TeamRole, capabilities: TeamCapabilities | undefined, module: keyof TeamCapabilities) =>
   !session.invalid && ((session.apiVersion ?? 0) >= 6 ? capabilities?.[module] === 'edit' : effectivePermissions(role)[module] === 'edit');
+export type DeletedPublication = { projectId: string; name: string; deletedAt: string };
 export type TeamPublication = { project: TeamProject; publishedAt: string; storyCount: number; overviewInitialized?: boolean; coreInitialized?: boolean };
 import type { StoryDoc } from './story-model';
 export type TeamStoryFields = Omit<StoryDoc, 'id' | 'updated'>;

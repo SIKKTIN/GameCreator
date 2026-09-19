@@ -12,3 +12,5 @@
 .team-publication-preview + .team-publication-preview { margin-top: 12px; }
 .team-publication-preview dd { margin: 5px 0 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .team-publication-preview pre { font: inherit; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 160px; overflow: auto; }
+
+.team-publish-dialog .republish-confirmation{display:flex;align-items:center;gap:10px}.team-publish-dialog .republish-confirmation input{width:18px;height:18px;margin:0;flex-shrink:0}

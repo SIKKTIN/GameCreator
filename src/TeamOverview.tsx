@@ -8,7 +8,7 @@ import './team-overview.css';
 type OverviewData = { info:TeamRecord<OverviewInfo>; milestones:TeamRecord<MilestoneFields>[]; role:TeamRole; capabilities?: TeamCapabilities;
   activity:{id:number;title:string;actor:string;createdAt:string}[] };
 export function TeamOverview({ session,projectId,members,onMembers,onDenied,blocked=false }: {
-  session:TeamSession;projectId:string;members:{username:string;role:TeamRole}[];onMembers:()=>void;onDenied:()=>void;blocked?:boolean;
+  session:TeamSession;projectId:string;members:{username:string;role:TeamRole}[];onMembers:()=>void;onDenied:(status?:number)=>void;blocked?:boolean;
 }) {
   const [data,setData] = useState<OverviewData|null>(null),[error,setError] = useState(''),[denied,setDenied] = useState(false),[refresh,setRefresh] = useState(0);
   const writable = !blocked && !denied && !!data && canEditModule(session,data.role,data.capabilities,'overview');
@@ -34,7 +34,7 @@ export function TeamOverview({ session,projectId,members,onMembers,onDenied,bloc
         if (active) { setData(previous=>!previous ? next : {...next,
           info:previous.info.revision>next.info.revision?previous.info:next.info,
           milestones:next.milestones.map(record=>previous.milestones.find(old=>old.id===record.id && old.revision>record.revision)??record)});setError('');setDenied(false); }
-      } catch(reason) { if(active) {setError((reason as Error).message); if(reason instanceof TeamError && [401,403].includes(reason.status)){setDenied(true);deniedCallback.current();}} }
+      } catch(reason) { if(active) {setError((reason as Error).message); if(reason instanceof TeamError && [401,403,410].includes(reason.status)){setDenied(true);deniedCallback.current(reason.status);}} }
       if(active)timer=window.setTimeout(poll,2000);
     };
     void poll();return()=>{active=false;window.clearTimeout(timer);};
