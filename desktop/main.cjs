@@ -93,7 +93,8 @@ else {
     });
     mainWindow.webContents.on('will-navigate', (event, url) => { if (new URL(url).origin !== localServer.url) event.preventDefault(); });
     mainWindow.on('closed', () => { mainWindow = null; });
-    await mainWindow.loadURL(localServer.url + '/');
+    const teamAccount = process.env.GAMECREATOR_TEAM_ACCOUNT;
+    await mainWindow.loadURL(localServer.url + '/' + (teamAccount ? '?team=' + encodeURIComponent(teamAccount) : ''));
   }
   app.whenReady().then(async () => {
     await migrateLegacy({ userData: app.getPath('userData'), dataDirectory, storage, BrowserWindow, session: session.defaultSession });

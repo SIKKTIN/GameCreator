@@ -3,3 +3,4 @@
 @media (max-width:1200px){.story-workspace{grid-template-columns:260px minmax(360px,1fr)}.story-context-panel{grid-column:1 / -1;grid-template-columns:1fr 1fr 1fr}.context-card{min-width:0}}
 
 @media (max-width:820px){.story-workspace{grid-template-columns:1fr}.story-list-panel,.story-editor-panel{min-height:auto}.story-context-panel{grid-template-columns:1fr}.story-meta-grid{grid-template-columns:1fr}.story-title-input{font-size:20px}.story-body{min-height:260px}}
+.story-editor-panel{margin:0;min-width:0}.story-list-field{display:grid;gap:8px;margin-top:14px;color:#aaa7bf;font-size:12px}.story-list-field>span{display:flex;justify-content:space-between;gap:8px}.story-list-field small{color:#77768a;font-size:10px}.story-list-field textarea{width:100%;resize:vertical;border:1px solid #373545;background:#20202b;color:#e4e2ed;border-radius:6px;padding:9px;font-family:inherit;font-size:12px;line-height:1.6}.story-workspace :disabled{cursor:not-allowed;opacity:.7}

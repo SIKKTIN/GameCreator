@@ -10,6 +10,8 @@ npm run dev       # 浏览器开发模式
 npm run desktop   # Electron 本地客户端
 ```
 
+本机多人协作验证：运行 `npm run collaboration:demo`，打开 Alice 和 Bob 两个客户端。本地和团队项目共用左上角项目列表及故事编辑页，支持完整故事导入、共享编辑、冲突提示、本机草稿和修改历史。普通客户端可从项目列表选择“连接团队服务器”。详见 [多人协作验证](docs/collaboration.md)。
+
 默认本地账号：
 
 | 账号 | 密码 | 角色 |
