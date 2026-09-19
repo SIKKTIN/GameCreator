@@ -11,7 +11,7 @@ export function WorkspaceSidebar({ picker, active, onNavigate, team = false, tea
 }) {
   const items = admin || team ? workspaceNavigation : workspaceNavigation.filter(([name]) => !['枚举管理', '引擎设置'].includes(name));
   const unavailable = (name:string) => team && name !== '故事文档' && !(teamOverview && name === '项目概览');
-  return <aside className="workspace-sidebar">
+  return <aside id="workspace-navigation" className="workspace-sidebar" aria-label="主导航栏">
     <div className="brand"><div className="logo">✦</div><div><b>GameCreator</b><small>CONTENT STUDIO</small></div></div>
     {picker}
     <nav aria-label="工作区模块">{items.map(([name, Icon]) => <button key={name} className={active === name ? 'active' : ''}
