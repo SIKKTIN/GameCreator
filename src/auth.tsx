@@ -48,7 +48,7 @@ export function AuthGate({ children }: { children: (session: Session) => React.R
     localStorage.removeItem(SESSION_KEY); setSession(null);
   };
   return <div className={`authenticated-shell role-${session.role}`}>
-    <div className="auth-toolbar"><span>当前账号：<b>{session.username}</b><em>{ACCOUNTS[session.username]?.label}</em></span><button className="auth-logout" onClick={logout}>退出登录</button></div>
+    <div className="auth-toolbar"><span>本机账号：<b>{session.username}</b><em>{ACCOUNTS[session.username]?.label}</em></span><button className="auth-logout" onClick={logout}>退出登录</button></div>
     {children(session)}
   </div>;
 }

@@ -1,10 +1,16 @@
+import { StoryDocuments } from './StoryDocuments';
+import { WorkspaceSidebar } from './WorkspaceSidebar';
+import { TeamProjectWorkspace } from './TeamWorkspace';
+import { TeamConnectionDialog, teamProjectKey, useTeamConnection } from './team-connection';
+import { canLeaveTeam } from './team-api';
+import { initialStoryDocs, type StoryDoc } from './story-model';
 import { ArtAssets, ArtReferences, type ArtSelection } from './ArtAssets';
 import { useArtAssets } from './useArtAssets';
 import { FunctionalSystems, GameplayFunctions, type FunctionalSelection } from './FunctionalSystems';
 import { useFunctionalSystems } from './useFunctionalSystems';
 import { GameplayDesigns } from './GameplayDesigns';
 import { useGameplayDesigns } from './useGameplayDesigns';
-import { ProjectSwitcher } from './ProjectSwitcher';
+import { ProjectSwitcher, type SwitchableProject } from './ProjectSwitcher';
 import { useProjectCatalog } from './useProjectCatalog';
 import { addSavedProject, selectSavedProject, updateSavedConfig, type SavedProject } from './project-catalog';
 import { TestPanel } from './TestPanel';
@@ -16,34 +22,17 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import {
   AlertTriangle,
-  AlignLeft,
-  BarChart3,
-  Bold,
-  BookOpen,
-  CalendarDays,
   Check,
   CheckCircle2,
   Clock3,
   Database,
-  Eye,
   FileText,
-  Gamepad2,
-  GitBranch,
-  Italic,
   Layers,
-  Link,
-  ListTree,
-  Map,
-  Palette,
   Pencil,
   Plus,
-  Quote,
   Search,
   Settings2,
-  SlidersHorizontal,
-  Trash2,
   Sparkles,
-  Tag,
   Users,
 } from 'lucide-react';
 import './styles.css';
@@ -67,22 +56,6 @@ type Milestone = {
   status: 'done' | 'active' | 'planned';
 };
 
-type StoryDoc = {
-  id: string;
-  title: string;
-  category: string;
-  status: string;
-  updated: string;
-  summary: string;
-  content: string;
-  tags: string[];
-  outlines: string[];
-  relations: {
-    characters: string[];
-    locations: string[];
-    systems: string[];
-  };
-};
 
 const initialRows: DataRecord[] = [
   { id: 'sword_001', name: '铁制长剑', type: 'weapon', value: '120', rarity: '普通' },
@@ -118,73 +91,6 @@ const initialMilestones: Milestone[] = [
   { title: '首个可玩版本', owner: '全体成员', due: '2026/10/12', status: 'planned' },
 ];
 
-const initialStoryDocs: StoryDoc[] = [
-  {
-    id: 'world_overview',
-    title: '世界背景总览',
-    category: '世界观',
-    status: '草稿',
-    updated: '今天 15:12',
-    summary: '极光大陆由七座浮空城邦组成，星核能源维持着秩序，也埋下了战争的引线。',
-    content:
-      '极光大陆曾经是一整块完整的陆地。星坠事件之后，大地断裂为七座浮空城邦，每座城邦都依靠星核维持重力、气候和能源。\n\n玩家出生在边境矿城“灰炉”，这里负责开采低纯度星砂。随着主角发现一枚没有登记的古代星核，城邦议会、流亡者和失落机械族都会被卷入同一条主线。\n\n第一章目标是建立玩家对世界秩序的理解：星核既是文明基础，也是冲突核心。',
-    tags: ['星核', '浮空城邦', '主线'],
-    outlines: ['星坠事件', '七座城邦', '灰炉矿城', '主角发现古代星核'],
-    relations: {
-      characters: ['艾拉', '议会监察官', '灰炉矿长'],
-      locations: ['灰炉', '极光议会', '旧时代遗迹'],
-      systems: ['阵营声望', '主线章节'],
-    },
-  },
-  {
-    id: 'chapter_one',
-    title: '第一章剧情梗概',
-    category: '主线剧情',
-    status: '评审中',
-    updated: '昨天 18:40',
-    summary: '主角在灰炉矿区遭遇星核暴走，并第一次与流亡者阵营接触。',
-    content:
-      '第一章开场发生在灰炉地下矿区。一次例行采矿任务中，矿道深处出现异常极光，主角和同伴艾拉被迫进入封锁区。\n\n封锁区内的旧时代设施仍在运作，玩家需要完成探索、轻战斗和一次选择事件。章节结尾处，主角带走古代星核，也因此被议会列入观察名单。',
-    tags: ['第一章', '灰炉', '艾拉'],
-    outlines: ['矿区事故', '封锁区探索', '古代设施', '议会观察名单'],
-    relations: {
-      characters: ['主角', '艾拉', '流亡者斥候'],
-      locations: ['灰炉矿区', '封锁区'],
-      systems: ['教学战斗', '关键选择'],
-    },
-  },
-  {
-    id: 'faction_notes',
-    title: '阵营设定草案',
-    category: '阵营设定',
-    status: '待补充',
-    updated: '2026/09/12',
-    summary: '围绕星核管制形成三类主要势力：议会、流亡者和旧机械族。',
-    content:
-      '极光议会掌握合法星核分配权，强调秩序和资源配给。\n\n流亡者由被城邦驱逐的人组成，认为星核属于所有幸存者。\n\n旧机械族是星坠前文明的守护系统残留，它们不把人类视为敌人，但会清除任何破坏核心协议的行为。',
-    tags: ['议会', '流亡者', '旧机械族'],
-    outlines: ['极光议会', '流亡者', '旧机械族', '阵营冲突来源'],
-    relations: {
-      characters: ['议长诺温', '流亡者首领岚', '旧机械管家'],
-      locations: ['极光议会', '荒原营地', '核心塔'],
-      systems: ['阵营声望', '对话分支'],
-    },
-  },
-];
-
-const nav = [
-  ['项目概览', Layers],
-  ['玩法设计', Gamepad2],
-  ['功能系统', ListTree],
-  ['美术资产', Palette],
-  ['故事文档', BookOpen],
-  ['数据配置', Database],
-  ['枚举定义', Tag],
-  ['枚举管理', Tag],
-  ['引擎设置', Settings2],
-  ['任务与流程', GitBranch],
-  ['数值分析', BarChart3],
-] as const;
 
 const initialProject = {
     name: 'Project Aurora',
@@ -198,6 +104,10 @@ const initialProject = {
 
 function WorkspaceController({ role, username }: { role: UserRole; username: string }) {
   const projects = useProjectCatalog();
+  const team = useTeamConnection();
+  const [activeTeamId, setActiveTeamId] = useState<string | null>(null);
+  const allowSwitch = () => window.dispatchEvent(new Event(beforeLogoutEvent, { cancelable: true })) && canLeaveTeam();
+  const connectTeam = () => { if (allowSwitch()) team.show(); };
   const formalProject = projects.catalog.projects.find(item => item.id === projects.catalog.activeId)!;
   const [storedTest, setStoredTest, sessionError] = useStoredState<TestSession | null>('gamecreator.test-session.v1', null);
   const [preparing, setPreparing] = useState(false);
@@ -209,16 +119,24 @@ function WorkspaceController({ role, username }: { role: UserRole; username: str
     && storedTest.config?.projectPath && storedTest.config.projectPath.replace(/\\/g, '/').toLowerCase().endsWith('/test-workspaces/' + storedTest.id + '/project');
   const testSession = role === 'admin' && projects.catalog.mode === 'test' && valid ? storedTest : null;
   const selectProject = (id: string) => {
-    if (lock.current) return false;
+    if (lock.current || !allowSwitch()) return false;
+    const remote = team.saved?.projects.find(item => teamProjectKey(team.saved!.serverId, item.id) === id);
+    if (remote) {
+      if (team.session) setActiveTeamId(remote.id);
+      else team.show(id);
+      return true;
+    }
     if (!projects.commit(catalog => selectSavedProject(catalog, id))) return false;
+    setActiveTeamId(null);
     if (storedTest) setStoredTest(null);
     setError(''); logDebug('切换项目', 'success', projects.catalog.projects.find(item => item.id === id)?.name ?? id);
     return true;
   };
   const addProject = async (input: { name: string }) => {
-    if (role !== 'admin' || lock.current || projects.blocked) return false;
+    if (role !== 'admin' || lock.current || projects.blocked || !allowSwitch()) return false;
     if (!input.name.trim()) throw new Error('请输入项目名称');
     if (!projects.commit(catalog => addSavedProject(catalog, input.name))) return false;
+    setActiveTeamId(null);
     if (storedTest) setStoredTest(null);
     setError(''); logDebug('新建项目', 'success', input.name);
     return true;
@@ -253,33 +171,43 @@ function WorkspaceController({ role, username }: { role: UserRole; username: str
     } finally { lock.current = false; setPreparing(false); }
   };
   const exit = () => { selectProject(projects.catalog.activeId); };
-  const options = projects.catalog.projects.map(item => {
+  const options: SwitchableProject[] = projects.catalog.projects.map(item => {
     let name = item.name;
     try {
       const raw = workspaceStorage.getItem('gamecreator.workspace.v1:' + item.id + ':project');
       if (raw && typeof JSON.parse(raw)?.name === 'string' && JSON.parse(raw).name.trim()) name = JSON.parse(raw).name;
     } catch { /* The project itself displays its archive error when selected. */ }
-    return { id: item.id, name, projectPath: item.config.projectPath };
+    return { id: item.id, name, projectPath: item.config.projectPath, kind: 'local' };
   });
+  for (const item of team.saved?.projects ?? []) options.push({ id: teamProjectKey(team.saved!.serverId, item.id), name: item.name,
+    projectPath: '', kind: 'team', detail: `${team.saved!.url} · ${team.session ? team.session.user.username : '未连接'}` });
+  const selectedTeam = team.session && team.saved?.projects.find(item => item.id === activeTeamId);
   if (projects.blocked) return <main className="enum-catalog-empty" role="alert">
     <AlertTriangle size={32} /><h1>项目列表读取失败</h1>
     <p>无法确定当前项目，已停止加载和保存工作区。请恢复项目列表存档后重新打开软件。</p>
     <p>{projects.error}</p><button className="primary" onClick={() => window.location.reload()}>重新读取</button>
   </main>;
-  return <WorkspaceApp key={testSession?.id ?? 'project:' + formalProject.id} role={role} username={username}
+  return <><TeamConnectionDialog connection={team} onConnected={setActiveTeamId} />
+    {selectedTeam && team.session ? <TeamProjectWorkspace key={`${team.session.serverId}:${team.session.user.id}:${selectedTeam.id}:${team.session.token}`} project={selectedTeam} session={team.session}
+      localProjects={projects.catalog.projects.map(item => ({ ...item, name: options.find(option => option.id === item.id)?.name || item.name }))}
+      picker={<ProjectSwitcher projects={options} currentId={teamProjectKey(team.session.serverId, selectedTeam.id)} currentName={selectedTeam.name} canAdd={role === 'admin'} busy={false}
+        onSelect={selectProject} onAdd={addProject} onConnectTeam={connectTeam} />}
+      onConnection={connectTeam} onDisconnect={() => { if (allowSwitch()) { team.disconnect(); setActiveTeamId(null); } }} />
+    : <WorkspaceApp key={testSession?.id ?? 'project:' + formalProject.id} role={role} username={username}
     formalProject={formalProject} projectOptions={options} onSelectProject={selectProject} onAddProject={addProject}
+    onConnectTeam={connectTeam}
     onConfigChange={configureProject}
     onRenameProject={name => projects.commit(catalog => ({ ...catalog, projects: catalog.projects.map(item => item.id === formalProject.id ? { ...item, name } : item) }))}
     testSession={testSession} onLoadTest={load} onExitTest={exit} preparingTest={preparing || projects.blocked}
-    testError={error || projects.error || sessionError || (storedTest && !valid ? '测试会话信息无效，已回到正式工作区。' : '')} />;
+    testError={error || projects.error || sessionError || (storedTest && !valid ? '测试会话信息无效，已回到正式工作区。' : '')} />}</>;
 }
 
 const emptyStories: StoryDoc[] = [];
 const emptyMilestones: Milestone[] = [];
 const emptyProjectData: ProjectData = { columns: initialData.columns, datasets: Object.fromEntries(datasetDefinitions.map(item => [item.key, []])) };
 const initialTestProject = { ...initialProject, name: '枚举测试工作区' };
-function WorkspaceApp({ role, username, testSession, onLoadTest, onExitTest, preparingTest, testError, formalProject, projectOptions, onSelectProject, onAddProject, onConfigChange, onRenameProject }: {
-  formalProject: SavedProject; projectOptions: { id: string; name: string; projectPath: string }[];
+function WorkspaceApp({ role, username, testSession, onLoadTest, onExitTest, preparingTest, testError, formalProject, projectOptions, onSelectProject, onAddProject, onConfigChange, onRenameProject, onConnectTeam }: {
+  formalProject: SavedProject; projectOptions: SwitchableProject[]; onConnectTeam: () => void;
   onSelectProject: (id: string) => boolean; onAddProject: (input: { name: string }) => Promise<boolean>;
   onConfigChange: (config: EngineConfig) => Promise<boolean>; onRenameProject: (name: string) => boolean;
   role: UserRole; username: string; testSession: TestSession | null; onLoadTest: (scenario: TestScenarioId) => Promise<void>;
@@ -337,7 +265,6 @@ function WorkspaceApp({ role, username, testSession, onLoadTest, onExitTest, pre
   const completedMilestones = milestones.filter((milestone) => milestone.status === 'done').length;
   const progress = milestones.length ? Math.round((completedMilestones / milestones.length) * 100) : 0;
   const storageError = [definitionsError, milestoneError, storyError, projectError, registry.error, gameplay.error, functional.error, art.error].filter(Boolean).join('；');
-  const visibleNav = role === 'admin' ? nav : nav.filter(([name]) => !['枚举管理', '引擎设置'].includes(name));
 
   const exportAiContext = async () => {
     if (testSession || gameplay.blocked || gameplay.pending || functional.blocked || functional.pending || art.blocked || art.pending) return;
@@ -416,27 +343,12 @@ function WorkspaceApp({ role, username, testSession, onLoadTest, onExitTest, pre
   };
 
   return (
-    <div className="app">
-      <aside>
-        <div className="brand">
-          <div className="logo">✦</div>
-          <div><b>GameCreator</b><small>CONTENT STUDIO</small></div>
-        </div>
-        <ProjectSwitcher projects={projectOptions} currentId={testSession ? null : formalProject.id} currentName={project.name}
+    <div className="app local-workspace">
+      <WorkspaceSidebar picker={<ProjectSwitcher projects={projectOptions} currentId={testSession ? null : formalProject.id} currentName={project.name}
           testName={testSession ? testScenarios.find(item=>item.id===testSession.scenario)?.name : undefined}
-          canAdd={role === 'admin'} busy={preparingTest || registry.busy || registry.loading || gameplay.pending || functional.pending || functional.blocked || art.pending || art.blocked} onSelect={onSelectProject} onAdd={onAddProject} />
-        <nav>
-          {visibleNav.map(([name, Icon]) => (
-            <button key={name} className={active === name ? 'active' : ''} onClick={() => setActive(name)}>
-              <Icon size={17} />{name}
-            </button>
-          ))}
-        </nav>
-        <div className="side-bottom">
-          <button><Settings2 size={17} />工作区设置</button>
-          <div className="user"><div className="avatar">G</div><span>Game Designer<small>本地工作区</small></span></div>
-        </div>
-      </aside>
+          canAdd={role === 'admin'} busy={preparingTest || registry.busy || registry.loading || gameplay.pending || functional.pending || functional.blocked || art.pending || art.blocked} onSelect={onSelectProject} onAdd={onAddProject} onConnectTeam={onConnectTeam} />} active={active} onNavigate={setActive} admin={role === 'admin'} footer={<>
+        <button><Settings2 size={17} />工作区设置</button><div className="user"><div className="avatar">G</div><span>{username}<small>本地项目</small></span></div>
+      </>} />
 
       <main>
         <header>
@@ -481,6 +393,7 @@ function WorkspaceApp({ role, username, testSession, onLoadTest, onExitTest, pre
             setActiveStoryId={setActiveStoryId}
             updateStory={updateStory}
             addStoryDoc={addStoryDoc}
+            readOnly={role !== 'admin'}
           />
         )}
         {active === '数据配置' && <DataConfiguration key={dataKey} workspaceKey={dataKey} data={currentData}
@@ -599,117 +512,6 @@ function ProjectOverview({ project, showExamples, progress, milestones, updatePr
         </div>
       </div>
     </section>
-  );
-}
-
-function StoryDocuments({
-  documents,
-  activeStoryId,
-  setActiveStoryId,
-  updateStory,
-  addStoryDoc,
-}: {
-  documents: StoryDoc[];
-  activeStoryId: string;
-  setActiveStoryId: (id: string) => void;
-  updateStory: (id: string, changes: Partial<StoryDoc>) => void;
-  addStoryDoc: () => void;
-}) {
-  const selected = documents.find((document) => document.id === activeStoryId) ?? documents[0];
-  if (!selected) return <section className="enum-catalog-empty"><BookOpen size={28} /><h3>暂无故事文档</h3><p>创建这个项目的第一份故事文档。</p><button className="primary" onClick={addStoryDoc}>新建故事文档</button></section>;
-  const characterCount = selected.content.replace(/\s/g, '').length;
-  const paragraphCount = selected.content.split(/\n+/).filter(Boolean).length;
-
-  return (
-    <section className="story-workspace">
-      <div className="story-list-panel">
-        <div className="story-panel-head">
-          <div><span className="section-kicker">STORY LIBRARY</span><h3>文档库</h3></div>
-          <button className="icon-button" title="新建故事文档" onClick={addStoryDoc}><Plus size={16} /></button>
-        </div>
-        <div className="story-filter">
-          <button className="active">全部</button>
-          <button>世界观</button>
-          <button>剧情</button>
-          <button>角色</button>
-        </div>
-        <div className="story-doc-list">
-          {documents.map((document) => (
-            <button
-              className={`story-doc-card ${selected.id === document.id ? 'active' : ''}`}
-              key={document.id}
-              onClick={() => setActiveStoryId(document.id)}
-            >
-              <span className="doc-category">{document.category}</span>
-              <strong>{document.title}</strong>
-              <small>{document.summary}</small>
-              <span className="doc-meta"><Clock3 size={12} />{document.updated}<em>{document.status}</em></span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="story-editor-panel">
-        <div className="story-editor-top">
-          <input
-            className="story-title-input"
-            value={selected.title}
-            onChange={(event) => updateStory(selected.id, { title: event.target.value })}
-          />
-          <div className="story-editor-actions">
-            <button title="预览"><Eye size={16} /></button>
-            <button title="引用"><Link size={16} /></button>
-          </div>
-        </div>
-        <div className="story-meta-grid">
-          <label><span>分类</span><select value={selected.category} onChange={(event) => updateStory(selected.id, { category: event.target.value })}><option>世界观</option><option>主线剧情</option><option>角色设定</option><option>阵营设定</option><option>地点设定</option></select></label>
-          <label><span>状态</span><select value={selected.status} onChange={(event) => updateStory(selected.id, { status: event.target.value })}><option>草稿</option><option>待补充</option><option>评审中</option><option>定稿</option></select></label>
-        </div>
-        <label className="story-summary"><span>摘要</span><textarea value={selected.summary} onChange={(event) => updateStory(selected.id, { summary: event.target.value })} /></label>
-        <div className="editor-toolbar">
-          <button title="正文"><AlignLeft size={15} /></button>
-          <button title="加粗"><Bold size={15} /></button>
-          <button title="斜体"><Italic size={15} /></button>
-          <button title="引用"><Quote size={15} /></button>
-          <span />
-          <button title="添加标签"><Tag size={15} /></button>
-        </div>
-        <textarea
-          className="story-body"
-          value={selected.content}
-          onChange={(event) => updateStory(selected.id, { content: event.target.value })}
-        />
-      </div>
-
-      <div className="story-context-panel">
-        <div className="context-card">
-          <div className="story-panel-head"><div><span className="section-kicker">OUTLINE</span><h3>文档大纲</h3></div><ListTree size={16} /></div>
-          <ol className="outline-list">
-            {selected.outlines.map((outline) => <li key={outline}>{outline}</li>)}
-          </ol>
-        </div>
-        <div className="context-card">
-          <div className="story-panel-head"><div><span className="section-kicker">LINKED CONTENT</span><h3>关联设定</h3></div><Map size={16} /></div>
-          <RelationGroup title="角色" items={selected.relations.characters} />
-          <RelationGroup title="地点" items={selected.relations.locations} />
-          <RelationGroup title="系统" items={selected.relations.systems} />
-        </div>
-        <div className="context-card compact-card">
-          <div><CalendarDays size={16} /><span>最后编辑</span><strong>{selected.updated}</strong></div>
-          <div><FileText size={16} /><span>正文长度</span><strong>{characterCount} 字</strong></div>
-          <div><BookOpen size={16} /><span>段落数量</span><strong>{paragraphCount} 段</strong></div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function RelationGroup({ title, items }: { title: string; items: string[] }) {
-  return (
-    <div className="relation-group">
-      <span>{title}</span>
-      <div>{items.map((item) => <button key={item}>{item}</button>)}</div>
-    </div>
   );
 }
 
