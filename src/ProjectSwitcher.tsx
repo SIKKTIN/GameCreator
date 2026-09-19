@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
-import { Check, ChevronDown, FolderOpen, LoaderCircle, Plus, X } from 'lucide-react';
+import { Check, ChevronDown, CopyPlus, FolderOpen, LoaderCircle, Plus, X } from 'lucide-react';
 import './project-switcher.css';
 
 export type SwitchableProject = { id: string; name: string; projectPath: string; kind?: 'local' | 'team'; detail?: string };
@@ -14,13 +14,14 @@ export type ProjectSwitcherProps = {
   onSelect: (id: string) => Promise<boolean> | boolean;
   onAdd: (input: AddProjectInput) => Promise<boolean>;
   onConnectTeam?: () => void;
+  onImportPrototype?: () => void;
 };
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : '操作未完成，请稍后重试。';
 }
 
-export function ProjectSwitcher({ projects, currentId, currentName, testName, canAdd, busy, onSelect, onAdd, onConnectTeam }: ProjectSwitcherProps) {
+export function ProjectSwitcher({ projects, currentId, currentName, testName, canAdd, busy, onSelect, onAdd, onConnectTeam, onImportPrototype }: ProjectSwitcherProps) {
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [menuError, setMenuError] = useState('');
@@ -172,6 +173,7 @@ export function ProjectSwitcher({ projects, currentId, currentName, testName, ca
         </button>)}
         {projects.length === 0 && <p className="ps-no-projects">暂无已创建的项目</p>}
         {canAdd && <button type="button" role="menuitem" className="ps-add-button" disabled={locked} onClick={openAddDialog}><Plus size={16} aria-hidden="true" />新建项目</button>}
+        {canAdd && onImportPrototype && <button type="button" role="menuitem" className="ps-add-button" disabled={locked} onClick={() => { closeMenu(); triggerRef.current?.focus(); onImportPrototype(); }}><CopyPlus size={16} aria-hidden="true" />从原型示例创建项目</button>}
         {onConnectTeam && <button type="button" role="menuitem" className="ps-add-button" disabled={locked} onClick={() => { closeMenu(); onConnectTeam(); }}><FolderOpen size={16} />连接团队服务器</button>}
       </div>
       {menuError && <p className="ps-error" role="alert">{menuError}</p>}

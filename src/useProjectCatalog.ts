@@ -17,6 +17,9 @@ export function useProjectCatalog() {
       const disk = workspaceStorage.getItem(PROJECT_CATALOG_KEY);
       if (disk !== null && JSON.stringify(JSON.parse(disk)) !== JSON.stringify(latest.current.catalog)) throw new Error('另一个窗口已更新项目列表，请重新打开软件后再切换');
       const next = validateCatalog(operation(latest.current.catalog));
+      // An operation can stage a new project's archives before publishing it.
+      // Recheck the catalog so another window's additions are not lost meanwhile.
+      if (workspaceStorage.getItem(PROJECT_CATALOG_KEY) !== disk) throw new Error('另一个窗口已更新项目列表，请重新打开软件后重试');
       workspaceStorage.setItem(PROJECT_CATALOG_KEY, JSON.stringify(next));
       latest.current = { catalog: next, error: '', blocked: false };
       setState(latest.current);

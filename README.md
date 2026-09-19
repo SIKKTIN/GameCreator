@@ -60,6 +60,8 @@ npm run mcp:debug
 - [玩法设计](docs/gameplay-design.md)
 
 - [项目切换与独立存档](docs/project-switching.md)
+- [从原型示例创建项目](docs/prototype-examples.md)
+- [分支与原型数据管理](docs/branch-workflow.md)
 - [枚举版本审核流程](docs/enum-version-workflow.md)
 - [Withdraw 枚举导入说明](docs/withdraw-enum-import.md)
 - [本地客户端](docs/desktop-client.md)
@@ -76,4 +78,4 @@ npm run mcp:debug
 
 ## 原型示例
 
-[三套完整设计快照](examples/prototypes/README.md)保存空洞骑士、星露谷和植物大战僵尸原型的玩法、功能系统、美术需求、资产台账及引用数据。示例独立于本机存档，可以使用 `node scripts/validate-prototype-examples.mjs` 校验。
+[三套完整设计快照](examples/prototypes/README.md)保存空洞骑士、星露谷和植物大战僵尸原型的玩法、功能系统、美术需求、资产台账及引用数据。管理员可从左上角项目列表选择“从原型示例创建项目”，只填写名称即可复制为独立本地项目；已有项目不会被覆盖，重复创建也互相独立。操作与保存规则见 [原型示例](docs/prototype-examples.md)。示例独立于本机存档，可以使用 `node scripts/validate-prototype-examples.mjs` 校验。

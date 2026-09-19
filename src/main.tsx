@@ -2,7 +2,7 @@ import { StoryDocuments } from './StoryDocuments';
 import { WorkspaceSidebar } from './WorkspaceSidebar';
 import { TeamProjectWorkspace } from './TeamWorkspace';
 import { TeamConnectionDialog, teamProjectKey, useTeamConnection } from './team-connection';
-import { canLeaveTeam } from './team-api';
+import { canLeaveTeam, leaveTeamEvent } from './team-api';
 import { initialStoryDocs, type StoryDoc } from './story-model';
 import { ArtAssets, ArtReferences, type ArtSelection } from './ArtAssets';
 import { useArtAssets } from './useArtAssets';
@@ -12,6 +12,9 @@ import { GameplayDesigns } from './GameplayDesigns';
 import { useGameplayDesigns } from './useGameplayDesigns';
 import { ProjectSwitcher, type SwitchableProject } from './ProjectSwitcher';
 import { useProjectCatalog } from './useProjectCatalog';
+import { PrototypeImportDialog } from './PrototypeImportDialog';
+import { loadPrototypeExample, type PrototypeImportInput } from './prototype-examples';
+import { preparePrototypeProject, writePrototypeProject } from './prototype-import';
 import { addSavedProject, selectSavedProject, updateSavedConfig, type SavedProject } from './project-catalog';
 import { TestPanel } from './TestPanel';
 import { buildTestWorkspace, testScenarios, type TestSession, type TestScenarioId } from './test-scenarios';
@@ -113,6 +116,56 @@ function WorkspaceController({ role, username }: { role: UserRole; username: str
   const [preparing, setPreparing] = useState(false);
   const [error, setError] = useState('');
   const lock = useRef(false);
+  const [prototypeOpen, setPrototypeOpen] = useState(false);
+  const [prototypeBusy, setPrototypeBusy] = useState(false);
+  const importingPrototype = useRef(false);
+  useEffect(() => {
+    const guard = (event: Event) => { if (importingPrototype.current) event.preventDefault(); };
+    const closing = (event: BeforeUnloadEvent) => {
+      if (importingPrototype.current) { event.preventDefault(); event.returnValue = ''; }
+    };
+    window.addEventListener(beforeLogoutEvent, guard);
+    window.addEventListener(leaveTeamEvent, guard);
+    window.addEventListener('beforeunload', closing);
+    return () => {
+      window.removeEventListener(beforeLogoutEvent, guard);
+      window.removeEventListener(leaveTeamEvent, guard);
+      window.removeEventListener('beforeunload', closing);
+    };
+  }, []);
+  const openPrototypeImport = () => {
+    if (role === 'admin' && !lock.current && !projects.blocked && allowSwitch()) setPrototypeOpen(true);
+  };
+  const importPrototype = async (input: PrototypeImportInput) => {
+    if (role !== 'admin' || lock.current || projects.blocked || !allowSwitch()) return false;
+    lock.current = true; importingPrototype.current = true; setPrototypeBusy(true);
+    let creationError: unknown;
+    try {
+      const example = await loadPrototypeExample(input.exampleId);
+      // The catalog entry is the publication point: every archive must be durable
+      // first, so a failed import never exposes a half-populated project.
+      const saved = projects.commit(catalog => {
+        try {
+          const prepared = preparePrototypeProject(catalog, example, input.name);
+          writePrototypeProject(workspaceStorage, prepared);
+          return prepared.catalog;
+        } catch (reason) { creationError = reason; throw reason; }
+      });
+      if (!saved) {
+        // Errors crossing Electron's context bridge need not share Error.prototype.
+        const detail = creationError && typeof creationError === 'object' && 'message' in creationError ? String(creationError.message) : creationError ? String(creationError) : '';
+        throw new Error(detail || '项目列表未能保存，请检查存储状态后重试。');
+      }
+      setActiveTeamId(null);
+      if (storedTest) setStoredTest(null);
+      setPrototypeOpen(false); setError('');
+      logDebug('从原型创建项目', 'success', input.name);
+      return true;
+    } catch (reason) {
+      logDebug('从原型创建项目', 'error', String(reason));
+      throw reason;
+    } finally { lock.current = false; importingPrototype.current = false; setPrototypeBusy(false); }
+  };
   const valid = storedTest && typeof storedTest.id === 'string' && /^[0-9a-f-]{36}$/.test(storedTest.id)
     && storedTest.expectedChanges && ['added', 'removed', 'modified'].every(key => Number.isInteger(storedTest.expectedChanges[key as keyof TestSession['expectedChanges']]))
     && testScenarios.some(item => item.id === storedTest.scenario)
@@ -188,17 +241,19 @@ function WorkspaceController({ role, username }: { role: UserRole; username: str
     <p>{projects.error}</p><button className="primary" onClick={() => window.location.reload()}>重新读取</button>
   </main>;
   return <><TeamConnectionDialog connection={team} onConnected={setActiveTeamId} />
+    <PrototypeImportDialog open={prototypeOpen} busy={prototypeBusy} projects={options.filter(item => item.kind === 'local')}
+      onClose={() => { if (!importingPrototype.current) setPrototypeOpen(false); }} onImport={importPrototype} />
     {selectedTeam && team.session ? <TeamProjectWorkspace key={`${team.session.serverId}:${team.session.user.id}:${selectedTeam.id}:${team.session.token}`} project={selectedTeam} session={team.session}
       localProjects={projects.catalog.projects.map(item => ({ ...item, name: options.find(option => option.id === item.id)?.name || item.name }))}
-      picker={<ProjectSwitcher projects={options} currentId={teamProjectKey(team.session.serverId, selectedTeam.id)} currentName={selectedTeam.name} canAdd={role === 'admin'} busy={false}
-        onSelect={selectProject} onAdd={addProject} onConnectTeam={connectTeam} />}
+      picker={<ProjectSwitcher projects={options} currentId={teamProjectKey(team.session.serverId, selectedTeam.id)} currentName={selectedTeam.name} canAdd={role === 'admin'} busy={preparing || prototypeBusy || projects.blocked}
+        onSelect={selectProject} onAdd={addProject} onConnectTeam={connectTeam} onImportPrototype={openPrototypeImport} />}
       onConnection={connectTeam} onDisconnect={() => { if (allowSwitch()) { team.disconnect(); setActiveTeamId(null); } }} />
     : <WorkspaceApp key={testSession?.id ?? 'project:' + formalProject.id} role={role} username={username}
     formalProject={formalProject} projectOptions={options} onSelectProject={selectProject} onAddProject={addProject}
-    onConnectTeam={connectTeam}
+    onConnectTeam={connectTeam} onImportPrototype={openPrototypeImport}
     onConfigChange={configureProject}
     onRenameProject={name => projects.commit(catalog => ({ ...catalog, projects: catalog.projects.map(item => item.id === formalProject.id ? { ...item, name } : item) }))}
-    testSession={testSession} onLoadTest={load} onExitTest={exit} preparingTest={preparing || projects.blocked}
+    testSession={testSession} onLoadTest={load} onExitTest={exit} preparingTest={preparing || prototypeBusy || projects.blocked}
     testError={error || projects.error || sessionError || (storedTest && !valid ? '测试会话信息无效，已回到正式工作区。' : '')} />}</>;
 }
 
@@ -206,8 +261,8 @@ const emptyStories: StoryDoc[] = [];
 const emptyMilestones: Milestone[] = [];
 const emptyProjectData: ProjectData = { columns: initialData.columns, datasets: Object.fromEntries(datasetDefinitions.map(item => [item.key, []])) };
 const initialTestProject = { ...initialProject, name: '枚举测试工作区' };
-function WorkspaceApp({ role, username, testSession, onLoadTest, onExitTest, preparingTest, testError, formalProject, projectOptions, onSelectProject, onAddProject, onConfigChange, onRenameProject, onConnectTeam }: {
-  formalProject: SavedProject; projectOptions: SwitchableProject[]; onConnectTeam: () => void;
+function WorkspaceApp({ role, username, testSession, onLoadTest, onExitTest, preparingTest, testError, formalProject, projectOptions, onSelectProject, onAddProject, onConfigChange, onRenameProject, onConnectTeam, onImportPrototype }: {
+  formalProject: SavedProject; projectOptions: SwitchableProject[]; onConnectTeam: () => void; onImportPrototype: () => void;
   onSelectProject: (id: string) => boolean; onAddProject: (input: { name: string }) => Promise<boolean>;
   onConfigChange: (config: EngineConfig) => Promise<boolean>; onRenameProject: (name: string) => boolean;
   role: UserRole; username: string; testSession: TestSession | null; onLoadTest: (scenario: TestScenarioId) => Promise<void>;
@@ -346,7 +401,7 @@ function WorkspaceApp({ role, username, testSession, onLoadTest, onExitTest, pre
     <div className="app local-workspace">
       <WorkspaceSidebar picker={<ProjectSwitcher projects={projectOptions} currentId={testSession ? null : formalProject.id} currentName={project.name}
           testName={testSession ? testScenarios.find(item=>item.id===testSession.scenario)?.name : undefined}
-          canAdd={role === 'admin'} busy={preparingTest || registry.busy || registry.loading || gameplay.pending || functional.pending || functional.blocked || art.pending || art.blocked} onSelect={onSelectProject} onAdd={onAddProject} onConnectTeam={onConnectTeam} />} active={active} onNavigate={setActive} admin={role === 'admin'} footer={<>
+          canAdd={role === 'admin'} busy={preparingTest || registry.busy || registry.loading || gameplay.pending || functional.pending || functional.blocked || art.pending || art.blocked} onSelect={onSelectProject} onAdd={onAddProject} onConnectTeam={onConnectTeam} onImportPrototype={onImportPrototype} />} active={active} onNavigate={setActive} admin={role === 'admin'} footer={<>
         <button><Settings2 size={17} />工作区设置</button><div className="user"><div className="avatar">G</div><span>{username}<small>本地项目</small></span></div>
       </>} />
 
@@ -466,7 +521,7 @@ function ProjectOverview({ project, showExamples, progress, milestones, updatePr
           <div className="panel-heading"><div><span className="section-kicker">PROJECT INFO</span><h3>项目基本信息</h3></div><Pencil size={16} /></div>
           <div className="field-grid">
             <label><span>项目名称</span><input value={project.name} onChange={(event) => updateProject('name', event.target.value)} /></label>
-            <label><span>项目类型</span><select value={project.genre} onChange={(event) => updateProject('genre', event.target.value)}><option>动作 RPG</option><option>策略模拟</option><option>卡牌构筑</option><option>叙事冒险</option></select></label>
+            <label><span>项目类型</span><select value={project.genre} onChange={(event) => updateProject('genre', event.target.value)}><option>未指定</option><option>动作 RPG</option><option>策略模拟</option><option>卡牌构筑</option><option>叙事冒险</option></select></label>
             <label><span>目标平台</span><input value={project.platform} onChange={(event) => updateProject('platform', event.target.value)} /></label>
             <label><span>当前版本</span><input value={project.version} onChange={(event) => updateProject('version', event.target.value)} /></label>
           </div>
