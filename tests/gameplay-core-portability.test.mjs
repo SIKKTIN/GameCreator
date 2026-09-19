@@ -14,7 +14,7 @@ function storage() {
   const values = new Map();
   return { values, getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, value) };
 }
-const examples = await Promise.all(['plants-vs-zombies', 'stardew-valley', 'hollow-knight', 'disco-elysium'].map(async name => ({ name, example: JSON.parse(await fs.readFile(new URL('../examples/prototypes/' + name + '.json', import.meta.url), 'utf8')) })));
+const examples = await Promise.all(['plants-vs-zombies', 'stardew-valley', 'hollow-knight', 'disco-elysium', 'vampire-survivors'].map(async name => ({ name, example: JSON.parse(await fs.readFile(new URL('../examples/prototypes/' + name + '.json', import.meta.url), 'utf8')) })));
 for (const { name, example } of examples) {
   test(name + ': examples preserve every core graph, coordinate, edge and gameplay association through project folder documents', () => {
     validatePrototypeExample(example);

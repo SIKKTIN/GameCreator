@@ -1,4 +1,4 @@
-export type PrototypeExampleId = 'hollow-knight' | 'stardew-valley' | 'plants-vs-zombies' | 'disco-elysium';
+export type PrototypeExampleId = 'hollow-knight' | 'stardew-valley' | 'plants-vs-zombies' | 'disco-elysium' | 'vampire-survivors';
 export type PrototypeImportInput = { exampleId: PrototypeExampleId; name: string };
 export type PrototypeExampleSummary = {
   id: PrototypeExampleId;
@@ -31,6 +31,11 @@ export const prototypeExamples: readonly PrototypeExampleSummary[] = [
     description: '两天内调查一桩港区疑案：在五个场景中访问六名人物，通过对话、技能声音、红白检定、思想内化与日程变化取得线索，形成查明真相、误判结案或暂缓调查三种阶段结果。具体案件、台词与数值为本原型原创设计约定。',
     counts: { gameplay: 8, systems: 9, requirements: 22, assets: 40, tables: 15, records: 198, stories: 5 },
   },
+  {
+    id: 'vampire-survivors', title: '吸血鬼幸存者', name: "吸血鬼幸存者 · 暮色荒原原型",
+    description: "以自动攻击和自由走位为基础，在暮色荒原坚持30分钟。通过经验升级、六武器与六被动构筑、精英宝箱和三条进化路线抵抗递增怪潮，再将金币、角色解锁与永久强化带回下一局。地图、角色、数值、终局表现与美术规格为本原型设计约定；不包含可运行游戏或原作素材。",
+    counts: { gameplay: 9, systems: 9, requirements: 26, assets: 42, tables: 16, records: 268, stories: 4 },
+  },
 ];
 
 export async function loadPrototypeExample(id: PrototypeExampleId): Promise<unknown> {
@@ -39,6 +44,7 @@ export async function loadPrototypeExample(id: PrototypeExampleId): Promise<unkn
     case 'stardew-valley': return structuredClone((await import('../examples/prototypes/stardew-valley.json')).default);
     case 'plants-vs-zombies': return structuredClone((await import('../examples/prototypes/plants-vs-zombies.json')).default);
     case 'disco-elysium': return structuredClone((await import('../examples/prototypes/disco-elysium.json')).default);
+    case 'vampire-survivors': return structuredClone((await import('../examples/prototypes/vampire-survivors.json')).default);
     default: throw new Error('没有找到所选原型示例，请重新选择。');
   }
 }
