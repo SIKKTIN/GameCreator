@@ -2,10 +2,11 @@ import limits from '../shared/publication-limits.json' with { type: 'json' };
 import { readLocalStories } from './story-import.ts';
 import type { SavedProject } from './project-catalog.ts';
 import type { TeamRole, TeamStoryFields } from './team-api.ts';
+import { readLocalOverview, normalizeInfo, type OverviewPublication } from './overview-model.ts';
 
 type StorageReader = Pick<Storage, 'getItem'>;
 export type PublicationStory = TeamStoryFields & { id: string };
-export type PublicationPreview = { sourceProjectId: string; name: string; stories: PublicationStory[]; signature: string };
+export type PublicationPreview = { sourceProjectId: string; name: string; stories: PublicationStory[]; overview: OverviewPublication; signature: string };
 export type PublicationSource = { sourceInstanceId: string; sourceProjectId: string };
 export { limits as publicationLimits };
 
@@ -34,9 +35,11 @@ export function readPublicationPreview(storage: StorageReader, project: SavedPro
         characters: list(story.relations.characters, '关联角色'), locations: list(story.relations.locations, '关联地点'), systems: list(story.relations.systems, '关联系统'),
       } };
   });
-  const signature = JSON.stringify({ name, stories });
+  const localOverview = readLocalOverview(storage,project);
+  const overview = {info:localOverview.info,milestones:localOverview.milestones};
+  const signature = JSON.stringify({ name, stories, overview });
   checkPublicationSize(signature);
-  return { sourceProjectId: project.id, name, stories, signature };
+  return { sourceProjectId: project.id, name, stories, overview, signature };
 }
 export function assertPublicationCurrent(storage: StorageReader, project: SavedProject, preview: PublicationPreview) {
   if (project.id !== preview.sourceProjectId || readPublicationPreview(storage, project).signature !== preview.signature) {
@@ -48,6 +51,7 @@ export function checkPublicationSize(serialized: string) {
 }
 export function publicationBody(preview: PublicationPreview, source: PublicationSource, name: string, members: { userId: string; role: TeamRole }[]) {
   if (preview.sourceProjectId !== source.sourceProjectId) throw new Error('发布来源已变化，请重新打开发布窗口。');
-  const body = { ...source, name: text(name, '协作项目名称', 100, true), members, stories: preview.stories };
+  const publishedName = text(name, '协作项目名称', 100, true);
+  const body = { ...source, name: publishedName, members, stories: preview.stories, overview: {...preview.overview,info:normalizeInfo({...preview.overview.info,name:publishedName})} };
   checkPublicationSize(JSON.stringify(body)); return body;
 }

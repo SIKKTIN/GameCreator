@@ -2,7 +2,7 @@ export type TeamRole = 'admin' | 'editor' | 'viewer';
 export type TeamSession = { token: string; serverId: string; apiVersion?: number; user: { id: string; username: string; serverRole?: 'admin' | 'member' }; url: string };
 export type TeamMember = { userId: string; username: string; role: TeamRole };
 export type TeamProject = { id: string; name: string; role: TeamRole };
-export type TeamPublication = { project: TeamProject; publishedAt: string; storyCount: number };
+export type TeamPublication = { project: TeamProject; publishedAt: string; storyCount: number; overviewInitialized?: boolean };
 import type { StoryDoc } from './story-model';
 export type TeamStoryFields = Omit<StoryDoc, 'id' | 'updated'>;
 export type TeamStory = TeamStoryFields & { id: string; projectId: string; revision: number; updatedAt: string; updatedBy: string };
@@ -17,7 +17,7 @@ export const leaveTeamEvent = 'gamecreator:leave-team';
 export const canLeaveTeam = () => window.dispatchEvent(new Event(leaveTeamEvent, { cancelable: true }));
 
 export class TeamError extends Error {
-  constructor(message: string, public status: number, public current?: TeamStory) { super(message); }
+  constructor(message: string, public status: number, public current?: TeamStory, public currentRecord?: unknown) { super(message); }
 }
 export function localTeamUrl(input: string) {
   const url = new URL(input);
@@ -34,7 +34,7 @@ export async function teamRequest<T>(url: string, route: string, token = '', met
       headers: { ...(token ? { Authorization: 'Bearer ' + token } : {}), ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) },
       body: body === undefined ? undefined : JSON.stringify(body) });
     const data = await response.json();
-    if (!response.ok) throw new TeamError(data.error || '请求失败', response.status, data.current);
+    if (!response.ok) throw new TeamError(data.error || '请求失败', response.status, data.current, data.currentRecord);
     return data as T;
   } catch (error) {
     if (error instanceof TeamError) throw error;

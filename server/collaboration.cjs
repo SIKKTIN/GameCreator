@@ -4,6 +4,7 @@ const path = require('node:path');
 const { randomUUID, randomBytes, scryptSync, timingSafeEqual } = require('node:crypto');
 const { DatabaseSync } = require('node:sqlite');
 const publicationLimits = require('../shared/publication-limits.json');
+const { createOverviewStore } = require('./team-overview.cjs');
 
 const demoAccounts = ['admin', 'alice', 'bob', 'viewer'];
 class RequestError extends Error {
@@ -131,6 +132,7 @@ async function createCollaborationServer({ directory, port = 4747, root = path.r
     if (write && member.role === 'viewer') fail(403, '当前账号只有查看权限');
     return member;
   };
+  const overview = createOverviewStore(db, { fail, textField });
   const serverRole = user => db.prepare('SELECT server_role FROM users WHERE id=?').get(user)?.server_role;
   const requireServerAdmin = user => { if (serverRole(user) !== 'admin') fail(403, '只有服务器管理员可以新建协作项目'); };
   const memberRows = project => db.prepare(`SELECT u.id AS userId, u.username, m.role FROM members m JOIN users u ON u.id=m.user_id
@@ -160,7 +162,7 @@ async function createCollaborationServer({ directory, port = 4747, root = path.r
     if (!published) return null;
     const member = membership(published.projectId, user);
     const project = db.prepare('SELECT id,name FROM projects WHERE id=?').get(published.projectId);
-    return { project: { ...project, role: member.role }, publishedAt: published.publishedAt, storyCount: published.storyCount };
+    return { project: { ...project, role: member.role }, publishedAt: published.publishedAt, storyCount: published.storyCount, overviewInitialized: overview.info(published.projectId).initialized };
   };
   const prepareImports = (stories, source, maximum, minimum = 1) => {
     if (!Array.isArray(stories) || stories.length < minimum || stories.length > maximum) fail(400, `本次应包含 ${minimum}–${maximum} 篇故事文档`);
@@ -180,6 +182,7 @@ async function createCollaborationServer({ directory, port = 4747, root = path.r
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(storyId, project, fields.title, fields.category, fields.summary, fields.content,
         1, new Date().toISOString(), user, JSON.stringify(storyDetails(fields)));
     const story = getStory(project, storyId); recordHistory(story);
+    overview.activity(project,user,'导入了故事文档：' + story.title);
     db.prepare('INSERT INTO story_imports VALUES (?, ?, ?)').run(project, sourceKey, storyId);
     return story;
   };
@@ -216,7 +219,7 @@ async function createCollaborationServer({ directory, port = 4747, root = path.r
         }
         fail(405, '不支持此操作');
       }
-      if (route === '/api/team/health' && request.method === 'GET') return send(response, 200, { service: 'gamecreator-collaboration', serverId, apiVersion: 4 });
+      if (route === '/api/team/health' && request.method === 'GET') return send(response, 200, { service: 'gamecreator-collaboration', serverId, apiVersion: 5 });
       if (route === '/api/team/login' && request.method === 'POST') {
         const input = await readBody(request);
         const username = textField(input.username, '账号', 80, true).toLowerCase();
@@ -227,7 +230,7 @@ async function createCollaborationServer({ directory, port = 4747, root = path.r
         for (const [token, session] of sessions) if (session.expires < Date.now()) sessions.delete(token);
         const token = randomBytes(32).toString('hex');
         sessions.set(token, { userId: user.id, username: user.username, expires: Date.now() + 12 * 60 * 60 * 1000 });
-        return send(response, 200, { token, serverId, apiVersion: 4, user: { id: user.id, username: user.username, serverRole: user.server_role } });
+        return send(response, 200, { token, serverId, apiVersion: 5, user: { id: user.id, username: user.username, serverRole: user.server_role } });
       }
       if (route.startsWith('/api/team/')) {
         const session = authenticate(request);
@@ -246,6 +249,19 @@ async function createCollaborationServer({ directory, port = 4747, root = path.r
           requireServerAdmin(session.userId);
           return send(response, 200, { publication: findPublication(source, session.userId) });
         }
+        if (route === '/api/team/publications/overview' && request.method === 'POST') {
+          requireServerAdmin(session.userId);
+          const input = await readBody(request), source = publicationSource(input);
+          const result = transaction(() => {
+            requireServerAdmin(session.userId);
+            const previous = findPublication(source, session.userId);
+            if (!previous) fail(404,'找不到这个本地项目的发布记录');
+            if (membership(previous.project.id,session.userId).role !== 'admin') fail(403,'只有项目管理员可以补充概览');
+            overview.initialize(previous.project.id,input.overview,session.userId,previous.project.name);
+            return findPublication(source,session.userId);
+          });
+          return send(response,200,result);
+        }
         if (route === '/api/team/publications' && request.method === 'POST') {
           requireServerAdmin(session.userId);
           const input = await readBody(request, publicationLimits.maxBytes), source = publicationSource(input);
@@ -260,10 +276,11 @@ async function createCollaborationServer({ directory, port = 4747, root = path.r
             const id = randomUUID(), publishedAt = new Date().toISOString();
             db.prepare('INSERT INTO projects (id,name) VALUES (?, ?)').run(id, name);
             writeMembers(id, members);
+            if (input.overview !== undefined) overview.initialize(id,input.overview,session.userId,name);
             for (const entry of imports) insertImportedStory(id, entry, session.userId);
             db.prepare('INSERT INTO project_publications VALUES (?, ?, ?, ?, ?, ?)')
               .run(source.sourceInstanceId, source.sourceProjectId, id, session.userId, publishedAt, imports.length);
-            return { project: { id, name, role: 'admin' }, publishedAt, storyCount: imports.length, reused: false };
+            return { project: { id, name, role: 'admin' }, publishedAt, storyCount: imports.length, reused: false, overviewInitialized: overview.info(id).initialized };
           });
           return send(response, result.reused ? 200 : 201, result);
         }
@@ -290,6 +307,21 @@ async function createCollaborationServer({ directory, port = 4747, root = path.r
           });
           return send(response, result.reused ? 200 : 201, result);
         }
+        const overviewMatch = /^\/api\/team\/projects\/([^/]+)\/(overview|milestones)(?:\/([^/]+))?$/.exec(route);
+        if (overviewMatch) {
+          const [,project,resource,id] = overviewMatch, member = membership(project,session.userId);
+          if (resource === 'overview' && !id && request.method === 'GET') return send(response,200,{...overview.read(project),role:member.role});
+          if (request.method === 'PUT' && ((resource === 'overview' && !id) || (resource === 'milestones' && id))) {
+            membership(project,session.userId,true);
+            const input = await readBody(request);
+            const record = transaction(() => {
+              membership(project,session.userId,true);
+              return resource === 'overview' ? overview.updateInfo(project,input,session.userId) : overview.updateMilestone(project,id,input,session.userId);
+            });
+            return send(response,200,{record});
+          }
+          fail(405,'不支持此操作');
+        }
         const match = /^\/api\/team\/projects\/([^/]+)\/(stories|members)(?:\/([^/]+))?(?:\/(history))?$/.exec(route);
         if (!match) fail(404, '接口不存在');
         const [, project, resource, id, history] = match;
@@ -307,6 +339,7 @@ async function createCollaborationServer({ directory, port = 4747, root = path.r
             if (current !== input.revision) fail(409, '其他管理员已修改成员配置，请重新读取后再保存');
             writeMembers(project, members);
             db.prepare('UPDATE projects SET member_revision=member_revision+1 WHERE id=?').run(project);
+            overview.activity(project,session.userId,'更新了项目成员配置');
             return { members: memberRows(project), revision: current + 1 };
           });
           return send(response, 200, result);
@@ -361,7 +394,7 @@ async function createCollaborationServer({ directory, port = 4747, root = path.r
               db.prepare('INSERT INTO stories (id,project_id,title,category,summary,content,revision,updated_at,updated_by,details) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
                 .run(storyId, project, fields.title, fields.category, fields.summary, fields.content, 1, now, session.userId, JSON.stringify(storyDetails(fields)));
             }
-            const saved = getStory(project, storyId); recordHistory(saved); return saved;
+            const saved = getStory(project, storyId); recordHistory(saved); overview.activity(project,session.userId,`${id ? '更新' : '新建'}了故事文档：${saved.title}`); return saved;
           });
           return send(response, id ? 200 : 201, { story });
         }

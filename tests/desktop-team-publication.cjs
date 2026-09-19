@@ -18,14 +18,21 @@ const waitUntil = async (check, message) => {
   const config = { engine: 'oasis-lua', projectPath: '', enumPath: 'Script/Const', dataPath: 'Script/Config', outputFormat: 'lua', autoSync: false, backupBeforeSync: true };
   storage.setItem('gamecreator.projects.v1', JSON.stringify({ schema: 2, activeId: projectId, mode: 'project', projects: [
     { id: projectId, name: '本地原型', config, initialContent: 'empty' }, { id: 'project-empty-source', name: '空白本地', config, initialContent: 'empty' },
+    { id: 'project-legacy-source', name: '旧发布来源', config, initialContent: 'empty' },
   ] }));
   const stories = Array.from({ length: 60 }, (_, i) => ({ id: 'source-' + i, title: '发布故事 ' + i, category: '角色设定', status: '评审中', updated: '昨天', summary: '摘要 ' + i, content: '本地正文 ' + i,
     tags: ['原型', '角色'], outlines: ['起因', '转折'], relations: { characters: ['甲'], locations: ['矿城'], systems: ['声望'] } }));
   storage.setItem(storyKey, JSON.stringify(stories));
   const metaKey = `gamecreator.workspace.v1:${projectId}:project`, milestoneKey = `gamecreator.workspace.v1:${projectId}:milestones`;
-  storage.setItem(metaKey, JSON.stringify({ name: '本地原型', genre: '动作 RPG', platform: 'PC', version: 'v1.0.0', status: '制作中', description: '只留在本地的其他设计内容' }));
+  storage.setItem(metaKey, JSON.stringify({ name: '本地原型', genre: '动作 RPG', platform: 'PC', version: 'v1.0.0', status: '制作中', description: '随项目发布的简介' }));
   storage.setItem(milestoneKey, JSON.stringify([{ title: '本地任务', owner: 'admin', due: '2026/10/20', status: 'planned' }]));
   const preserved = [metaKey, milestoneKey].map(key => [key, storage.getItem(key)]);
+  const sourceInstanceId=require('node:crypto').randomUUID();storage.setItem('gamecreator.local-source.v1',JSON.stringify(sourceInstanceId));
+  storage.setItem('gamecreator.workspace.v1:project-legacy-source:project',JSON.stringify({...JSON.parse(storage.getItem(metaKey)),name:'旧发布来源'}));
+  storage.setItem('gamecreator.workspace.v1:project-legacy-source:milestones',storage.getItem(milestoneKey));
+  const api=async(route,token,body)=>{const response=await fetch(service.url+'/api/team'+route,{method:body?'POST':'GET',headers:{'Content-Type':'application/json',Authorization:'Bearer '+(token||'')},body:body?JSON.stringify(body):undefined});assert.ok(response.ok);return response.json();};
+  const token=(await api('/login','',{username:'admin',password:'admin123'})).token;
+  const legacy=await api('/publications',token,{sourceInstanceId,sourceProjectId:'project-legacy-source',name:'旧团队名称',members:[{userId:'admin',role:'admin'}],stories:[{...stories[0],id:'old-story'}]});
   const apps = new Set(), pages = [], errors = [];
   const launch = async (profile, username) => {
     const env = { ...process.env, GAMECREATOR_DATA_DIR: path.join(directory, profile, 'data'), GAMECREATOR_USER_DATA_DIR: path.join(directory, profile, 'profile'),
@@ -66,6 +73,7 @@ const waitUntil = async (check, message) => {
     assert.equal(await modal(a.page).count(), 0, 'Cancelling the connection must cancel pending publication');
     await openPublish(a.page); await connect(a.page, 'admin'); await prepare(a.page);
     assert.ok((await modal(a.page).innerText()).includes('发布全部 60 篇故事文档'));
+    await modal(a.page).getByText('查看项目概览（1 个里程碑）',{exact:true}).click();await modal(a.page).getByText('随项目发布的简介',{exact:true}).waitFor();
     // Simulate an edit made in a second local window after previewing.
     stories[0].content = '预览后修改的本地正文'; storage.setItem(storyKey, JSON.stringify(stories));
     await submit(a.page); await modal(a.page).getByText('本地项目已变化，请重新读取预览后再发布。', { exact: true }).waitFor();
@@ -82,6 +90,7 @@ const waitUntil = async (check, message) => {
     }, { times: 1 });
     await submit(a.page); await waitUntil(() => !!committed, 'Publication did not commit');
     assert.equal(committed.storyCount, 60);
+    const overview=await api('/projects/'+committed.project.id+'/overview',token);assert.equal(overview.info.fields.name,'已发布原型');assert.equal(overview.info.fields.description,'随项目发布的简介');assert.equal(overview.milestones[0].fields.title,'本地任务');
     const guards = await a.page.evaluate(() => ['gamecreator:before-logout', 'gamecreator:leave-team'].map(name => window.dispatchEvent(new Event(name, { cancelable: true }))));
     assert.deepEqual(guards, [false, false]); assert.ok(await modal(a.page).getByRole('button', { name: '取消', exact: true }).isDisabled());
     releaseResponse();
@@ -112,6 +121,14 @@ const waitUntil = async (check, message) => {
     await a.page.getByRole('button', { name: '打开故事文档：发布故事 0', exact: true }).click();
     assert.equal(await a.page.getByLabel('文档正文', { exact: true }).inputValue(), stories[0].content);
     assert.ok(await a.page.getByRole('button', { name: '玩法核心', exact: true }).isEnabled());
+    await choose(a.page,'旧发布来源');await openPublish(a.page);await modal(a.page).getByRole('button',{name:'补充项目概览',exact:true}).click();
+    const supplement=a.page.getByRole('dialog',{name:'补充项目概览',exact:true});await supplement.getByText('查看项目概览（1 个里程碑）',{exact:true}).click();
+    await supplement.getByText('旧团队名称',{exact:true}).waitFor();await supplement.getByRole('button',{name:'确认补充概览',exact:true}).click();
+    await a.page.locator('.team-project .story-workspace').waitFor();
+    await a.page.getByRole('navigation',{name:'工作区模块',exact:true}).getByRole('button',{name:'项目概览',exact:true}).click();
+    const overviewForm=a.page.getByRole('form',{name:'项目基本信息',exact:true});assert.equal(await overviewForm.getByLabel('项目名称',{exact:true}).inputValue(),'旧团队名称');assert.equal(await overviewForm.getByLabel('项目简介',{exact:true}).inputValue(),'随项目发布的简介');
+    assert.equal((await api('/projects/'+legacy.project.id+'/stories',token)).stories.length,1);
+    await choose(a.page,'旧发布来源');await openPublish(a.page);await modal(a.page).getByRole('button',{name:'进入已发布项目',exact:true}).waitFor();assert.equal(await modal(a.page).getByRole('button',{name:'补充项目概览',exact:true}).count(),0);await modal(a.page).getByRole('button',{name:'取消',exact:true}).click();
     await choose(a.page, '空白本地'); await openPublish(a.page);
     await modal(a.page).getByLabel('协作项目名称', { exact: true }).fill('空白协作'); await submit(a.page);
     await a.page.getByRole('heading', { name: '暂无故事文档', exact: true }).waitFor();
@@ -120,7 +137,7 @@ const waitUntil = async (check, message) => {
     await a.page.locator('.test-workspace-banner').waitFor();
     assert.equal(await (await menu(a.page)).getByRole('menuitem', { name: '发布为协作项目', exact: true }).count(), 0);
     assert.deepEqual(errors, []);
-    console.log('PASS: publish all 60 complete stories; preview changes block stale publication; lost acknowledgement and client restart recover the same project; team edits preserved; import deduplication; local data intact; unsupported team modules disabled; empty publication; no entry for local user or test workspace.');
+    console.log('PASS: publish overview, milestones and all 60 stories; stale preview blocked; lost acknowledgement and restart recover the same project; team edits and local data preserved; import deduplication; one-time overview supplement preserves existing name/stories; unsupported modules disabled; empty publication; role and test-workspace restrictions.');
   } catch (error) {
     for (const page of pages) if (!page.isClosed()) console.error((await page.locator('body').innerText()).slice(0, 4500)); throw error;
   } finally {

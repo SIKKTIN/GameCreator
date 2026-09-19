@@ -4,6 +4,7 @@ import { beforeLogoutEvent } from './auth';
 import { StoryDocuments } from './StoryDocuments';
 import { StoryImportDialog } from './StoryImportDialog';
 import { TeamProjectDialog } from './TeamProjectDialog';
+import { TeamOverview } from './TeamOverview';
 import { WorkspaceSidebar } from './WorkspaceSidebar';
 import type { ServerModuleNavigation } from './ServerManager';
 import { workspaceStorage } from './workspace-storage';
@@ -23,6 +24,8 @@ export function TeamProjectWorkspace({ project, session, picker, localProjects, 
   const [members, setMembers] = useState<{ username: string; role: TeamRole }[]>([]);
   const [syncError, setSyncError] = useState(''), [loaded, setLoaded] = useState(false), [role, setRole] = useState(project.role);
   const [accessDenied, setAccessDenied] = useState(false), [manageMembers, setManageMembers] = useState(false);
+  const [active,setActive] = useState('故事文档');
+  const overviewEnabled = (session.apiVersion ?? 0) >= 5;
   const [createBusy, setCreateBusy] = useState(false), [createError, setCreateError] = useState(''), [refresh, setRefresh] = useState(0);
   const alive = useRef(true), creating = useRef(false);
   const route = `/projects/${encodeURIComponent(project.id)}/stories`;
@@ -79,18 +82,21 @@ export function TeamProjectWorkspace({ project, session, picker, localProjects, 
   const selected = stories.find(item => item.id === selectedId);
   return <div className="app team-project">
     {manageMembers && !accessDenied && role === 'admin' && <TeamProjectDialog session={session} project={project} onClose={() => setManageMembers(false)} onSaved={() => setRefresh(value => value + 1)} />}
-    <WorkspaceSidebar picker={picker} team admin={localAdmin} active={serverPage ? '服务器管理' : '故事文档'} onManageServer={onManageServer} onNavigate={onLeaveServer} footer={<>
+    <WorkspaceSidebar picker={picker} team teamOverview={overviewEnabled} admin={localAdmin} active={serverPage ? '服务器管理' : active} onManageServer={onManageServer}
+      onNavigate={name=>{if(canLeaveTeam()){onLeaveServer();setActive(name);}}} footer={<>
       <div className="user"><div className="avatar">{session.user.username[0].toUpperCase()}</div><span>{session.user.username}<small>团队成员 · {roleLabels[role]}</small></span></div>
       <details className="team-members"><summary>项目成员 · {members.length}</summary>{members.map(item => <p key={item.username}>{item.username}<small>{roleLabels[item.role]}</small></p>)}</details>
     </>} />
     {serverPage}
-    <main hidden={!!serverPage}><header><div><div className="crumb">{project.name} <span>/</span> 团队项目</div><h1>故事文档</h1></div>
+    <main hidden={!!serverPage}><header><div><div className="crumb">{project.name} <span>/</span> 团队项目</div><h1>{active}</h1></div>
       <div className="team-actions">{!accessDenied && role === 'admin' && <button onClick={() => { if (canLeaveTeam()) setManageMembers(true); }}>成员管理</button>}<button onClick={onConnection}>连接设置</button><button onClick={onDisconnect}>断开团队连接</button></div></header>
-      <div className="team-project-info"><span>团队项目 · {session.url}</span><span>当前成员：{session.user.username} · {roleLabels[role]}</span><span>已共享：故事文档</span></div>
+      <div className="team-project-info"><span>团队项目 · {session.url}</span><span>当前成员：{session.user.username} · {roleLabels[role]}</span><span>已共享：{overviewEnabled?'项目概览、故事文档':'故事文档'}</span></div>
       <div className={'team-sync ' + (syncError ? 'offline' : '')} role="status">{syncError ? <CloudOff size={16} /> : <Cloud size={16} />}
         <span>{syncError || (loaded ? '已连接 · 每 2 秒检查团队更新' : '正在读取团队故事…')}</span>
         <button aria-label="立即刷新团队内容" onClick={() => setRefresh(value => value + 1)}><RefreshCw size={15} /></button></div>
       {accessDenied && <p className="team-message" role="alert">你已无权访问这个项目。本机未提交草稿仍保留，请选择其他项目或联系项目管理员。</p>}
+      {overviewEnabled&&<div hidden={accessDenied||active!=='项目概览'}><TeamOverview session={session} projectId={project.id} members={members} onMembers={()=>setManageMembers(true)} onDenied={()=>setAccessDenied(true)}/></div>}
+      <div hidden={active!=='故事文档'}>
       {loaded && !accessDenied && role !== 'viewer' && <div className="team-import-toolbar"><StoryImportDialog projects={localProjects} session={session} projectId={project.id} onImported={imported => {
         imported.forEach(receive); if (imported.length) setSelectedId(imported[0].id);
       }} /></div>}
@@ -100,6 +106,7 @@ export function TeamProjectWorkspace({ project, session, picker, localProjects, 
         onSelect={id => { if (canLeaveTeam()) setSelectedId(id); }} onCreate={() => void create()} />
         : loaded ? <StoryDocuments documents={[]} activeStoryId="" setActiveStoryId={() => {}} updateStory={() => {}} addStoryDoc={() => void create()} readOnly={role === 'viewer'} busy={createBusy} />
           : <p className="team-empty">等待团队内容…</p>}
+      </div>
       </div>
     </main>
   </div>;

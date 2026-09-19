@@ -76,7 +76,7 @@ export function TeamProjectDialog({ session, project, onClose, onCreated, onSave
         {!project && <label>协作项目名称<input required maxLength={100} value={name} onChange={event => setName(event.target.value)} autoFocus /></label>}
         <TeamMemberFields accounts={accounts} roles={roles} currentUserId={session.user.id} onChange={(userId, role) => setRoles(previous => ({ ...previous, [userId]: role }))} />
       </fieldset>
-      <small>管理员可编辑文档及管理成员；编辑者可编辑文档；只读成员只能查看。当前管理账号保留管理员权限。首版协作内容为故事文档。</small>
+      <small>管理员可编辑共享内容及管理成员；编辑者可编辑共享内容；只读成员只能查看。当前管理账号保留管理员权限。</small>
       {!loaded && !error && <p role="status">正在读取成员…</p>}
       {error && <p className="team-message" role="alert">{error}</p>}
       {(!loaded || conflict) && error && <button type="button" disabled={busy} onClick={() => void load()}>重新读取成员</button>}

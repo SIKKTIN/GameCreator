@@ -1,0 +1,18 @@
+.team-overview > div { display: grid; gap: 18px; }.team-overview > div[hidden] { display: none; }
+.team-overview h3 { margin: 0 0 16px; font-size: 17px; }.team-overview p { font-size: 13px; line-height: 1.7; }
+.team-overview-grid { display: grid; grid-template-columns: minmax(0,2fr) minmax(230px,1fr); gap: 18px; align-items: start; }
+.team-overview fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+.team-overview label { display: grid; gap: 8px; color: #aaa3bf; font-size: 13px; }
+.team-overview input,.team-overview textarea,.team-overview select { width: 100%; padding: 10px 12px; background: #20202b; border: 1px solid #413e56; color: #eee8f8; border-radius: 6px; font: inherit; }
+.team-overview textarea { min-height: 110px; resize: vertical; }.team-field-full { grid-column: 1/-1; }
+.team-overview button { background: #302941; color: #dfd5f8; border: 1px solid #514766; border-radius: 6px; padding: 10px 13px; cursor: pointer; }
+.team-overview button:disabled { opacity: .5; cursor: not-allowed; }.team-overview small { color: #a89bb9; }
+.team-overview .field-grid { margin: 0; }.team-record-state { color: #a9cabb; margin: 15px 0 4px; }
+.team-info-editor > button { margin-top: 14px; }.team-overview-members p { display: flex; justify-content: space-between; gap: 12px; }
+.team-info-editor > small,.team-milestone-editor > small { display: block; }
+.team-overview-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; }.team-overview-heading h3 { margin: 0; }
+.team-milestone-list { display: grid; gap: 16px; }.team-milestone-editor { border: 1px solid #3f364d; padding: 18px; border-radius: 8px; }.team-milestone-editor > .team-actions { margin-top: 12px; }
+.team-overview-activity { list-style: none; padding: 0; max-height: 360px; overflow: auto; }.team-overview-activity li { padding: 12px 0; border-bottom: 1px solid #3f364d; display: grid; gap: 7px; font-size: 13px; }.team-overview-activity span { color: #a99abd; }
+.team-overview .team-conflict dl { display: grid; gap: 10px; font-size: 13px; }.team-overview .team-conflict dd { margin: 4px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.team-overview-notice { color: #bea7e0; padding: 12px 15px; background: #272032; border-radius: 6px; }
+@media(max-width:1200px){.team-overview-grid{grid-template-columns:1fr}.team-overview .field-grid{grid-template-columns:1fr}}
