@@ -71,3 +71,7 @@ npm run mcp:debug
 ## 美术资产
 
 管理美术需求、玩法与功能来源、交付文件、版本审核与当前采用素材。创建只需名称，占位素材可先用于原型验证，正式交付需通过审核。详见 [美术资产](docs/art-assets.md)。
+
+## 原型示例
+
+[三套完整设计快照](examples/prototypes/README.md)保存空洞骑士、星露谷和植物大战僵尸原型的玩法、功能系统、美术需求、资产台账及引用数据。示例独立于本机存档，可以使用 `node scripts/validate-prototype-examples.mjs` 校验。
