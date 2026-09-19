@@ -55,3 +55,10 @@ test('static HTML from an unavailable API produces an actionable error', async (
   try { await assert.rejects(scanEngineProject(defaultEngineConfig), /接口返回无效结果/); }
   finally { globalThis.fetch = original; }
 });
+
+
+test('references to absent tables report a validation issue without recreating defaults', () => {
+  const empty = {datasets:{},columns:{}};
+  assert.match(validateCell({key:'item',label:'道具',type:'reference',reference:'items'}, 'item_1', empty, {scan:null,ready:false}), /引用记录不存在/);
+  assert.deepEqual(empty, {datasets:{},columns:{}});
+});

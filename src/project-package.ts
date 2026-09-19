@@ -4,15 +4,16 @@ import { emptyFunctionalSystems, validateFunctionalSystems, type FunctionalStore
 import { emptyArtAssets, validateArtAssets, type ArtStore } from './art-assets.ts';
 import { emptyStore, type VersionStore } from './enum-versions.ts';
 import { readVersions } from './enum-storage.ts';
+import { defaultTableMigrationKey } from './default-table-migration.ts';
 import { normalizeDataViewState, type DataViewState } from './data-view-state.ts';
-import { datasetDefinitions, initialData, initialMilestones, initialProject, emptyProjectData, type Milestone } from './project-defaults.ts';
+import { datasetDefinitions, initialData, initialMilestones, initialProject, emptyDatasetDefinitions, emptyProjectData, type Milestone } from './project-defaults.ts';
 import { initialStoryDocs, type StoryDoc } from './story-model.ts';
 import type { EngineConfig } from './engine.ts';
 import type { ColumnDef, DatasetDef } from './data-model.ts';
 
 export type ProjectPackageDocument = {
   schema: 1;
-  project: { name: string; config: EngineConfig };
+  project: { name: string; config: EngineConfig; defaultTablesVersion?: 1 };
   archives: {
     gameplay: GameplayStore; 'functional-systems': FunctionalStore; 'art-assets': ArtStore;
     definitions: DatasetDef[]; stories: StoryDoc[]; project: typeof initialProject;
@@ -24,11 +25,12 @@ export type ProjectPackageSnapshot = {
   expectedEntries: { key: string; value: string | null }[];
 };
 export type PreparedProjectPackageImport = {
-  catalog: ProjectCatalog; project: SavedProject; entries: { key: string; value: string }[];
+  catalog: ProjectCatalog; project: SavedProject; entries: { key: string; value: string }[]; defaultTablesVersion?: 1;
 };
 type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
 export const projectPackageSections = ['gameplay', 'functional-systems', 'art-assets', 'definitions', 'stories', 'project', 'milestones', 'enum-versions'] as const;
 const workspaceKey = (id: string, section: string) => section === 'enum-versions' ? 'gamecreator.enum-versions.v1:' + id : 'gamecreator.workspace.v1:' + id + ':' + section;
+const completedDefaultTableMigration = JSON.stringify({ schema: 1, state: 'done', removed: [] });
 const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
 const strings = (value: unknown): value is string[] => Array.isArray(value) && value.every(item => typeof item === 'string');
 const fields = (value: Record<string, unknown>, keys: string[]) => keys.every(key => typeof value[key] === 'string');
@@ -94,6 +96,7 @@ export function validateProjectPackage(value: unknown): ProjectPackageDocument {
   requireValid(record(value) && value.schema === 1 && record(value.project) && record(value.archives), '不支持的格式或版本');
   requireValid(Object.keys(value).every(key => ['schema', 'project', 'archives'].includes(key)), '不支持的顶层字段');
   const project = value.project, archives = value.archives;
+  requireValid(project.defaultTablesVersion === undefined || project.defaultTablesVersion === 1, '不支持的配置表版本');
   requireValid(typeof project.name === 'string' && !!project.name.trim() && record(project.config), '项目名称或引擎配置无效');
   requireValid(fields(project.config, ['engine', 'projectPath', 'enumPath', 'dataPath', 'outputFormat']) && typeof project.config.autoSync === 'boolean' && typeof project.config.backupBeforeSync === 'boolean', '引擎配置不完整');
   requireValid(projectPackageSections.every(section => Object.prototype.hasOwnProperty.call(archives, section)) && Object.keys(archives).every(key => [...projectPackageSections, 'data-view'].includes(key as typeof projectPackageSections[number])), '项目模块缺失或版本不受支持');
@@ -132,6 +135,18 @@ export function captureProjectPackage(storage: Pick<Storage, 'getItem'>, project
     requireValid(current && JSON.stringify(current) === JSON.stringify(project), '项目资料已变化，请重新打开导出');
   }
   const expectedEntries: ProjectPackageSnapshot['expectedEntries'] = [{ key: PROJECT_CATALOG_KEY, value: catalogRaw }];
+  const migrationKey = defaultTableMigrationKey(project.id), migrationRaw = storage.getItem(migrationKey);
+  let defaultTablesVersion: 1 | undefined;
+  if (migrationRaw !== null) {
+    let migration: unknown;
+    try { migration = JSON.parse(migrationRaw); } catch { requireValid(false, '配置表清理记录损坏，请先重新打开项目'); }
+    requireValid(record(migration) && migration.schema === 1 && ['pending', 'done'].includes(migration.state as string) &&
+      strings(migration.removed) && new Set(migration.removed).size === migration.removed.length &&
+      migration.removed.every(key => datasetDefinitions.some(definition => definition.key === key)), '配置表清理记录无效');
+    requireValid(migration.state === 'done', '配置表清理尚未完成，请先重新打开项目完成恢复');
+    defaultTablesVersion = 1;
+    expectedEntries.push({ key: migrationKey, value: migrationRaw });
+  }
   const read = (section: string, fallback: unknown) => {
     const key = workspaceKey(project.id, section), raw = storage.getItem(key);
     expectedEntries.push({ key, value: raw });
@@ -140,7 +155,7 @@ export function captureProjectPackage(storage: Pick<Storage, 'getItem'>, project
   const empty = project.initialContent === 'empty';
   const archives = {
     gameplay: read('gameplay', emptyGameplay()), 'functional-systems': read('functional-systems', emptyFunctionalSystems()),
-    'art-assets': read('art-assets', emptyArtAssets()), definitions: read('definitions', datasetDefinitions),
+    'art-assets': read('art-assets', emptyArtAssets()), definitions: read('definitions', empty ? emptyDatasetDefinitions : datasetDefinitions),
     stories: read('stories', empty ? [] : initialStoryDocs),
     project: read('project', empty ? { ...initialProject, name: project.name, version: 'v0.1.0', description: '' } : { ...initialProject, name: project.name }),
     milestones: read('milestones', empty ? [] : initialMilestones), 'enum-versions': read('enum-versions', emptyStore(empty ? emptyProjectData : initialData)),
@@ -149,7 +164,7 @@ export function captureProjectPackage(storage: Pick<Storage, 'getItem'>, project
   expectedEntries.push({ key: viewKey, value: viewRaw });
   let view: DataViewState | undefined;
   if (viewRaw !== null) { try { view = normalizeDataViewState(JSON.parse(viewRaw)); } catch { view = normalizeDataViewState(null); } }
-  const document = validateProjectPackage({ schema: 1, project: { name: project.name, config: { ...project.config, projectPath: '', autoSync: false } }, archives: { ...archives, ...(view ? { 'data-view': view } : {}) } });
+  const document = validateProjectPackage({ schema: 1, project: { name: project.name, config: { ...project.config, projectPath: '', autoSync: false }, ...(defaultTablesVersion ? { defaultTablesVersion } : {}) }, archives: { ...archives, ...(view ? { 'data-view': view } : {}) } });
   return { document, expectedEntries };
 }
 
@@ -162,7 +177,8 @@ export function prepareProjectPackageImport(catalog: ProjectCatalog, value: unkn
   project.config = { ...document.project.config, projectPath: '', autoSync: false };
   const archives = { ...document.archives, project: { ...document.archives.project, name: project.name } };
   const entries = Object.entries(archives).map(([section, content]) => ({ key: workspaceKey(project.id, section), value: JSON.stringify(content) }));
-  return { catalog: validateCatalog(next), project, entries };
+  if (document.project.defaultTablesVersion === 1) entries.push({ key: defaultTableMigrationKey(project.id), value: completedDefaultTableMigration });
+  return { catalog: validateCatalog(next), project, entries, ...(document.project.defaultTablesVersion === 1 ? { defaultTablesVersion: 1 as const } : {}) };
 }
 
 /** Publish the new catalog only after all archives and managed art files have been written. */
@@ -170,6 +186,12 @@ export function writeProjectPackageImport(storage: StorageLike, prepared: Prepar
   const { project, entries } = prepared;
   requireValid(/^project-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(project.id) && project.initialContent === 'empty' && project.config.projectPath === '' && !project.config.autoSync, '导入目标必须是新的本地项目');
   const required = projectPackageSections.map(section => workspaceKey(project.id, section));
+  requireValid(prepared.defaultTablesVersion === undefined || prepared.defaultTablesVersion === 1, '不支持的配置表版本');
+  if (prepared.defaultTablesVersion === 1) {
+    const markerKey = defaultTableMigrationKey(project.id);
+    requireValid(entries.some(entry => entry.key === markerKey && entry.value === completedDefaultTableMigration), '配置表版本标记缺失或无效');
+    required.push(markerKey);
+  }
   const allowed = [...required, workspaceKey(project.id, 'data-view')];
   requireValid(new Set(entries.map(entry => entry.key)).size === entries.length && required.every(key => entries.some(entry => entry.key === key)) && entries.every(entry => allowed.includes(entry.key) && typeof entry.value === 'string'), '导入存档范围无效');
   for (const entry of entries) requireValid(storage.getItem(entry.key) === null, '导入目标已有数据，请重新导入');

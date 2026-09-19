@@ -55,6 +55,14 @@ export function readProjectCatalog(storage: StorageLike, defaults: EngineConfig,
     const value = JSON.parse(metadata);
     if (typeof value?.name === 'string' && value.name.trim()) result.projects[0].name = value.name;
   }
+  // A fresh installation starts without demo tables; existing legacy archives
+  // retain their original defaults so upgrading does not replace saved content.
+  const hasLegacyContent = legacyConfig !== null || metadata !== null ||
+    storage.getItem('gamecreator.enum-versions.v1:' + id) !== null ||
+    storage.getItem('gamecreator.dataset-definitions.v1') !== null ||
+    ['definitions', 'stories', 'milestones', 'gameplay', 'functional-systems', 'art-assets']
+      .some(section => storage.getItem('gamecreator.workspace.v1:' + id + ':' + section) !== null);
+  if (!hasLegacyContent) result.projects[0].initialContent = 'empty';
   const testSession = storage.getItem('gamecreator.test-session.v1');
   try { if (testSession && JSON.parse(testSession)) result.mode = 'test'; }
   catch { /* A damaged test session must not block recovery of the formal project. */ }

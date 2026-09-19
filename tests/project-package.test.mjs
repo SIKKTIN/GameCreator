@@ -4,8 +4,9 @@ import fs from 'node:fs/promises';
 import { captureProjectPackage, validateProjectPackage, prepareProjectPackageImport, writeProjectPackageImport } from '../src/project-package.ts';
 import { preparePrototypeProject, writePrototypeProject } from '../src/prototype-import.ts';
 import { PROJECT_CATALOG_KEY, defaultCatalog, addSavedProject } from '../src/project-catalog.ts';
-import { initialData, initialMilestones, initialProject, datasetDefinitions, emptyProjectData } from '../src/project-defaults.ts';
+import { initialData, initialMilestones, initialProject, datasetDefinitions, emptyDatasetDefinitions, emptyProjectData } from '../src/project-defaults.ts';
 import { initialStoryDocs } from '../src/story-model.ts';
+import { defaultTableMigrationKey, migrateUnusedDefaultTables } from '../src/default-table-migration.ts';
 import { makeSnapshot, prepareScan, stageSnapshot, decideChanges, diffEnums, syncApprovedChanges } from '../src/enum-versions.ts';
 
 const config = { engine: 'oasis-lua', projectPath: 'E:/Private/Game', enumPath: 'Game/Enums', dataPath: 'Game/Data', outputFormat: 'json', autoSync: true, backupBeforeSync: true };
@@ -83,7 +84,7 @@ test('capture materializes legacy defaults with no writes and includes catalog +
   assert.deepEqual(storage.writes, []);
 });
 
-test('new project defaults contain no legacy stories, records or milestones, and are detached from shared defaults', () => {
+test('new project defaults have zero configuration tables and stay empty through folder import and re-export', () => {
   const next = addSavedProject(catalog, '零起点');
   const project = next.projects.at(-1);
   const snapshot = captureProjectPackage(memoryStorage({ [PROJECT_CATALOG_KEY]: JSON.stringify(next) }), project);
@@ -92,8 +93,18 @@ test('new project defaults contain no legacy stories, records or milestones, and
   assert.deepEqual(snapshot.document.archives.milestones, []);
   assert.equal(snapshot.document.archives.project.description, '');
   assert.equal(snapshot.document.archives.project.version, 'v0.1.0');
-  snapshot.document.archives.definitions[0].label = 'Changed';
-  assert.equal(datasetDefinitions[0].label, 'Items');
+  assert.deepEqual(snapshot.document.archives.definitions, []);
+  assert.deepEqual(snapshot.document.archives['enum-versions'].data, { datasets: {}, columns: {} });
+  const imported = prepareProjectPackageImport(next, snapshot.document, '空项目副本');
+  const storage = memoryStorage();
+  writeProjectPackageImport(storage, imported);
+  const restored = captureProjectPackage(storage, imported.project).document;
+  assert.deepEqual(restored.archives.definitions, []);
+  assert.deepEqual(restored.archives['enum-versions'].data, { datasets: {}, columns: {} });
+  snapshot.document.archives.definitions.push({ key: 'custom', label: '自定义', badge: '0', columns: [{ key: 'id', label: 'ID' }] });
+  snapshot.document.archives['enum-versions'].data.datasets.custom = [];
+  assert.deepEqual(emptyDatasetDefinitions, []);
+  assert.deepEqual(emptyProjectData, { datasets: {}, columns: {} });
 });
 
 test('real project round trip retains completed gameplay, functional status, art delivery/review/adoption and full enum history', async () => {
@@ -126,10 +137,10 @@ test('drafts with unresolved references and missing values remain portable witho
   const { storage, project } = projectStorage();
   updateArchive(storage, project, 'functional-systems', store => { store.capabilities[0].systemId = 'removed-system'; });
   updateArchive(storage, project, 'gameplay', store => { store.designs[0].links.push({ kind: 'story', targetId: 'deleted-story' }); });
-  updateArchive(storage, project, 'enum-versions', store => { store.data.columns.items[2].enumId = 'not-yet-bound'; store.data.datasets.items.push({ id: 'partial-record' }); });
+  updateArchive(storage, project, 'enum-versions', store => { store.data.columns.farm_rules[0].enumId = 'not-yet-bound'; store.data.datasets.farm_rules.push({ id: 'partial-record' }); });
   const snapshot = captureProjectPackage(storage, project);
   assert.equal(snapshot.document.archives['functional-systems'].capabilities[0].systemId, 'removed-system');
-  assert.deepEqual(snapshot.document.archives['enum-versions'].data.datasets.items, [{ id: 'partial-record' }]);
+  assert.deepEqual(snapshot.document.archives['enum-versions'].data.datasets.farm_rules.at(-1), { id: 'partial-record' });
 });
 
 test('legacy gameplay schemas upgrade using the same model migration as the application', () => {
@@ -156,15 +167,15 @@ test('invalid package schemas, nested model shapes and asset paths are rejected 
   const source = await completedProject();
   const valid = captureProjectPackage(source.storage, source.project).document;
   const mutations = [
-    value => { value.schema = 2; }, value => { delete value.archives.stories; },
+    value => { value.schema = 2; }, value => { value.project.defaultTablesVersion = 2; }, value => { delete value.archives.stories; },
     value => { value.archives['unknown-module'] = {}; },
     value => { value.archives.gameplay.designs[0].checks[0].result = 'bad'; },
     value => { value.archives['functional-systems'].capabilities[0].configRefs = {}; },
     value => { value.archives['art-assets'].assets[0].versions[0].files[0].storagePath = '../outside.png'; },
     value => { value.archives['enum-versions'].snapshots[0].scan.groups[0].members[0].comment = 42; },
     value => { value.archives['enum-versions'].releases[0].patches = [null]; },
-    value => { value.archives['enum-versions'].data.datasets.items = { invalid: [] }; },
-    value => { value.archives['enum-versions'].data.columns.items[0].key = '__proto__'; },
+    value => { value.archives['enum-versions'].data.datasets.farm_rules = { invalid: [] }; },
+    value => { value.archives['enum-versions'].data.columns.farm_rules[0].key = '__proto__'; },
     value => { value.archives.stories[0].relations.characters = 'bad'; },
     value => { value.archives.project.description = {}; }, value => { value.archives.milestones = [{ title: 'missing details' }]; },
   ];
@@ -202,4 +213,68 @@ test('mid-import write failure never publishes catalog or modifies previous proj
   for (const [key, value] of before) assert.equal(source.storage.values.get(key), value, key);
   assert.equal(source.storage.getItem(PROJECT_CATALOG_KEY), before.get(PROJECT_CATALOG_KEY));
   assert.ok(!JSON.parse(source.storage.getItem(PROJECT_CATALOG_KEY)).projects.some(project => project.id === prepared.project.id));
+});
+
+
+test('older folder packages keep optional default tables and their data until the normal workspace migration', () => {
+  const source = projectStorage();
+  const document = captureProjectPackage(source.storage, source.project).document;
+  document.archives.definitions.unshift(...structuredClone(datasetDefinitions));
+  const data = document.archives['enum-versions'].data;
+  for (const definition of datasetDefinitions) {
+    data.columns[definition.key] = structuredClone(definition.columns);
+    data.datasets[definition.key] = [];
+  }
+  data.datasets.items.push({ id: 'custom_item', name: '用户物品', type: 'weapon', value: '200', rarity: '稀有' });
+  const imported = prepareProjectPackageImport(source.catalog, document, '旧版本项目');
+  const storage = memoryStorage();
+  writeProjectPackageImport(storage, imported);
+  const restored = captureProjectPackage(storage, imported.project).document;
+  assert.deepEqual(restored.archives.definitions, document.archives.definitions);
+  assert.deepEqual(restored.archives['enum-versions'].data, data);
+});
+
+
+test('modern folder transfers keep intentionally retained empty tables after the one-time migration', () => {
+  const source = projectStorage();
+  source.storage.setItem(defaultTableMigrationKey(source.project.id), JSON.stringify({ schema: 1, state: 'done', removed: ['shop'] }));
+  updateArchive(source.storage, source.project, 'definitions', definitions => definitions.push(structuredClone(datasetDefinitions[0])));
+  updateArchive(source.storage, source.project, 'enum-versions', versions => {
+    versions.data.columns.items = structuredClone(datasetDefinitions[0].columns);
+    versions.data.datasets.items = [];
+  });
+  const snapshot = captureProjectPackage(source.storage, source.project);
+  assert.equal(snapshot.document.project.defaultTablesVersion, 1);
+  assert.deepEqual(snapshot.expectedEntries.find(entry => entry.key === defaultTableMigrationKey(source.project.id)), {
+    key: defaultTableMigrationKey(source.project.id), value: JSON.stringify({ schema: 1, state: 'done', removed: ['shop'] }),
+  });
+  const prepared = prepareProjectPackageImport(source.catalog, snapshot.document, '保留空表的副本');
+  assert.equal(prepared.defaultTablesVersion, 1);
+  const storage = memoryStorage();
+  writeProjectPackageImport(storage, prepared);
+  assert.deepEqual(JSON.parse(storage.getItem(defaultTableMigrationKey(prepared.project.id))), { schema: 1, state: 'done', removed: [] });
+  assert.deepEqual(migrateUnusedDefaultTables(storage, prepared.project), { removed: [] });
+  const restored = captureProjectPackage(storage, prepared.project);
+  assert.equal(restored.document.project.defaultTablesVersion, 1);
+  assert.deepEqual(restored.document.archives['enum-versions'].data.datasets.items, []);
+  assert.ok(restored.document.archives.definitions.some(definition => definition.key === 'items'));
+  const missingMarker = { ...prepared, entries: prepared.entries.filter(entry => entry.key !== defaultTableMigrationKey(prepared.project.id)) };
+  assert.throws(() => writeProjectPackageImport(memoryStorage(), missingMarker), /版本标记/);
+  const changedMarker = structuredClone(prepared);
+  changedMarker.entries.find(entry => entry.key === defaultTableMigrationKey(prepared.project.id)).value = JSON.stringify({ schema: 1, state: 'pending', removed: [] });
+  assert.throws(() => writeProjectPackageImport(memoryStorage(), changedMarker), /版本标记/);
+  const collision = memoryStorage({ [defaultTableMigrationKey(prepared.project.id)]: 'existing migration' });
+  assert.throws(() => writeProjectPackageImport(collision, prepared), /已有数据/);
+  assert.deepEqual(collision.writes, []);
+});
+
+test('pending or corrupt default-table migrations cannot export a partially changed project', () => {
+  for (const raw of ['{ broken', 'null', JSON.stringify({ schema: 1, state: 'pending', removed: ['items'] }),
+    JSON.stringify({ schema: 1, state: 'done', removed: ['unknown'] }), JSON.stringify({ schema: 2, state: 'done', removed: [] })]) {
+    const source = projectStorage();
+    source.storage.setItem(defaultTableMigrationKey(source.project.id), raw);
+    source.storage.writes.length = 0;
+    assert.throws(() => captureProjectPackage(source.storage, source.project), /清理/);
+    assert.deepEqual(source.storage.writes, []);
+  }
 });

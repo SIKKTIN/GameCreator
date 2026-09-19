@@ -5,7 +5,7 @@ import { TeamProjectWorkspace } from './TeamWorkspace';
 import { TeamConnectionDialog, teamProjectKey, useTeamConnection } from './team-connection';
 import { canLeaveTeam, leaveTeamEvent } from './team-api';
 import { initialStoryDocs, type StoryDoc } from './story-model';
-import { datasetDefinitions, initialData, initialMilestones, initialProject, emptyProjectData, emptyMilestones, emptyStories, type Milestone } from './project-defaults';
+import { datasetDefinitions, emptyDatasetDefinitions, initialData, initialMilestones, initialProject, emptyProjectData, emptyMilestones, emptyStories, type Milestone } from './project-defaults';
 import { ArtAssets, ArtReferences, type ArtSelection } from './ArtAssets';
 import { useArtAssets } from './useArtAssets';
 import { FunctionalSystems, GameplayFunctions, type FunctionalSelection } from './FunctionalSystems';
@@ -16,6 +16,7 @@ import { ProjectSwitcher, type SwitchableProject } from './ProjectSwitcher';
 import { useProjectCatalog } from './useProjectCatalog';
 import { ProjectPackageDialog } from './ProjectPackageDialog';
 import { useProjectTransfer } from './useProjectTransfer';
+import { migrateUnusedDefaultTables } from './default-table-migration';
 import { PrototypeImportDialog } from './PrototypeImportDialog';
 import { loadPrototypeExample, type PrototypeImportInput } from './prototype-examples';
 import { preparePrototypeProject, writePrototypeProject } from './prototype-import';
@@ -25,7 +26,7 @@ import { buildTestWorkspace, testScenarios, type TestSession, type TestScenarioI
 import { workspaceStorage } from './workspace-storage';
 import { logDebug } from './debug-log';
 import { useStoredState } from './useStoredState';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ComponentProps } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import {
   AlertTriangle,
@@ -219,7 +220,7 @@ function WorkspaceController({ role, username }: { role: UserRole; username: str
       picker={<ProjectSwitcher projects={options} currentId={teamProjectKey(team.session.serverId, selectedTeam.id)} currentName={selectedTeam.name} canAdd={role === 'admin'} busy={preparing || prototypeBusy || transfer.busy || projects.blocked}
         onSelect={selectProject} onAdd={addProject} onConnectTeam={connectTeam} onImportPrototype={openPrototypeImport} onImportProject={transfer.enabled ? transfer.openImport : undefined} />}
       onConnection={connectTeam} onDisconnect={() => { if (allowSwitch()) { team.disconnect(); setActiveTeamId(null); } }} />
-    : <WorkspaceApp key={testSession?.id ?? 'project:' + formalProject.id} role={role} username={username}
+    : <ProjectDataUpgrade key={testSession?.id ?? 'project:' + formalProject.id} role={role} username={username}
     {...serverNavigation}
     formalProject={formalProject} projectOptions={options} onSelectProject={selectProject} onAddProject={addProject}
     onConnectTeam={connectTeam} onImportPrototype={openPrototypeImport}
@@ -229,6 +230,24 @@ function WorkspaceController({ role, username }: { role: UserRole; username: str
     onRenameProject={name => projects.commit(catalog => ({ ...catalog, projects: catalog.projects.map(item => item.id === formalProject.id ? { ...item, name } : item) }))}
     testSession={testSession} onLoadTest={load} onExitTest={exit} preparingTest={preparing || prototypeBusy || transfer.busy || projects.blocked}
     testError={error || projects.error || sessionError || (storedTest && !valid ? '测试会话信息无效，已回到正式工作区。' : '')} />}</>;
+}
+
+function ProjectDataUpgrade(props: ComponentProps<typeof WorkspaceApp>) {
+  const upgrade = () => {
+    try {
+      if (!props.testSession) migrateUnusedDefaultTables(workspaceStorage, props.formalProject);
+      return '';
+    } catch (reason) { return String(reason); }
+  };
+  const [error, setError] = useState(upgrade);
+  if (error) return <main className="enum-catalog-empty" role="alert">
+    <AlertTriangle size={32} /><h1>项目数据更新未完成</h1>
+    <p>默认空表清理未完成，请重试或切换到其他项目。</p><p>{error}</p>
+    <button className="primary" onClick={() => setError(upgrade())}>重试更新</button>
+    <ProjectSwitcher projects={props.projectOptions} currentId={props.formalProject.id} currentName={props.formalProject.name}
+      canAdd={props.role === 'admin'} busy={props.preparingTest} onSelect={props.onSelectProject} onAdd={props.onAddProject} />
+  </main>;
+  return <WorkspaceApp {...props} />;
 }
 
 const initialTestProject = { ...initialProject, name: '枚举测试工作区' };
@@ -268,7 +287,7 @@ function WorkspaceApp({ role, username, testSession, onLoadTest, onExitTest, pre
     return () => window.removeEventListener(beforeLogoutEvent, guard);
   }, [gameplay.pending, functional.pending, art.pending]);
   const currentData = registry.data;
-  const [allDefinitions, setDefinitions, definitionsError] = useStoredState<DatasetDef[]>('gamecreator.workspace.v1:' + dataKey + ':definitions', datasetDefinitions);
+  const [allDefinitions, setDefinitions, definitionsError] = useStoredState<DatasetDef[]>('gamecreator.workspace.v1:' + dataKey + ':definitions', isNewProject ? emptyDatasetDefinitions : datasetDefinitions);
   const definitions = Object.keys(currentData.datasets).map(key =>
     ({ ...(allDefinitions.find(item => item.key === key) ?? { key, label: key, badge: '' }), columns: currentData.columns[key] }));
   const currentDataset = resolveActiveDataset(definitions, currentData, activeDataset);
