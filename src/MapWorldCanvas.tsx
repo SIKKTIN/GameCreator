@@ -3,7 +3,7 @@ import { Crosshair, Maximize2, Minus, Plus } from 'lucide-react';
 import type { GameplayDesign } from './gameplay';
 import type { MapDesignStore } from './map-design';
 import { stageColors } from './gameplay-stage';
-import { connectionSpatial, worldPlacement, worldRoom, worldSettings } from './map-world';
+import { connectionSpatial, portalSides, worldPlacement, worldRoom, worldSettings } from './map-world';
 
 type Camera = { x:number; y:number; zoom:number };
 type Props = {store:MapDesignStore;designs:GameplayDesign[];selectedId?:string;selectedConnection?:string;disabled:boolean;onSelect:(id:string)=>void;onEnter:(id:string)=>void;onConnection:(id:string)=>void;onMove:(id:string,x:number,y:number)=>void};
@@ -52,11 +52,15 @@ export function MapWorldCanvas(p:Props) {
           <text x={room.x+room.width} y={room.y+room.height+15/camera.zoom} textAnchor="end" fontSize={10/camera.zoom} fill="#a8a3b8">{n(room.width)} × {n(room.height)} · ({n(room.x)}, {n(room.y)})</text>
           <title>{room.name}；{room.width} × {room.height} {settings.unit}；双击进入内部布局；方向键按吸附步长移动</title>
         </g>;})}
-        {visible.connections.map(c=>{const route=connectionSpatial(visible,c,p.designs);if(!route.a||!route.b)return null;const {a,b}=route,allowed=route.allowed&&(c.direction!=='both'||connectionSpatial(visible,c,p.designs,true).allowed),selected=p.selectedConnection===c.id;return <g key={c.id} role="button" tabIndex={0} aria-label={'世界通路：'+c.name} onPointerDown={e=>{if(e.button===2)begin(e);else e.stopPropagation();}} onClick={()=>p.onConnection(c.id)} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();p.onConnection(c.id);}}}>
+        {visible.connections.map(c=>{const route=connectionSpatial(visible,c,p.designs);if(!route.a||!route.b)return null;const {a,b}=route,allowed=route.allowed&&(c.direction!=='both'||connectionSpatial(visible,c,p.designs,true).allowed),selected=p.selectedConnection===c.id;return <g key={c.id} role="button" tabIndex={0} aria-label={'世界通路：'+c.name} data-from-side={a.side} data-to-side={b.side} data-route-allowed={allowed} onPointerDown={e=>{if(e.button===2)begin(e);else e.stopPropagation();}} onClick={()=>p.onConnection(c.id)} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();p.onConnection(c.id);}}}>
           <path d={`M${a.x} ${a.y} L${b.x} ${b.y}`} fill="none" stroke="transparent" strokeWidth={16/camera.zoom}/><path d={`M${a.x} ${a.y} L${b.x} ${b.y}`} fill="none" stroke={selected?'#ffe09d':allowed?'#b5a4d9':'#d69972'} strokeWidth="2" vectorEffect="non-scaling-stroke" strokeDasharray={route.mode==='transport'?'5 6':allowed?undefined:'4 3'} markerEnd={`url(#${uid}arrow)`} markerStart={c.direction==='both'?`url(#${uid}arrow)`:undefined}/>
-          {[a,b].map((port,i)=><circle key={i} cx={port.x} cy={port.y} r={4.5/camera.zoom} fill={selected?'#ffe09d':'#d6baf3'} stroke="#171620" strokeWidth="1" vectorEffect="non-scaling-stroke"/>)}
-          {selected&&<g><rect x={(a.x+b.x)/2-90/camera.zoom} y={(a.y+b.y)/2-28/camera.zoom} width={180/camera.zoom} height={24/camera.zoom} rx={5/camera.zoom} fill="#302639" stroke="#9a7faf" strokeWidth="1" vectorEffect="non-scaling-stroke"/><text x={(a.x+b.x)/2} y={(a.y+b.y)/2-12/camera.zoom} textAnchor="middle" fill="#ffdf9f" fontSize={11/camera.zoom}>{c.name.slice(0,12)} · 向{route.direction}</text></g>}
-          <title>{c.name}；{route.description}；{route.reason||'空间衔接通过'}</title>
+          {[a,b].map((port,i)=>{const [nx,ny]=({left:[-1,0],right:[1,0],top:[0,-1],bottom:[0,1],center:[0,0],auto:[0,0]})[port.side];return <g key={i}>
+            <line x1={port.x} y1={port.y} x2={port.x+nx*13/camera.zoom} y2={port.y+ny*13/camera.zoom} stroke={selected?'#ffe09d':'#d6baf3'} strokeWidth="3" vectorEffect="non-scaling-stroke"/>
+            <circle cx={port.x} cy={port.y} r={4.5/camera.zoom} fill={selected?'#ffe09d':'#d6baf3'} stroke="#171620" strokeWidth="1" vectorEffect="non-scaling-stroke"/>
+            <title>{i?'入口':'出口'}：{port.object.name} · {portalSides[port.side]}</title>
+          </g>;})}
+          {selected&&<g><rect x={(a.x+b.x)/2-120/camera.zoom} y={(a.y+b.y)/2-28/camera.zoom} width={240/camera.zoom} height={24/camera.zoom} rx={5/camera.zoom} fill="#302639" stroke="#9a7faf" strokeWidth="1" vectorEffect="non-scaling-stroke"/><text x={(a.x+b.x)/2} y={(a.y+b.y)/2-12/camera.zoom} textAnchor="middle" fill="#ffdf9f" fontSize={11/camera.zoom}>{c.name.slice(0,10)} · {a.side==='center'?'中心':a.side==='auto'?'未定':portalSides[a.side]} → {b.side==='center'?'中心':b.side==='auto'?'未定':portalSides[b.side]}</text></g>}
+          <title>{c.name}；{portalSides[a.side]} → {portalSides[b.side]}；{route.description}；{route.reason||'空间衔接通过'}</title>
         </g>;})}
       </g>
     </svg><div className="mw-axis" aria-hidden="true"><b>{side?'↑ 高度 / ↓ 下方':'↑ 北 / ↓ 南'}</b><span>← {side?'左':'西'} / {side?'右':'东'} →</span><small>网格间隔 {n(grid)} {settings.unit}</small></div>

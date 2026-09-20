@@ -1,16 +1,17 @@
 import { withWorldLayout } from './map-world';
+import type { GameplayDesign } from './gameplay';
 import { useEffect, useRef, useState } from 'react';
 import { workspaceStorage } from './workspace-storage';
 import { emptyMapDesign, readMapDesign, validateMapDesign, writeMapDesign, type MapDesignStore } from './map-design';
 
 // WorkspaceApp remounts by project ID. Failed writes retain the current draft.
-export function useMapDesign(workspaceId: string) {
+export function useMapDesign(workspaceId: string, designs: GameplayDesign[]) {
   const key = 'gamecreator.workspace.v1:' + workspaceId + ':map-design';
   const [initial] = useState(() => {
     try { return { ...readMapDesign(workspaceStorage, key), error: '' }; }
     catch (error) { return { raw: null, store: emptyMapDesign(), error: String(error) }; }
   });
-  const [store, setStore] = useState(()=>withWorldLayout(initial.store));
+  const [store, setStore] = useState(()=>withWorldLayout(initial.store,designs));
   const [loadError, setLoadError] = useState(initial.error);
   const [saveError, setSaveError] = useState(''), [operationError, setOperationError] = useState('');
   const latest = useRef(store), committed = useRef(initial.raw);
@@ -24,7 +25,7 @@ export function useMapDesign(workspaceId: string) {
   const update = (operation: (current: MapDesignStore) => MapDesignStore) => {
     if (loadError) return false;
     let next: MapDesignStore;
-    try { next = validateMapDesign(withWorldLayout(operation(structuredClone(latest.current)))); }
+    try { next = validateMapDesign(withWorldLayout(operation(structuredClone(latest.current)),designs)); }
     catch (error) { setOperationError('地图设计更改未应用：' + String(error)); return false; }
     latest.current = next; setStore(next); setOperationError('');
     return persist(next);
@@ -33,7 +34,7 @@ export function useMapDesign(workspaceId: string) {
   const reload = () => {
     try {
       const loaded = readMapDesign(workspaceStorage, key);
-      const restored=withWorldLayout(loaded.store); latest.current = restored; committed.current = loaded.raw; setStore(restored);
+      const restored=withWorldLayout(loaded.store,designs); latest.current = restored; committed.current = loaded.raw; setStore(restored);
       setLoadError(''); setSaveError(''); setOperationError(''); return true;
     } catch (error) { setLoadError(String(error)); return false; }
   };
