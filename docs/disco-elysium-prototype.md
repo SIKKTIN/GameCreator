@@ -8,7 +8,9 @@
 
 玩法核心从主界面进入调查循环，再展开探索取证、对话与内心声音、红白检定、思想成长和日程，最后进入案情汇报。玩法和程序功能通过稳定 ID 关联；具体条件、状态和配置可从来源跳转。
 
-全部玩法为草稿、试玩记录未测试、功能待开发、美术待制作。资产没有交付文件和采用版本。GameCreator 可编辑、关联、预览和导出设计，不会自动执行对白、掷骰或思想计时。
+全部玩法为草稿、原型试玩记录未测试、功能待开发、美术待制作。资产没有交付文件和采用版本。可在“工作区设置”添加可选的[故事编排](story-orchestration.md)，逐段阅读港区案件，模拟对白选择、状态后果与检定；这不代表游戏工程、思想研究计时等系统已经实现。
+
+新版示例自带默认关闭的故事编排：6 个编排场景（含调查行动入口）、37 个片段、76 个选项、5 个检定。旧项目启用模块后可使用“从现有对白配置导入”，生成独立故事副本，保留原始配置。故事结果区分查明真相、误判结案与暂缓调查；误判仍可完成任务，暂缓对应任务暂缓。
 
 ## 关键约定
 
@@ -22,7 +24,7 @@
 
 ## 验证与迁移
 
-`node scripts/validate-prototype-examples.mjs` 检查四套示例的模型和跨模块引用。`node --test tests/disco-prototype.test.mjs` 检查附加数据引用、对话可达性、证据组合、成功/失败替代路线、白检定重试入口和两天日程。这里的路径检查验证设计数据，不代表已经完成游戏实机试玩。
+`node scripts/validate-prototype-examples.mjs` 检查五套示例的模型和跨模块引用。`node --test tests/disco-prototype.test.mjs tests/story-orchestration.test.mjs` 检查附加数据引用、对话可达性、证据组合、成功/失败替代路线、白检定重试入口和两天日程。`node tests/desktop-story-orchestration.cjs` 验证故事编辑器内的完整阅读与选择路线，不代表已经完成游戏工程的实机试玩。
 
 构建后执行 `node tests/desktop-prototype-import.cjs` 与 `node tests/desktop-gameplay-core.cjs` 检查客户端创建、模块显示、核心导航、编辑、重启与隔离。项目文件夹可通过正常导出保存到 `ProjectCache/极乐迪斯科/`，复制整个文件夹即可迁移；本机导出目录被 Git 忽略，源码中的内置示例随 master 分发。
 

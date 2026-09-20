@@ -10577,5 +10577,3074 @@
         ]
       }
     ]
+  },
+  "storyOrchestration": {
+    "schema": 1,
+    "enabled": false,
+    "stories": [
+      {
+        "id": "de-story-main",
+        "title": "港区疑案 · 完整故事链",
+        "summary": "从旅馆开场，经现场取证、人物对话、检定与支线，读到查明真相、误判结案或暂缓调查。",
+        "archived": false,
+        "entryId": "opening",
+        "source": "港区疑案对白配置导入快照；后续在故事编排中维护，原配置保留。",
+        "taskIds": [
+          "de-task-case",
+          "de-task-rent",
+          "de-task-letter"
+        ],
+        "scenes": [
+          {
+            "id": "hotel",
+            "title": "旧灯旅馆",
+            "chapter": "港区疑案",
+            "description": "醒来、欠费、案情汇报与休息；始终开放"
+          },
+          {
+            "id": "yard",
+            "title": "卸货后院",
+            "chapter": "港区疑案",
+            "description": "尸体、断绳、劳动痕迹；case_open=1"
+          },
+          {
+            "id": "pier",
+            "title": "盐雾码头",
+            "chapter": "港区疑案",
+            "description": "证人、工头与可冲突的证词；case_open=1"
+          },
+          {
+            "id": "archive",
+            "title": "值班档案室",
+            "chapter": "港区疑案",
+            "description": "账册、时间表与值班记录；09:00–18:00；关闭后可从医师取得复写件"
+          },
+          {
+            "id": "clinic",
+            "title": "夜班诊所",
+            "chapter": "港区疑案",
+            "description": "伤口判断、药品与旁证；18:00–23:00；缺席可等次日，不封死主线"
+          },
+          {
+            "id": "investigation",
+            "title": "调查行动",
+            "chapter": "港区疑案",
+            "description": "在场人物、主动等待、整理装备与返回报告。"
+          }
+        ],
+        "actors": [
+          {
+            "id": "partner",
+            "name": "搭档林恩",
+            "description": "查明事实并保护证人；不替玩家自动解案"
+          },
+          {
+            "id": "host",
+            "name": "店主玛拉",
+            "description": "收回欠费，保留自己的营业记录"
+          },
+          {
+            "id": "witness",
+            "name": "装卸工埃达",
+            "description": "怕失去工作而隐瞒停机记录"
+          },
+          {
+            "id": "foreman",
+            "name": "工头维克",
+            "description": "隐瞒设备违规运行；并非预谋杀人"
+          },
+          {
+            "id": "clerk",
+            "name": "档案员诺拉",
+            "description": "不愿替管理者销毁记录"
+          },
+          {
+            "id": "doctor",
+            "name": "医师赛尔",
+            "description": "保护伤者家属、不认可仓促结论"
+          },
+          {
+            "id": "voice:logic",
+            "name": "逻辑 · 内心声音",
+            "description": "要求证据与时间一致；可能把整齐解释误当真实"
+          },
+          {
+            "id": "voice:visual",
+            "name": "视觉演算 · 内心声音",
+            "description": "从痕迹重建动作；缺少材料时只能形成假说"
+          },
+          {
+            "id": "voice:empathy",
+            "name": "共情 · 内心声音",
+            "description": "察觉迟疑和恐惧；感受不是证言"
+          },
+          {
+            "id": "voice:authority",
+            "name": "权威 · 内心声音",
+            "description": "让对方正面回答；过强威压可能损伤关系"
+          },
+          {
+            "id": "voice:volition",
+            "name": "意志 · 内心声音",
+            "description": "对内心断言保留意见；不能凭冷静获得新证据"
+          },
+          {
+            "id": "voice:endurance",
+            "name": "耐力 · 内心声音",
+            "description": "承受现场的生理冲击；坚持可能损伤健康"
+          },
+          {
+            "id": "voice:perception",
+            "name": "感知 · 内心声音",
+            "description": "看见被忽略的细节；发现物件不等于解释它"
+          },
+          {
+            "id": "voice:composure",
+            "name": "镇定 · 内心声音",
+            "description": "控制语气与表情；镇定不能抹去已发生后果"
+          }
+        ],
+        "variables": [
+          {
+            "id": "case_open",
+            "name": "案件已受理",
+            "category": "事实",
+            "initial": 1,
+            "minimum": 0,
+            "maximum": 1
+          },
+          {
+            "id": "rope_found",
+            "name": "断绳已收集",
+            "category": "证据",
+            "initial": 0,
+            "minimum": 0,
+            "maximum": 1
+          },
+          {
+            "id": "ledger_found",
+            "name": "账册已获得",
+            "category": "证据",
+            "initial": 0,
+            "minimum": 0,
+            "maximum": 1
+          },
+          {
+            "id": "testimony_found",
+            "name": "证词已获得",
+            "category": "证据",
+            "initial": 0,
+            "minimum": 0,
+            "maximum": 1
+          },
+          {
+            "id": "copy_found",
+            "name": "复写件已获得",
+            "category": "证据",
+            "initial": 0,
+            "minimum": 0,
+            "maximum": 1
+          },
+          {
+            "id": "timeline_found",
+            "name": "时间旁证已获得",
+            "category": "证据",
+            "initial": 0,
+            "minimum": 0,
+            "maximum": 1
+          },
+          {
+            "id": "note_found",
+            "name": "维修便条已获得",
+            "category": "证据",
+            "initial": 0,
+            "minimum": 0,
+            "maximum": 1
+          },
+          {
+            "id": "parcel_found",
+            "name": "家书已获得",
+            "category": "支线",
+            "initial": 0,
+            "minimum": 0,
+            "maximum": 1
+          },
+          {
+            "id": "parcel_returned",
+            "name": "家书已交还",
+            "category": "支线",
+            "initial": 0,
+            "minimum": 0,
+            "maximum": 1
+          },
+          {
+            "id": "rent_paid",
+            "name": "住宿已解决",
+            "category": "支线",
+            "initial": 0,
+            "minimum": 0,
+            "maximum": 1
+          },
+          {
+            "id": "witness_scared",
+            "name": "证人被威压",
+            "category": "关系",
+            "initial": 0,
+            "minimum": 0,
+            "maximum": 1
+          },
+          {
+            "id": "partner_trust",
+            "name": "搭档信任",
+            "category": "关系",
+            "initial": 0,
+            "minimum": null,
+            "maximum": null
+          },
+          {
+            "id": "hypothesis_sabotage",
+            "name": "人为谋杀假说",
+            "category": "假说",
+            "initial": 0,
+            "minimum": 0,
+            "maximum": 1
+          },
+          {
+            "id": "thought_doubt_known",
+            "name": "怀疑思想已发现",
+            "category": "思想",
+            "initial": 0,
+            "minimum": 0,
+            "maximum": 1
+          },
+          {
+            "id": "thought_doubt_done",
+            "name": "怀疑思想已内化",
+            "category": "思想",
+            "initial": 0,
+            "minimum": 0,
+            "maximum": 1
+          },
+          {
+            "id": "thought_worker_known",
+            "name": "劳动思想已发现",
+            "category": "思想",
+            "initial": 0,
+            "minimum": 0,
+            "maximum": 1
+          },
+          {
+            "id": "thought_worker_done",
+            "name": "劳动思想已内化",
+            "category": "思想",
+            "initial": 0,
+            "minimum": 0,
+            "maximum": 1
+          },
+          {
+            "id": "thought_memory_known",
+            "name": "记忆思想已发现",
+            "category": "思想",
+            "initial": 0,
+            "minimum": 0,
+            "maximum": 1
+          },
+          {
+            "id": "thought_memory_done",
+            "name": "记忆思想已内化",
+            "category": "思想",
+            "initial": 0,
+            "minimum": 0,
+            "maximum": 1
+          },
+          {
+            "id": "elapsed",
+            "name": "累计游戏秒",
+            "category": "时钟",
+            "initial": 28800,
+            "minimum": 0,
+            "maximum": null
+          },
+          {
+            "id": "health",
+            "name": "健康",
+            "category": "资源",
+            "initial": 3,
+            "minimum": 0,
+            "maximum": 3
+          },
+          {
+            "id": "morale",
+            "name": "士气",
+            "category": "资源",
+            "initial": 3,
+            "minimum": 0,
+            "maximum": 3
+          },
+          {
+            "id": "money",
+            "name": "零钱",
+            "category": "资源",
+            "initial": 12,
+            "minimum": 0,
+            "maximum": null
+          },
+          {
+            "id": "meds",
+            "name": "恢复物数量",
+            "category": "资源",
+            "initial": 1,
+            "minimum": 0,
+            "maximum": null
+          },
+          {
+            "id": "xp",
+            "name": "经验",
+            "category": "资源",
+            "initial": 0,
+            "minimum": 0,
+            "maximum": null
+          },
+          {
+            "id": "skill_points",
+            "name": "技能点",
+            "category": "资源",
+            "initial": 1,
+            "minimum": 0,
+            "maximum": null
+          },
+          {
+            "id": "case_closed",
+            "name": "案件已结束",
+            "category": "阶段",
+            "initial": 0,
+            "minimum": 0,
+            "maximum": 1
+          },
+          {
+            "id": "skill:logic",
+            "name": "逻辑等级",
+            "category": "技能",
+            "initial": 3,
+            "minimum": 0,
+            "maximum": null
+          },
+          {
+            "id": "skill:visual",
+            "name": "视觉演算等级",
+            "category": "技能",
+            "initial": 2,
+            "minimum": 0,
+            "maximum": null
+          },
+          {
+            "id": "skill:empathy",
+            "name": "共情等级",
+            "category": "技能",
+            "initial": 3,
+            "minimum": 0,
+            "maximum": null
+          },
+          {
+            "id": "skill:authority",
+            "name": "权威等级",
+            "category": "技能",
+            "initial": 2,
+            "minimum": 0,
+            "maximum": null
+          },
+          {
+            "id": "skill:volition",
+            "name": "意志等级",
+            "category": "技能",
+            "initial": 2,
+            "minimum": 0,
+            "maximum": null
+          },
+          {
+            "id": "skill:endurance",
+            "name": "耐力等级",
+            "category": "技能",
+            "initial": 2,
+            "minimum": 0,
+            "maximum": null
+          },
+          {
+            "id": "skill:perception",
+            "name": "感知等级",
+            "category": "技能",
+            "initial": 3,
+            "minimum": 0,
+            "maximum": null
+          },
+          {
+            "id": "skill:composure",
+            "name": "镇定等级",
+            "category": "技能",
+            "initial": 2,
+            "minimum": 0,
+            "maximum": null
+          },
+          {
+            "id": "scarf_equipped",
+            "name": "围巾已装备",
+            "category": "装备",
+            "initial": 0,
+            "minimum": 0,
+            "maximum": 1
+          }
+        ],
+        "nodes": [
+          {
+            "id": "opening",
+            "sceneId": "hotel",
+            "title": "旅馆开场",
+            "kind": "dialogue",
+            "speakerId": "partner",
+            "text": "林恩把空白报告推过来：“先看现场，再决定该用什么词。”",
+            "outcome": "",
+            "taskStatus": "unchanged",
+            "taskIds": []
+          },
+          {
+            "id": "host_hub",
+            "sceneId": "hotel",
+            "title": "“死者在钟响之后还来买过茶。”玛拉把",
+            "kind": "dialogue",
+            "speakerId": "host",
+            "text": "“死者在钟响之后还来买过茶。”玛拉把账本压在肘下。",
+            "outcome": "",
+            "taskStatus": "unchanged",
+            "taskIds": []
+          },
+          {
+            "id": "host_time",
+            "sceneId": "hotel",
+            "title": "她让你抄下收款时间。口述时间可能记错",
+            "kind": "dialogue",
+            "speakerId": "host",
+            "text": "她让你抄下收款时间。口述时间可能记错，记账与班次记录需要互证。",
+            "outcome": "",
+            "taskStatus": "unchanged",
+            "taskIds": []
+          },
+          {
+            "id": "rent_offer",
+            "sceneId": "hotel",
+            "title": "“八枚硬币，今晚的床。”也可以答应替",
+            "kind": "dialogue",
+            "speakerId": "host",
+            "text": "“八枚硬币，今晚的床。”也可以答应替她归还后院的家书。",
+            "outcome": "",
+            "taskStatus": "unchanged",
+            "taskIds": []
+          },
+          {
+            "id": "rent_done",
+            "sceneId": "hotel",
+            "title": "玛拉收起欠条：“今晚你可以安静睡觉。",
+            "kind": "dialogue",
+            "speakerId": "host",
+            "text": "玛拉收起欠条：“今晚你可以安静睡觉。”",
+            "outcome": "",
+            "taskStatus": "completed",
+            "taskIds": [
+              "de-task-rent"
+            ]
+          },
+          {
+            "id": "parcel_done",
+            "sceneId": "hotel",
+            "title": "家书交给了收信人。玛拉勾掉住宿欠款，",
+            "kind": "dialogue",
+            "speakerId": "host",
+            "text": "家书交给了收信人。玛拉勾掉住宿欠款，搭档记住了你的耐心。",
+            "outcome": "",
+            "taskStatus": "completed",
+            "taskIds": [
+              "de-task-rent",
+              "de-task-letter"
+            ]
+          },
+          {
+            "id": "yard_hub",
+            "sceneId": "yard",
+            "title": "断绳落在装卸架下，地上没有完整脚印。",
+            "kind": "dialogue",
+            "speakerId": "partner",
+            "text": "断绳落在装卸架下，地上没有完整脚印。你可以观察，也可以先离开。",
+            "outcome": "",
+            "taskStatus": "unchanged",
+            "taskIds": []
+          },
+          {
+            "id": "rope_success",
+            "sceneId": "yard",
+            "title": "断口内侧有旧磨损。你将绳端装入证物袋",
+            "kind": "dialogue",
+            "speakerId": "partner",
+            "text": "断口内侧有旧磨损。你将绳端装入证物袋，记录来源。",
+            "outcome": "",
+            "taskStatus": "unchanged",
+            "taskIds": []
+          },
+          {
+            "id": "rope_failure",
+            "sceneId": "yard",
+            "title": "气味让你退开。林恩提醒：先询问其他人",
+            "kind": "dialogue",
+            "speakerId": "partner",
+            "text": "气味让你退开。林恩提醒：先询问其他人，回来再仔细检查。",
+            "outcome": "",
+            "taskStatus": "unchanged",
+            "taskIds": []
+          },
+          {
+            "id": "yard_voice",
+            "sceneId": "yard",
+            "title": "视觉演算：一条整齐的轨迹在脑海出现。",
+            "kind": "inner",
+            "speakerId": "voice:visual",
+            "text": "视觉演算：一条整齐的轨迹在脑海出现。意志：那仍然只是推测。",
+            "outcome": "",
+            "taskStatus": "unchanged",
+            "taskIds": []
+          },
+          {
+            "id": "parcel_found_node",
+            "sceneId": "yard",
+            "title": "设备台下有未寄出的家书。纸上是旅馆住",
+            "kind": "dialogue",
+            "speakerId": "partner",
+            "text": "设备台下有未寄出的家书。纸上是旅馆住客的地址，与设备责任无关。",
+            "outcome": "",
+            "taskStatus": "unchanged",
+            "taskIds": []
+          },
+          {
+            "id": "witness_hub",
+            "sceneId": "pier",
+            "title": "埃达看了看工头：“那晚没有别的事。你",
+            "kind": "dialogue",
+            "speakerId": "witness",
+            "text": "埃达看了看工头：“那晚没有别的事。你们问完了吗？”",
+            "outcome": "",
+            "taskStatus": "unchanged",
+            "taskIds": []
+          },
+          {
+            "id": "witness_voice",
+            "sceneId": "pier",
+            "title": "共情：她怕的并不是你。她每次说到值班",
+            "kind": "inner",
+            "speakerId": "voice:empathy",
+            "text": "共情：她怕的并不是你。她每次说到值班表，都会先看码头入口。",
+            "outcome": "",
+            "taskStatus": "unchanged",
+            "taskIds": []
+          },
+          {
+            "id": "witness_success",
+            "sceneId": "pier",
+            "title": "“机器没有停。我听见绞盘还在转。”你",
+            "kind": "dialogue",
+            "speakerId": "witness",
+            "text": "“机器没有停。我听见绞盘还在转。”你记下证词，没有把恐惧写成事实。",
+            "outcome": "",
+            "taskStatus": "unchanged",
+            "taskIds": []
+          },
+          {
+            "id": "witness_failure",
+            "sceneId": "pier",
+            "title": "“我不能说。”她后退一步。这次询问关",
+            "kind": "dialogue",
+            "speakerId": "witness",
+            "text": "“我不能说。”她后退一步。这次询问关闭，新的书面记录或技能提升可以重新打开。",
+            "outcome": "",
+            "taskStatus": "unchanged",
+            "taskIds": []
+          },
+          {
+            "id": "witness_revisit",
+            "sceneId": "pier",
+            "title": "你出示新发现的账册或复写件。埃达确认",
+            "kind": "dialogue",
+            "speakerId": "witness",
+            "text": "你出示新发现的账册或复写件。埃达确认了上面的班次，但仍需要你重新询问。",
+            "outcome": "",
+            "taskStatus": "unchanged",
+            "taskIds": []
+          },
+          {
+            "id": "foreman_hub",
+            "sceneId": "pier",
+            "title": "维克说设备早已停机：“不如去查那个流",
+            "kind": "dialogue",
+            "speakerId": "foreman",
+            "text": "维克说设备早已停机：“不如去查那个流浪者。”",
+            "outcome": "",
+            "taskStatus": "unchanged",
+            "taskIds": []
+          },
+          {
+            "id": "foreman_voice",
+            "sceneId": "pier",
+            "title": "权威：让他现在认错。意志：逼他说一句",
+            "kind": "inner",
+            "speakerId": "voice:authority",
+            "text": "权威：让他现在认错。意志：逼他说一句话，不等于拿到了真相。",
+            "outcome": "",
+            "taskStatus": "unchanged",
+            "taskIds": []
+          },
+          {
+            "id": "foreman_success",
+            "sceneId": "pier",
+            "title": "他承认安排过临时维修，把撕下的便条交",
+            "kind": "dialogue",
+            "speakerId": "foreman",
+            "text": "他承认安排过临时维修，把撕下的便条交给你。你保留原件并记录他的解释。",
+            "outcome": "",
+            "taskStatus": "unchanged",
+            "taskIds": []
+          },
+          {
+            "id": "foreman_failure",
+            "sceneId": "pier",
+            "title": "你的威吓失控。埃达走开，维克把维修便",
+            "kind": "dialogue",
+            "speakerId": "foreman",
+            "text": "你的威吓失控。埃达走开，维克把维修便条扔在地上。关系变差，但你仍获得另一条线索。",
+            "outcome": "",
+            "taskStatus": "unchanged",
+            "taskIds": []
+          },
+          {
+            "id": "clerk_hub",
+            "sceneId": "archive",
+            "title": "诺拉把停机账册翻到最后一页：“我只能",
+            "kind": "dialogue",
+            "speakerId": "clerk",
+            "text": "诺拉把停机账册翻到最后一页：“我只能让你抄，不会替你解释。”",
+            "outcome": "",
+            "taskStatus": "unchanged",
+            "taskIds": []
+          },
+          {
+            "id": "ledger_success",
+            "sceneId": "archive",
+            "title": "停机时间之后仍有作业签字。你抄下页码",
+            "kind": "dialogue",
+            "speakerId": "clerk",
+            "text": "停机时间之后仍有作业签字。你抄下页码、日期和保管者。",
+            "outcome": "",
+            "taskStatus": "unchanged",
+            "taskIds": []
+          },
+          {
+            "id": "ledger_failure",
+            "sceneId": "archive",
+            "title": "两种墨水让时间变得不确定。你可以提升",
+            "kind": "dialogue",
+            "speakerId": "clerk",
+            "text": "两种墨水让时间变得不确定。你可以提升逻辑后再读，也可以去问夜班医师。",
+            "outcome": "",
+            "taskStatus": "unchanged",
+            "taskIds": []
+          },
+          {
+            "id": "doctor_hub",
+            "sceneId": "clinic",
+            "title": "赛尔说死者的旧伤与坠落相符，但这还不",
+            "kind": "dialogue",
+            "speakerId": "doctor",
+            "text": "赛尔说死者的旧伤与坠落相符，但这还不足以证明设备由谁启动。",
+            "outcome": "",
+            "taskStatus": "unchanged",
+            "taskIds": []
+          },
+          {
+            "id": "copy_node",
+            "sceneId": "clinic",
+            "title": "赛尔交出送诊时附带的复写件，说明了来",
+            "kind": "dialogue",
+            "speakerId": "doctor",
+            "text": "赛尔交出送诊时附带的复写件，说明了来源。它可以代替缺席的档案员提供书面时间记录。",
+            "outcome": "",
+            "taskStatus": "unchanged",
+            "taskIds": []
+          },
+          {
+            "id": "care_success",
+            "sceneId": "clinic",
+            "title": "你承认状态很差，赛尔给出恢复物。这个",
+            "kind": "dialogue",
+            "speakerId": "doctor",
+            "text": "你承认状态很差，赛尔给出恢复物。这个帮助只领取一次。",
+            "outcome": "",
+            "taskStatus": "unchanged",
+            "taskIds": []
+          },
+          {
+            "id": "care_failure",
+            "sceneId": "clinic",
+            "title": "你坚持说自己很好。赛尔不再追问，基础",
+            "kind": "dialogue",
+            "speakerId": "doctor",
+            "text": "你坚持说自己很好。赛尔不再追问，基础购买选项仍保留。",
+            "outcome": "",
+            "taskStatus": "unchanged",
+            "taskIds": []
+          },
+          {
+            "id": "thought_hint",
+            "sceneId": "hotel",
+            "title": "林恩说：“你可以带着一个问题生活一会",
+            "kind": "dialogue",
+            "speakerId": "partner",
+            "text": "林恩说：“你可以带着一个问题生活一会儿，不必马上把它写成结论。”",
+            "outcome": "",
+            "taskStatus": "unchanged",
+            "taskIds": []
+          },
+          {
+            "id": "thought_reply",
+            "sceneId": "hotel",
+            "title": "你承认早先的推断只是猜想。林恩点头，",
+            "kind": "dialogue",
+            "speakerId": "partner",
+            "text": "你承认早先的推断只是猜想。林恩点头，报告里留下了证据与假说的分界。",
+            "outcome": "",
+            "taskStatus": "unchanged",
+            "taskIds": []
+          },
+          {
+            "id": "report_hub",
+            "sceneId": "hotel",
+            "title": "案情汇报",
+            "kind": "dialogue",
+            "speakerId": "partner",
+            "text": "林恩：“逐条说说你能证明什么。剩下的，写成未知。”",
+            "outcome": "",
+            "taskStatus": "unchanged",
+            "taskIds": []
+          },
+          {
+            "id": "report_true",
+            "sceneId": "hotel",
+            "title": "查明真相",
+            "kind": "ending",
+            "speakerId": "partner",
+            "text": "报告列出绳端、书面时间和证词或维修旁证：违规运行导致事故，事后记录被掩盖。进入阶段结算。",
+            "outcome": "查明真相",
+            "taskStatus": "completed",
+            "taskIds": [
+              "de-task-case"
+            ]
+          },
+          {
+            "id": "report_wrong",
+            "sceneId": "hotel",
+            "title": "误判结案",
+            "kind": "ending",
+            "speakerId": "partner",
+            "text": "你把内心的直觉写成了谋杀结论。报告被提交，搭档保留异议。进入误判阶段结算。",
+            "outcome": "误判结案",
+            "taskStatus": "completed",
+            "taskIds": [
+              "de-task-case"
+            ]
+          },
+          {
+            "id": "report_pause",
+            "sceneId": "hotel",
+            "title": "暂缓调查",
+            "kind": "ending",
+            "speakerId": "partner",
+            "text": "你列出证据缺口，申请暂缓结案。未完成事项被保留，进入阶段结算。",
+            "outcome": "暂缓调查",
+            "taskStatus": "suspended",
+            "taskIds": [
+              "de-task-case"
+            ]
+          },
+          {
+            "id": "rest_node",
+            "sceneId": "hotel",
+            "title": "房间安静下来。休息会跳到次日08:0",
+            "kind": "dialogue",
+            "speakerId": "host",
+            "text": "房间安静下来。休息会跳到次日08:00，思想内化只按该段实际推进的游戏时间累计。",
+            "outcome": "",
+            "taskStatus": "unchanged",
+            "taskIds": []
+          },
+          {
+            "id": "exit_dialogue",
+            "sceneId": "investigation",
+            "title": "返回港区调查",
+            "kind": "hub",
+            "speakerId": "partner",
+            "text": "收起笔记，返回调查行动。这个节点只结束本段对话，不结束案件。",
+            "outcome": "",
+            "taskStatus": "unchanged",
+            "taskIds": []
+          },
+          {
+            "id": "recovery",
+            "sceneId": "investigation",
+            "title": "紧急恢复",
+            "text": "你已无法继续行动。可以消耗恢复物，或明确暂缓本次调查。",
+            "kind": "narration",
+            "speakerId": "",
+            "outcome": "",
+            "taskStatus": "unchanged",
+            "taskIds": []
+          },
+          {
+            "id": "resume-investigation",
+            "sceneId": "investigation",
+            "title": "恢复后继续",
+            "text": "恢复完成，继续阅读原先的结果。",
+            "kind": "return",
+            "speakerId": "",
+            "outcome": "",
+            "taskStatus": "unchanged",
+            "taskIds": []
+          }
+        ],
+        "choices": [
+          {
+            "id": "begin",
+            "fromId": "opening",
+            "toId": "yard_hub",
+            "label": "开始调查",
+            "condition": {
+              "groups": [
+                []
+              ]
+            },
+            "effects": [],
+            "once": true,
+            "passive": false,
+            "cost": 0,
+            "checkId": ""
+          },
+          {
+            "id": "host_chat",
+            "fromId": "opening",
+            "toId": "host_hub",
+            "label": "先问旅馆店主",
+            "condition": {
+              "groups": [
+                []
+              ]
+            },
+            "effects": [],
+            "once": true,
+            "passive": false,
+            "cost": 0,
+            "checkId": ""
+          },
+          {
+            "id": "ask_time",
+            "fromId": "host_hub",
+            "toId": "host_time",
+            "label": "核对茶钱的收款时间",
+            "condition": {
+              "groups": [
+                []
+              ]
+            },
+            "effects": [
+              {
+                "variableId": "timeline_found",
+                "op": "set",
+                "value": 1
+              }
+            ],
+            "once": true,
+            "passive": false,
+            "cost": 300,
+            "checkId": ""
+          },
+          {
+            "id": "ask_rent",
+            "fromId": "host_hub",
+            "toId": "rent_offer",
+            "label": "谈谈今晚住宿",
+            "condition": {
+              "groups": [
+                []
+              ]
+            },
+            "effects": [],
+            "once": false,
+            "passive": false,
+            "cost": 0,
+            "checkId": ""
+          },
+          {
+            "id": "pay_rent",
+            "fromId": "rent_offer",
+            "toId": "rent_done",
+            "label": "支付八枚硬币",
+            "condition": {
+              "groups": [
+                [
+                  {
+                    "variableId": "money",
+                    "op": "gte",
+                    "value": 8
+                  },
+                  {
+                    "variableId": "rent_paid",
+                    "op": "eq",
+                    "value": 0
+                  }
+                ]
+              ]
+            },
+            "effects": [
+              {
+                "variableId": "money",
+                "op": "add",
+                "value": -8
+              },
+              {
+                "variableId": "rent_paid",
+                "op": "set",
+                "value": 1
+              }
+            ],
+            "once": true,
+            "passive": false,
+            "cost": 120,
+            "checkId": ""
+          },
+          {
+            "id": "return_parcel",
+            "fromId": "rent_offer",
+            "toId": "parcel_done",
+            "label": "归还未寄出的家书",
+            "condition": {
+              "groups": [
+                [
+                  {
+                    "variableId": "parcel_found",
+                    "op": "eq",
+                    "value": 1
+                  },
+                  {
+                    "variableId": "parcel_returned",
+                    "op": "eq",
+                    "value": 0
+                  }
+                ]
+              ]
+            },
+            "effects": [
+              {
+                "variableId": "parcel_returned",
+                "op": "set",
+                "value": 1
+              },
+              {
+                "variableId": "rent_paid",
+                "op": "set",
+                "value": 1
+              },
+              {
+                "variableId": "partner_trust",
+                "op": "add",
+                "value": 1
+              },
+              {
+                "variableId": "xp",
+                "op": "add",
+                "value": 5
+              }
+            ],
+            "once": true,
+            "passive": false,
+            "cost": 120,
+            "checkId": ""
+          },
+          {
+            "id": "rent_later",
+            "fromId": "rent_offer",
+            "toId": "exit_dialogue",
+            "label": "以后再来",
+            "condition": {
+              "groups": [
+                []
+              ]
+            },
+            "effects": [],
+            "once": false,
+            "passive": false,
+            "cost": 0,
+            "checkId": ""
+          },
+          {
+            "id": "rope_try",
+            "fromId": "yard_hub",
+            "toId": "rope_success",
+            "label": "检查绳索断口",
+            "condition": {
+              "groups": [
+                []
+              ]
+            },
+            "effects": [],
+            "once": false,
+            "passive": false,
+            "cost": 300,
+            "checkId": "rope"
+          },
+          {
+            "id": "parcel_search",
+            "fromId": "yard_hub",
+            "toId": "parcel_found_node",
+            "label": "捡起设备台下的信封",
+            "condition": {
+              "groups": [
+                []
+              ]
+            },
+            "effects": [
+              {
+                "variableId": "parcel_found",
+                "op": "set",
+                "value": 1
+              }
+            ],
+            "once": true,
+            "passive": false,
+            "cost": 120,
+            "checkId": ""
+          },
+          {
+            "id": "visual_listen",
+            "fromId": "yard_hub",
+            "toId": "yard_voice",
+            "label": "听听脑海中的重建",
+            "condition": {
+              "groups": [
+                [
+                  {
+                    "variableId": "skill:visual",
+                    "op": "gte",
+                    "value": 2
+                  },
+                  {
+                    "variableId": "skill:visual",
+                    "op": "gte",
+                    "value": 2
+                  }
+                ]
+              ]
+            },
+            "effects": [],
+            "once": true,
+            "passive": true,
+            "cost": 0,
+            "checkId": ""
+          },
+          {
+            "id": "believe_voice",
+            "fromId": "yard_voice",
+            "toId": "exit_dialogue",
+            "label": "先保留人为破坏的假说",
+            "condition": {
+              "groups": [
+                []
+              ]
+            },
+            "effects": [
+              {
+                "variableId": "hypothesis_sabotage",
+                "op": "set",
+                "value": 1
+              }
+            ],
+            "once": true,
+            "passive": false,
+            "cost": 0,
+            "checkId": ""
+          },
+          {
+            "id": "doubt_voice",
+            "fromId": "yard_voice",
+            "toId": "thought_hint",
+            "label": "把假说和事实分开",
+            "condition": {
+              "groups": [
+                []
+              ]
+            },
+            "effects": [
+              {
+                "variableId": "thought_doubt_known",
+                "op": "set",
+                "value": 1
+              }
+            ],
+            "once": true,
+            "passive": false,
+            "cost": 0,
+            "checkId": ""
+          },
+          {
+            "id": "witness_listen",
+            "fromId": "witness_hub",
+            "toId": "witness_voice",
+            "label": "留意她没有说出口的话",
+            "condition": {
+              "groups": [
+                [
+                  {
+                    "variableId": "skill:empathy",
+                    "op": "gte",
+                    "value": 3
+                  },
+                  {
+                    "variableId": "skill:empathy",
+                    "op": "gte",
+                    "value": 3
+                  }
+                ]
+              ]
+            },
+            "effects": [],
+            "once": true,
+            "passive": true,
+            "cost": 0,
+            "checkId": ""
+          },
+          {
+            "id": "testimony_try",
+            "fromId": "witness_hub",
+            "toId": "witness_success",
+            "label": "保证不将她的恐惧当成罪证",
+            "condition": {
+              "groups": [
+                []
+              ]
+            },
+            "effects": [],
+            "once": false,
+            "passive": false,
+            "cost": 300,
+            "checkId": "testimony"
+          },
+          {
+            "id": "show_ledger",
+            "fromId": "witness_hub",
+            "toId": "witness_revisit",
+            "label": "出示新账册，重新建立话题",
+            "condition": {
+              "groups": [
+                [
+                  {
+                    "variableId": "ledger_found",
+                    "op": "eq",
+                    "value": 1
+                  }
+                ]
+              ]
+            },
+            "effects": [],
+            "once": true,
+            "passive": false,
+            "cost": 120,
+            "checkId": ""
+          },
+          {
+            "id": "show_copy",
+            "fromId": "witness_hub",
+            "toId": "witness_revisit",
+            "label": "出示医师保留的复写件",
+            "condition": {
+              "groups": [
+                [
+                  {
+                    "variableId": "copy_found",
+                    "op": "eq",
+                    "value": 1
+                  }
+                ]
+              ]
+            },
+            "effects": [],
+            "once": true,
+            "passive": false,
+            "cost": 120,
+            "checkId": ""
+          },
+          {
+            "id": "testimony_retry",
+            "fromId": "witness_revisit",
+            "toId": "witness_success",
+            "label": "再次询问机器是否停转",
+            "condition": {
+              "groups": [
+                []
+              ]
+            },
+            "effects": [],
+            "once": false,
+            "passive": false,
+            "cost": 300,
+            "checkId": "testimony"
+          },
+          {
+            "id": "witness_thought",
+            "fromId": "witness_success",
+            "toId": "thought_hint",
+            "label": "思考谁承担工作的风险",
+            "condition": {
+              "groups": [
+                []
+              ]
+            },
+            "effects": [
+              {
+                "variableId": "thought_worker_known",
+                "op": "set",
+                "value": 1
+              }
+            ],
+            "once": true,
+            "passive": false,
+            "cost": 0,
+            "checkId": ""
+          },
+          {
+            "id": "pressure_listen",
+            "fromId": "foreman_hub",
+            "toId": "foreman_voice",
+            "label": "听见权威的催促",
+            "condition": {
+              "groups": [
+                [
+                  {
+                    "variableId": "skill:authority",
+                    "op": "gte",
+                    "value": 2
+                  },
+                  {
+                    "variableId": "skill:authority",
+                    "op": "gte",
+                    "value": 2
+                  }
+                ]
+              ]
+            },
+            "effects": [],
+            "once": true,
+            "passive": true,
+            "cost": 0,
+            "checkId": ""
+          },
+          {
+            "id": "pressure_try",
+            "fromId": "foreman_hub",
+            "toId": "foreman_success",
+            "label": "当面逼问维修安排（仅一次）",
+            "condition": {
+              "groups": [
+                []
+              ]
+            },
+            "effects": [],
+            "once": false,
+            "passive": false,
+            "cost": 300,
+            "checkId": "pressure"
+          },
+          {
+            "id": "pressure_from_voice",
+            "fromId": "foreman_voice",
+            "toId": "foreman_success",
+            "label": "采纳这次威压建议（仅一次）",
+            "condition": {
+              "groups": [
+                []
+              ]
+            },
+            "effects": [],
+            "once": false,
+            "passive": false,
+            "cost": 300,
+            "checkId": "pressure"
+          },
+          {
+            "id": "read_ledger",
+            "fromId": "clerk_hub",
+            "toId": "ledger_success",
+            "label": "核对停机与签字时间",
+            "condition": {
+              "groups": [
+                []
+              ]
+            },
+            "effects": [],
+            "once": false,
+            "passive": false,
+            "cost": 600,
+            "checkId": "ledger"
+          },
+          {
+            "id": "doctor_copy",
+            "fromId": "doctor_hub",
+            "toId": "copy_node",
+            "label": "请她说明送诊时间",
+            "condition": {
+              "groups": [
+                []
+              ]
+            },
+            "effects": [
+              {
+                "variableId": "copy_found",
+                "op": "set",
+                "value": 1
+              }
+            ],
+            "once": true,
+            "passive": false,
+            "cost": 300,
+            "checkId": ""
+          },
+          {
+            "id": "ask_care",
+            "fromId": "doctor_hub",
+            "toId": "care_success",
+            "label": "坦诚说明精神状态（仅一次）",
+            "condition": {
+              "groups": [
+                []
+              ]
+            },
+            "effects": [],
+            "once": false,
+            "passive": false,
+            "cost": 120,
+            "checkId": "care"
+          },
+          {
+            "id": "buy_care",
+            "fromId": "doctor_hub",
+            "toId": "exit_dialogue",
+            "label": "购买一份恢复物（四枚硬币）",
+            "condition": {
+              "groups": [
+                [
+                  {
+                    "variableId": "money",
+                    "op": "gte",
+                    "value": 4
+                  }
+                ]
+              ]
+            },
+            "effects": [
+              {
+                "variableId": "money",
+                "op": "add",
+                "value": -4
+              },
+              {
+                "variableId": "meds",
+                "op": "add",
+                "value": 1
+              }
+            ],
+            "once": false,
+            "passive": false,
+            "cost": 60,
+            "checkId": ""
+          },
+          {
+            "id": "remember",
+            "fromId": "host_time",
+            "toId": "thought_hint",
+            "label": "试着整理失去的记忆",
+            "condition": {
+              "groups": [
+                []
+              ]
+            },
+            "effects": [
+              {
+                "variableId": "thought_memory_known",
+                "op": "set",
+                "value": 1
+              }
+            ],
+            "once": true,
+            "passive": false,
+            "cost": 0,
+            "checkId": ""
+          },
+          {
+            "id": "thought_option",
+            "fromId": "report_hub",
+            "toId": "thought_reply",
+            "label": "承认目前的猜测有偏见",
+            "condition": {
+              "groups": [
+                [
+                  {
+                    "variableId": "thought_doubt_done",
+                    "op": "eq",
+                    "value": 1
+                  }
+                ]
+              ]
+            },
+            "effects": [
+              {
+                "variableId": "partner_trust",
+                "op": "add",
+                "value": 1
+              }
+            ],
+            "once": true,
+            "passive": false,
+            "cost": 120,
+            "checkId": ""
+          },
+          {
+            "id": "true_ledger_found_testimony_found",
+            "fromId": "report_hub",
+            "toId": "report_true",
+            "label": "提交交叉验证后的事故报告",
+            "condition": {
+              "groups": [
+                [
+                  {
+                    "variableId": "rope_found",
+                    "op": "eq",
+                    "value": 1
+                  },
+                  {
+                    "variableId": "ledger_found",
+                    "op": "eq",
+                    "value": 1
+                  },
+                  {
+                    "variableId": "testimony_found",
+                    "op": "eq",
+                    "value": 1
+                  },
+                  {
+                    "variableId": "case_closed",
+                    "op": "eq",
+                    "value": 0
+                  }
+                ]
+              ]
+            },
+            "effects": [
+              {
+                "variableId": "case_closed",
+                "op": "set",
+                "value": 1
+              }
+            ],
+            "once": true,
+            "passive": false,
+            "cost": 300,
+            "checkId": ""
+          },
+          {
+            "id": "true_ledger_found_note_found",
+            "fromId": "report_hub",
+            "toId": "report_true",
+            "label": "提交交叉验证后的事故报告",
+            "condition": {
+              "groups": [
+                [
+                  {
+                    "variableId": "rope_found",
+                    "op": "eq",
+                    "value": 1
+                  },
+                  {
+                    "variableId": "ledger_found",
+                    "op": "eq",
+                    "value": 1
+                  },
+                  {
+                    "variableId": "note_found",
+                    "op": "eq",
+                    "value": 1
+                  },
+                  {
+                    "variableId": "case_closed",
+                    "op": "eq",
+                    "value": 0
+                  }
+                ]
+              ]
+            },
+            "effects": [
+              {
+                "variableId": "case_closed",
+                "op": "set",
+                "value": 1
+              }
+            ],
+            "once": true,
+            "passive": false,
+            "cost": 300,
+            "checkId": ""
+          },
+          {
+            "id": "true_copy_found_testimony_found",
+            "fromId": "report_hub",
+            "toId": "report_true",
+            "label": "提交交叉验证后的事故报告",
+            "condition": {
+              "groups": [
+                [
+                  {
+                    "variableId": "rope_found",
+                    "op": "eq",
+                    "value": 1
+                  },
+                  {
+                    "variableId": "copy_found",
+                    "op": "eq",
+                    "value": 1
+                  },
+                  {
+                    "variableId": "testimony_found",
+                    "op": "eq",
+                    "value": 1
+                  },
+                  {
+                    "variableId": "case_closed",
+                    "op": "eq",
+                    "value": 0
+                  }
+                ]
+              ]
+            },
+            "effects": [
+              {
+                "variableId": "case_closed",
+                "op": "set",
+                "value": 1
+              }
+            ],
+            "once": true,
+            "passive": false,
+            "cost": 300,
+            "checkId": ""
+          },
+          {
+            "id": "true_copy_found_note_found",
+            "fromId": "report_hub",
+            "toId": "report_true",
+            "label": "提交交叉验证后的事故报告",
+            "condition": {
+              "groups": [
+                [
+                  {
+                    "variableId": "rope_found",
+                    "op": "eq",
+                    "value": 1
+                  },
+                  {
+                    "variableId": "copy_found",
+                    "op": "eq",
+                    "value": 1
+                  },
+                  {
+                    "variableId": "note_found",
+                    "op": "eq",
+                    "value": 1
+                  },
+                  {
+                    "variableId": "case_closed",
+                    "op": "eq",
+                    "value": 0
+                  }
+                ]
+              ]
+            },
+            "effects": [
+              {
+                "variableId": "case_closed",
+                "op": "set",
+                "value": 1
+              }
+            ],
+            "once": true,
+            "passive": false,
+            "cost": 300,
+            "checkId": ""
+          },
+          {
+            "id": "wrong_report",
+            "fromId": "report_hub",
+            "toId": "report_wrong",
+            "label": "坚持谋杀假说并提交",
+            "condition": {
+              "groups": [
+                [
+                  {
+                    "variableId": "hypothesis_sabotage",
+                    "op": "eq",
+                    "value": 1
+                  },
+                  {
+                    "variableId": "case_closed",
+                    "op": "eq",
+                    "value": 0
+                  }
+                ]
+              ]
+            },
+            "effects": [
+              {
+                "variableId": "case_closed",
+                "op": "set",
+                "value": 1
+              }
+            ],
+            "once": true,
+            "passive": false,
+            "cost": 300,
+            "checkId": ""
+          },
+          {
+            "id": "pause_report",
+            "fromId": "report_hub",
+            "toId": "report_pause",
+            "label": "明确证据不足，暂缓调查",
+            "condition": {
+              "groups": [
+                [
+                  {
+                    "variableId": "case_closed",
+                    "op": "eq",
+                    "value": 0
+                  }
+                ]
+              ]
+            },
+            "effects": [
+              {
+                "variableId": "case_closed",
+                "op": "set",
+                "value": 1
+              }
+            ],
+            "once": true,
+            "passive": false,
+            "cost": 0,
+            "checkId": ""
+          },
+          {
+            "id": "sleep",
+            "fromId": "host_hub",
+            "toId": "rest_node",
+            "label": "结束今天，休息至次日",
+            "condition": {
+              "groups": [
+                [
+                  {
+                    "variableId": "rent_paid",
+                    "op": "eq",
+                    "value": 1
+                  },
+                  {
+                    "variableId": "elapsed",
+                    "op": "gte",
+                    "value": 75600
+                  },
+                  {
+                    "variableId": "elapsed",
+                    "op": "lt",
+                    "value": 86400
+                  }
+                ]
+              ]
+            },
+            "effects": [
+              {
+                "variableId": "elapsed",
+                "op": "set",
+                "value": 115200
+              },
+              {
+                "variableId": "health",
+                "op": "set",
+                "value": 3
+              },
+              {
+                "variableId": "morale",
+                "op": "set",
+                "value": 3
+              }
+            ],
+            "once": false,
+            "passive": false,
+            "cost": 0,
+            "checkId": ""
+          },
+          {
+            "id": "leave_opening",
+            "fromId": "opening",
+            "toId": "exit_dialogue",
+            "label": "收起笔记，返回调查",
+            "condition": {
+              "groups": [
+                []
+              ]
+            },
+            "effects": [],
+            "once": false,
+            "passive": false,
+            "cost": 0,
+            "checkId": ""
+          },
+          {
+            "id": "leave_host_hub",
+            "fromId": "host_hub",
+            "toId": "exit_dialogue",
+            "label": "收起笔记，返回调查",
+            "condition": {
+              "groups": [
+                []
+              ]
+            },
+            "effects": [],
+            "once": false,
+            "passive": false,
+            "cost": 0,
+            "checkId": ""
+          },
+          {
+            "id": "leave_host_time",
+            "fromId": "host_time",
+            "toId": "exit_dialogue",
+            "label": "收起笔记，返回调查",
+            "condition": {
+              "groups": [
+                []
+              ]
+            },
+            "effects": [],
+            "once": false,
+            "passive": false,
+            "cost": 0,
+            "checkId": ""
+          },
+          {
+            "id": "leave_rent_done",
+            "fromId": "rent_done",
+            "toId": "exit_dialogue",
+            "label": "收起笔记，返回调查",
+            "condition": {
+              "groups": [
+                []
+              ]
+            },
+            "effects": [],
+            "once": false,
+            "passive": false,
+            "cost": 0,
+            "checkId": ""
+          },
+          {
+            "id": "leave_parcel_done",
+            "fromId": "parcel_done",
+            "toId": "exit_dialogue",
+            "label": "收起笔记，返回调查",
+            "condition": {
+              "groups": [
+                []
+              ]
+            },
+            "effects": [],
+            "once": false,
+            "passive": false,
+            "cost": 0,
+            "checkId": ""
+          },
+          {
+            "id": "leave_yard_hub",
+            "fromId": "yard_hub",
+            "toId": "exit_dialogue",
+            "label": "收起笔记，返回调查",
+            "condition": {
+              "groups": [
+                []
+              ]
+            },
+            "effects": [],
+            "once": false,
+            "passive": false,
+            "cost": 0,
+            "checkId": ""
+          },
+          {
+            "id": "leave_rope_success",
+            "fromId": "rope_success",
+            "toId": "exit_dialogue",
+            "label": "收起笔记，返回调查",
+            "condition": {
+              "groups": [
+                []
+              ]
+            },
+            "effects": [],
+            "once": false,
+            "passive": false,
+            "cost": 0,
+            "checkId": ""
+          },
+          {
+            "id": "leave_rope_failure",
+            "fromId": "rope_failure",
+            "toId": "exit_dialogue",
+            "label": "收起笔记，返回调查",
+            "condition": {
+              "groups": [
+                []
+              ]
+            },
+            "effects": [],
+            "once": false,
+            "passive": false,
+            "cost": 0,
+            "checkId": ""
+          },
+          {
+            "id": "leave_parcel_found_node",
+            "fromId": "parcel_found_node",
+            "toId": "exit_dialogue",
+            "label": "收起笔记，返回调查",
+            "condition": {
+              "groups": [
+                []
+              ]
+            },
+            "effects": [],
+            "once": false,
+            "passive": false,
+            "cost": 0,
+            "checkId": ""
+          },
+          {
+            "id": "leave_witness_hub",
+            "fromId": "witness_hub",
+            "toId": "exit_dialogue",
+            "label": "收起笔记，返回调查",
+            "condition": {
+              "groups": [
+                []
+              ]
+            },
+            "effects": [],
+            "once": false,
+            "passive": false,
+            "cost": 0,
+            "checkId": ""
+          },
+          {
+            "id": "leave_witness_voice",
+            "fromId": "witness_voice",
+            "toId": "witness_hub",
+            "label": "收起笔记，返回调查",
+            "condition": {
+              "groups": [
+                []
+              ]
+            },
+            "effects": [],
+            "once": false,
+            "passive": false,
+            "cost": 0,
+            "checkId": ""
+          },
+          {
+            "id": "leave_witness_success",
+            "fromId": "witness_success",
+            "toId": "exit_dialogue",
+            "label": "收起笔记，返回调查",
+            "condition": {
+              "groups": [
+                []
+              ]
+            },
+            "effects": [],
+            "once": false,
+            "passive": false,
+            "cost": 0,
+            "checkId": ""
+          },
+          {
+            "id": "leave_witness_failure",
+            "fromId": "witness_failure",
+            "toId": "exit_dialogue",
+            "label": "收起笔记，返回调查",
+            "condition": {
+              "groups": [
+                []
+              ]
+            },
+            "effects": [],
+            "once": false,
+            "passive": false,
+            "cost": 0,
+            "checkId": ""
+          },
+          {
+            "id": "leave_witness_revisit",
+            "fromId": "witness_revisit",
+            "toId": "exit_dialogue",
+            "label": "收起笔记，返回调查",
+            "condition": {
+              "groups": [
+                []
+              ]
+            },
+            "effects": [],
+            "once": false,
+            "passive": false,
+            "cost": 0,
+            "checkId": ""
+          },
+          {
+            "id": "leave_foreman_hub",
+            "fromId": "foreman_hub",
+            "toId": "exit_dialogue",
+            "label": "收起笔记，返回调查",
+            "condition": {
+              "groups": [
+                []
+              ]
+            },
+            "effects": [],
+            "once": false,
+            "passive": false,
+            "cost": 0,
+            "checkId": ""
+          },
+          {
+            "id": "leave_foreman_voice",
+            "fromId": "foreman_voice",
+            "toId": "foreman_hub",
+            "label": "收起笔记，返回调查",
+            "condition": {
+              "groups": [
+                []
+              ]
+            },
+            "effects": [],
+            "once": false,
+            "passive": false,
+            "cost": 0,
+            "checkId": ""
+          },
+          {
+            "id": "leave_foreman_success",
+            "fromId": "foreman_success",
+            "toId": "exit_dialogue",
+            "label": "收起笔记，返回调查",
+            "condition": {
+              "groups": [
+                []
+              ]
+            },
+            "effects": [],
+            "once": false,
+            "passive": false,
+            "cost": 0,
+            "checkId": ""
+          },
+          {
+            "id": "leave_foreman_failure",
+            "fromId": "foreman_failure",
+            "toId": "exit_dialogue",
+            "label": "收起笔记，返回调查",
+            "condition": {
+              "groups": [
+                []
+              ]
+            },
+            "effects": [],
+            "once": false,
+            "passive": false,
+            "cost": 0,
+            "checkId": ""
+          },
+          {
+            "id": "leave_clerk_hub",
+            "fromId": "clerk_hub",
+            "toId": "exit_dialogue",
+            "label": "收起笔记，返回调查",
+            "condition": {
+              "groups": [
+                []
+              ]
+            },
+            "effects": [],
+            "once": false,
+            "passive": false,
+            "cost": 0,
+            "checkId": ""
+          },
+          {
+            "id": "leave_ledger_success",
+            "fromId": "ledger_success",
+            "toId": "exit_dialogue",
+            "label": "收起笔记，返回调查",
+            "condition": {
+              "groups": [
+                []
+              ]
+            },
+            "effects": [],
+            "once": false,
+            "passive": false,
+            "cost": 0,
+            "checkId": ""
+          },
+          {
+            "id": "leave_ledger_failure",
+            "fromId": "ledger_failure",
+            "toId": "exit_dialogue",
+            "label": "收起笔记，返回调查",
+            "condition": {
+              "groups": [
+                []
+              ]
+            },
+            "effects": [],
+            "once": false,
+            "passive": false,
+            "cost": 0,
+            "checkId": ""
+          },
+          {
+            "id": "leave_copy_node",
+            "fromId": "copy_node",
+            "toId": "exit_dialogue",
+            "label": "收起笔记，返回调查",
+            "condition": {
+              "groups": [
+                []
+              ]
+            },
+            "effects": [],
+            "once": false,
+            "passive": false,
+            "cost": 0,
+            "checkId": ""
+          },
+          {
+            "id": "leave_care_success",
+            "fromId": "care_success",
+            "toId": "exit_dialogue",
+            "label": "收起笔记，返回调查",
+            "condition": {
+              "groups": [
+                []
+              ]
+            },
+            "effects": [],
+            "once": false,
+            "passive": false,
+            "cost": 0,
+            "checkId": ""
+          },
+          {
+            "id": "leave_care_failure",
+            "fromId": "care_failure",
+            "toId": "exit_dialogue",
+            "label": "收起笔记，返回调查",
+            "condition": {
+              "groups": [
+                []
+              ]
+            },
+            "effects": [],
+            "once": false,
+            "passive": false,
+            "cost": 0,
+            "checkId": ""
+          },
+          {
+            "id": "leave_thought_hint",
+            "fromId": "thought_hint",
+            "toId": "exit_dialogue",
+            "label": "收起笔记，返回调查",
+            "condition": {
+              "groups": [
+                []
+              ]
+            },
+            "effects": [],
+            "once": false,
+            "passive": false,
+            "cost": 0,
+            "checkId": ""
+          },
+          {
+            "id": "leave_thought_reply",
+            "fromId": "thought_reply",
+            "toId": "exit_dialogue",
+            "label": "收起笔记，返回调查",
+            "condition": {
+              "groups": [
+                []
+              ]
+            },
+            "effects": [],
+            "once": false,
+            "passive": false,
+            "cost": 0,
+            "checkId": ""
+          },
+          {
+            "id": "leave_report_hub",
+            "fromId": "report_hub",
+            "toId": "exit_dialogue",
+            "label": "收起笔记，返回调查",
+            "condition": {
+              "groups": [
+                [
+                  {
+                    "variableId": "elapsed",
+                    "op": "lt",
+                    "value": 165600
+                  }
+                ]
+              ]
+            },
+            "effects": [],
+            "once": false,
+            "passive": false,
+            "cost": 0,
+            "checkId": ""
+          },
+          {
+            "id": "leave_rest_node",
+            "fromId": "rest_node",
+            "toId": "exit_dialogue",
+            "label": "收起笔记，返回调查",
+            "condition": {
+              "groups": [
+                []
+              ]
+            },
+            "effects": [],
+            "once": false,
+            "passive": false,
+            "cost": 0,
+            "checkId": ""
+          },
+          {
+            "id": "partner_rope",
+            "fromId": "rope_failure",
+            "toId": "rope_success",
+            "label": "请搭档协助收集绳端（额外十分钟）",
+            "condition": {
+              "groups": [
+                []
+              ]
+            },
+            "effects": [
+              {
+                "variableId": "rope_found",
+                "op": "set",
+                "value": 1
+              }
+            ],
+            "once": true,
+            "passive": false,
+            "cost": 600,
+            "checkId": ""
+          },
+          {
+            "id": "visit-yard",
+            "fromId": "exit_dialogue",
+            "toId": "yard_hub",
+            "label": "前往卸货后院",
+            "condition": {
+              "groups": [
+                [
+                  {
+                    "variableId": "case_closed",
+                    "op": "eq",
+                    "value": 0
+                  },
+                  {
+                    "variableId": "elapsed",
+                    "op": "lt",
+                    "value": 165600
+                  }
+                ]
+              ]
+            },
+            "effects": [],
+            "cost": 0,
+            "once": false,
+            "passive": false,
+            "checkId": ""
+          },
+          {
+            "id": "visit-partner",
+            "fromId": "exit_dialogue",
+            "toId": "report_hub",
+            "label": "拜访搭档林恩",
+            "condition": {
+              "groups": [
+                [
+                  {
+                    "variableId": "case_closed",
+                    "op": "eq",
+                    "value": 0
+                  },
+                  {
+                    "variableId": "elapsed",
+                    "op": "lt",
+                    "value": 165600
+                  },
+                  {
+                    "variableId": "elapsed",
+                    "op": "gte",
+                    "value": 28800
+                  },
+                  {
+                    "variableId": "elapsed",
+                    "op": "lt",
+                    "value": 82800
+                  }
+                ],
+                [
+                  {
+                    "variableId": "case_closed",
+                    "op": "eq",
+                    "value": 0
+                  },
+                  {
+                    "variableId": "elapsed",
+                    "op": "lt",
+                    "value": 165600
+                  },
+                  {
+                    "variableId": "elapsed",
+                    "op": "gte",
+                    "value": 115200
+                  },
+                  {
+                    "variableId": "elapsed",
+                    "op": "lt",
+                    "value": 169200
+                  }
+                ]
+              ]
+            },
+            "effects": [],
+            "cost": 0,
+            "once": false,
+            "passive": false,
+            "checkId": ""
+          },
+          {
+            "id": "visit-host",
+            "fromId": "exit_dialogue",
+            "toId": "host_hub",
+            "label": "拜访店主玛拉",
+            "condition": {
+              "groups": [
+                [
+                  {
+                    "variableId": "case_closed",
+                    "op": "eq",
+                    "value": 0
+                  },
+                  {
+                    "variableId": "elapsed",
+                    "op": "lt",
+                    "value": 165600
+                  },
+                  {
+                    "variableId": "elapsed",
+                    "op": "gte",
+                    "value": 28800
+                  },
+                  {
+                    "variableId": "elapsed",
+                    "op": "lt",
+                    "value": 82800
+                  }
+                ],
+                [
+                  {
+                    "variableId": "case_closed",
+                    "op": "eq",
+                    "value": 0
+                  },
+                  {
+                    "variableId": "elapsed",
+                    "op": "lt",
+                    "value": 165600
+                  },
+                  {
+                    "variableId": "elapsed",
+                    "op": "gte",
+                    "value": 115200
+                  },
+                  {
+                    "variableId": "elapsed",
+                    "op": "lt",
+                    "value": 169200
+                  }
+                ]
+              ]
+            },
+            "effects": [],
+            "cost": 0,
+            "once": false,
+            "passive": false,
+            "checkId": ""
+          },
+          {
+            "id": "visit-witness",
+            "fromId": "exit_dialogue",
+            "toId": "witness_hub",
+            "label": "拜访装卸工埃达",
+            "condition": {
+              "groups": [
+                [
+                  {
+                    "variableId": "case_closed",
+                    "op": "eq",
+                    "value": 0
+                  },
+                  {
+                    "variableId": "elapsed",
+                    "op": "lt",
+                    "value": 165600
+                  },
+                  {
+                    "variableId": "elapsed",
+                    "op": "gte",
+                    "value": 32400
+                  },
+                  {
+                    "variableId": "elapsed",
+                    "op": "lt",
+                    "value": 61200
+                  }
+                ],
+                [
+                  {
+                    "variableId": "case_closed",
+                    "op": "eq",
+                    "value": 0
+                  },
+                  {
+                    "variableId": "elapsed",
+                    "op": "lt",
+                    "value": 165600
+                  },
+                  {
+                    "variableId": "elapsed",
+                    "op": "gte",
+                    "value": 118800
+                  },
+                  {
+                    "variableId": "elapsed",
+                    "op": "lt",
+                    "value": 147600
+                  }
+                ]
+              ]
+            },
+            "effects": [],
+            "cost": 0,
+            "once": false,
+            "passive": false,
+            "checkId": ""
+          },
+          {
+            "id": "visit-foreman",
+            "fromId": "exit_dialogue",
+            "toId": "foreman_hub",
+            "label": "拜访工头维克",
+            "condition": {
+              "groups": [
+                [
+                  {
+                    "variableId": "case_closed",
+                    "op": "eq",
+                    "value": 0
+                  },
+                  {
+                    "variableId": "elapsed",
+                    "op": "lt",
+                    "value": 165600
+                  },
+                  {
+                    "variableId": "elapsed",
+                    "op": "gte",
+                    "value": 32400
+                  },
+                  {
+                    "variableId": "elapsed",
+                    "op": "lt",
+                    "value": 64800
+                  }
+                ],
+                [
+                  {
+                    "variableId": "case_closed",
+                    "op": "eq",
+                    "value": 0
+                  },
+                  {
+                    "variableId": "elapsed",
+                    "op": "lt",
+                    "value": 165600
+                  },
+                  {
+                    "variableId": "elapsed",
+                    "op": "gte",
+                    "value": 118800
+                  },
+                  {
+                    "variableId": "elapsed",
+                    "op": "lt",
+                    "value": 151200
+                  }
+                ]
+              ]
+            },
+            "effects": [],
+            "cost": 0,
+            "once": false,
+            "passive": false,
+            "checkId": ""
+          },
+          {
+            "id": "visit-clerk",
+            "fromId": "exit_dialogue",
+            "toId": "clerk_hub",
+            "label": "拜访档案员诺拉",
+            "condition": {
+              "groups": [
+                [
+                  {
+                    "variableId": "case_closed",
+                    "op": "eq",
+                    "value": 0
+                  },
+                  {
+                    "variableId": "elapsed",
+                    "op": "lt",
+                    "value": 165600
+                  },
+                  {
+                    "variableId": "elapsed",
+                    "op": "gte",
+                    "value": 32400
+                  },
+                  {
+                    "variableId": "elapsed",
+                    "op": "lt",
+                    "value": 64800
+                  }
+                ],
+                [
+                  {
+                    "variableId": "case_closed",
+                    "op": "eq",
+                    "value": 0
+                  },
+                  {
+                    "variableId": "elapsed",
+                    "op": "lt",
+                    "value": 165600
+                  },
+                  {
+                    "variableId": "elapsed",
+                    "op": "gte",
+                    "value": 118800
+                  },
+                  {
+                    "variableId": "elapsed",
+                    "op": "lt",
+                    "value": 151200
+                  }
+                ]
+              ]
+            },
+            "effects": [],
+            "cost": 0,
+            "once": false,
+            "passive": false,
+            "checkId": ""
+          },
+          {
+            "id": "visit-doctor",
+            "fromId": "exit_dialogue",
+            "toId": "doctor_hub",
+            "label": "拜访医师赛尔",
+            "condition": {
+              "groups": [
+                [
+                  {
+                    "variableId": "case_closed",
+                    "op": "eq",
+                    "value": 0
+                  },
+                  {
+                    "variableId": "elapsed",
+                    "op": "lt",
+                    "value": 165600
+                  },
+                  {
+                    "variableId": "elapsed",
+                    "op": "gte",
+                    "value": 64800
+                  },
+                  {
+                    "variableId": "elapsed",
+                    "op": "lt",
+                    "value": 82800
+                  }
+                ],
+                [
+                  {
+                    "variableId": "case_closed",
+                    "op": "eq",
+                    "value": 0
+                  },
+                  {
+                    "variableId": "elapsed",
+                    "op": "lt",
+                    "value": 165600
+                  },
+                  {
+                    "variableId": "elapsed",
+                    "op": "gte",
+                    "value": 151200
+                  },
+                  {
+                    "variableId": "elapsed",
+                    "op": "lt",
+                    "value": 169200
+                  }
+                ]
+              ]
+            },
+            "effects": [],
+            "cost": 0,
+            "once": false,
+            "passive": false,
+            "checkId": ""
+          },
+          {
+            "id": "return-report",
+            "fromId": "exit_dialogue",
+            "toId": "report_hub",
+            "label": "返回旅馆汇报案情",
+            "condition": {
+              "groups": [
+                [
+                  {
+                    "variableId": "case_closed",
+                    "op": "eq",
+                    "value": 0
+                  }
+                ]
+              ]
+            },
+            "effects": [],
+            "cost": 0,
+            "once": false,
+            "passive": false,
+            "checkId": ""
+          },
+          {
+            "id": "wait-half-hour",
+            "fromId": "exit_dialogue",
+            "toId": "exit_dialogue",
+            "label": "等待半小时",
+            "condition": {
+              "groups": [
+                [
+                  {
+                    "variableId": "case_closed",
+                    "op": "eq",
+                    "value": 0
+                  },
+                  {
+                    "variableId": "elapsed",
+                    "op": "lt",
+                    "value": 165600
+                  }
+                ]
+              ]
+            },
+            "effects": [],
+            "cost": 1800,
+            "once": false,
+            "passive": false,
+            "checkId": ""
+          },
+          {
+            "id": "equip-scarf",
+            "fromId": "exit_dialogue",
+            "toId": "exit_dialogue",
+            "label": "装备旧围巾",
+            "condition": {
+              "groups": [
+                [
+                  {
+                    "variableId": "case_closed",
+                    "op": "eq",
+                    "value": 0
+                  },
+                  {
+                    "variableId": "elapsed",
+                    "op": "lt",
+                    "value": 165600
+                  },
+                  {
+                    "variableId": "scarf_equipped",
+                    "op": "eq",
+                    "value": 0
+                  }
+                ]
+              ]
+            },
+            "effects": [
+              {
+                "variableId": "scarf_equipped",
+                "op": "set",
+                "value": 1
+              }
+            ],
+            "cost": 0,
+            "once": false,
+            "passive": false,
+            "checkId": ""
+          },
+          {
+            "id": "recover-health",
+            "fromId": "recovery",
+            "toId": "resume-investigation",
+            "label": "使用恢复物恢复健康",
+            "condition": {
+              "groups": [
+                [
+                  {
+                    "variableId": "health",
+                    "op": "lte",
+                    "value": 0
+                  },
+                  {
+                    "variableId": "meds",
+                    "op": "gte",
+                    "value": 1
+                  }
+                ]
+              ]
+            },
+            "effects": [
+              {
+                "variableId": "meds",
+                "op": "add",
+                "value": -1
+              },
+              {
+                "variableId": "health",
+                "op": "add",
+                "value": 2
+              }
+            ],
+            "cost": 0,
+            "once": false,
+            "passive": false,
+            "checkId": ""
+          },
+          {
+            "id": "recover-morale",
+            "fromId": "recovery",
+            "toId": "resume-investigation",
+            "label": "使用恢复物恢复士气",
+            "condition": {
+              "groups": [
+                [
+                  {
+                    "variableId": "morale",
+                    "op": "lte",
+                    "value": 0
+                  },
+                  {
+                    "variableId": "meds",
+                    "op": "gte",
+                    "value": 1
+                  }
+                ]
+              ]
+            },
+            "effects": [
+              {
+                "variableId": "meds",
+                "op": "add",
+                "value": -1
+              },
+              {
+                "variableId": "morale",
+                "op": "add",
+                "value": 2
+              }
+            ],
+            "cost": 0,
+            "once": false,
+            "passive": false,
+            "checkId": ""
+          },
+          {
+            "id": "abandon-recovery",
+            "fromId": "recovery",
+            "toId": "report_pause",
+            "label": "放弃恢复并暂缓调查",
+            "condition": {
+              "groups": []
+            },
+            "effects": [
+              {
+                "variableId": "case_closed",
+                "op": "set",
+                "value": 1
+              }
+            ],
+            "cost": 0,
+            "once": false,
+            "passive": false,
+            "checkId": ""
+          }
+        ],
+        "checks": [
+          {
+            "id": "rope",
+            "name": "承受气味检查断绳",
+            "variableId": "skill:endurance",
+            "difficulty": 9,
+            "retry": "on-change",
+            "retryVariableIds": [
+              "skill:endurance",
+              "scarf_equipped"
+            ],
+            "successId": "rope_success",
+            "failureId": "rope_failure",
+            "successEffects": [
+              {
+                "variableId": "rope_found",
+                "op": "set",
+                "value": 1
+              }
+            ],
+            "failureEffects": [
+              {
+                "variableId": "health",
+                "op": "add",
+                "value": -1
+              }
+            ],
+            "modifiers": [
+              {
+                "condition": {
+                  "groups": [
+                    [
+                      {
+                        "variableId": "scarf_equipped",
+                        "op": "eq",
+                        "value": 1
+                      }
+                    ]
+                  ]
+                },
+                "value": 1
+              }
+            ],
+            "notes": "围巾+1；双1必失败/双6必成功，其余2d6+有效技能>=难度；重试来源：耐力等级提升；首次装备围巾"
+          },
+          {
+            "id": "testimony",
+            "name": "安抚埃达取得证词",
+            "variableId": "skill:empathy",
+            "difficulty": 11,
+            "retry": "on-change",
+            "retryVariableIds": [
+              "skill:empathy",
+              "ledger_found",
+              "copy_found"
+            ],
+            "successId": "witness_success",
+            "failureId": "witness_failure",
+            "successEffects": [
+              {
+                "variableId": "testimony_found",
+                "op": "set",
+                "value": 1
+              },
+              {
+                "variableId": "partner_trust",
+                "op": "add",
+                "value": 1
+              }
+            ],
+            "failureEffects": [
+              {
+                "variableId": "morale",
+                "op": "add",
+                "value": -1
+              }
+            ],
+            "modifiers": [
+              {
+                "condition": {
+                  "groups": [
+                    [
+                      {
+                        "variableId": "ledger_found",
+                        "op": "eq",
+                        "value": 1
+                      }
+                    ],
+                    [
+                      {
+                        "variableId": "copy_found",
+                        "op": "eq",
+                        "value": 1
+                      }
+                    ]
+                  ]
+                },
+                "value": 2
+              },
+              {
+                "condition": {
+                  "groups": [
+                    [
+                      {
+                        "variableId": "thought_worker_done",
+                        "op": "eq",
+                        "value": 1
+                      }
+                    ]
+                  ]
+                },
+                "value": 1
+              },
+              {
+                "condition": {
+                  "groups": [
+                    [
+                      {
+                        "variableId": "witness_scared",
+                        "op": "eq",
+                        "value": 1
+                      }
+                    ]
+                  ]
+                },
+                "value": -2
+              }
+            ],
+            "notes": "账册或复写件+2（不叠加）；劳动思想+1；witness_scared=1时-2；重试来源：ledger_found首次变1；copy_found首次变1；共情等级提升"
+          },
+          {
+            "id": "pressure",
+            "name": "威压工头承认维修",
+            "variableId": "skill:authority",
+            "difficulty": 12,
+            "retry": "once",
+            "retryVariableIds": [],
+            "successId": "foreman_success",
+            "failureId": "foreman_failure",
+            "successEffects": [
+              {
+                "variableId": "note_found",
+                "op": "set",
+                "value": 1
+              }
+            ],
+            "failureEffects": [
+              {
+                "variableId": "note_found",
+                "op": "set",
+                "value": 1
+              },
+              {
+                "variableId": "witness_scared",
+                "op": "set",
+                "value": 1
+              },
+              {
+                "variableId": "partner_trust",
+                "op": "add",
+                "value": -1
+              },
+              {
+                "variableId": "morale",
+                "op": "add",
+                "value": -1
+              }
+            ],
+            "modifiers": [
+              {
+                "condition": {
+                  "groups": [
+                    [
+                      {
+                        "variableId": "thought_doubt_done",
+                        "op": "eq",
+                        "value": 1
+                      }
+                    ]
+                  ]
+                },
+                "value": -1
+              }
+            ],
+            "notes": "思想怀疑内化后权威-1；失败便条为替代线索，不授予完整证词；重试来源：永不重试；两个入口共享同一检定状态"
+          },
+          {
+            "id": "ledger",
+            "name": "核对账册时间",
+            "variableId": "skill:logic",
+            "difficulty": 10,
+            "retry": "on-change",
+            "retryVariableIds": [
+              "skill:logic",
+              "timeline_found"
+            ],
+            "successId": "ledger_success",
+            "failureId": "ledger_failure",
+            "successEffects": [
+              {
+                "variableId": "ledger_found",
+                "op": "set",
+                "value": 1
+              }
+            ],
+            "failureEffects": [
+              {
+                "variableId": "morale",
+                "op": "add",
+                "value": -1
+              }
+            ],
+            "modifiers": [
+              {
+                "condition": {
+                  "groups": [
+                    [
+                      {
+                        "variableId": "timeline_found",
+                        "op": "eq",
+                        "value": 1
+                      }
+                    ]
+                  ]
+                },
+                "value": 2
+              }
+            ],
+            "notes": "旅馆时间旁证+2；书面证据只授予一次；重试来源：逻辑等级提升；timeline_found首次变1"
+          },
+          {
+            "id": "care",
+            "name": "坦诚请求帮助",
+            "variableId": "skill:composure",
+            "difficulty": 9,
+            "retry": "once",
+            "retryVariableIds": [],
+            "successId": "care_success",
+            "failureId": "care_failure",
+            "successEffects": [
+              {
+                "variableId": "meds",
+                "op": "add",
+                "value": 1
+              }
+            ],
+            "failureEffects": [
+              {
+                "variableId": "morale",
+                "op": "add",
+                "value": -1
+              }
+            ],
+            "modifiers": [],
+            "notes": "每个检定只结算一次经验；帮助奖励不能反复领取；重试来源：永不重试；失败仍可购买恢复物"
+          }
+        ],
+        "clockId": "elapsed",
+        "timeLimit": 165600,
+        "interrupts": [
+          {
+            "id": "critical-resources",
+            "name": "健康或士气归零",
+            "condition": {
+              "groups": [
+                [
+                  {
+                    "variableId": "health",
+                    "op": "lte",
+                    "value": 0
+                  }
+                ],
+                [
+                  {
+                    "variableId": "morale",
+                    "op": "lte",
+                    "value": 0
+                  }
+                ]
+              ]
+            },
+            "nodeId": "recovery"
+          },
+          {
+            "id": "case-deadline",
+            "name": "两日调查期限结束",
+            "condition": {
+              "groups": [
+                [
+                  {
+                    "variableId": "elapsed",
+                    "op": "gte",
+                    "value": 165600
+                  },
+                  {
+                    "variableId": "case_closed",
+                    "op": "eq",
+                    "value": 0
+                  }
+                ]
+              ]
+            },
+            "nodeId": "report_hub"
+          }
+        ]
+      }
+    ]
   }
 }

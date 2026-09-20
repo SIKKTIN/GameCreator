@@ -6,12 +6,13 @@ import './task-flow.css';
 
 const stageLabels = { objective: '目标阶段', success: '成功结果', failure: '失败结果' };
 const display = (name: string) => name.trim() || '未命名';
-type Props = { controller: TaskFlowsController; sources: TaskSources; onOpenReference: (ref: TaskReference) => void };
+type Props = { requestedTask?: { id: string }; storyLinks?: { id: string; title: string; taskIds: string[] }[]; onOpenStory?: (id: string) => void; controller: TaskFlowsController; sources: TaskSources; onOpenReference: (ref: TaskReference) => void };
 
-export function TaskFlows({ controller, sources, onOpenReference }: Props) {
+export function TaskFlows({ controller, sources, onOpenReference, requestedTask, storyLinks = [], onOpenStory }: Props) {
   const { store, update, blocked } = controller;
   const [selected, setSelected] = useState(''), [query, setQuery] = useState(''), [range, setRange] = useState('active');
   const [tab, setTab] = useState('details'), [stageId, setStageId] = useState(''), [newName, setNewName] = useState(''), [error, setError] = useState('');
+  useEffect(() => { if(requestedTask) { setSelected(requestedTask.id); setQuery(''); setRange('all'); setTab('details'); setError(''); } }, [requestedTask]);
   const dialog = useRef<HTMLDialogElement>(null);
   const task = store.tasks.find(t => t.id === selected), disabled = blocked || !!task?.archived;
   const stage = task?.stages.find(s => s.id === stageId) ?? task?.stages[0];
@@ -45,6 +46,7 @@ export function TaskFlows({ controller, sources, onOpenReference }: Props) {
           <button className="gp-secondary" disabled={blocked} onClick={() => { const next = copyTask(task); update(s => ({ ...s, tasks: [...s.tasks, next] })); setRange('active'); setQuery(''); choose(next.id); }}><Copy size={14} />复制任务</button>
           <button className="gp-secondary" disabled={blocked} onClick={() => { update(s => ({ ...s, tasks: s.tasks.map(t => t.id === task.id ? { ...t, archived: !t.archived } : t) })); setRange(task.archived ? 'active' : 'archived'); }}><Archive size={14} />{task.archived ? '恢复任务' : '归档任务'}</button>
         </div></div>
+        {storyLinks.some(s=>s.taskIds.includes(task.id)) && <div className="ns-card"><h3>关联故事编排</h3><div className="gp-actions">{storyLinks.filter(s=>s.taskIds.includes(task.id)).map(s=><button className="gp-secondary" key={s.id} onClick={()=>onOpenStory?.(s.id)}>{s.title}</button>)}</div></div>}
         <div className="tf-tabs" aria-label="任务编辑视图">{[['details', '任务设置'], ['stages', '阶段与分支'], ['preview', '流程与预览']].map(([id, label]) => <button key={id} className={tab === id ? 'active' : ''} aria-pressed={tab === id} onClick={() => setTab(id)}>{label}</button>)}</div>
         {error && <p role="alert" className="field-error">{error}</p>}
         {taskIssues.length > 0 && <details className="tf-issues"><summary>设计检查 · {taskIssues.length} 项待完善</summary><ul>{taskIssues.map((i, n) => <li key={n}>{i.stageId ? <button onClick={() => { setStageId(i.stageId!); setTab('stages'); }}>{i.message}</button> : i.message}</li>)}</ul></details>}

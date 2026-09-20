@@ -14,6 +14,10 @@
 │  ├─ project.json
 │  ├─ project-info.json
 │  ├─ gameplay.json
+│  ├─ gameplay-core.json
+│  ├─ prototype-design.json
+│  ├─ task-flows.json
+│  ├─ story-orchestration.json
 │  ├─ functional-systems.json
 │  ├─ art-assets.json
 │  ├─ definitions.json
@@ -30,6 +34,8 @@
 
 - 项目概览、里程碑与故事文档。
 - 玩法设计，以及依赖、条件规则、状态流程、空间布局和时间轴。
+- 玩法核心、原型场景与交互、任务与阶段流程。
+- 故事编排的启用状态、正文、条件、检定与后果；关闭的模块也保留内容，旧包缺少此部分时默认为关闭。
 - 功能系统、能力、依赖和配置引用。
 - 配置表定义与记录、枚举稳定版、候选版、审核及发布历史。
 - 美术需求、资产台账、全部交付版本、审核与采用关系，以及每版的实际原始文件。

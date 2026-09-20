@@ -1,3 +1,4 @@
+import { emptyStoryOrchestration, validateStoryOrchestration, narrativeIssues, type StoryOrchestrationStore } from './story-orchestration.ts';
 import { emptyPrototypeDesign, validatePrototypeDesign, prototypeIssues, type PrototypeDesignStore } from './prototype-design.ts';
 import { emptyTaskFlows, validateTaskFlows, taskFlowIssues, type TaskFlowStore } from './task-flow.ts';
 import { addSavedProject, validateCatalog, type ProjectCatalog, type SavedProject } from './project-catalog.ts';
@@ -12,7 +13,7 @@ import type { ColumnDef, DatasetDef, ProjectData } from './data-model.ts';
 import type { StoryDoc } from './story-model.ts';
 
 export type PrototypeExample = {
-  schema: 1; name: string; description: string; gameplay: GameplayStore; gameplayCore?: GameplayCoreStore; prototypeDesign?: PrototypeDesignStore; taskFlows?: TaskFlowStore;
+  schema: 1; name: string; description: string; gameplay: GameplayStore; gameplayCore?: GameplayCoreStore; prototypeDesign?: PrototypeDesignStore; taskFlows?: TaskFlowStore; storyOrchestration?: StoryOrchestrationStore;
   functionalSystems: FunctionalStore; artAssets: ArtStore; data: ProjectData;
   definitions: DatasetDef[]; stories: StoryDoc[];
 };
@@ -21,7 +22,7 @@ export type PreparedPrototypeProject = {
   entries: { key: string; value: string }[];
 };
 type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
-const sections = ['task-flows', 'gameplay', 'gameplay-core', 'prototype-design', 'functional-systems', 'art-assets', 'definitions', 'stories', 'project', 'milestones'] as const;
+const sections = ['story-orchestration', 'task-flows', 'gameplay', 'gameplay-core', 'prototype-design', 'functional-systems', 'art-assets', 'definitions', 'stories', 'project', 'milestones'] as const;
 const workspaceKey = (id: string, section: string) => 'gamecreator.workspace.v1:' + id + ':' + section;
 const enumKey = (id: string) => 'gamecreator.enum-versions.v1:' + id;
 const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
@@ -54,7 +55,7 @@ function validateColumns(items: unknown, label: string): asserts items is Column
 export function validatePrototypeExample(value: unknown): PrototypeExample {
   requireValid(record(value), '内容必须是对象');
   const fields = ['schema', 'name', 'description', 'gameplay', 'functionalSystems', 'artAssets', 'data', 'definitions', 'stories'];
-  requireValid(fields.every(field => Object.prototype.hasOwnProperty.call(value, field)) && Object.keys(value).every(field => [...fields, 'gameplayCore', 'prototypeDesign', 'taskFlows'].includes(field)), '包含缺失字段或非便携配置');
+  requireValid(fields.every(field => Object.prototype.hasOwnProperty.call(value, field)) && Object.keys(value).every(field => [...fields, 'gameplayCore', 'prototypeDesign', 'taskFlows', 'storyOrchestration'].includes(field)), '包含缺失字段或非便携配置');
   requireValid(value.schema === 1 && nonempty(value.name) && nonempty(value.description), '版本或名称无效');
   requireValid(record(value.gameplay) && value.gameplay.schema === 3, '玩法版本无效');
   const gameplay = validateGameplay(value.gameplay);
@@ -125,6 +126,10 @@ export function validatePrototypeExample(value: unknown): PrototypeExample {
     requireValid(taskFlowIssues(tasks, { designs: gameplay.designs, capabilities: functional.capabilities, stories: example.stories, assets: art.assets, definitions: example.definitions, data: example.data }).length === 0, '任务与流程包含未完成设计或失效引用');
     requireValid(tasks.tasks.every(t => t.status === '草稿' && !t.archived), '示例任务必须保持草稿');
   }
+  if (Object.prototype.hasOwnProperty.call(value, 'storyOrchestration')) {
+    const narrative = validateStoryOrchestration(value.storyOrchestration);
+    requireValid(narrative.stories.every(s => narrativeIssues(s, example.taskFlows?.tasks ?? []).length === 0), '故事编排包含失效引用或不完整片段');
+  }
   return example;
 }
 
@@ -136,7 +141,7 @@ export function preparePrototypeProject(catalog: ProjectCatalog, value: unknown,
   const next = addSavedProject(catalog, name);
   const project = next.projects.find(item => item.id === next.activeId)!;
   const archives = {
-    'task-flows': example.taskFlows ?? emptyTaskFlows(), gameplay: example.gameplay, 'gameplay-core': example.gameplayCore ?? emptyGameplayCore(), 'prototype-design': example.prototypeDesign ?? emptyPrototypeDesign(), 'functional-systems': example.functionalSystems, 'art-assets': example.artAssets,
+    'story-orchestration': example.storyOrchestration ?? emptyStoryOrchestration(), 'task-flows': example.taskFlows ?? emptyTaskFlows(), gameplay: example.gameplay, 'gameplay-core': example.gameplayCore ?? emptyGameplayCore(), 'prototype-design': example.prototypeDesign ?? emptyPrototypeDesign(), 'functional-systems': example.functionalSystems, 'art-assets': example.artAssets,
     definitions: example.definitions, stories: example.stories,
     project: { name: project.name, description: example.description, genre: '未指定', platform: '未指定', version: 'v0.1.0', status: '原型设计' },
     milestones: [],

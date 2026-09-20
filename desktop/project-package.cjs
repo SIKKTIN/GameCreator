@@ -7,7 +7,7 @@ const { workspaceHash } = require('./art-files.cjs');
 
 const CATALOG_KEY = 'gamecreator.projects.v1';
 const SECTIONS = ['gameplay', 'functional-systems', 'art-assets', 'definitions', 'stories', 'project', 'milestones', 'enum-versions'];
-const OPTIONAL_SECTIONS = ['data-view', 'gameplay-core', 'prototype-design', 'task-flows'];
+const OPTIONAL_SECTIONS = ['data-view', 'gameplay-core', 'prototype-design', 'task-flows', 'story-orchestration'];
 const FILE_TOKEN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.[a-z0-9]{1,12}$/;
 const NEW_PROJECT = /^project-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_METADATA_BYTES = 20 * 1024 * 1024;
@@ -199,12 +199,55 @@ function validateTaskArchive(value) {
     return value;
 }
 
+function validateStoryArchive(value) {
+    const fail = () => { throw new Error('故事编排存档格式异常，已停止写入'); };
+    const obj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
+    const fields = (v, names) => names.every(n => typeof v[n] === 'string');
+    const safe = (v) => typeof v === 'string' && !!v.trim() && !['__proto__', 'constructor', 'prototype'].includes(v);
+    const finite = (v) => typeof v === 'number' && Number.isFinite(v);
+    const list = (v) => Array.isArray(v) && v.every(safe) && new Set(v).size === v.length;
+    const predicate = (v) => obj(v) && Array.isArray(v.groups) && v.groups.every(g => Array.isArray(g) && g.every(c => obj(c) && fields(c, ['variableId']) && ['eq', 'neq', 'gt', 'gte', 'lt', 'lte'].includes(c.op) && finite(c.value)));
+    const effects = (v) => Array.isArray(v) && v.every(e => obj(e) && fields(e, ['variableId']) && ['set', 'add'].includes(e.op) && finite(e.value));
+    if (!obj(value) || value.schema !== 1 || typeof value.enabled !== 'boolean' || !Array.isArray(value.stories))
+        return fail();
+    const storyIds = new Set();
+    for (const s of value.stories) {
+        if (!obj(s) || !safe(s.id) || storyIds.has(s.id) || !fields(s, ['title', 'summary', 'entryId', 'source', 'clockId']) || typeof s.archived !== 'boolean' || !list(s.taskIds) || !finite(s.timeLimit) || s.timeLimit < 0 || !['scenes', 'actors', 'variables', 'nodes', 'choices', 'checks', 'interrupts'].every(k => Array.isArray(s[k])))
+            return fail();
+        storyIds.add(s.id);
+        for (const section of ['scenes', 'actors', 'variables', 'nodes', 'choices', 'checks', 'interrupts']) {
+            const ids = new Set();
+            for (const item of s[section]) {
+                if (!obj(item) || !safe(item.id) || ids.has(item.id))
+                    return fail();
+                ids.add(item.id);
+                if (section === 'scenes' && !fields(item, ['title', 'chapter', 'description']))
+                    return fail();
+                if (section === 'actors' && !fields(item, ['name', 'description']))
+                    return fail();
+                if (section === 'variables' && (!fields(item, ['name', 'category']) || !finite(item.initial) || !(item.minimum === null || finite(item.minimum)) || !(item.maximum === null || finite(item.maximum)) || item.minimum !== null && item.initial < item.minimum || item.maximum !== null && item.initial > item.maximum))
+                    return fail();
+                if (section === 'nodes' && (!fields(item, ['sceneId', 'title', 'speakerId', 'text', 'outcome']) || !['dialogue', 'narration', 'inner', 'hub', 'ending', 'return'].includes(item.kind) || !['unchanged', 'completed', 'suspended', 'failed'].includes(item.taskStatus) || !list(item.taskIds)))
+                    return fail();
+                if (section === 'choices' && (!fields(item, ['fromId', 'toId', 'label', 'checkId']) || !predicate(item.condition) || !effects(item.effects) || typeof item.once !== 'boolean' || typeof item.passive !== 'boolean' || !finite(item.cost) || item.cost < 0))
+                    return fail();
+                if (section === 'checks' && (!fields(item, ['name', 'variableId', 'successId', 'failureId', 'notes']) || !finite(item.difficulty) || !['always', 'once', 'on-change'].includes(item.retry) || !list(item.retryVariableIds) || !effects(item.successEffects) || !effects(item.failureEffects) || !Array.isArray(item.modifiers) || !item.modifiers.every(m => obj(m) && predicate(m.condition) && finite(m.value))))
+                    return fail();
+                if (section === 'interrupts' && (!fields(item, ['name', 'nodeId']) || !predicate(item.condition)))
+                    return fail();
+            }
+        }
+    }
+    return value;
+}
+
 function validateDocument(value) {
   if (!record(value) || value.schema !== 1 || !record(value.project) || typeof value.project.name !== 'string' || !value.project.name.trim() || value.project.name.length > 100 || !record(value.project.config) || !record(value.archives) || SECTIONS.some(section => !Object.hasOwn(value.archives, section)) || Object.keys(value.archives).some(section => ![...SECTIONS, ...OPTIONAL_SECTIONS].includes(section))) throw new Error('项目文件夹数据格式无效');
   if (value.project.defaultTablesVersion !== undefined && value.project.defaultTablesVersion !== 1) throw new Error('不支持的配置表默认值版本');
   if (Object.hasOwn(value.archives, 'gameplay-core')) validateCoreArchive(value.archives['gameplay-core']);
   if (Object.hasOwn(value.archives, 'prototype-design')) validatePrototypeArchive(value.archives['prototype-design']);
   if (Object.hasOwn(value.archives, 'task-flows')) validateTaskArchive(value.archives['task-flows']);
+  if (Object.hasOwn(value.archives, 'story-orchestration')) validateStoryArchive(value.archives['story-orchestration']);
   const art = value.archives['art-assets'];
   if (!record(art) || !Array.isArray(art.assets)) throw new Error('美术资产存档格式无效');
   return value;

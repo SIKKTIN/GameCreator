@@ -76,6 +76,7 @@ npm run mcp:debug
 - [玩法核心](docs/gameplay-core.md)
 - [玩法设计](docs/gameplay-design.md)
 - [任务与流程](docs/task-flows.md)
+- [故事编排（可选模块）](docs/story-orchestration.md)
 
 - [项目切换与独立存档](docs/project-switching.md)
 - [从原型示例创建项目](docs/prototype-examples.md)
@@ -100,6 +101,8 @@ npm run mcp:debug
 在“任务与流程”编辑玩家目标、阶段、条件分支与成功／失败结果，关联玩法、功能、故事、素材和配置，使用手动路径预览检查推进路线。五个原型包含13个任务示例，支持本地自动保存、AI文档和项目文件夹迁移。详见 [任务与流程](docs/task-flows.md)。
 
 ## 原型示例
+
+需要编写分支对白和完整故事链时，可在 **工作区设置 → 添加故事编排** 按项目启用。支持章节场景、正文与选项、角色状态、条件后果、检定、故事结构和独立试玩；关闭保留内容。极乐迪斯科原型包含港区疑案故事，已有项目可从现有对白配置导入。详见 [故事编排](docs/story-orchestration.md)。
 
 [五套完整设计快照](examples/prototypes/README.md)保存空洞骑士、星露谷、植物大战僵尸、极乐迪斯科和吸血鬼幸存者原型的玩法、功能系统、美术需求、资产台账及引用数据。管理员可从左上角项目列表选择“从原型示例创建项目”，只填写名称即可复制为独立本地项目；已有项目不会被覆盖，重复创建也互相独立。操作与保存规则见 [原型示例](docs/prototype-examples.md)。示例独立于本机存档，可以使用 `node scripts/validate-prototype-examples.mjs` 校验。
 
