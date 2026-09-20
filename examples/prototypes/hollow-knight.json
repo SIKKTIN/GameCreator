@@ -347,7 +347,8 @@
           }
         ],
         "createdAt": "2026-09-18T16:52:15.744Z",
-        "updatedAt": "2026-09-18T16:52:15.744Z"
+        "updatedAt": "2026-09-18T16:52:15.744Z",
+        "categoryId": "hollow-knight-category-overview"
       },
       {
         "dependencies": [
@@ -863,7 +864,8 @@
           }
         ],
         "createdAt": "2026-09-18T16:52:15.745Z",
-        "updatedAt": "2026-09-18T17:33:25.851Z"
+        "updatedAt": "2026-09-18T17:33:25.851Z",
+        "categoryId": "hollow-knight-category-player"
       },
       {
         "dependencies": [
@@ -1376,7 +1378,8 @@
           }
         ],
         "createdAt": "2026-09-18T16:52:15.745Z",
-        "updatedAt": "2026-09-18T17:33:25.852Z"
+        "updatedAt": "2026-09-18T17:33:25.852Z",
+        "categoryId": "hollow-knight-category-player"
       },
       {
         "dependencies": [
@@ -1733,7 +1736,8 @@
           }
         ],
         "createdAt": "2026-09-18T16:52:15.745Z",
-        "updatedAt": "2026-09-18T16:52:15.745Z"
+        "updatedAt": "2026-09-18T16:52:15.745Z",
+        "categoryId": "hollow-knight-category-exploration"
       },
       {
         "dependencies": [
@@ -2073,7 +2077,8 @@
           }
         ],
         "createdAt": "2026-09-18T16:52:15.746Z",
-        "updatedAt": "2026-09-18T17:33:25.852Z"
+        "updatedAt": "2026-09-18T17:33:25.852Z",
+        "categoryId": "hollow-knight-category-exploration"
       },
       {
         "dependencies": [
@@ -2450,7 +2455,8 @@
           }
         ],
         "createdAt": "2026-09-18T16:52:15.746Z",
-        "updatedAt": "2026-09-18T17:33:25.852Z"
+        "updatedAt": "2026-09-18T17:33:25.852Z",
+        "categoryId": "hollow-knight-category-exploration"
       },
       {
         "dependencies": [
@@ -3207,7 +3213,8 @@
           }
         ],
         "createdAt": "2026-09-18T16:52:15.746Z",
-        "updatedAt": "2026-09-18T17:33:25.852Z"
+        "updatedAt": "2026-09-18T17:33:25.852Z",
+        "categoryId": "hollow-knight-category-enemies"
       },
       {
         "dependencies": [
@@ -3578,7 +3585,34 @@
           }
         ],
         "createdAt": "2026-09-18T16:52:15.746Z",
-        "updatedAt": "2026-09-18T17:33:25.852Z"
+        "updatedAt": "2026-09-18T17:33:25.852Z",
+        "categoryId": "hollow-knight-category-overview"
+      }
+    ],
+    "categories": [
+      {
+        "id": "hollow-knight-category-overview",
+        "name": "整体体验与进度",
+        "description": "探索战斗总纲、长椅重生与死亡回收，定义这段冒险的体验与进度约定。",
+        "icon": "book"
+      },
+      {
+        "id": "hollow-knight-category-player",
+        "name": "角色能力与战斗",
+        "description": "玩家跑跳、冲刺、骨钉攻击、灵魂资源与聚焦治疗的详细规则。",
+        "icon": "character"
+      },
+      {
+        "id": "hollow-knight-category-exploration",
+        "name": "地图探索与关卡",
+        "description": "房间路线、试炼、能力门槛和近路，组织探索中的发现与回访。",
+        "icon": "map"
+      },
+      {
+        "id": "hollow-knight-category-enemies",
+        "name": "敌人与首领",
+        "description": "敌方行为、攻击预警、阶段变化与首领挑战设计。",
+        "icon": "combat"
       }
     ]
   },

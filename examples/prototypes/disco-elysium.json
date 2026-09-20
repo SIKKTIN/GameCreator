@@ -3503,7 +3503,8 @@
           ]
         },
         "createdAt": "2026-09-19T00:00:00.000Z",
-        "updatedAt": "2026-09-19T00:00:00.000Z"
+        "updatedAt": "2026-09-19T00:00:00.000Z",
+        "categoryId": "disco-elysium-category-investigation"
       },
       {
         "id": "de-play-dialogue",
@@ -3807,7 +3808,8 @@
           ]
         },
         "createdAt": "2026-09-19T00:00:00.000Z",
-        "updatedAt": "2026-09-19T00:00:00.000Z"
+        "updatedAt": "2026-09-19T00:00:00.000Z",
+        "categoryId": "disco-elysium-category-dialogue"
       },
       {
         "id": "de-play-voices",
@@ -4078,7 +4080,8 @@
           ]
         },
         "createdAt": "2026-09-19T00:00:00.000Z",
-        "updatedAt": "2026-09-19T00:00:00.000Z"
+        "updatedAt": "2026-09-19T00:00:00.000Z",
+        "categoryId": "disco-elysium-category-dialogue"
       },
       {
         "id": "de-play-checks",
@@ -4412,7 +4415,8 @@
           ]
         },
         "createdAt": "2026-09-19T00:00:00.000Z",
-        "updatedAt": "2026-09-19T00:00:00.000Z"
+        "updatedAt": "2026-09-19T00:00:00.000Z",
+        "categoryId": "disco-elysium-category-dialogue"
       },
       {
         "id": "de-play-case",
@@ -4987,7 +4991,8 @@
           ]
         },
         "createdAt": "2026-09-19T00:00:00.000Z",
-        "updatedAt": "2026-09-19T00:00:00.000Z"
+        "updatedAt": "2026-09-19T00:00:00.000Z",
+        "categoryId": "disco-elysium-category-investigation"
       },
       {
         "id": "de-play-thoughts",
@@ -5298,7 +5303,8 @@
           ]
         },
         "createdAt": "2026-09-19T00:00:00.000Z",
-        "updatedAt": "2026-09-19T00:00:00.000Z"
+        "updatedAt": "2026-09-19T00:00:00.000Z",
+        "categoryId": "disco-elysium-category-character"
       },
       {
         "id": "de-play-resources",
@@ -5565,7 +5571,8 @@
           ]
         },
         "createdAt": "2026-09-19T00:00:00.000Z",
-        "updatedAt": "2026-09-19T00:00:00.000Z"
+        "updatedAt": "2026-09-19T00:00:00.000Z",
+        "categoryId": "disco-elysium-category-character"
       },
       {
         "id": "de-play-clock",
@@ -5972,7 +5979,34 @@
           ]
         },
         "createdAt": "2026-09-19T00:00:00.000Z",
-        "updatedAt": "2026-09-19T00:00:00.000Z"
+        "updatedAt": "2026-09-19T00:00:00.000Z",
+        "categoryId": "disco-elysium-category-schedule"
+      }
+    ],
+    "categories": [
+      {
+        "id": "disco-elysium-category-investigation",
+        "name": "探索与案件",
+        "description": "港区探索、调查取证、线索整理与阶段结案，追踪案件的证据链。",
+        "icon": "exploration"
+      },
+      {
+        "id": "disco-elysium-category-dialogue",
+        "name": "对话与检定",
+        "description": "对话选择、技能声音、红白检定与失败后果。",
+        "icon": "book"
+      },
+      {
+        "id": "disco-elysium-category-character",
+        "name": "角色与思想成长",
+        "description": "思想发现与内化，以及装备、健康、恢复和技能成长。",
+        "icon": "character"
+      },
+      {
+        "id": "disco-elysium-category-schedule",
+        "name": "时间与日程",
+        "description": "两天行动安排、时间推进与人物在场规则。",
+        "icon": "rules"
       }
     ]
   },

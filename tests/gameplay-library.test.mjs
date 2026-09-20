@@ -47,3 +47,25 @@ test('project folder round trip retains category order and membership with all f
   const malformed=structuredClone(snapshot.document);malformed.archives.gameplay.categories[0].icon='not-an-icon';await assert.rejects(api.exportFolder({projectId:prepared.project.id,document:malformed,expectedEntries:snapshot.expectedEntries,directory:path.join(dir,'bad')}),/分类/);
  }finally{assert.equal(path.dirname(dir),path.resolve(os.tmpdir()));assert.ok(path.basename(dir).startsWith('gc-library-package-'));await fs.rm(dir,{recursive:true,force:true});}
 });
+
+
+test('explicit prototype classification only organizes known uncategorized IDs and preserves all document content',async()=>{
+ const {classifyPrototypeDocuments}=await import('../scripts/classify-prototype-documents.mjs');
+ const files=['hollow-knight','stardew-valley','plants-vs-zombies','disco-elysium','vampire-survivors'];
+ const templates=await Promise.all(files.map(async file=>JSON.parse(await fs.readFile(new URL('../examples/prototypes/'+file+'.json',import.meta.url),'utf8')).gameplay));
+ for(const template of templates){
+  const old=structuredClone(template);delete old.categories;for(const d of old.designs)delete d.categoryId;
+  const original=structuredClone(old),result=classifyPrototypeDocuments(old,templates);
+  assert.equal(result.count,old.designs.length);assert.deepEqual(old,original);
+  assert.deepEqual(result.store.designs,template.designs);
+  const withoutCategories=structuredClone(result.store);delete withoutCategories.categories;for(const d of withoutCategories.designs)delete d.categoryId;
+  assert.deepEqual(withoutCategories,old);assert.equal(classifyPrototypeDocuments(result.store,templates).changed,false);
+  assert.ok(result.store.categories.every(c=>result.store.designs.some(d=>d.categoryId===c.id)));
+ }
+ const old=structuredClone(templates[0]);delete old.categories;for(const d of old.designs)delete d.categoryId;
+ const existing={id:'user-category',...category(templates[0].categories[0].name)};old.categories=[existing];old.designs[1].categoryId=existing.id;old.designs[1].summary='自定义说明';old.designs[1].tags=['自定义标签'];old.designs[1].archived=true;old.designs.push(createGameplay('自建文档'));
+ const saved=structuredClone(old),result=classifyPrototypeDocuments(old,templates);
+ assert.deepEqual(result.store.designs[1],saved.designs[1]);assert.deepEqual(result.store.designs.at(-1),saved.designs.at(-1));assert.deepEqual(result.store.categories[0],existing);
+ assert.equal(result.store.designs[0].categoryId,existing.id);assert.equal(result.store.categories.filter(c=>c.name===existing.name).length,1);
+ assert.deepEqual(classifyPrototypeDocuments({schema:3,designs:[createGameplay('无关项目')]},templates).count,0);
+});

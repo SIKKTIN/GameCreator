@@ -401,7 +401,8 @@
           }
         ],
         "createdAt": "2026-09-18T15:23:48.766Z",
-        "updatedAt": "2026-09-18T16:11:20.772Z"
+        "updatedAt": "2026-09-18T16:11:20.772Z",
+        "categoryId": "plants-vs-zombies-category-run"
       },
       {
         "space": {
@@ -731,7 +732,8 @@
           }
         ],
         "createdAt": "2026-09-18T15:23:50.164Z",
-        "updatedAt": "2026-09-19T00:14:45.686Z"
+        "updatedAt": "2026-09-19T00:14:45.686Z",
+        "categoryId": "plants-vs-zombies-category-planting"
       },
       {
         "space": {
@@ -1004,7 +1006,8 @@
           }
         ],
         "createdAt": "2026-09-18T15:23:51.424Z",
-        "updatedAt": "2026-09-19T00:14:45.686Z"
+        "updatedAt": "2026-09-19T00:14:45.686Z",
+        "categoryId": "plants-vs-zombies-category-battle"
       },
       {
         "space": {
@@ -1383,7 +1386,8 @@
           }
         ],
         "createdAt": "2026-09-18T15:23:52.914Z",
-        "updatedAt": "2026-09-19T00:14:45.686Z"
+        "updatedAt": "2026-09-19T00:14:45.686Z",
+        "categoryId": "plants-vs-zombies-category-battle"
       },
       {
         "space": {
@@ -1761,7 +1765,28 @@
           }
         ],
         "createdAt": "2026-09-18T15:23:54.061Z",
-        "updatedAt": "2026-09-19T00:14:45.686Z"
+        "updatedAt": "2026-09-19T00:14:45.686Z",
+        "categoryId": "plants-vs-zombies-category-run"
+      }
+    ],
+    "categories": [
+      {
+        "id": "plants-vs-zombies-category-run",
+        "name": "对局流程",
+        "description": "原型目标以及开始、暂停、胜负与重开的完整对局规则。",
+        "icon": "book"
+      },
+      {
+        "id": "plants-vs-zombies-category-planting",
+        "name": "资源与布阵",
+        "description": "阳光经济、卡牌选择和网格种植，将资源转换为防线。",
+        "icon": "growth"
+      },
+      {
+        "id": "plants-vs-zombies-category-battle",
+        "name": "战斗与关卡",
+        "description": "同路射击、阻挡啃咬与三波刷怪节奏，组织草坪挑战。",
+        "icon": "combat"
       }
     ]
   },
