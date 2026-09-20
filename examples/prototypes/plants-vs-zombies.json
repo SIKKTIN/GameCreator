@@ -6030,5 +6030,112 @@
         ]
       }
     ]
+  },
+  "taskFlows": {
+    "schema": 1,
+    "tasks": [
+      {
+        "id": "pvz-task-lawn",
+        "title": "守住白天草坪",
+        "kind": "关卡",
+        "scope": "每局",
+        "summary": "一关三波固定事件的胜负目标；具体波次仍引用时间轴与配置。",
+        "availability": "初始化五行九列草坪与本局状态",
+        "archived": false,
+        "status": "草稿",
+        "prerequisiteMode": "all",
+        "prerequisiteIds": [],
+        "startId": "pvz-task-lawn-play",
+        "stages": [
+          {
+            "id": "pvz-task-lawn-play",
+            "title": "等待对局裁决",
+            "kind": "objective",
+            "description": "",
+            "mode": "all",
+            "objectives": [
+              {
+                "id": "pvz-task-lawn-play-o0",
+                "title": "对局已锁定胜负",
+                "condition": "胜负系统按失败优先规则锁定一次结果；仅第三波生成完毕不算胜利",
+                "target": 1
+              }
+            ],
+            "result": ""
+          },
+          {
+            "id": "pvz-task-lawn-win",
+            "title": "草坪守卫成功",
+            "kind": "success",
+            "description": "",
+            "mode": "all",
+            "objectives": [],
+            "result": "所有生成事件完成且存活僵尸为零，显示胜利；重开按初始化规则清空局内状态。"
+          },
+          {
+            "id": "pvz-task-lawn-lose",
+            "title": "草坪失守",
+            "kind": "failure",
+            "description": "",
+            "mode": "all",
+            "objectives": [],
+            "result": "僵尸越过失败线，立即锁定失败；同帧胜负冲突时失败优先。"
+          }
+        ],
+        "transitions": [
+          {
+            "id": "pvz-task-lawn-e0",
+            "fromId": "pvz-task-lawn-play",
+            "toId": "pvz-task-lawn-win",
+            "label": "胜利结算",
+            "condition": "所有波次生成完成、僵尸清空且没有失败条件"
+          },
+          {
+            "id": "pvz-task-lawn-e1",
+            "fromId": "pvz-task-lawn-play",
+            "toId": "pvz-task-lawn-lose",
+            "label": "失败结算",
+            "condition": "任一僵尸越过失败线"
+          }
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "39bc4c47-ac6e-4abe-9863-422df4b55ab7",
+            "recordId": ""
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "8aeab67b-f854-4da9-aa49-d196107fbf9a",
+            "recordId": ""
+          },
+          {
+            "kind": "capability",
+            "targetId": "pvz-cap-waves",
+            "recordId": ""
+          },
+          {
+            "kind": "capability",
+            "targetId": "pvz-cap-finish",
+            "recordId": ""
+          },
+          {
+            "kind": "capability",
+            "targetId": "pvz-cap-restart",
+            "recordId": ""
+          },
+          {
+            "kind": "story",
+            "targetId": "story_1789745023092",
+            "recordId": ""
+          },
+          {
+            "kind": "table",
+            "targetId": "pvz_level",
+            "recordId": ""
+          }
+        ]
+      }
+    ]
   }
 }

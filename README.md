@@ -75,6 +75,7 @@ npm run mcp:debug
 
 - [玩法核心](docs/gameplay-core.md)
 - [玩法设计](docs/gameplay-design.md)
+- [任务与流程](docs/task-flows.md)
 
 - [项目切换与独立存档](docs/project-switching.md)
 - [从原型示例创建项目](docs/prototype-examples.md)
@@ -93,6 +94,10 @@ npm run mcp:debug
 ## 美术资产
 
 管理美术需求、玩法与功能来源、交付文件、版本审核与当前采用素材。创建只需名称，占位素材可先用于原型验证，正式交付需通过审核。详见 [美术资产](docs/art-assets.md)。
+
+## 任务与流程
+
+在“任务与流程”编辑玩家目标、阶段、条件分支与成功／失败结果，关联玩法、功能、故事、素材和配置，使用手动路径预览检查推进路线。五个原型包含13个任务示例，支持本地自动保存、AI文档和项目文件夹迁移。详见 [任务与流程](docs/task-flows.md)。
 
 ## 原型示例
 

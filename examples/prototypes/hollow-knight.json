@@ -9062,5 +9062,293 @@
         ]
       }
     ]
+  },
+  "taskFlows": {
+    "schema": 1,
+    "tasks": [
+      {
+        "id": "hk-task-dash",
+        "title": "取得永久冲刺",
+        "kind": "探索",
+        "scope": "单次",
+        "summary": "从静默试炼取得能力，为裂隙探索建立永久进度。",
+        "availability": "到达B静默试炼",
+        "archived": false,
+        "status": "草稿",
+        "prerequisiteMode": "all",
+        "prerequisiteIds": [],
+        "startId": "hk-task-dash-trial",
+        "stages": [
+          {
+            "id": "hk-task-dash-trial",
+            "title": "清除试炼",
+            "kind": "objective",
+            "description": "",
+            "mode": "all",
+            "objectives": [
+              {
+                "id": "hk-task-dash-trial-o0",
+                "title": "击败守碑虫",
+                "condition": "首次击杀守碑虫，提交trialCleared并打开试炼门",
+                "target": 1
+              }
+            ],
+            "result": ""
+          },
+          {
+            "id": "hk-task-dash-mark",
+            "title": "取得印记",
+            "kind": "objective",
+            "description": "",
+            "mode": "all",
+            "objectives": [
+              {
+                "id": "hk-task-dash-mark-o0",
+                "title": "交互冲刺印记",
+                "condition": "印记显现后交互；hasDash与印记消失在同一事务中提交",
+                "target": 1
+              }
+            ],
+            "result": ""
+          },
+          {
+            "id": "hk-task-dash-done",
+            "title": "已获得冲刺",
+            "kind": "success",
+            "description": "",
+            "mode": "all",
+            "objectives": [],
+            "result": "hasDash=true；死亡保留能力，按玩家冲刺功能解释动作。"
+          }
+        ],
+        "transitions": [
+          {
+            "id": "hk-task-dash-e0",
+            "fromId": "hk-task-dash-trial",
+            "toId": "hk-task-dash-mark",
+            "label": "印记显现",
+            "condition": ""
+          },
+          {
+            "id": "hk-task-dash-e1",
+            "fromId": "hk-task-dash-mark",
+            "toId": "hk-task-dash-done",
+            "label": "获得能力",
+            "condition": ""
+          }
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "8ac7f8f8-455d-46ab-ba80-87ab4c579173",
+            "recordId": ""
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "60da293c-d4d3-418a-9138-df9648a5bad5",
+            "recordId": ""
+          },
+          {
+            "kind": "capability",
+            "targetId": "hk-cap-progress-snapshot",
+            "recordId": ""
+          },
+          {
+            "kind": "capability",
+            "targetId": "hk-cap-player-dash",
+            "recordId": ""
+          },
+          {
+            "kind": "story",
+            "targetId": "story_ef9ca356-3c42-437a-925a-62b9a23fe826",
+            "recordId": ""
+          },
+          {
+            "kind": "table",
+            "targetId": "hk_flags",
+            "recordId": "hasDash"
+          }
+        ]
+      },
+      {
+        "id": "hk-task-shortcut",
+        "title": "打开裂隙近路",
+        "kind": "探索",
+        "scope": "单次",
+        "summary": "通过冲刺门槛抵达C区拉杆，连通A/C房间。",
+        "availability": "",
+        "archived": false,
+        "status": "草稿",
+        "prerequisiteMode": "all",
+        "prerequisiteIds": [
+          "hk-task-dash"
+        ],
+        "startId": "hk-task-shortcut-lever",
+        "stages": [
+          {
+            "id": "hk-task-shortcut-lever",
+            "title": "抵达并操作拉杆",
+            "kind": "objective",
+            "description": "",
+            "mode": "all",
+            "objectives": [
+              {
+                "id": "hk-task-shortcut-lever-o0",
+                "title": "操作C区拉杆",
+                "condition": "通过裂隙后交互拉杆，提交shortcutOpen",
+                "target": 1
+              }
+            ],
+            "result": ""
+          },
+          {
+            "id": "hk-task-shortcut-done",
+            "title": "近路已连通",
+            "kind": "success",
+            "description": "",
+            "mode": "all",
+            "objectives": [],
+            "result": "shortcutOpen=true；A/C双向近路开放，死亡保留。"
+          }
+        ],
+        "transitions": [
+          {
+            "id": "hk-task-shortcut-e0",
+            "fromId": "hk-task-shortcut-lever",
+            "toId": "hk-task-shortcut-done",
+            "label": "开启近路",
+            "condition": ""
+          }
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "d217ca56-8558-443b-994e-c39838c7a49d",
+            "recordId": ""
+          },
+          {
+            "kind": "capability",
+            "targetId": "hk-cap-room-transition",
+            "recordId": ""
+          },
+          {
+            "kind": "capability",
+            "targetId": "hk-cap-progress-snapshot",
+            "recordId": ""
+          },
+          {
+            "kind": "story",
+            "targetId": "story_ef9ca356-3c42-437a-925a-62b9a23fe826",
+            "recordId": ""
+          },
+          {
+            "kind": "table",
+            "targetId": "hk_flags",
+            "recordId": "shortcutOpen"
+          }
+        ]
+      },
+      {
+        "id": "hk-task-boss",
+        "title": "击败遗壳守卫并领取奖励",
+        "kind": "探索",
+        "scope": "单次",
+        "summary": "追踪首领击败与唯一奖励领取；战斗阶段仍由首领玩法管理。",
+        "availability": "",
+        "archived": false,
+        "status": "草稿",
+        "prerequisiteMode": "all",
+        "prerequisiteIds": [
+          "hk-task-dash"
+        ],
+        "startId": "hk-task-boss-fight",
+        "stages": [
+          {
+            "id": "hk-task-boss-fight",
+            "title": "击败遗壳守卫",
+            "kind": "objective",
+            "description": "",
+            "mode": "all",
+            "objectives": [
+              {
+                "id": "hk-task-boss-fight-o0",
+                "title": "首领生命归零",
+                "condition": "bossDefeated首次置真，门打开并保留未领取的唯一宝箱",
+                "target": 1
+              }
+            ],
+            "result": ""
+          },
+          {
+            "id": "hk-task-boss-chest",
+            "title": "领取唯一宝箱",
+            "kind": "objective",
+            "description": "",
+            "mode": "all",
+            "objectives": [
+              {
+                "id": "hk-task-boss-chest-o0",
+                "title": "存活时打开宝箱",
+                "condition": "rewardClaimed=false且玩家存活时交互；失败重试不得重复入账",
+                "target": 1
+              }
+            ],
+            "result": ""
+          },
+          {
+            "id": "hk-task-boss-done",
+            "title": "裂隙目标完成",
+            "kind": "success",
+            "description": "",
+            "mode": "all",
+            "objectives": [],
+            "result": "钱包增加60且rewardClaimed=true，同一事务提交；永久标志在死亡后保留。"
+          }
+        ],
+        "transitions": [
+          {
+            "id": "hk-task-boss-e0",
+            "fromId": "hk-task-boss-fight",
+            "toId": "hk-task-boss-chest",
+            "label": "首领已击败",
+            "condition": ""
+          },
+          {
+            "id": "hk-task-boss-e1",
+            "fromId": "hk-task-boss-chest",
+            "toId": "hk-task-boss-done",
+            "label": "完成领取",
+            "condition": ""
+          }
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "adcd86ce-5557-4fec-96e4-c1f42b638c7e",
+            "recordId": ""
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "846da304-6fa2-4332-9f3f-36a96af8e455",
+            "recordId": ""
+          },
+          {
+            "kind": "capability",
+            "targetId": "hk-cap-progress-snapshot",
+            "recordId": ""
+          },
+          {
+            "kind": "story",
+            "targetId": "story_ef9ca356-3c42-437a-925a-62b9a23fe826",
+            "recordId": ""
+          },
+          {
+            "kind": "table",
+            "targetId": "hk_flags",
+            "recordId": "rewardClaimed"
+          }
+        ]
+      }
+    ]
   }
 }

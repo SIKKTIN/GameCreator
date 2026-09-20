@@ -7,7 +7,7 @@ const { workspaceHash } = require('./art-files.cjs');
 
 const CATALOG_KEY = 'gamecreator.projects.v1';
 const SECTIONS = ['gameplay', 'functional-systems', 'art-assets', 'definitions', 'stories', 'project', 'milestones', 'enum-versions'];
-const OPTIONAL_SECTIONS = ['data-view', 'gameplay-core'];
+const OPTIONAL_SECTIONS = ['data-view', 'gameplay-core', 'task-flows'];
 const FILE_TOKEN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.[a-z0-9]{1,12}$/;
 const NEW_PROJECT = /^project-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_METADATA_BYTES = 20 * 1024 * 1024;
@@ -143,10 +143,50 @@ function validateCoreArchive(value) {
   if (visited.size !== graphs.size) invalid();
 }
 
+function validateTaskArchive(value) {
+    const invalid = () => { throw new Error('任务与流程存档格式异常，已停止写入'); };
+    const record = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
+    const fields = (v, keys) => keys.every(k => typeof v[k] === 'string');
+    const ids = new Set();
+    const id = (v) => { if (typeof v !== 'string' || !v.trim() || ids.has(v))
+        return false; ids.add(v); return true; };
+    const mode = (v) => v === 'all' || v === 'any';
+    if (!record(value) || value.schema !== 1 || !Array.isArray(value.tasks))
+        return invalid();
+    for (const task of value.tasks) {
+        if (!record(task) || !id(task.id) || !fields(task, ['title', 'summary', 'availability', 'startId']) || typeof task.archived !== 'boolean' ||
+            !["主线","支线","委托","探索","关卡","挑战"].includes(task.kind) || !["单次","每局","每日","跨局"].includes(task.scope) || !['草稿', '已确认'].includes(task.status) ||
+            !mode(task.prerequisiteMode) || !Array.isArray(task.prerequisiteIds) || !task.prerequisiteIds.every(v => typeof v === 'string' && !!v.trim()) || new Set(task.prerequisiteIds).size !== task.prerequisiteIds.length ||
+            !Array.isArray(task.stages) || !Array.isArray(task.transitions) || !Array.isArray(task.references))
+            return invalid();
+        for (const stage of task.stages) {
+            if (!record(stage) || !id(stage.id) || !fields(stage, ['title', 'description', 'result']) || !['objective', 'success', 'failure'].includes(stage.kind) || !mode(stage.mode) || !Array.isArray(stage.objectives))
+                return invalid();
+            for (const objective of stage.objectives)
+                if (!record(objective) || !id(objective.id) || !fields(objective, ['title', 'condition']) || !Number.isSafeInteger(objective.target) || objective.target < 1)
+                    return invalid();
+        }
+        for (const edge of task.transitions)
+            if (!record(edge) || !id(edge.id) || !fields(edge, ['fromId', 'toId', 'label', 'condition']))
+                return invalid();
+        const refs = new Set();
+        for (const ref of task.references) {
+            if (!record(ref) || !["gameplay","capability","story","asset","table"].includes(ref.kind) || !fields(ref, ['targetId', 'recordId']) || !ref.targetId.trim() || ref.kind !== 'table' && ref.recordId !== '')
+                return invalid();
+            const key = JSON.stringify([ref.kind, ref.targetId, ref.recordId]);
+            if (refs.has(key))
+                return invalid();
+            refs.add(key);
+        }
+    }
+    return value;
+}
+
 function validateDocument(value) {
   if (!record(value) || value.schema !== 1 || !record(value.project) || typeof value.project.name !== 'string' || !value.project.name.trim() || value.project.name.length > 100 || !record(value.project.config) || !record(value.archives) || SECTIONS.some(section => !Object.hasOwn(value.archives, section)) || Object.keys(value.archives).some(section => ![...SECTIONS, ...OPTIONAL_SECTIONS].includes(section))) throw new Error('项目文件夹数据格式无效');
   if (value.project.defaultTablesVersion !== undefined && value.project.defaultTablesVersion !== 1) throw new Error('不支持的配置表默认值版本');
   if (Object.hasOwn(value.archives, 'gameplay-core')) validateCoreArchive(value.archives['gameplay-core']);
+  if (Object.hasOwn(value.archives, 'task-flows')) validateTaskArchive(value.archives['task-flows']);
   const art = value.archives['art-assets'];
   if (!record(art) || !Array.isArray(art.assets)) throw new Error('美术资产存档格式无效');
   return value;

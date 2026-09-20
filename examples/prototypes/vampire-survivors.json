@@ -11165,5 +11165,366 @@
         }
       ]
     }
-  ]
+  ],
+  "taskFlows": {
+    "schema": 1,
+    "tasks": [
+      {
+        "id": "vs-task-survival",
+        "title": "暮色荒原生存挑战",
+        "kind": "挑战",
+        "scope": "每局",
+        "summary": "记录30分钟生存挑战的结算结果，引用世界步的达标与阵亡裁决。",
+        "availability": "选角并创建独立runId",
+        "archived": false,
+        "status": "草稿",
+        "prerequisiteMode": "all",
+        "prerequisiteIds": [],
+        "startId": "vs-task-survival-play",
+        "stages": [
+          {
+            "id": "vs-task-survival-play",
+            "title": "本局终局裁决",
+            "kind": "objective",
+            "description": "",
+            "mode": "all",
+            "objectives": [
+              {
+                "id": "vs-task-survival-play-o0",
+                "title": "锁定一次终局",
+                "condition": "本局到达生存达标、阵亡或主动放弃之一；暂停时不推进世界时间",
+                "target": 1
+              }
+            ],
+            "result": ""
+          },
+          {
+            "id": "vs-task-survival-win",
+            "title": "生存30分钟",
+            "kind": "success",
+            "description": "",
+            "mode": "all",
+            "objectives": [],
+            "result": "结算拾取金币、每整分钟2金币及达标100金币；runId仅提交一次，首次达标解锁dawn。"
+          },
+          {
+            "id": "vs-task-survival-death",
+            "title": "阵亡结算",
+            "kind": "failure",
+            "description": "",
+            "mode": "all",
+            "objectives": [],
+            "result": "结算拾取金币与每整分钟2金币；更新合法成就统计，收益提交失败可重试。"
+          },
+          {
+            "id": "vs-task-survival-abandon",
+            "title": "主动放弃",
+            "kind": "failure",
+            "description": "",
+            "mode": "all",
+            "objectives": [],
+            "result": "只保留拾取金币，不推进成就统计。"
+          }
+        ],
+        "transitions": [
+          {
+            "id": "vs-task-survival-e0",
+            "fromId": "vs-task-survival-play",
+            "toId": "vs-task-survival-win",
+            "label": "达标结算",
+            "condition": "帧开始未死亡且下一世界时刻达到1800秒，先锁定达标"
+          },
+          {
+            "id": "vs-task-survival-e1",
+            "fromId": "vs-task-survival-play",
+            "toId": "vs-task-survival-death",
+            "label": "阵亡结算",
+            "condition": "帧开始已死亡，或未达标的本步伤害后死亡"
+          },
+          {
+            "id": "vs-task-survival-e2",
+            "fromId": "vs-task-survival-play",
+            "toId": "vs-task-survival-abandon",
+            "label": "放弃本局",
+            "condition": "玩家主动放弃且尚未锁定其他终局"
+          }
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "vs-play-run",
+            "recordId": ""
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "vs-play-settlement",
+            "recordId": ""
+          },
+          {
+            "kind": "capability",
+            "targetId": "vs-cap-tick",
+            "recordId": ""
+          },
+          {
+            "kind": "capability",
+            "targetId": "vs-cap-settle",
+            "recordId": ""
+          },
+          {
+            "kind": "story",
+            "targetId": "vs-story-scope",
+            "recordId": ""
+          },
+          {
+            "kind": "table",
+            "targetId": "vs_unlocks",
+            "recordId": "achievement_dawn"
+          }
+        ]
+      },
+      {
+        "id": "vs-task-unlock_scholar",
+        "title": "单局达到10级",
+        "kind": "挑战",
+        "scope": "跨局",
+        "summary": "依据已提交结算中的永久统计解锁内容；主动放弃不推进统计。",
+        "availability": "",
+        "archived": false,
+        "status": "草稿",
+        "prerequisiteMode": "all",
+        "prerequisiteIds": [],
+        "startId": "vs-task-unlock_scholar-progress",
+        "stages": [
+          {
+            "id": "vs-task-unlock_scholar-progress",
+            "title": "达到永久统计目标",
+            "kind": "objective",
+            "description": "",
+            "mode": "all",
+            "objectives": [
+              {
+                "id": "vs-task-unlock_scholar-progress-o0",
+                "title": "单局达到10级",
+                "condition": "读取已提交的bestLevel；单局最佳值，不将不同局相加",
+                "target": 10
+              }
+            ],
+            "result": ""
+          },
+          {
+            "id": "vs-task-unlock_scholar-done",
+            "title": "解锁内容",
+            "kind": "success",
+            "description": "",
+            "mode": "all",
+            "objectives": [],
+            "result": "角色 scholar 在结算提交后解锁，下局生效；不改变当前局构筑。"
+          }
+        ],
+        "transitions": [
+          {
+            "id": "vs-task-unlock_scholar-e0",
+            "fromId": "vs-task-unlock_scholar-progress",
+            "toId": "vs-task-unlock_scholar-done",
+            "label": "结算后解锁",
+            "condition": ""
+          }
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "vs-play-meta",
+            "recordId": ""
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "vs-play-settlement",
+            "recordId": ""
+          },
+          {
+            "kind": "capability",
+            "targetId": "vs-cap-unlock",
+            "recordId": ""
+          },
+          {
+            "kind": "capability",
+            "targetId": "vs-cap-settle",
+            "recordId": ""
+          },
+          {
+            "kind": "story",
+            "targetId": "vs-story-scope",
+            "recordId": ""
+          },
+          {
+            "kind": "table",
+            "targetId": "vs_unlocks",
+            "recordId": "unlock_scholar"
+          }
+        ]
+      },
+      {
+        "id": "vs-task-unlock_warden",
+        "title": "单局生存10分钟",
+        "kind": "挑战",
+        "scope": "跨局",
+        "summary": "依据已提交结算中的永久统计解锁内容；主动放弃不推进统计。",
+        "availability": "",
+        "archived": false,
+        "status": "草稿",
+        "prerequisiteMode": "all",
+        "prerequisiteIds": [],
+        "startId": "vs-task-unlock_warden-progress",
+        "stages": [
+          {
+            "id": "vs-task-unlock_warden-progress",
+            "title": "达到永久统计目标",
+            "kind": "objective",
+            "description": "",
+            "mode": "all",
+            "objectives": [
+              {
+                "id": "vs-task-unlock_warden-progress-o0",
+                "title": "单局生存10分钟",
+                "condition": "读取已提交的bestSurvival；单局最佳值，不将不同局相加",
+                "target": 600
+              }
+            ],
+            "result": ""
+          },
+          {
+            "id": "vs-task-unlock_warden-done",
+            "title": "解锁内容",
+            "kind": "success",
+            "description": "",
+            "mode": "all",
+            "objectives": [],
+            "result": "角色 warden 在结算提交后解锁，下局生效；不改变当前局构筑。"
+          }
+        ],
+        "transitions": [
+          {
+            "id": "vs-task-unlock_warden-e0",
+            "fromId": "vs-task-unlock_warden-progress",
+            "toId": "vs-task-unlock_warden-done",
+            "label": "结算后解锁",
+            "condition": ""
+          }
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "vs-play-meta",
+            "recordId": ""
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "vs-play-settlement",
+            "recordId": ""
+          },
+          {
+            "kind": "capability",
+            "targetId": "vs-cap-unlock",
+            "recordId": ""
+          },
+          {
+            "kind": "capability",
+            "targetId": "vs-cap-settle",
+            "recordId": ""
+          },
+          {
+            "kind": "story",
+            "targetId": "vs-story-scope",
+            "recordId": ""
+          },
+          {
+            "kind": "table",
+            "targetId": "vs_unlocks",
+            "recordId": "unlock_warden"
+          }
+        ]
+      },
+      {
+        "id": "vs-task-unlock_lightning",
+        "title": "累计击杀500名敌人",
+        "kind": "挑战",
+        "scope": "跨局",
+        "summary": "依据已提交结算中的永久统计解锁内容；主动放弃不推进统计。",
+        "availability": "",
+        "archived": false,
+        "status": "草稿",
+        "prerequisiteMode": "all",
+        "prerequisiteIds": [],
+        "startId": "vs-task-unlock_lightning-progress",
+        "stages": [
+          {
+            "id": "vs-task-unlock_lightning-progress",
+            "title": "达到永久统计目标",
+            "kind": "objective",
+            "description": "",
+            "mode": "all",
+            "objectives": [
+              {
+                "id": "vs-task-unlock_lightning-progress-o0",
+                "title": "累计击杀500名敌人",
+                "condition": "读取已提交的totalKills；跨局累计击杀，不重复累计同一runId",
+                "target": 500
+              }
+            ],
+            "result": ""
+          },
+          {
+            "id": "vs-task-unlock_lightning-done",
+            "title": "解锁内容",
+            "kind": "success",
+            "description": "",
+            "mode": "all",
+            "objectives": [],
+            "result": "武器 lightning 在结算提交后解锁，下局生效；不改变当前局构筑。"
+          }
+        ],
+        "transitions": [
+          {
+            "id": "vs-task-unlock_lightning-e0",
+            "fromId": "vs-task-unlock_lightning-progress",
+            "toId": "vs-task-unlock_lightning-done",
+            "label": "结算后解锁",
+            "condition": ""
+          }
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "vs-play-meta",
+            "recordId": ""
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "vs-play-settlement",
+            "recordId": ""
+          },
+          {
+            "kind": "capability",
+            "targetId": "vs-cap-unlock",
+            "recordId": ""
+          },
+          {
+            "kind": "capability",
+            "targetId": "vs-cap-settle",
+            "recordId": ""
+          },
+          {
+            "kind": "story",
+            "targetId": "vs-story-scope",
+            "recordId": ""
+          },
+          {
+            "kind": "table",
+            "targetId": "vs_unlocks",
+            "recordId": "unlock_lightning"
+          }
+        ]
+      }
+    ]
+  }
 }

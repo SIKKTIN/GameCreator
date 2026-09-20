@@ -80,7 +80,7 @@ const digest = value => createHash('sha256').update(value).digest('hex');
     return project.id;
   }
   function assertImported(id, fixture) {
-    for (const [suffix, property] of [['gameplay', 'gameplay'], ['functional-systems', 'functionalSystems'], ['art-assets', 'artAssets'], ['definitions', 'definitions'], ['stories', 'stories']]) {
+    for (const [suffix, property] of [['task-flows', 'taskFlows'], ['gameplay', 'gameplay'], ['functional-systems', 'functionalSystems'], ['art-assets', 'artAssets'], ['definitions', 'definitions'], ['stories', 'stories']]) {
       assert.deepEqual(read(id, suffix), fixture.value[property], fixture.slug + ': imported ' + property + ' differs');
     }
     const registry = JSON.parse(storage.getItem(dataKey(id)));

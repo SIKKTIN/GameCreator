@@ -10230,5 +10230,352 @@
         ]
       }
     }
-  ]
+  ],
+  "taskFlows": {
+    "schema": 1,
+    "tasks": [
+      {
+        "id": "de-task-case",
+        "title": "盐雾码头疑案",
+        "kind": "主线",
+        "scope": "单次",
+        "summary": "将受理、现场取证、交叉验证与案情报告串联；保留成功、误判与暂缓路径。",
+        "availability": "case_open=1",
+        "archived": false,
+        "status": "草稿",
+        "prerequisiteMode": "all",
+        "prerequisiteIds": [],
+        "startId": "de-task-case-scene",
+        "stages": [
+          {
+            "id": "de-task-case-scene",
+            "title": "进入现场调查",
+            "kind": "objective",
+            "description": "",
+            "mode": "all",
+            "objectives": [
+              {
+                "id": "de-task-case-scene-o0",
+                "title": "开始现场调查",
+                "condition": "进入可达调查场景，读取案件快照；截止后直接保留报告入口",
+                "target": 1
+              }
+            ],
+            "result": ""
+          },
+          {
+            "id": "de-task-case-report",
+            "title": "调查与提交报告",
+            "kind": "objective",
+            "description": "",
+            "mode": "all",
+            "objectives": [
+              {
+                "id": "de-task-case-report-o0",
+                "title": "准备提交阶段报告",
+                "condition": "玩家主动汇报、到达截止时间或健康士气无法恢复；报告候选由证据与假说分别计算",
+                "target": 1
+              }
+            ],
+            "result": ""
+          },
+          {
+            "id": "de-task-case-truth",
+            "title": "查明真相",
+            "kind": "success",
+            "description": "",
+            "mode": "all",
+            "objectives": [],
+            "result": "冻结truth阶段结果：设备违规运行导致事故，记录被掩盖；case_closed=1。"
+          },
+          {
+            "id": "de-task-case-wrong",
+            "title": "误判结案",
+            "kind": "failure",
+            "description": "",
+            "mode": "all",
+            "objectives": [],
+            "result": "冻结wrong阶段结果：将未经交叉验证的谋杀假说写成事实，搭档保留异议；case_closed=1。"
+          },
+          {
+            "id": "de-task-case-pause",
+            "title": "暂缓调查",
+            "kind": "failure",
+            "description": "",
+            "mode": "all",
+            "objectives": [],
+            "result": "冻结pause阶段结果，保留已得线索与未决问题；不授予查明真相结果。"
+          }
+        ],
+        "transitions": [
+          {
+            "id": "de-task-case-e0",
+            "fromId": "de-task-case-scene",
+            "toId": "de-task-case-report",
+            "label": "进入调查与汇报",
+            "condition": ""
+          },
+          {
+            "id": "de-task-case-e1",
+            "fromId": "de-task-case-report",
+            "toId": "de-task-case-truth",
+            "label": "提交真相报告",
+            "condition": "断绳 AND（账册 OR 复写件）AND（证词 OR 维修便条），玩家选择真相报告"
+          },
+          {
+            "id": "de-task-case-e2",
+            "fromId": "de-task-case-report",
+            "toId": "de-task-case-wrong",
+            "label": "坚持谋杀假说",
+            "condition": "人为谋杀假说存在且玩家主动坚持"
+          },
+          {
+            "id": "de-task-case-e3",
+            "fromId": "de-task-case-report",
+            "toId": "de-task-case-pause",
+            "label": "暂缓调查",
+            "condition": "玩家主动暂缓，或第二天截止证据不足，或健康士气无法恢复"
+          }
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "de-play-explore",
+            "recordId": ""
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "de-play-checks",
+            "recordId": ""
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "de-play-case",
+            "recordId": ""
+          },
+          {
+            "kind": "capability",
+            "targetId": "de-cap-tasks",
+            "recordId": ""
+          },
+          {
+            "kind": "capability",
+            "targetId": "de-cap-report",
+            "recordId": ""
+          },
+          {
+            "kind": "capability",
+            "targetId": "de-cap-evidence",
+            "recordId": ""
+          },
+          {
+            "kind": "story",
+            "targetId": "de-story-case",
+            "recordId": ""
+          },
+          {
+            "kind": "table",
+            "targetId": "de_tasks",
+            "recordId": "case"
+          },
+          {
+            "kind": "table",
+            "targetId": "de_outcomes",
+            "recordId": ""
+          }
+        ]
+      },
+      {
+        "id": "de-task-rent",
+        "title": "找一个能睡觉的地方",
+        "kind": "支线",
+        "scope": "单次",
+        "summary": "付费或帮忙解决住宿，为第一晚休息创造条件。",
+        "availability": "与玛拉谈住宿",
+        "archived": false,
+        "status": "草稿",
+        "prerequisiteMode": "all",
+        "prerequisiteIds": [],
+        "startId": "de-task-rent-prepare",
+        "stages": [
+          {
+            "id": "de-task-rent-prepare",
+            "title": "解决住宿",
+            "kind": "objective",
+            "description": "",
+            "mode": "any",
+            "objectives": [
+              {
+                "id": "de-task-rent-prepare-o0",
+                "title": "付费解决住宿",
+                "condition": "按交易功能完成支付并提交rent_paid=1",
+                "target": 1
+              },
+              {
+                "id": "de-task-rent-prepare-o1",
+                "title": "帮忙解决住宿",
+                "condition": "交还家书等既有帮忙结果使rent_paid=1",
+                "target": 1
+              }
+            ],
+            "result": ""
+          },
+          {
+            "id": "de-task-rent-done",
+            "title": "住宿已解决",
+            "kind": "success",
+            "description": "",
+            "mode": "all",
+            "objectives": [],
+            "result": "开放第一天21:00–24:00休息至第二天08:00；不直接授予案件证据。"
+          }
+        ],
+        "transitions": [
+          {
+            "id": "de-task-rent-e0",
+            "fromId": "de-task-rent-prepare",
+            "toId": "de-task-rent-done",
+            "label": "获得休息条件",
+            "condition": ""
+          }
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "de-play-resources",
+            "recordId": ""
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "de-play-clock",
+            "recordId": ""
+          },
+          {
+            "kind": "capability",
+            "targetId": "de-cap-tasks",
+            "recordId": ""
+          },
+          {
+            "kind": "capability",
+            "targetId": "de-cap-prepare",
+            "recordId": ""
+          },
+          {
+            "kind": "story",
+            "targetId": "de-story-case",
+            "recordId": ""
+          },
+          {
+            "kind": "table",
+            "targetId": "de_tasks",
+            "recordId": "rent"
+          }
+        ]
+      },
+      {
+        "id": "de-task-letter",
+        "title": "把家书送到",
+        "kind": "支线",
+        "scope": "单次",
+        "summary": "发现家书、核对收信人并交还，一次性提交关系与成长结果。",
+        "availability": "parcel_found=1",
+        "archived": false,
+        "status": "草稿",
+        "prerequisiteMode": "all",
+        "prerequisiteIds": [],
+        "startId": "de-task-letter-check",
+        "stages": [
+          {
+            "id": "de-task-letter-check",
+            "title": "核对收信人",
+            "kind": "objective",
+            "description": "",
+            "mode": "all",
+            "objectives": [
+              {
+                "id": "de-task-letter-check-o0",
+                "title": "确认家书收信人",
+                "condition": "通过相应调查与对话确认收信人",
+                "target": 1
+              }
+            ],
+            "result": ""
+          },
+          {
+            "id": "de-task-letter-deliver",
+            "title": "交还家书",
+            "kind": "objective",
+            "description": "",
+            "mode": "all",
+            "objectives": [
+              {
+                "id": "de-task-letter-deliver-o0",
+                "title": "交还家书",
+                "condition": "parcel_returned=0时向正确收信人提交",
+                "target": 1
+              }
+            ],
+            "result": ""
+          },
+          {
+            "id": "de-task-letter-done",
+            "title": "家书已送达",
+            "kind": "success",
+            "description": "",
+            "mode": "all",
+            "objectives": [],
+            "result": "parcel_returned=1；住宿解决、搭档信任+1、经验+5，仅提交一次。"
+          }
+        ],
+        "transitions": [
+          {
+            "id": "de-task-letter-e0",
+            "fromId": "de-task-letter-check",
+            "toId": "de-task-letter-deliver",
+            "label": "前往交还",
+            "condition": ""
+          },
+          {
+            "id": "de-task-letter-e1",
+            "fromId": "de-task-letter-deliver",
+            "toId": "de-task-letter-done",
+            "label": "完成交付",
+            "condition": ""
+          }
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "de-play-dialogue",
+            "recordId": ""
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "de-play-case",
+            "recordId": ""
+          },
+          {
+            "kind": "capability",
+            "targetId": "de-cap-tasks",
+            "recordId": ""
+          },
+          {
+            "kind": "capability",
+            "targetId": "de-cap-commit",
+            "recordId": ""
+          },
+          {
+            "kind": "story",
+            "targetId": "de-story-case",
+            "recordId": ""
+          },
+          {
+            "kind": "table",
+            "targetId": "de_tasks",
+            "recordId": "letter"
+          }
+        ]
+      }
+    ]
+  }
 }
