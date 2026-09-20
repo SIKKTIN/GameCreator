@@ -22655,5 +22655,916 @@
         ]
       }
     ]
+  },
+  "projectSchedule": {
+    "schema": 1,
+    "tasks": [
+      {
+        "id": "disco-elysium-schedule-scope",
+        "title": "审定两天案件与分支验收矩阵",
+        "description": "审定两天案件与分支验收矩阵。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "设计",
+        "owner": "",
+        "status": "待开始",
+        "priority": "普通",
+        "start": "2026-09-21",
+        "end": "2026-09-22",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "disco-elysium-schedule-m1",
+        "acceptance": "明确五地点、六人物、线索来源与三阶段结局条件；区分事实、假说和内心声音。",
+        "result": "",
+        "dependencyIds": [],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "de-play-explore"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "de-play-dialogue"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "de-play-voices"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "de-play-checks"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "de-play-case"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "de-play-thoughts"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "de-play-resources"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "de-play-clock"
+          }
+        ]
+      },
+      {
+        "id": "disco-elysium-schedule-state",
+        "title": "建立世界快照与行动事务",
+        "description": "建立世界快照与行动事务。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "程序",
+        "owner": "",
+        "status": "待开始",
+        "priority": "高",
+        "start": "2026-09-23",
+        "end": "2026-09-25",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "disco-elysium-schedule-m1",
+        "acceptance": "条件读取一致快照；一次选择的资源、时间和后继变化原子提交，重复操作不重复写入。",
+        "result": "",
+        "dependencyIds": [
+          "disco-elysium-schedule-scope"
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "de-play-explore"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "de-play-dialogue"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "de-play-case"
+          },
+          {
+            "kind": "capability",
+            "targetId": "de-cap-read"
+          },
+          {
+            "kind": "capability",
+            "targetId": "de-cap-conditions"
+          },
+          {
+            "kind": "capability",
+            "targetId": "de-cap-commit"
+          },
+          {
+            "kind": "capability",
+            "targetId": "de-cap-snapshot"
+          }
+        ]
+      },
+      {
+        "id": "disco-elysium-schedule-explore",
+        "title": "实现地点可达与调查点互动",
+        "description": "实现地点可达与调查点互动。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "程序",
+        "owner": "",
+        "status": "待开始",
+        "priority": "高",
+        "start": "2026-09-23",
+        "end": "2026-09-25",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "disco-elysium-schedule-m1",
+        "acceptance": "五地点入口与调查点可索引；不可达原因明确，调查获取内容可追溯。",
+        "result": "",
+        "dependencyIds": [
+          "disco-elysium-schedule-scope"
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "de-play-explore"
+          },
+          {
+            "kind": "capability",
+            "targetId": "de-cap-travel"
+          },
+          {
+            "kind": "capability",
+            "targetId": "de-cap-interact"
+          }
+        ]
+      },
+      {
+        "id": "disco-elysium-schedule-scene-art",
+        "title": "制作港区场景与现场证物",
+        "description": "制作港区场景与现场证物。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "美术",
+        "owner": "",
+        "status": "待开始",
+        "priority": "普通",
+        "start": "2026-09-23",
+        "end": "2026-10-01",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "disco-elysium-schedule-m2",
+        "acceptance": "五场景交互热点、移动层与证物辨识一致；背景不遮挡提示和出口。",
+        "result": "",
+        "dependencyIds": [
+          "disco-elysium-schedule-scope"
+        ],
+        "references": [
+          {
+            "kind": "requirement",
+            "targetId": "de-req-scene-hotel"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "de-req-scene-yard"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "de-req-scene-pier"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "de-req-scene-archive"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "de-req-scene-clinic"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "de-req-actor"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "de-req-evidence"
+          }
+        ]
+      },
+      {
+        "id": "disco-elysium-schedule-dialogue",
+        "title": "实现话题、选项和内心声音",
+        "description": "实现话题、选项和内心声音。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "程序",
+        "owner": "",
+        "status": "待开始",
+        "priority": "高",
+        "start": "2026-09-28",
+        "end": "2026-10-02",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "disco-elysium-schedule-m2",
+        "acceptance": "人物话题由当前状态筛选；选择正确路由，技能声音有来源且与事实明确区分。",
+        "result": "",
+        "dependencyIds": [
+          "disco-elysium-schedule-state",
+          "disco-elysium-schedule-explore"
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "de-play-dialogue"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "de-play-voices"
+          },
+          {
+            "kind": "capability",
+            "targetId": "de-cap-options"
+          },
+          {
+            "kind": "capability",
+            "targetId": "de-cap-session"
+          },
+          {
+            "kind": "capability",
+            "targetId": "de-cap-voice"
+          }
+        ]
+      },
+      {
+        "id": "disco-elysium-schedule-checks",
+        "title": "实现技能修正与红白检定",
+        "description": "实现技能修正与红白检定。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "程序",
+        "owner": "",
+        "status": "待开始",
+        "priority": "高",
+        "start": "2026-09-28",
+        "end": "2026-10-02",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "disco-elysium-schedule-m2",
+        "acceptance": "有效技能含装备/思想修正；红检定不可任意重试，白检定仅合法来源解锁，失败路由可继续。",
+        "result": "",
+        "dependencyIds": [
+          "disco-elysium-schedule-state"
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "de-play-voices"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "de-play-checks"
+          },
+          {
+            "kind": "capability",
+            "targetId": "de-cap-stats"
+          },
+          {
+            "kind": "capability",
+            "targetId": "de-cap-resolve"
+          },
+          {
+            "kind": "capability",
+            "targetId": "de-cap-unlock"
+          }
+        ]
+      },
+      {
+        "id": "disco-elysium-schedule-writing",
+        "title": "填完人物对话与证据分支",
+        "description": "填完人物对话与证据分支。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "设计",
+        "owner": "",
+        "status": "待开始",
+        "priority": "普通",
+        "start": "2026-09-28",
+        "end": "2026-10-02",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "disco-elysium-schedule-m2",
+        "acceptance": "六人物关键话题覆盖成功、失败、已知/未知信息与时段变化；分支有后继无占位文本。",
+        "result": "",
+        "dependencyIds": [
+          "disco-elysium-schedule-scope"
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "de-play-explore"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "de-play-dialogue"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "de-play-voices"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "de-play-checks"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "de-play-case"
+          }
+        ]
+      },
+      {
+        "id": "disco-elysium-schedule-case",
+        "title": "实现线索任务与结局冻结",
+        "description": "实现线索任务与结局冻结。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "程序",
+        "owner": "",
+        "status": "待开始",
+        "priority": "高",
+        "start": "2026-10-05",
+        "end": "2026-10-07",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "disco-elysium-schedule-m3",
+        "acceptance": "证据记录来源，假说不冒充证据；阶段任务推进后结局选择和冻结只能提交一次。",
+        "result": "",
+        "dependencyIds": [
+          "disco-elysium-schedule-dialogue",
+          "disco-elysium-schedule-checks",
+          "disco-elysium-schedule-writing"
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "de-play-case"
+          },
+          {
+            "kind": "capability",
+            "targetId": "de-cap-evidence"
+          },
+          {
+            "kind": "capability",
+            "targetId": "de-cap-tasks"
+          },
+          {
+            "kind": "capability",
+            "targetId": "de-cap-report"
+          }
+        ]
+      },
+      {
+        "id": "disco-elysium-schedule-thoughts",
+        "title": "实现思想槽位与时间进度",
+        "description": "实现思想槽位与时间进度。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "程序",
+        "owner": "",
+        "status": "待开始",
+        "priority": "高",
+        "start": "2026-10-05",
+        "end": "2026-10-06",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "disco-elysium-schedule-m3",
+        "acceptance": "发现、内化、完成和遗忘可复现；按游戏时间推进，修正从统一技能快照读取。",
+        "result": "",
+        "dependencyIds": [
+          "disco-elysium-schedule-dialogue",
+          "disco-elysium-schedule-checks"
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "de-play-thoughts"
+          },
+          {
+            "kind": "capability",
+            "targetId": "de-cap-discover"
+          },
+          {
+            "kind": "capability",
+            "targetId": "de-cap-internalize"
+          }
+        ]
+      },
+      {
+        "id": "disco-elysium-schedule-clock",
+        "title": "接入日程、准备与零资源窗口",
+        "description": "接入日程、准备与零资源窗口。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "程序",
+        "owner": "",
+        "status": "待开始",
+        "priority": "高",
+        "start": "2026-10-07",
+        "end": "2026-10-09",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "disco-elysium-schedule-m3",
+        "acceptance": "两天时钟驱动地点人物开放；交易成长及健康/士气恢复可用，不跳过可恢复窗口。",
+        "result": "",
+        "dependencyIds": [
+          "disco-elysium-schedule-thoughts"
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "de-play-resources"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "de-play-clock"
+          },
+          {
+            "kind": "capability",
+            "targetId": "de-cap-advance"
+          },
+          {
+            "kind": "capability",
+            "targetId": "de-cap-presence"
+          },
+          {
+            "kind": "capability",
+            "targetId": "de-cap-prepare"
+          },
+          {
+            "kind": "capability",
+            "targetId": "de-cap-recovery"
+          }
+        ]
+      },
+      {
+        "id": "disco-elysium-schedule-portraits",
+        "title": "制作人物肖像与阅读界面",
+        "description": "制作人物肖像与阅读界面。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "美术",
+        "owner": "",
+        "status": "待开始",
+        "priority": "普通",
+        "start": "2026-10-02",
+        "end": "2026-10-09",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "disco-elysium-schedule-m3",
+        "acceptance": "六人物肖像一致，八类内心声音可区分，对话、检定、思想与记录界面可阅读。",
+        "result": "",
+        "dependencyIds": [
+          "disco-elysium-schedule-scene-art"
+        ],
+        "references": [
+          {
+            "kind": "requirement",
+            "targetId": "de-req-portrait-partner"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "de-req-portrait-host"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "de-req-portrait-witness"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "de-req-portrait-foreman"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "de-req-portrait-clerk"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "de-req-portrait-doctor"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "de-req-skills"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "de-req-dialogue"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "de-req-checks"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "de-req-thoughts"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "de-req-journal"
+          }
+        ]
+      },
+      {
+        "id": "disco-elysium-schedule-flow",
+        "title": "串联两天自由调查与三结局",
+        "description": "串联两天自由调查与三结局。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "关卡",
+        "owner": "",
+        "status": "待开始",
+        "priority": "普通",
+        "start": "2026-10-12",
+        "end": "2026-10-14",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "disco-elysium-schedule-m4",
+        "acceptance": "开始调查后可自由安排地点与时间；三种结局各有可执行证据路线，无出口断链。",
+        "result": "",
+        "dependencyIds": [
+          "disco-elysium-schedule-case",
+          "disco-elysium-schedule-clock"
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "de-play-explore"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "de-play-case"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "de-play-clock"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "de-proto-menu"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "de-proto-detective"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "de-proto-hotel"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "de-proto-map"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "de-proto-yard"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "de-proto-rope-check"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "de-proto-rope-success"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "de-proto-white-fail"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "de-proto-letter"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "de-proto-pier"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "de-proto-witness"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "de-proto-testimony"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "de-proto-witness-fail"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "de-proto-foreman"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "de-proto-red-success"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "de-proto-red-fail"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "de-proto-archive"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "de-proto-ledger"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "de-proto-clinic"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "de-proto-copy"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "de-proto-recovery"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "de-proto-host"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "de-proto-thought"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "de-proto-thought-done"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "de-proto-schedule"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "de-proto-day2"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "de-proto-clues"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "de-proto-report"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "de-proto-truth"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "de-proto-wrong"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "de-proto-pause-ending"
+          }
+        ]
+      },
+      {
+        "id": "disco-elysium-schedule-feedback",
+        "title": "制作时间、资源与案情总结反馈",
+        "description": "制作时间、资源与案情总结反馈。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "美术",
+        "owner": "",
+        "status": "待开始",
+        "priority": "普通",
+        "start": "2026-10-12",
+        "end": "2026-10-14",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "disco-elysium-schedule-m4",
+        "acceptance": "行动耗时、紧急恢复、案情结果与搭档意见可辨；低干扰反馈不抢阅读焦点。",
+        "result": "",
+        "dependencyIds": [
+          "disco-elysium-schedule-portraits"
+        ],
+        "references": [
+          {
+            "kind": "requirement",
+            "targetId": "de-req-clock"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "de-req-resources"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "de-req-report"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "de-req-feedback"
+          }
+        ]
+      },
+      {
+        "id": "disco-elysium-schedule-integrate",
+        "title": "整合叙事表现与快照恢复",
+        "description": "整合叙事表现与快照恢复。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "程序",
+        "owner": "",
+        "status": "待开始",
+        "priority": "高",
+        "start": "2026-10-15",
+        "end": "2026-10-16",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "disco-elysium-schedule-m4",
+        "acceptance": "对话中断后恢复合法节点；检定结果、思想进度、日期和已冻结结局一致。",
+        "result": "",
+        "dependencyIds": [
+          "disco-elysium-schedule-flow",
+          "disco-elysium-schedule-feedback"
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "de-play-dialogue"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "de-play-checks"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "de-play-case"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "de-play-thoughts"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "de-play-resources"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "de-play-clock"
+          }
+        ]
+      },
+      {
+        "id": "disco-elysium-schedule-branches",
+        "title": "覆盖检定失败与三结局路线",
+        "description": "覆盖检定失败与三结局路线。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "测试",
+        "owner": "",
+        "status": "待开始",
+        "priority": "高",
+        "start": "2026-10-19",
+        "end": "2026-10-21",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "disco-elysium-schedule-m5",
+        "acceptance": "逐条执行分支矩阵：红白成功/失败、合法重试、错过日程、三结局；记录条件快照。",
+        "result": "",
+        "dependencyIds": [
+          "disco-elysium-schedule-integrate"
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "de-play-explore"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "de-play-dialogue"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "de-play-voices"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "de-play-checks"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "de-play-case"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "de-play-thoughts"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "de-play-resources"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "de-play-clock"
+          }
+        ]
+      },
+      {
+        "id": "disco-elysium-schedule-persistence",
+        "title": "验证事务与叙事存读档边界",
+        "description": "验证事务与叙事存读档边界。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "测试",
+        "owner": "",
+        "status": "待开始",
+        "priority": "高",
+        "start": "2026-10-19",
+        "end": "2026-10-21",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "disco-elysium-schedule-m5",
+        "acceptance": "在检定、思想完成、日界和结局前后读档；反复点击不能重复加点、扣款或推进时间。",
+        "result": "",
+        "dependencyIds": [
+          "disco-elysium-schedule-integrate"
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "de-play-checks"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "de-play-case"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "de-play-thoughts"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "de-play-resources"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "de-play-clock"
+          }
+        ]
+      },
+      {
+        "id": "disco-elysium-schedule-signoff",
+        "title": "修复死路并验收调查版本",
+        "description": "修复死路并验收调查版本。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "测试",
+        "owner": "",
+        "status": "待开始",
+        "priority": "高",
+        "start": "2026-10-22",
+        "end": "2026-10-23",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "disco-elysium-schedule-m5",
+        "acceptance": "阻断叙事的问题清零；完成不同取证顺序的回归，交付路径报告与试玩版本。",
+        "result": "",
+        "dependencyIds": [
+          "disco-elysium-schedule-branches",
+          "disco-elysium-schedule-persistence"
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "de-play-explore"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "de-play-case"
+          }
+        ]
+      }
+    ],
+    "milestones": [
+      {
+        "id": "disco-elysium-schedule-m1",
+        "title": "M1｜可追踪的一次调查",
+        "owner": "",
+        "due": "2026-09-25",
+        "description": "参考基线：2026-09-21 开始，按周一至周五排布，未计法定假期。假设 2 名程序、1 名设计/关卡、1 名美术，测试由团队共同承担；负责人和实际日期待确定。仅覆盖当前最小原型，工期需在首次试玩后复估。",
+        "acceptance": "调查、条件判定与行动结果写入同一状态，快照可恢复。",
+        "review": "",
+        "status": "计划中"
+      },
+      {
+        "id": "disco-elysium-schedule-m2",
+        "title": "M2｜对话与检定闭环",
+        "owner": "",
+        "due": "2026-10-02",
+        "description": "参考基线：2026-09-21 开始，按周一至周五排布，未计法定假期。假设 2 名程序、1 名设计/关卡、1 名美术，测试由团队共同承担；负责人和实际日期待确定。仅覆盖当前最小原型，工期需在首次试玩后复估。",
+        "acceptance": "话题、选项、内心声音与红白检定可运行，失败仍有推进路径。",
+        "review": "",
+        "status": "计划中"
+      },
+      {
+        "id": "disco-elysium-schedule-m3",
+        "title": "M3｜两天案件内容",
+        "owner": "",
+        "due": "2026-10-09",
+        "description": "参考基线：2026-09-21 开始，按周一至周五排布，未计法定假期。假设 2 名程序、1 名设计/关卡、1 名美术，测试由团队共同承担；负责人和实际日期待确定。仅覆盖当前最小原型，工期需在首次试玩后复估。",
+        "acceptance": "五地点、人物日程、思想、准备和线索任务具备完整分支内容。",
+        "review": "",
+        "status": "计划中"
+      },
+      {
+        "id": "disco-elysium-schedule-m4",
+        "title": "M4｜阶段结局串联",
+        "owner": "",
+        "due": "2026-10-16",
+        "description": "参考基线：2026-09-21 开始，按周一至周五排布，未计法定假期。假设 2 名程序、1 名设计/关卡、1 名美术，测试由团队共同承担；负责人和实际日期待确定。仅覆盖当前最小原型，工期需在首次试玩后复估。",
+        "acceptance": "证据与假说可追踪到来源，三种阶段结局与搭档意见接入。",
+        "review": "",
+        "status": "计划中"
+      },
+      {
+        "id": "disco-elysium-schedule-m5",
+        "title": "M5｜叙事路径验收",
+        "owner": "",
+        "due": "2026-10-23",
+        "description": "参考基线：2026-09-21 开始，按周一至周五排布，未计法定假期。假设 2 名程序、1 名设计/关卡、1 名美术，测试由团队共同承担；负责人和实际日期待确定。仅覆盖当前最小原型，工期需在首次试玩后复估。",
+        "acceptance": "成功/失败/重试及不同时间路线回归通过，无不可恢复的叙事死路。",
+        "review": "",
+        "status": "计划中"
+      }
+    ]
   }
 }

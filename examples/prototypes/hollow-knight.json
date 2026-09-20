@@ -14132,5 +14132,830 @@
         "structure": "open"
       }
     ]
+  },
+  "projectSchedule": {
+    "schema": 1,
+    "tasks": [
+      {
+        "id": "hollow-knight-schedule-scope",
+        "title": "确认四房间路径与战斗判定",
+        "description": "确认四房间路径与战斗判定。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "设计",
+        "owner": "",
+        "status": "待开始",
+        "priority": "普通",
+        "start": "2026-09-21",
+        "end": "2026-09-22",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "hollow-knight-schedule-m1",
+        "acceptance": "锁定移动参数、动作优先级、冲刺门槛、首领阶段与完成目标；给出试玩判据。",
+        "result": "",
+        "dependencyIds": [],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "0c79d9bf-0830-4e5b-9680-a05f096e6ec8"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "60da293c-d4d3-418a-9138-df9648a5bad5"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "f2d2bb4b-7764-433f-9c19-67c7982637e8"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "3569edee-b95b-4bfd-97e1-8a816e94b184"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "8ac7f8f8-455d-46ab-ba80-87ab4c579173"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "d217ca56-8558-443b-994e-c39838c7a49d"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "adcd86ce-5557-4fec-96e4-c1f42b638c7e"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "846da304-6fa2-4332-9f3f-36a96af8e455"
+          }
+        ]
+      },
+      {
+        "id": "hollow-knight-schedule-move",
+        "title": "实现输入、碰撞与跑跳状态",
+        "description": "实现输入、碰撞与跑跳状态。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "程序",
+        "owner": "",
+        "status": "待开始",
+        "priority": "高",
+        "start": "2026-09-23",
+        "end": "2026-09-25",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "hollow-knight-schedule-m1",
+        "acceptance": "坡缘、平台边缘、头顶碰撞与跳跃释放可预测；暂停和动作打断遵循规则。",
+        "result": "",
+        "dependencyIds": [
+          "hollow-knight-schedule-scope"
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "60da293c-d4d3-418a-9138-df9648a5bad5"
+          },
+          {
+            "kind": "capability",
+            "targetId": "hk-cap-intent"
+          },
+          {
+            "kind": "capability",
+            "targetId": "hk-cap-swept-displacement"
+          },
+          {
+            "kind": "capability",
+            "targetId": "hk-cap-locomotion"
+          },
+          {
+            "kind": "capability",
+            "targetId": "hk-cap-action-arbitration"
+          }
+        ]
+      },
+      {
+        "id": "hollow-knight-schedule-hit",
+        "title": "实现资源、骨钉与统一命中",
+        "description": "实现资源、骨钉与统一命中。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "程序",
+        "owner": "",
+        "status": "待开始",
+        "priority": "高",
+        "start": "2026-09-23",
+        "end": "2026-09-25",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "hollow-knight-schedule-m1",
+        "acceptance": "伤害窗口与无敌时间正确；一次攻击不会重复结算，同帧致死不重复发奖。",
+        "result": "",
+        "dependencyIds": [
+          "hollow-knight-schedule-scope"
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "f2d2bb4b-7764-433f-9c19-67c7982637e8"
+          },
+          {
+            "kind": "capability",
+            "targetId": "hk-cap-vitals"
+          },
+          {
+            "kind": "capability",
+            "targetId": "hk-cap-nail"
+          },
+          {
+            "kind": "capability",
+            "targetId": "hk-cap-damage"
+          }
+        ]
+      },
+      {
+        "id": "hollow-knight-schedule-player-art",
+        "title": "制作玩家动作与资源反馈",
+        "description": "制作玩家动作与资源反馈。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "美术",
+        "owner": "",
+        "status": "待开始",
+        "priority": "普通",
+        "start": "2026-09-23",
+        "end": "2026-10-01",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "hollow-knight-schedule-m2",
+        "acceptance": "跑跳、冲刺、骨钉、治疗、受击死亡及 HUD 使用统一锚点，预警与命中清楚。",
+        "result": "",
+        "dependencyIds": [
+          "hollow-knight-schedule-scope"
+        ],
+        "references": [
+          {
+            "kind": "requirement",
+            "targetId": "hk-art-req-overview"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "hk-art-req-hero"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "hk-art-req-locomotion"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "hk-art-req-dash"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "hk-art-req-nail"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "hk-art-req-focus"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "hk-art-req-hurt"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "hk-art-req-hud"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "hk-art-req-input-ui"
+          }
+        ]
+      },
+      {
+        "id": "hollow-knight-schedule-dash",
+        "title": "实现永久冲刺与安全回点",
+        "description": "实现永久冲刺与安全回点。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "程序",
+        "owner": "",
+        "status": "待开始",
+        "priority": "高",
+        "start": "2026-09-28",
+        "end": "2026-09-30",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "hollow-knight-schedule-m2",
+        "acceptance": "试炼后解锁冲刺且读档保留；跨沟失败回到可达锚点，不误解锁未完成路线。",
+        "result": "",
+        "dependencyIds": [
+          "hollow-knight-schedule-move"
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "60da293c-d4d3-418a-9138-df9648a5bad5"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "8ac7f8f8-455d-46ab-ba80-87ab4c579173"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "d217ca56-8558-443b-994e-c39838c7a49d"
+          },
+          {
+            "kind": "capability",
+            "targetId": "hk-cap-player-dash"
+          },
+          {
+            "kind": "capability",
+            "targetId": "hk-cap-safe-anchor-hazard"
+          }
+        ]
+      },
+      {
+        "id": "hollow-knight-schedule-rooms",
+        "title": "搭建四房间门与双向近路",
+        "description": "搭建四房间门与双向近路。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "程序",
+        "owner": "",
+        "status": "待开始",
+        "priority": "高",
+        "start": "2026-09-28",
+        "end": "2026-09-30",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "hollow-knight-schedule-m2",
+        "acceptance": "A/B/C/D 门口位置与连接一致；近路开启后双向可走，不出现死出口或穿墙。",
+        "result": "",
+        "dependencyIds": [
+          "hollow-knight-schedule-move"
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "3569edee-b95b-4bfd-97e1-8a816e94b184"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "8ac7f8f8-455d-46ab-ba80-87ab4c579173"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "d217ca56-8558-443b-994e-c39838c7a49d"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "adcd86ce-5557-4fec-96e4-c1f42b638c7e"
+          },
+          {
+            "kind": "capability",
+            "targetId": "hk-cap-room-transition"
+          }
+        ]
+      },
+      {
+        "id": "hollow-knight-schedule-route",
+        "title": "验证试炼、门槛与回访路线",
+        "description": "验证试炼、门槛与回访路线。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "关卡",
+        "owner": "",
+        "status": "待开始",
+        "priority": "普通",
+        "start": "2026-10-01",
+        "end": "2026-10-02",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "hollow-knight-schedule-m2",
+        "acceptance": "未解锁不可越过冲刺门槛；获得能力后完成 A→B→C→近路→A，再抵达 D。",
+        "result": "",
+        "dependencyIds": [
+          "hollow-knight-schedule-dash",
+          "hollow-knight-schedule-rooms"
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "3569edee-b95b-4bfd-97e1-8a816e94b184"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "8ac7f8f8-455d-46ab-ba80-87ab4c579173"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "d217ca56-8558-443b-994e-c39838c7a49d"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "adcd86ce-5557-4fec-96e4-c1f42b638c7e"
+          }
+        ]
+      },
+      {
+        "id": "hollow-knight-schedule-boss",
+        "title": "实现敌人决策与双阶段首领",
+        "description": "实现敌人决策与双阶段首领。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "程序",
+        "owner": "",
+        "status": "待开始",
+        "priority": "高",
+        "start": "2026-10-05",
+        "end": "2026-10-09",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "hollow-knight-schedule-m3",
+        "acceptance": "普通敌与首领各自决策；冲刺斩击、跃砸的预警/有效期/收势正确，转阶段和重置唯一。",
+        "result": "",
+        "dependencyIds": [
+          "hollow-knight-schedule-route",
+          "hollow-knight-schedule-hit"
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "8ac7f8f8-455d-46ab-ba80-87ab4c579173"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "adcd86ce-5557-4fec-96e4-c1f42b638c7e"
+          },
+          {
+            "kind": "capability",
+            "targetId": "hk-cap-boss-lunge"
+          },
+          {
+            "kind": "capability",
+            "targetId": "hk-cap-boss-slam"
+          },
+          {
+            "kind": "capability",
+            "targetId": "hk-cap-enemy-decision"
+          }
+        ]
+      },
+      {
+        "id": "hollow-knight-schedule-recovery",
+        "title": "实现治疗、长椅与残影事务",
+        "description": "实现治疗、长椅与残影事务。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "程序",
+        "owner": "",
+        "status": "待开始",
+        "priority": "高",
+        "start": "2026-10-05",
+        "end": "2026-10-09",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "hollow-knight-schedule-m3",
+        "acceptance": "治疗可中断且资源一致；死亡只生成一个残影，回收不重复计账，长椅和继续游戏恢复快照。",
+        "result": "",
+        "dependencyIds": [
+          "hollow-knight-schedule-route",
+          "hollow-knight-schedule-hit"
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "f2d2bb4b-7764-433f-9c19-67c7982637e8"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "846da304-6fa2-4332-9f3f-36a96af8e455"
+          },
+          {
+            "kind": "capability",
+            "targetId": "hk-cap-focus"
+          },
+          {
+            "kind": "capability",
+            "targetId": "hk-cap-progress-snapshot"
+          },
+          {
+            "kind": "capability",
+            "targetId": "hk-cap-death-shade"
+          },
+          {
+            "kind": "capability",
+            "targetId": "hk-cap-bench-continue"
+          }
+        ]
+      },
+      {
+        "id": "hollow-knight-schedule-room-art",
+        "title": "制作四房间、门与解锁标识",
+        "description": "制作四房间、门与解锁标识。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "美术",
+        "owner": "",
+        "status": "待开始",
+        "priority": "普通",
+        "start": "2026-10-02",
+        "end": "2026-10-09",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "hollow-knight-schedule-m3",
+        "acceptance": "危险区、试炼领取区、近路拉杆与长椅清晰可辨；门口与实际通行区域吻合。",
+        "result": "",
+        "dependencyIds": [
+          "hollow-knight-schedule-player-art"
+        ],
+        "references": [
+          {
+            "kind": "requirement",
+            "targetId": "hk-art-req-room-a"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "hk-art-req-room-b"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "hk-art-req-room-c"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "hk-art-req-room-d"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "hk-art-req-doors"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "hk-art-req-bench"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "hk-art-req-unlock"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "hk-art-req-shortcut"
+          }
+        ]
+      },
+      {
+        "id": "hollow-knight-schedule-enemy-art",
+        "title": "制作敌人读招、残影与结局反馈",
+        "description": "制作敌人读招、残影与结局反馈。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "美术",
+        "owner": "",
+        "status": "待开始",
+        "priority": "普通",
+        "start": "2026-10-12",
+        "end": "2026-10-14",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "hollow-knight-schedule-m4",
+        "acceptance": "两类普通敌、首领二阶段、冲击波、残影、奖励箱和完成页正确表达状态。",
+        "result": "",
+        "dependencyIds": [
+          "hollow-knight-schedule-room-art"
+        ],
+        "references": [
+          {
+            "kind": "requirement",
+            "targetId": "hk-art-req-crawler"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "hk-art-req-trial-guard"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "hk-art-req-boss-body"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "hk-art-req-boss-lunge"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "hk-art-req-boss-slam"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "hk-art-req-shade"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "hk-art-req-death-flow"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "hk-art-req-reward"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "hk-art-req-ending"
+          }
+        ]
+      },
+      {
+        "id": "hollow-knight-schedule-flow",
+        "title": "串联开始、探索与出口完成",
+        "description": "串联开始、探索与出口完成。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "关卡",
+        "owner": "",
+        "status": "待开始",
+        "priority": "普通",
+        "start": "2026-10-12",
+        "end": "2026-10-14",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "hollow-knight-schedule-m4",
+        "acceptance": "从新局经试炼、近路、首领、唯一奖励到出口完成；所有原型场景入口出口可追踪。",
+        "result": "",
+        "dependencyIds": [
+          "hollow-knight-schedule-boss",
+          "hollow-knight-schedule-recovery"
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "0c79d9bf-0830-4e5b-9680-a05f096e6ec8"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "3569edee-b95b-4bfd-97e1-8a816e94b184"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "8ac7f8f8-455d-46ab-ba80-87ab4c579173"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "d217ca56-8558-443b-994e-c39838c7a49d"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "adcd86ce-5557-4fec-96e4-c1f42b638c7e"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "846da304-6fa2-4332-9f3f-36a96af8e455"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "hk-proto-menu"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "hk-proto-map"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "hk-proto-A"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "hk-proto-B"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "hk-proto-C"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "hk-proto-D"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "hk-proto-bench"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "hk-proto-dash"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "hk-proto-shortcut"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "hk-proto-boss2"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "hk-proto-death"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "hk-proto-shade"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "hk-proto-recovered"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "hk-proto-victory"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "hk-proto-complete"
+          }
+        ]
+      },
+      {
+        "id": "hollow-knight-schedule-integrate",
+        "title": "整合动作表现并复调手感",
+        "description": "整合动作表现并复调手感。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "程序",
+        "owner": "",
+        "status": "待开始",
+        "priority": "高",
+        "start": "2026-10-15",
+        "end": "2026-10-16",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "hollow-knight-schedule-m4",
+        "acceptance": "表现帧与攻击窗口、无敌和冲刺距离一致；治疗/首领预警可读，完成奖励只领取一次。",
+        "result": "",
+        "dependencyIds": [
+          "hollow-knight-schedule-enemy-art",
+          "hollow-knight-schedule-flow"
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "60da293c-d4d3-418a-9138-df9648a5bad5"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "f2d2bb4b-7764-433f-9c19-67c7982637e8"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "adcd86ce-5557-4fec-96e4-c1f42b638c7e"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "846da304-6fa2-4332-9f3f-36a96af8e455"
+          }
+        ]
+      },
+      {
+        "id": "hollow-knight-schedule-playtest",
+        "title": "完整路线与首领手感试玩",
+        "description": "完整路线与首领手感试玩。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "测试",
+        "owner": "",
+        "status": "待开始",
+        "priority": "高",
+        "start": "2026-10-19",
+        "end": "2026-10-21",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "hollow-knight-schedule-m5",
+        "acceptance": "记录首次移动、冲刺教学、回访、两阶段读招的失误原因；完成一轮新局通关。",
+        "result": "",
+        "dependencyIds": [
+          "hollow-knight-schedule-integrate"
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "0c79d9bf-0830-4e5b-9680-a05f096e6ec8"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "60da293c-d4d3-418a-9138-df9648a5bad5"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "f2d2bb4b-7764-433f-9c19-67c7982637e8"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "3569edee-b95b-4bfd-97e1-8a816e94b184"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "8ac7f8f8-455d-46ab-ba80-87ab4c579173"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "d217ca56-8558-443b-994e-c39838c7a49d"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "adcd86ce-5557-4fec-96e4-c1f42b638c7e"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "846da304-6fa2-4332-9f3f-36a96af8e455"
+          }
+        ]
+      },
+      {
+        "id": "hollow-knight-schedule-save-qa",
+        "title": "验证死亡、近路与存档边界",
+        "description": "验证死亡、近路与存档边界。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "测试",
+        "owner": "",
+        "status": "待开始",
+        "priority": "高",
+        "start": "2026-10-19",
+        "end": "2026-10-21",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "hollow-knight-schedule-m5",
+        "acceptance": "在危险、战斗、领取、残影回收前后读档；复死与重复交互不丢永久能力、不重复收益。",
+        "result": "",
+        "dependencyIds": [
+          "hollow-knight-schedule-integrate"
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "8ac7f8f8-455d-46ab-ba80-87ab4c579173"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "d217ca56-8558-443b-994e-c39838c7a49d"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "adcd86ce-5557-4fec-96e4-c1f42b638c7e"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "846da304-6fa2-4332-9f3f-36a96af8e455"
+          }
+        ]
+      },
+      {
+        "id": "hollow-knight-schedule-signoff",
+        "title": "修复阻断并验收探索版本",
+        "description": "修复阻断并验收探索版本。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "测试",
+        "owner": "",
+        "status": "待开始",
+        "priority": "高",
+        "start": "2026-10-22",
+        "end": "2026-10-23",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "hollow-knight-schedule-m5",
+        "acceptance": "回归所有修复路线，确认安全回点可达、长椅继续无卡死；留存版本与已知问题。",
+        "result": "",
+        "dependencyIds": [
+          "hollow-knight-schedule-playtest",
+          "hollow-knight-schedule-save-qa"
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "0c79d9bf-0830-4e5b-9680-a05f096e6ec8"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "846da304-6fa2-4332-9f3f-36a96af8e455"
+          }
+        ]
+      }
+    ],
+    "milestones": [
+      {
+        "id": "hollow-knight-schedule-m1",
+        "title": "M1｜移动与基础战斗",
+        "owner": "",
+        "due": "2026-09-25",
+        "description": "参考基线：2026-09-21 开始，按周一至周五排布，未计法定假期。假设 2 名程序、1 名设计/关卡、1 名美术，测试由团队共同承担；负责人和实际日期待确定。仅覆盖当前最小原型，工期需在首次试玩后复估。",
+        "acceptance": "跑跳、落地、骨钉与受击有清晰且可控的灰盒反馈。",
+        "review": "",
+        "status": "计划中"
+      },
+      {
+        "id": "hollow-knight-schedule-m2",
+        "title": "M2｜四房间探索回路",
+        "owner": "",
+        "due": "2026-10-02",
+        "description": "参考基线：2026-09-21 开始，按周一至周五排布，未计法定假期。假设 2 名程序、1 名设计/关卡、1 名美术，测试由团队共同承担；负责人和实际日期待确定。仅覆盖当前最小原型，工期需在首次试玩后复估。",
+        "acceptance": "试炼获得永久冲刺，经门槛打开近路，可沿连接返回安全区。",
+        "review": "",
+        "status": "计划中"
+      },
+      {
+        "id": "hollow-knight-schedule-m3",
+        "title": "M3｜首领与死亡恢复",
+        "owner": "",
+        "due": "2026-10-09",
+        "description": "参考基线：2026-09-21 开始，按周一至周五排布，未计法定假期。假设 2 名程序、1 名设计/关卡、1 名美术，测试由团队共同承担；负责人和实际日期待确定。仅覆盖当前最小原型，工期需在首次试玩后复估。",
+        "acceptance": "双阶段首领、治疗、长椅与残影回收可运行，进度持久化一致。",
+        "review": "",
+        "status": "计划中"
+      },
+      {
+        "id": "hollow-knight-schedule-m4",
+        "title": "M4｜完整探索体验",
+        "owner": "",
+        "due": "2026-10-16",
+        "description": "参考基线：2026-09-21 开始，按周一至周五排布，未计法定假期。假设 2 名程序、1 名设计/关卡、1 名美术，测试由团队共同承担；负责人和实际日期待确定。仅覆盖当前最小原型，工期需在首次试玩后复估。",
+        "acceptance": "四房间、美术反馈、奖励箱、出口与完成页接入，整条流程可试玩。",
+        "review": "",
+        "status": "计划中"
+      },
+      {
+        "id": "hollow-knight-schedule-m5",
+        "title": "M5｜手感与稳定性验收",
+        "owner": "",
+        "due": "2026-10-23",
+        "description": "参考基线：2026-09-21 开始，按周一至周五排布，未计法定假期。假设 2 名程序、1 名设计/关卡、1 名美术，测试由团队共同承担；负责人和实际日期待确定。仅覆盖当前最小原型，工期需在首次试玩后复估。",
+        "acceptance": "完整新局通关、死亡回收与继续游戏回归通过，关键手感问题复测。",
+        "review": "",
+        "status": "计划中"
+      }
+    ]
   }
 }

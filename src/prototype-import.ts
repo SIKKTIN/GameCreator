@@ -1,4 +1,4 @@
-import { emptyProjectSchedule } from './project-schedule.ts';
+import { emptyProjectSchedule, validateProjectSchedule, projectScheduleIssues, buildScheduleSources, type ProjectScheduleStore } from './project-schedule.ts';
 import { emptyMapDesign, validateMapDesign, mapIssues, type MapDesignStore } from './map-design.ts';
 import { emptyStoryOrchestration, validateStoryOrchestration, narrativeIssues, type StoryOrchestrationStore } from './story-orchestration.ts';
 import { emptyPrototypeDesign, validatePrototypeDesign, prototypeIssues, type PrototypeDesignStore } from './prototype-design.ts';
@@ -15,7 +15,7 @@ import type { ColumnDef, DatasetDef, ProjectData } from './data-model.ts';
 import type { StoryDoc } from './story-model.ts';
 
 export type PrototypeExample = {
-  schema: 1; name: string; description: string; gameplay: GameplayStore; gameplayCore?: GameplayCoreStore; prototypeDesign?: PrototypeDesignStore; taskFlows?: TaskFlowStore; storyOrchestration?: StoryOrchestrationStore; mapDesign?: MapDesignStore;
+  schema: 1; name: string; description: string; gameplay: GameplayStore; gameplayCore?: GameplayCoreStore; prototypeDesign?: PrototypeDesignStore; taskFlows?: TaskFlowStore; storyOrchestration?: StoryOrchestrationStore; mapDesign?: MapDesignStore; projectSchedule?: ProjectScheduleStore;
   functionalSystems: FunctionalStore; artAssets: ArtStore; data: ProjectData;
   definitions: DatasetDef[]; stories: StoryDoc[];
 };
@@ -57,7 +57,7 @@ function validateColumns(items: unknown, label: string): asserts items is Column
 export function validatePrototypeExample(value: unknown): PrototypeExample {
   requireValid(record(value), '内容必须是对象');
   const fields = ['schema', 'name', 'description', 'gameplay', 'functionalSystems', 'artAssets', 'data', 'definitions', 'stories'];
-  requireValid(fields.every(field => Object.prototype.hasOwnProperty.call(value, field)) && Object.keys(value).every(field => [...fields, 'gameplayCore', 'prototypeDesign', 'taskFlows', 'storyOrchestration', 'mapDesign'].includes(field)), '包含缺失字段或非便携配置');
+  requireValid(fields.every(field => Object.prototype.hasOwnProperty.call(value, field)) && Object.keys(value).every(field => [...fields, 'gameplayCore', 'prototypeDesign', 'taskFlows', 'storyOrchestration', 'mapDesign', 'projectSchedule'].includes(field)), '包含缺失字段或非便携配置');
   requireValid(value.schema === 1 && nonempty(value.name) && nonempty(value.description), '版本或名称无效');
   requireValid(record(value.gameplay) && value.gameplay.schema === 3, '玩法版本无效');
   const gameplay = validateGameplay(value.gameplay);
@@ -138,6 +138,14 @@ export function validatePrototypeExample(value: unknown): PrototypeExample {
     story:example.stories.map(s=>({id:s.id,name:s.title})), character:(example.storyOrchestration?.characters??[]).map(c=>({id:c.id,name:c.name})),
     asset:art.assets.map(a=>({id:a.id,name:a.name})), prototype:example.prototypeDesign?.scenes??[]
   }).length===0, '地图设计包含失效引用');
+  if (Object.prototype.hasOwnProperty.call(value, 'projectSchedule')) {
+    const schedule = validateProjectSchedule(example.projectSchedule);
+    const sources = buildScheduleSources(gameplay.designs, functional, art, example.mapDesign ?? emptyMapDesign(), example.prototypeDesign ?? emptyPrototypeDesign());
+    // Template dates are reference baselines; importing later must not reject them as overdue.
+    requireValid(projectScheduleIssues(schedule, '0001-01-01', sources).filter(issue => issue.kind !== 'blocked').length === 0, '项目排期包含冲突、失效引用或缺少验收要求');
+    requireValid(schedule.tasks.every(t => t.status === '待开始' && t.owner === '' && t.actualStart === '' && t.actualEnd === '' && t.result === '') &&
+      schedule.milestones.every(m => m.status === '计划中' && m.owner === '' && m.review === ''), '示例排期必须保持未分配、待开始');
+  }
   return example;
 }
 
@@ -149,7 +157,7 @@ export function preparePrototypeProject(catalog: ProjectCatalog, value: unknown,
   const next = addSavedProject(catalog, name);
   const project = next.projects.find(item => item.id === next.activeId)!;
   const archives = {
-    'project-schedule': emptyProjectSchedule(),
+    'project-schedule': example.projectSchedule ?? emptyProjectSchedule(),
     'map-design': example.mapDesign ?? emptyMapDesign(),
     'story-orchestration': example.storyOrchestration ?? emptyStoryOrchestration(), 'task-flows': example.taskFlows ?? emptyTaskFlows(), gameplay: example.gameplay, 'gameplay-core': example.gameplayCore ?? emptyGameplayCore(), 'prototype-design': example.prototypeDesign ?? emptyPrototypeDesign(), 'functional-systems': example.functionalSystems, 'art-assets': example.artAssets,
     definitions: example.definitions, stories: example.stories,

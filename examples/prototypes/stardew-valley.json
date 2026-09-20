@@ -13697,5 +13697,710 @@
         "structure": "open"
       }
     ]
+  },
+  "projectSchedule": {
+    "schema": 1,
+    "tasks": [
+      {
+        "id": "stardew-valley-schedule-scope",
+        "title": "确认七日目标与结算账本",
+        "description": "确认七日目标与结算账本。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "设计",
+        "owner": "",
+        "status": "待开始",
+        "priority": "普通",
+        "start": "2026-09-21",
+        "end": "2026-09-22",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "stardew-valley-schedule-m1",
+        "acceptance": "锁定农场、村庄、两作物、委托及七日目标；明确天气、体力与出货结算顺序。",
+        "result": "",
+        "dependencyIds": [],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "11fe1000-35a3-4c5e-b2b6-21a9f33902cb"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "d3491dbb-2524-461c-84e6-62c7c3cb924c"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "612eb5c5-d3b8-466e-b590-7a645e01acfe"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "c0b157ac-9c4b-46fe-bbdc-fee604d57452"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "cb74278b-710d-4c58-a373-64feedef5b37"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "c21a2dab-5e57-4f0e-a0a4-1af66918c5e3"
+          }
+        ]
+      },
+      {
+        "id": "stardew-valley-schedule-movement",
+        "title": "实现移动、工具与地图切换",
+        "description": "实现移动、工具与地图切换。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "程序",
+        "owner": "",
+        "status": "待开始",
+        "priority": "高",
+        "start": "2026-09-23",
+        "end": "2026-09-25",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "stardew-valley-schedule-m1",
+        "acceptance": "四方向移动与四邻交互不穿墙；锄地清理、补水和浇水命中正确目标。",
+        "result": "",
+        "dependencyIds": [
+          "stardew-valley-schedule-scope"
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "d3491dbb-2524-461c-84e6-62c7c3cb924c"
+          },
+          {
+            "kind": "capability",
+            "targetId": "farm-cap-input"
+          },
+          {
+            "kind": "capability",
+            "targetId": "farm-cap-grid-movement"
+          },
+          {
+            "kind": "capability",
+            "targetId": "farm-cap-scene-transition"
+          },
+          {
+            "kind": "capability",
+            "targetId": "farm-cap-soil-tools"
+          },
+          {
+            "kind": "capability",
+            "targetId": "farm-cap-watering"
+          }
+        ]
+      },
+      {
+        "id": "stardew-valley-schedule-crops",
+        "title": "实现播种、成熟与日生长",
+        "description": "实现播种、成熟与日生长。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "程序",
+        "owner": "",
+        "status": "待开始",
+        "priority": "高",
+        "start": "2026-09-23",
+        "end": "2026-09-25",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "stardew-valley-schedule-m1",
+        "acceptance": "萝卜与豆角按各自阶段生长，未浇水不增长；收获与物品增加只提交一次。",
+        "result": "",
+        "dependencyIds": [
+          "stardew-valley-schedule-scope"
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "612eb5c5-d3b8-466e-b590-7a645e01acfe"
+          },
+          {
+            "kind": "capability",
+            "targetId": "farm-cap-plant-harvest"
+          },
+          {
+            "kind": "capability",
+            "targetId": "farm-cap-crop-growth"
+          }
+        ]
+      },
+      {
+        "id": "stardew-valley-schedule-farm-art",
+        "title": "制作农场、作物与工具反馈",
+        "description": "制作农场、作物与工具反馈。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "美术",
+        "owner": "",
+        "status": "待开始",
+        "priority": "普通",
+        "start": "2026-09-23",
+        "end": "2026-09-30",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "stardew-valley-schedule-m2",
+        "acceptance": "干湿耕地、两作物各阶段、工具目标和地图出入口可辨；锚点与碰撞约定一致。",
+        "result": "",
+        "dependencyIds": [
+          "stardew-valley-schedule-scope"
+        ],
+        "references": [
+          {
+            "kind": "requirement",
+            "targetId": "farm-art-requirement-overview"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "farm-art-requirement-farm-map"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "farm-art-requirement-village-map"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "farm-art-requirement-portals"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "farm-art-requirement-player"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "farm-art-requirement-tool-actions"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "farm-art-requirement-soil-states"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "farm-art-requirement-watering"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "farm-art-requirement-turnip-stages"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "farm-art-requirement-bean-stages"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "farm-art-requirement-crop-actions"
+          }
+        ]
+      },
+      {
+        "id": "stardew-valley-schedule-day",
+        "title": "实现时钟、天气与统一日结算",
+        "description": "实现时钟、天气与统一日结算。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "程序",
+        "owner": "",
+        "status": "待开始",
+        "priority": "高",
+        "start": "2026-09-28",
+        "end": "2026-10-01",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "stardew-valley-schedule-m2",
+        "acceptance": "菜单暂停时间，睡觉与倒下区别正确；日推进重试不会重复成长、收入或刷新。",
+        "result": "",
+        "dependencyIds": [
+          "stardew-valley-schedule-movement",
+          "stardew-valley-schedule-crops"
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "c0b157ac-9c4b-46fe-bbdc-fee604d57452"
+          },
+          {
+            "kind": "capability",
+            "targetId": "farm-cap-clock-pause"
+          },
+          {
+            "kind": "capability",
+            "targetId": "farm-cap-calendar-reset"
+          },
+          {
+            "kind": "capability",
+            "targetId": "farm-cap-daily-settlement"
+          },
+          {
+            "kind": "capability",
+            "targetId": "farm-cap-energy-food"
+          }
+        ]
+      },
+      {
+        "id": "stardew-valley-schedule-economy",
+        "title": "实现背包、商店与出货",
+        "description": "实现背包、商店与出货。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "程序",
+        "owner": "",
+        "status": "待开始",
+        "priority": "高",
+        "start": "2026-09-28",
+        "end": "2026-10-01",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "stardew-valley-schedule-m2",
+        "acceptance": "12 格容量满时操作不吞物品；营业时间正确，购买扣款与出货收入一致。",
+        "result": "",
+        "dependencyIds": [
+          "stardew-valley-schedule-movement",
+          "stardew-valley-schedule-crops"
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "cb74278b-710d-4c58-a373-64feedef5b37"
+          },
+          {
+            "kind": "capability",
+            "targetId": "farm-cap-inventory-transfer"
+          },
+          {
+            "kind": "capability",
+            "targetId": "farm-cap-shop-purchase"
+          },
+          {
+            "kind": "capability",
+            "targetId": "farm-cap-shipping"
+          }
+        ]
+      },
+      {
+        "id": "stardew-valley-schedule-daily-qa",
+        "title": "检查跨日事务与经济边界",
+        "description": "检查跨日事务与经济边界。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "测试",
+        "owner": "",
+        "status": "待开始",
+        "priority": "高",
+        "start": "2026-10-02",
+        "end": "2026-10-02",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "stardew-valley-schedule-m2",
+        "acceptance": "验证雨天、缺水、满背包、体力耗尽与重复日结算；记录并定位失败。",
+        "result": "",
+        "dependencyIds": [
+          "stardew-valley-schedule-day",
+          "stardew-valley-schedule-economy"
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "612eb5c5-d3b8-466e-b590-7a645e01acfe"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "c0b157ac-9c4b-46fe-bbdc-fee604d57452"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "cb74278b-710d-4c58-a373-64feedef5b37"
+          }
+        ]
+      },
+      {
+        "id": "stardew-valley-schedule-npc",
+        "title": "接入村庄日程、野果与萝卜委托",
+        "description": "接入村庄日程、野果与萝卜委托。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "程序",
+        "owner": "",
+        "status": "待开始",
+        "priority": "高",
+        "start": "2026-10-05",
+        "end": "2026-10-07",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "stardew-valley-schedule-m3",
+        "acceptance": "NPC 随时段到正确锚点；每日交谈和野果刷新一次，三萝卜委托不可重复交付。",
+        "result": "",
+        "dependencyIds": [
+          "stardew-valley-schedule-daily-qa"
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "c21a2dab-5e57-4f0e-a0a4-1af66918c5e3"
+          },
+          {
+            "kind": "capability",
+            "targetId": "farm-cap-npc-schedule"
+          },
+          {
+            "kind": "capability",
+            "targetId": "farm-cap-dialogue-quest"
+          },
+          {
+            "kind": "capability",
+            "targetId": "farm-cap-daily-forage"
+          }
+        ]
+      },
+      {
+        "id": "stardew-valley-schedule-save",
+        "title": "实现七日目标与完整快照",
+        "description": "实现七日目标与完整快照。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "程序",
+        "owner": "",
+        "status": "待开始",
+        "priority": "高",
+        "start": "2026-10-05",
+        "end": "2026-10-07",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "stardew-valley-schedule-m3",
+        "acceptance": "加载恢复日期、天气、作物、背包与委托；第七日目标只结算一次，新局无旧状态。",
+        "result": "",
+        "dependencyIds": [
+          "stardew-valley-schedule-daily-qa"
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "11fe1000-35a3-4c5e-b2b6-21a9f33902cb"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "c0b157ac-9c4b-46fe-bbdc-fee604d57452"
+          },
+          {
+            "kind": "capability",
+            "targetId": "farm-cap-snapshot"
+          },
+          {
+            "kind": "capability",
+            "targetId": "farm-cap-goals-newgame"
+          }
+        ]
+      },
+      {
+        "id": "stardew-valley-schedule-village-art",
+        "title": "制作村庄交互与生活界面",
+        "description": "制作村庄交互与生活界面。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "美术",
+        "owner": "",
+        "status": "待开始",
+        "priority": "普通",
+        "start": "2026-10-01",
+        "end": "2026-10-07",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "stardew-valley-schedule-m3",
+        "acceptance": "NPC、野果、物品图标、商店、背包、日结算及七日结果保持一致状态表达。",
+        "result": "",
+        "dependencyIds": [
+          "stardew-valley-schedule-farm-art"
+        ],
+        "references": [
+          {
+            "kind": "requirement",
+            "targetId": "farm-art-requirement-weather"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "farm-art-requirement-npc"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "farm-art-requirement-dialogue"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "farm-art-requirement-forage"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "farm-art-requirement-item-icons"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "farm-art-requirement-inventory"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "farm-art-requirement-shop"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "farm-art-requirement-shipping"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "farm-art-requirement-hud"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "farm-art-requirement-sleep"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "farm-art-requirement-settlement"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "farm-art-requirement-results"
+          }
+        ]
+      },
+      {
+        "id": "stardew-valley-schedule-flow",
+        "title": "串联农场、村庄与结果体验",
+        "description": "串联农场、村庄与结果体验。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "关卡",
+        "owner": "",
+        "status": "待开始",
+        "priority": "普通",
+        "start": "2026-10-08",
+        "end": "2026-10-09",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "stardew-valley-schedule-m3",
+        "acceptance": "开始界面可进入农场，经村庄和经营循环到七日结果；所有可用出口可返回。",
+        "result": "",
+        "dependencyIds": [
+          "stardew-valley-schedule-npc",
+          "stardew-valley-schedule-save",
+          "stardew-valley-schedule-village-art"
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "11fe1000-35a3-4c5e-b2b6-21a9f33902cb"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "d3491dbb-2524-461c-84e6-62c7c3cb924c"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "c21a2dab-5e57-4f0e-a0a4-1af66918c5e3"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "farm-proto-menu"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "farm-proto-farm"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "farm-proto-field"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "farm-proto-growing"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "farm-proto-harvest"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "farm-proto-village"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "farm-proto-shop"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "farm-proto-purchased"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "farm-proto-social"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "farm-proto-quest-done"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "farm-proto-activities"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "farm-proto-fishing"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "farm-proto-catch"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "farm-proto-mine"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "farm-proto-mine-deep"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "farm-proto-shipping"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "farm-proto-night"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "farm-proto-morning"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "farm-proto-goals"
+          }
+        ]
+      },
+      {
+        "id": "stardew-valley-schedule-seven-days",
+        "title": "实玩七日经营与委托路线",
+        "description": "实玩七日经营与委托路线。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "测试",
+        "owner": "",
+        "status": "待开始",
+        "priority": "高",
+        "start": "2026-10-12",
+        "end": "2026-10-14",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "stardew-valley-schedule-m4",
+        "acceptance": "从新局逐日完成种植、购买、出货和委托；对照账本核验七天收益与目标。",
+        "result": "",
+        "dependencyIds": [
+          "stardew-valley-schedule-flow"
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "11fe1000-35a3-4c5e-b2b6-21a9f33902cb"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "d3491dbb-2524-461c-84e6-62c7c3cb924c"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "612eb5c5-d3b8-466e-b590-7a645e01acfe"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "c0b157ac-9c4b-46fe-bbdc-fee604d57452"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "cb74278b-710d-4c58-a373-64feedef5b37"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "c21a2dab-5e57-4f0e-a0a4-1af66918c5e3"
+          }
+        ]
+      },
+      {
+        "id": "stardew-valley-schedule-recovery",
+        "title": "验证读档、倒下与重复输入",
+        "description": "验证读档、倒下与重复输入。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "测试",
+        "owner": "",
+        "status": "待开始",
+        "priority": "高",
+        "start": "2026-10-12",
+        "end": "2026-10-14",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "stardew-valley-schedule-m4",
+        "acceptance": "在睡眠、出货和委托边界存读档；验证满包、倒下、连点和重开不会重复收益或丢物。",
+        "result": "",
+        "dependencyIds": [
+          "stardew-valley-schedule-flow"
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "c0b157ac-9c4b-46fe-bbdc-fee604d57452"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "cb74278b-710d-4c58-a373-64feedef5b37"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "c21a2dab-5e57-4f0e-a0a4-1af66918c5e3"
+          }
+        ]
+      },
+      {
+        "id": "stardew-valley-schedule-signoff",
+        "title": "修复回归与七日版本验收",
+        "description": "修复回归与七日版本验收。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "测试",
+        "owner": "",
+        "status": "待开始",
+        "priority": "高",
+        "start": "2026-10-15",
+        "end": "2026-10-16",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "stardew-valley-schedule-m4",
+        "acceptance": "修复阻断问题并回归受影响日期；交付可重复进行七日体验的试玩版本与问题清单。",
+        "result": "",
+        "dependencyIds": [
+          "stardew-valley-schedule-seven-days",
+          "stardew-valley-schedule-recovery"
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "11fe1000-35a3-4c5e-b2b6-21a9f33902cb"
+          }
+        ]
+      }
+    ],
+    "milestones": [
+      {
+        "id": "stardew-valley-schedule-m1",
+        "title": "M1｜农场操作闭环",
+        "owner": "",
+        "due": "2026-09-25",
+        "description": "参考基线：2026-09-21 开始，按周一至周五排布，未计法定假期。假设 2 名程序、1 名设计/关卡、1 名美术，测试由团队共同承担；负责人和实际日期待确定。仅覆盖当前最小原型，工期需在首次试玩后复估。",
+        "acceptance": "移动、工具、播种浇水与成熟收获可运行。",
+        "review": "",
+        "status": "计划中"
+      },
+      {
+        "id": "stardew-valley-schedule-m2",
+        "title": "M2｜可靠的跨日生活",
+        "owner": "",
+        "due": "2026-10-02",
+        "description": "参考基线：2026-09-21 开始，按周一至周五排布，未计法定假期。假设 2 名程序、1 名设计/关卡、1 名美术，测试由团队共同承担；负责人和实际日期待确定。仅覆盖当前最小原型，工期需在首次试玩后复估。",
+        "acceptance": "昼夜、天气、睡眠、体力和背包经济共享一次性日结算。",
+        "review": "",
+        "status": "计划中"
+      },
+      {
+        "id": "stardew-valley-schedule-m3",
+        "title": "M3｜七日内容齐备",
+        "owner": "",
+        "due": "2026-10-09",
+        "description": "参考基线：2026-09-21 开始，按周一至周五排布，未计法定假期。假设 2 名程序、1 名设计/关卡、1 名美术，测试由团队共同承担；负责人和实际日期待确定。仅覆盖当前最小原型，工期需在首次试玩后复估。",
+        "acceptance": "村庄日程、委托、出货与目标结果串联，存读档恢复一致。",
+        "review": "",
+        "status": "计划中"
+      },
+      {
+        "id": "stardew-valley-schedule-m4",
+        "title": "M4｜七日试玩验收",
+        "owner": "",
+        "due": "2026-10-16",
+        "description": "参考基线：2026-09-21 开始，按周一至周五排布，未计法定假期。假设 2 名程序、1 名设计/关卡、1 名美术，测试由团队共同承担；负责人和实际日期待确定。仅覆盖当前最小原型，工期需在首次试玩后复估。",
+        "acceptance": "实际推进完整七日，正常经营和异常边界路径通过；阻断问题清零。",
+        "review": "",
+        "status": "计划中"
+      }
+    ]
   }
 }

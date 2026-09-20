@@ -10828,5 +10828,608 @@
         ]
       }
     ]
+  },
+  "projectSchedule": {
+    "schema": 1,
+    "tasks": [
+      {
+        "id": "plants-vs-zombies-schedule-scope",
+        "title": "锁定三波对局与参数基线",
+        "description": "锁定三波对局与参数基线。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "设计",
+        "owner": "",
+        "status": "待开始",
+        "priority": "普通",
+        "start": "2026-09-21",
+        "end": "2026-09-22",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "plants-vs-zombies-schedule-m1",
+        "acceptance": "明确三植物、两僵尸、16 次生成事件及胜负优先级；配置表与五份文档一致。",
+        "result": "",
+        "dependencyIds": [],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "5e930f5b-bcc6-4e98-85a5-5e6a667968b2"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "5b70b418-773b-4630-b7c9-b9e545b2c3b0"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "f980e205-82fa-4bda-945e-970dd7dc8eea"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "39bc4c47-ac6e-4abe-9863-422df4b55ab7"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "8aeab67b-f854-4da9-aa49-d196107fbf9a"
+          }
+        ]
+      },
+      {
+        "id": "plants-vs-zombies-schedule-clock",
+        "title": "建立对局时钟与操作路由",
+        "description": "建立对局时钟与操作路由。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "程序",
+        "owner": "",
+        "status": "待开始",
+        "priority": "高",
+        "start": "2026-09-23",
+        "end": "2026-09-23",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "plants-vs-zombies-schedule-m1",
+        "acceptance": "暂停冻结产出、冷却、移动和波次；界面点击不穿透草坪。",
+        "result": "",
+        "dependencyIds": [
+          "plants-vs-zombies-schedule-scope"
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "8aeab67b-f854-4da9-aa49-d196107fbf9a"
+          },
+          {
+            "kind": "capability",
+            "targetId": "pvz-cap-clock"
+          },
+          {
+            "kind": "capability",
+            "targetId": "pvz-cap-input"
+          },
+          {
+            "kind": "capability",
+            "targetId": "pvz-cap-feedback"
+          }
+        ]
+      },
+      {
+        "id": "plants-vs-zombies-schedule-plant",
+        "title": "实现种植、阳光与冷却事务",
+        "description": "实现种植、阳光与冷却事务。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "程序",
+        "owner": "",
+        "status": "待开始",
+        "priority": "高",
+        "start": "2026-09-24",
+        "end": "2026-09-25",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "plants-vs-zombies-schedule-m1",
+        "acceptance": "占用、余额、冷却均合法才种植；失败不扣款，阳光不可重复收集，铲除释放格子。",
+        "result": "",
+        "dependencyIds": [
+          "plants-vs-zombies-schedule-clock"
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "5b70b418-773b-4630-b7c9-b9e545b2c3b0"
+          },
+          {
+            "kind": "capability",
+            "targetId": "pvz-cap-grid"
+          },
+          {
+            "kind": "capability",
+            "targetId": "pvz-cap-plant"
+          },
+          {
+            "kind": "capability",
+            "targetId": "pvz-cap-shovel"
+          },
+          {
+            "kind": "capability",
+            "targetId": "pvz-cap-wallet"
+          },
+          {
+            "kind": "capability",
+            "targetId": "pvz-cap-sun-produce"
+          },
+          {
+            "kind": "capability",
+            "targetId": "pvz-cap-sun-collect"
+          }
+        ]
+      },
+      {
+        "id": "plants-vs-zombies-schedule-combat",
+        "title": "实现同路战斗与一次性死亡",
+        "description": "实现同路战斗与一次性死亡。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "程序",
+        "owner": "",
+        "status": "待开始",
+        "priority": "高",
+        "start": "2026-09-24",
+        "end": "2026-09-25",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "plants-vs-zombies-schedule-m1",
+        "acceptance": "子弹只命中同路最近目标；僵尸受阻啃咬，死亡实体只移除一次。",
+        "result": "",
+        "dependencyIds": [
+          "plants-vs-zombies-schedule-clock"
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "f980e205-82fa-4bda-945e-970dd7dc8eea"
+          },
+          {
+            "kind": "capability",
+            "targetId": "pvz-cap-entity"
+          },
+          {
+            "kind": "capability",
+            "targetId": "pvz-cap-shoot"
+          },
+          {
+            "kind": "capability",
+            "targetId": "pvz-cap-projectile"
+          },
+          {
+            "kind": "capability",
+            "targetId": "pvz-cap-zombie"
+          },
+          {
+            "kind": "capability",
+            "targetId": "pvz-cap-damage"
+          }
+        ]
+      },
+      {
+        "id": "plants-vs-zombies-schedule-units-art",
+        "title": "制作棋盘与单位识别资源",
+        "description": "制作棋盘与单位识别资源。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "美术",
+        "owner": "",
+        "status": "待开始",
+        "priority": "普通",
+        "start": "2026-09-23",
+        "end": "2026-09-30",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "plants-vs-zombies-schedule-m2",
+        "acceptance": "五路与家门清晰，三植物两僵尸轮廓可辨，子弹与命中反馈不遮挡卡牌。",
+        "result": "",
+        "dependencyIds": [
+          "plants-vs-zombies-schedule-scope"
+        ],
+        "references": [
+          {
+            "kind": "requirement",
+            "targetId": "pvz-art-req-overview"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "pvz-art-req-lawn"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "pvz-art-req-boundaries"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "pvz-art-req-sunflower"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "pvz-art-req-peashooter"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "pvz-art-req-wallnut"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "pvz-art-req-normal-zombie"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "pvz-art-req-cone-zombie"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "pvz-art-req-projectile"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "pvz-art-req-shared-feedback"
+          }
+        ]
+      },
+      {
+        "id": "plants-vs-zombies-schedule-waves",
+        "title": "接入三波事件与终局锁定",
+        "description": "接入三波事件与终局锁定。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "程序",
+        "owner": "",
+        "status": "待开始",
+        "priority": "高",
+        "start": "2026-09-28",
+        "end": "2026-09-30",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "plants-vs-zombies-schedule-m2",
+        "acceptance": "固定波次无重复漏刷；最后击杀与敌人到家同帧按失败优先，只结算一次。",
+        "result": "",
+        "dependencyIds": [
+          "plants-vs-zombies-schedule-plant",
+          "plants-vs-zombies-schedule-combat"
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "39bc4c47-ac6e-4abe-9863-422df4b55ab7"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "8aeab67b-f854-4da9-aa49-d196107fbf9a"
+          },
+          {
+            "kind": "capability",
+            "targetId": "pvz-cap-waves"
+          },
+          {
+            "kind": "capability",
+            "targetId": "pvz-cap-finish"
+          },
+          {
+            "kind": "capability",
+            "targetId": "pvz-cap-restart"
+          }
+        ]
+      },
+      {
+        "id": "plants-vs-zombies-schedule-level",
+        "title": "配置关卡压力与种植引导",
+        "description": "配置关卡压力与种植引导。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "关卡",
+        "owner": "",
+        "status": "待开始",
+        "priority": "普通",
+        "start": "2026-09-28",
+        "end": "2026-09-30",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "plants-vs-zombies-schedule-m2",
+        "acceptance": "新玩家可理解阳光、卡牌与同路防守；三波分别验证基础、叠加、终局压力。",
+        "result": "",
+        "dependencyIds": [
+          "plants-vs-zombies-schedule-plant",
+          "plants-vs-zombies-schedule-combat"
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "5e930f5b-bcc6-4e98-85a5-5e6a667968b2"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "5b70b418-773b-4630-b7c9-b9e545b2c3b0"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "f980e205-82fa-4bda-945e-970dd7dc8eea"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "39bc4c47-ac6e-4abe-9863-422df4b55ab7"
+          }
+        ]
+      },
+      {
+        "id": "plants-vs-zombies-schedule-flow",
+        "title": "串联开始、暂停、结算场景",
+        "description": "串联开始、暂停、结算场景。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "程序",
+        "owner": "",
+        "status": "待开始",
+        "priority": "高",
+        "start": "2026-10-01",
+        "end": "2026-10-02",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "plants-vs-zombies-schedule-m2",
+        "acceptance": "从主界面开始可通关或失败；连续重开 5 次无残留实体、事件、余额和冷却。",
+        "result": "",
+        "dependencyIds": [
+          "plants-vs-zombies-schedule-waves",
+          "plants-vs-zombies-schedule-level"
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "8aeab67b-f854-4da9-aa49-d196107fbf9a"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "pvz-proto-menu"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "pvz-proto-select"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "pvz-proto-field"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "pvz-proto-sunflower"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "pvz-proto-peashooter"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "pvz-proto-wallnut"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "pvz-proto-waves"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "pvz-proto-pause"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "pvz-proto-reward"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "pvz-proto-boss"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "pvz-proto-complete"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "pvz-proto-defeat"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "pvz-proto-endless"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "pvz-proto-endless-rest"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "pvz-proto-garden"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "pvz-proto-garden-watered"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "pvz-proto-garden-harvest"
+          }
+        ]
+      },
+      {
+        "id": "plants-vs-zombies-schedule-hud-art",
+        "title": "制作卡牌、阳光与对局界面",
+        "description": "制作卡牌、阳光与对局界面。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "美术",
+        "owner": "",
+        "status": "待开始",
+        "priority": "普通",
+        "start": "2026-10-01",
+        "end": "2026-10-05",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "plants-vs-zombies-schedule-m3",
+        "acceptance": "余额、冷却、预览、铲子、波次与胜负状态可读；按钮命中与遮罩层级正确。",
+        "result": "",
+        "dependencyIds": [
+          "plants-vs-zombies-schedule-units-art"
+        ],
+        "references": [
+          {
+            "kind": "requirement",
+            "targetId": "pvz-art-req-cards"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "pvz-art-req-sun-entity"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "pvz-art-req-sun-feedback"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "pvz-art-req-sun-hud"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "pvz-art-req-plant-feedback"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "pvz-art-req-shovel"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "pvz-art-req-waves"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "pvz-art-req-ready"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "pvz-art-req-pause"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "pvz-art-req-outcome"
+          }
+        ]
+      },
+      {
+        "id": "plants-vs-zombies-schedule-integrate",
+        "title": "整合表现与统一点击边界",
+        "description": "整合表现与统一点击边界。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "程序",
+        "owner": "",
+        "status": "待开始",
+        "priority": "高",
+        "start": "2026-10-06",
+        "end": "2026-10-06",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "plants-vs-zombies-schedule-m3",
+        "acceptance": "场景资源、卡牌图标与反馈接入；缩放后格子命中一致，暂停层完全拦截输入。",
+        "result": "",
+        "dependencyIds": [
+          "plants-vs-zombies-schedule-flow",
+          "plants-vs-zombies-schedule-hud-art"
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "5b70b418-773b-4630-b7c9-b9e545b2c3b0"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "8aeab67b-f854-4da9-aa49-d196107fbf9a"
+          }
+        ]
+      },
+      {
+        "id": "plants-vs-zombies-schedule-qa",
+        "title": "验证经济、战斗与终局边界",
+        "description": "验证经济、战斗与终局边界。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "测试",
+        "owner": "",
+        "status": "待开始",
+        "priority": "高",
+        "start": "2026-10-07",
+        "end": "2026-10-08",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "plants-vs-zombies-schedule-m3",
+        "acceptance": "覆盖不足阳光、连点种植/收集、铲除、同帧致死、暂停跨波次、五路漏怪与重开；记录失败复现。",
+        "result": "",
+        "dependencyIds": [
+          "plants-vs-zombies-schedule-integrate"
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "5e930f5b-bcc6-4e98-85a5-5e6a667968b2"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "5b70b418-773b-4630-b7c9-b9e545b2c3b0"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "f980e205-82fa-4bda-945e-970dd7dc8eea"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "39bc4c47-ac6e-4abe-9863-422df4b55ab7"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "8aeab67b-f854-4da9-aa49-d196107fbf9a"
+          }
+        ]
+      },
+      {
+        "id": "plants-vs-zombies-schedule-signoff",
+        "title": "修复阻断问题并交付试玩包",
+        "description": "修复阻断问题并交付试玩包。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "测试",
+        "owner": "",
+        "status": "待开始",
+        "priority": "高",
+        "start": "2026-10-09",
+        "end": "2026-10-09",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "plants-vs-zombies-schedule-m3",
+        "acceptance": "完成通关、失败、再开三条路径回归；未解决问题列明影响，记录试玩包版本和验收结果。",
+        "result": "",
+        "dependencyIds": [
+          "plants-vs-zombies-schedule-qa"
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "5e930f5b-bcc6-4e98-85a5-5e6a667968b2"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "8aeab67b-f854-4da9-aa49-d196107fbf9a"
+          }
+        ]
+      }
+    ],
+    "milestones": [
+      {
+        "id": "plants-vs-zombies-schedule-m1",
+        "title": "M1｜可种植、可交战的灰盒",
+        "owner": "",
+        "due": "2026-09-25",
+        "description": "参考基线：2026-09-21 开始，按周一至周五排布，未计法定假期。假设 2 名程序、1 名设计/关卡、1 名美术，测试由团队共同承担；负责人和实际日期待确定。仅覆盖当前最小原型，工期需在首次试玩后复估。",
+        "acceptance": "在五行九列草坪种植并收集阳光，射手能够阻挡一路普通僵尸。",
+        "review": "",
+        "status": "计划中"
+      },
+      {
+        "id": "plants-vs-zombies-schedule-m2",
+        "title": "M2｜三波完整对局",
+        "owner": "",
+        "due": "2026-10-02",
+        "description": "参考基线：2026-09-21 开始，按周一至周五排布，未计法定假期。假设 2 名程序、1 名设计/关卡、1 名美术，测试由团队共同承担；负责人和实际日期待确定。仅覆盖当前最小原型，工期需在首次试玩后复估。",
+        "acceptance": "三波固定事件只生成一次，开始、暂停、胜负与重开全链路可运行。",
+        "review": "",
+        "status": "计划中"
+      },
+      {
+        "id": "plants-vs-zombies-schedule-m3",
+        "title": "M3｜最小原型验收",
+        "owner": "",
+        "due": "2026-10-09",
+        "description": "参考基线：2026-09-21 开始，按周一至周五排布，未计法定假期。假设 2 名程序、1 名设计/关卡、1 名美术，测试由团队共同承担；负责人和实际日期待确定。仅覆盖当前最小原型，工期需在首次试玩后复估。",
+        "acceptance": "替换计划内表现资源，三种植物与两种僵尸组合均通过测试，无阻断对局的问题。",
+        "review": "",
+        "status": "计划中"
+      }
+    ]
   }
 }

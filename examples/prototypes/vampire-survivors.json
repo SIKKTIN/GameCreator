@@ -18679,5 +18679,800 @@
         ]
       }
     ]
+  },
+  "projectSchedule": {
+    "schema": 1,
+    "tasks": [
+      {
+        "id": "vampire-survivors-schedule-scope",
+        "title": "锁定三十分钟内容与性能预算",
+        "description": "锁定三十分钟内容与性能预算。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "设计",
+        "owner": "",
+        "status": "待开始",
+        "priority": "普通",
+        "start": "2026-09-21",
+        "end": "2026-09-22",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "vampire-survivors-schedule-m1",
+        "acceptance": "明确六武器六被动、三进化、12 段怪潮；选定测试机器并记录目标帧时间和对象数量预算。",
+        "result": "",
+        "dependencyIds": [],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "vs-play-run"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "vs-play-movement"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "vs-play-combat"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "vs-play-growth"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "vs-play-build"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "vs-play-evolution"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "vs-play-waves"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "vs-play-meta"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "vs-play-settlement"
+          }
+        ]
+      },
+      {
+        "id": "vampire-survivors-schedule-world",
+        "title": "建立独立对局与自由移动查询",
+        "description": "建立独立对局与自由移动查询。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "程序",
+        "owner": "",
+        "status": "待开始",
+        "priority": "高",
+        "start": "2026-09-23",
+        "end": "2026-09-25",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "vampire-survivors-schedule-m1",
+        "acceptance": "移动和目标范围查询一致；暂停冻结世界步，恢复检查点不混入上一局对象。",
+        "result": "",
+        "dependencyIds": [
+          "vampire-survivors-schedule-scope"
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "vs-play-run"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "vs-play-movement"
+          },
+          {
+            "kind": "capability",
+            "targetId": "vs-cap-start"
+          },
+          {
+            "kind": "capability",
+            "targetId": "vs-cap-tick"
+          },
+          {
+            "kind": "capability",
+            "targetId": "vs-cap-checkpoint"
+          },
+          {
+            "kind": "capability",
+            "targetId": "vs-cap-move"
+          },
+          {
+            "kind": "capability",
+            "targetId": "vs-cap-query"
+          }
+        ]
+      },
+      {
+        "id": "vampire-survivors-schedule-combat",
+        "title": "实现自动武器、伤害与退出",
+        "description": "实现自动武器、伤害与退出。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "程序",
+        "owner": "",
+        "status": "待开始",
+        "priority": "高",
+        "start": "2026-09-23",
+        "end": "2026-09-25",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "vampire-survivors-schedule-m1",
+        "acceptance": "基础武器按统一时钟调度；命中、击杀、掉落事件仅提交一次，死亡对象及时退出查询。",
+        "result": "",
+        "dependencyIds": [
+          "vampire-survivors-schedule-scope"
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "vs-play-combat"
+          },
+          {
+            "kind": "capability",
+            "targetId": "vs-cap-attack"
+          },
+          {
+            "kind": "capability",
+            "targetId": "vs-cap-damage"
+          },
+          {
+            "kind": "capability",
+            "targetId": "vs-cap-death"
+          }
+        ]
+      },
+      {
+        "id": "vampire-survivors-schedule-combat-art",
+        "title": "制作角色、基础武器与敌人识别",
+        "description": "制作角色、基础武器与敌人识别。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "美术",
+        "owner": "",
+        "status": "待开始",
+        "priority": "普通",
+        "start": "2026-09-23",
+        "end": "2026-09-30",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "vampire-survivors-schedule-m2",
+        "acceptance": "三角色、六基础攻击与三类敌人可辨；平铺场景和掉落不影响高密度走位判断。",
+        "result": "",
+        "dependencyIds": [
+          "vampire-survivors-schedule-scope"
+        ],
+        "references": [
+          {
+            "kind": "requirement",
+            "targetId": "vs-req-player-hunter"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "vs-req-player-scholar"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "vs-req-player-warden"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "vs-req-weapon-whip"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "vs-req-weapon-wand"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "vs-req-weapon-knife"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "vs-req-weapon-bible"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "vs-req-weapon-garlic"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "vs-req-weapon-lightning"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "vs-req-enemies-basic"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "vs-req-enemies-fast"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "vs-req-enemies-heavy"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "vs-req-world"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "vs-req-pickups"
+          }
+        ]
+      },
+      {
+        "id": "vampire-survivors-schedule-build",
+        "title": "实现属性快照、构筑与进化",
+        "description": "实现属性快照、构筑与进化。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "程序",
+        "owner": "",
+        "status": "待开始",
+        "priority": "高",
+        "start": "2026-09-28",
+        "end": "2026-10-02",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "vampire-survivors-schedule-m2",
+        "acceptance": "六武器六被动上限正确；修正只生效一次，三进化配方满足条件才原槽替换。",
+        "result": "",
+        "dependencyIds": [
+          "vampire-survivors-schedule-world",
+          "vampire-survivors-schedule-combat"
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "vs-play-build"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "vs-play-evolution"
+          },
+          {
+            "kind": "capability",
+            "targetId": "vs-cap-stats"
+          },
+          {
+            "kind": "capability",
+            "targetId": "vs-cap-mutate"
+          },
+          {
+            "kind": "capability",
+            "targetId": "vs-cap-chest"
+          },
+          {
+            "kind": "capability",
+            "targetId": "vs-cap-evolve"
+          }
+        ]
+      },
+      {
+        "id": "vampire-survivors-schedule-xp",
+        "title": "实现掉落、经验队列与三选一",
+        "description": "实现掉落、经验队列与三选一。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "程序",
+        "owner": "",
+        "status": "待开始",
+        "priority": "高",
+        "start": "2026-09-28",
+        "end": "2026-10-02",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "vampire-survivors-schedule-m2",
+        "acceptance": "掉落合并不损失价值；多级升级排队，候选合法，重抽/跳过/放逐不重复扣次数。",
+        "result": "",
+        "dependencyIds": [
+          "vampire-survivors-schedule-world",
+          "vampire-survivors-schedule-combat"
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "vs-play-movement"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "vs-play-growth"
+          },
+          {
+            "kind": "capability",
+            "targetId": "vs-cap-xp"
+          },
+          {
+            "kind": "capability",
+            "targetId": "vs-cap-pool"
+          },
+          {
+            "kind": "capability",
+            "targetId": "vs-cap-choice"
+          },
+          {
+            "kind": "capability",
+            "targetId": "vs-cap-drop"
+          },
+          {
+            "kind": "capability",
+            "targetId": "vs-cap-pickup"
+          }
+        ]
+      },
+      {
+        "id": "vampire-survivors-schedule-waves",
+        "title": "实现怪潮预算与精英事件",
+        "description": "实现怪潮预算与精英事件。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "程序",
+        "owner": "",
+        "status": "待开始",
+        "priority": "高",
+        "start": "2026-10-05",
+        "end": "2026-10-07",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "vampire-survivors-schedule-m3",
+        "acceptance": "12 段各 150 秒按预算递增；精英事件唯一，生成上限和补刷策略可观测。",
+        "result": "",
+        "dependencyIds": [
+          "vampire-survivors-schedule-build",
+          "vampire-survivors-schedule-xp"
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "vs-play-waves"
+          },
+          {
+            "kind": "capability",
+            "targetId": "vs-cap-spawn"
+          },
+          {
+            "kind": "capability",
+            "targetId": "vs-cap-elite"
+          }
+        ]
+      },
+      {
+        "id": "vampire-survivors-schedule-meta",
+        "title": "实现终局入账与永久强化",
+        "description": "实现终局入账与永久强化。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "程序",
+        "owner": "",
+        "status": "待开始",
+        "priority": "高",
+        "start": "2026-10-05",
+        "end": "2026-10-07",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "vampire-survivors-schedule-m3",
+        "acceptance": "死亡或达标只结算一次；解锁条件正确，购买下一档原子扣款且重新打开仍保留。",
+        "result": "",
+        "dependencyIds": [
+          "vampire-survivors-schedule-build",
+          "vampire-survivors-schedule-xp"
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "vs-play-meta"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "vs-play-settlement"
+          },
+          {
+            "kind": "capability",
+            "targetId": "vs-cap-settle"
+          },
+          {
+            "kind": "capability",
+            "targetId": "vs-cap-unlock"
+          },
+          {
+            "kind": "capability",
+            "targetId": "vs-cap-buy"
+          }
+        ]
+      },
+      {
+        "id": "vampire-survivors-schedule-ui-art",
+        "title": "制作进化、构筑与结算界面",
+        "description": "制作进化、构筑与结算界面。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "美术",
+        "owner": "",
+        "status": "待开始",
+        "priority": "普通",
+        "start": "2026-10-01",
+        "end": "2026-10-07",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "vampire-survivors-schedule-m3",
+        "acceptance": "进化武器、被动、宝箱资格、HUD、候选管理及局外购买状态可辨，反馈遵守声音预算。",
+        "result": "",
+        "dependencyIds": [
+          "vampire-survivors-schedule-combat-art"
+        ],
+        "references": [
+          {
+            "kind": "requirement",
+            "targetId": "vs-req-evolve-whip_heart"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "vs-req-evolve-wand_tome"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "vs-req-evolve-bible_binder"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "vs-req-passives"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "vs-req-chest"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "vs-req-hud"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "vs-req-level-ui"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "vs-req-meta-ui"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "vs-req-results-ui"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "vs-req-sfx"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "vs-req-music"
+          },
+          {
+            "kind": "requirement",
+            "targetId": "vs-req-terminal"
+          }
+        ]
+      },
+      {
+        "id": "vampire-survivors-schedule-flow",
+        "title": "接通开始、升级、宝箱与再开",
+        "description": "接通开始、升级、宝箱与再开。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "程序",
+        "owner": "",
+        "status": "待开始",
+        "priority": "高",
+        "start": "2026-10-08",
+        "end": "2026-10-09",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "vampire-survivors-schedule-m3",
+        "acceptance": "暂停仲裁覆盖菜单/升级/宝箱；三十分钟达标和死亡都可结算再来一局，面板显示一致。",
+        "result": "",
+        "dependencyIds": [
+          "vampire-survivors-schedule-waves",
+          "vampire-survivors-schedule-meta",
+          "vampire-survivors-schedule-ui-art"
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "vs-play-run"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "vs-play-growth"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "vs-play-evolution"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "vs-play-settlement"
+          },
+          {
+            "kind": "capability",
+            "targetId": "vs-cap-hud"
+          },
+          {
+            "kind": "capability",
+            "targetId": "vs-cap-feedback"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "vs-proto-menu"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "vs-proto-character"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "vs-proto-scholar"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "vs-proto-warden"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "vs-proto-stage"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "vs-proto-field"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "vs-proto-level"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "vs-proto-build-whip"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "vs-proto-build-wand"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "vs-proto-build-heart"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "vs-proto-reroll"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "vs-proto-banish"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "vs-proto-chest"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "vs-proto-chest-normal"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "vs-proto-evolution"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "vs-proto-late"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "vs-proto-pause"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "vs-proto-survived"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "vs-proto-settlement-win"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "vs-proto-died"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "vs-proto-quit"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "vs-proto-meta"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "vs-proto-meta-done"
+          },
+          {
+            "kind": "prototype",
+            "targetId": "vs-proto-collection"
+          }
+        ]
+      },
+      {
+        "id": "vampire-survivors-schedule-density",
+        "title": "压测高密度战斗与资源释放",
+        "description": "压测高密度战斗与资源释放。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "测试",
+        "owner": "",
+        "status": "待开始",
+        "priority": "高",
+        "start": "2026-10-12",
+        "end": "2026-10-13",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "vampire-survivors-schedule-m4",
+        "acceptance": "按基线机器复现实战峰值，记录帧时间、存活/池化对象与内存；连续三局检查增长和漏释放。",
+        "result": "",
+        "dependencyIds": [
+          "vampire-survivors-schedule-flow"
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "vs-play-movement"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "vs-play-combat"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "vs-play-waves"
+          }
+        ]
+      },
+      {
+        "id": "vampire-survivors-schedule-long-run",
+        "title": "实玩完整长局与构筑边界",
+        "description": "实玩完整长局与构筑边界。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "测试",
+        "owner": "",
+        "status": "待开始",
+        "priority": "高",
+        "start": "2026-10-12",
+        "end": "2026-10-14",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "vampire-survivors-schedule-m4",
+        "acceptance": "实际运行 30 分钟；覆盖六槽满、三种进化、经验连升、无合法候选及死亡同帧升级。",
+        "result": "",
+        "dependencyIds": [
+          "vampire-survivors-schedule-flow"
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "vs-play-run"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "vs-play-growth"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "vs-play-build"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "vs-play-evolution"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "vs-play-waves"
+          }
+        ]
+      },
+      {
+        "id": "vampire-survivors-schedule-settlement",
+        "title": "验证永久收益与暂停边界",
+        "description": "验证永久收益与暂停边界。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "测试",
+        "owner": "",
+        "status": "待开始",
+        "priority": "高",
+        "start": "2026-10-12",
+        "end": "2026-10-14",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "vampire-survivors-schedule-m4",
+        "acceptance": "反复暂停、重抽、开箱、结算和重开；重新打开后金币、解锁、强化一致且不重复入账。",
+        "result": "",
+        "dependencyIds": [
+          "vampire-survivors-schedule-flow"
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "vs-play-run"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "vs-play-growth"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "vs-play-evolution"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "vs-play-meta"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "vs-play-settlement"
+          }
+        ]
+      },
+      {
+        "id": "vampire-survivors-schedule-signoff",
+        "title": "修复性能与结算问题后交付",
+        "description": "修复性能与结算问题后交付。以关联设计和功能边界为实现依据，完成后按验收条件记录实测结果。",
+        "kind": "测试",
+        "owner": "",
+        "status": "待开始",
+        "priority": "高",
+        "start": "2026-10-15",
+        "end": "2026-10-16",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "vampire-survivors-schedule-m4",
+        "acceptance": "复测性能预算及全部收益边界；留存完整长局报告、版本和剩余非阻断问题。",
+        "result": "",
+        "dependencyIds": [
+          "vampire-survivors-schedule-density",
+          "vampire-survivors-schedule-long-run",
+          "vampire-survivors-schedule-settlement"
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "vs-play-run"
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "vs-play-settlement"
+          }
+        ]
+      }
+    ],
+    "milestones": [
+      {
+        "id": "vampire-survivors-schedule-m1",
+        "title": "M1｜可生存的自动战斗",
+        "owner": "",
+        "due": "2026-09-25",
+        "description": "参考基线：2026-09-21 开始，按周一至周五排布，未计法定假期。假设 2 名程序、1 名设计/关卡、1 名美术，测试由团队共同承担；负责人和实际日期待确定。仅覆盖当前最小原型，工期需在首次试玩后复估。",
+        "acceptance": "自由移动、自动攻击、敌人追逐和掉落消费可运行。",
+        "review": "",
+        "status": "计划中"
+      },
+      {
+        "id": "vampire-survivors-schedule-m2",
+        "title": "M2｜升级与装备构筑",
+        "owner": "",
+        "due": "2026-10-02",
+        "description": "参考基线：2026-09-21 开始，按周一至周五排布，未计法定假期。假设 2 名程序、1 名设计/关卡、1 名美术，测试由团队共同承担；负责人和实际日期待确定。仅覆盖当前最小原型，工期需在首次试玩后复估。",
+        "acceptance": "经验排队、合法三选一、六武器六被动与三种进化规则可执行。",
+        "review": "",
+        "status": "计划中"
+      },
+      {
+        "id": "vampire-survivors-schedule-m3",
+        "title": "M3｜三十分钟完整对局",
+        "owner": "",
+        "due": "2026-10-09",
+        "description": "参考基线：2026-09-21 开始，按周一至周五排布，未计法定假期。假设 2 名程序、1 名设计/关卡、1 名美术，测试由团队共同承担；负责人和实际日期待确定。仅覆盖当前最小原型，工期需在首次试玩后复估。",
+        "acceptance": "12 段怪潮、精英宝箱、局外成长及一次性结算接通。",
+        "review": "",
+        "status": "计划中"
+      },
+      {
+        "id": "vampire-survivors-schedule-m4",
+        "title": "M4｜性能与长局验收",
+        "owner": "",
+        "due": "2026-10-16",
+        "description": "参考基线：2026-09-21 开始，按周一至周五排布，未计法定假期。假设 2 名程序、1 名设计/关卡、1 名美术，测试由团队共同承担；负责人和实际日期待确定。仅覆盖当前最小原型，工期需在首次试玩后复估。",
+        "acceptance": "完整三十分钟及高密度压力场景通过，暂停/结算不重复消费或收益。",
+        "review": "",
+        "status": "计划中"
+      }
+    ]
   }
 }
