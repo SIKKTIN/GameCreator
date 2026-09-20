@@ -1,3 +1,4 @@
+import { artLibrary } from './art-library';
 import { useEffect, useRef, useState } from 'react';
 import { workspaceStorage } from './workspace-storage';
 import { emptyArtAssets, readArtAssets, validateArtAssets, validateArtMutation, writeArtAssets, type ArtStore } from './art-assets';
@@ -21,7 +22,7 @@ export function useArtAssets(workspaceId: string, fileWorkspaceId = 'project:' +
   const update = (operation: (current: ArtStore) => ArtStore) => {
     if (initial.error) return false;
     let next: ArtStore;
-    try { next = validateArtMutation(latest.current, validateArtAssets(operation(structuredClone(latest.current)))); }
+    try { next = validateArtMutation(latest.current, validateArtAssets(operation(structuredClone({ ...latest.current, library: artLibrary(latest.current) })))); }
     catch (error) { setOperationError('美术更改未应用：' + String(error)); return false; }
     latest.current = next; setStore(next); setOperationError('');
     return persist(next);
