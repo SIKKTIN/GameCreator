@@ -7,7 +7,7 @@ const { workspaceHash } = require('./art-files.cjs');
 
 const CATALOG_KEY = 'gamecreator.projects.v1';
 const SECTIONS = ['gameplay', 'functional-systems', 'art-assets', 'definitions', 'stories', 'project', 'milestones', 'enum-versions'];
-const OPTIONAL_SECTIONS = ['data-view', 'gameplay-core', 'prototype-design', 'task-flows', 'story-orchestration', 'map-design'];
+const OPTIONAL_SECTIONS = ['project-schedule', 'data-view', 'gameplay-core', 'prototype-design', 'task-flows', 'story-orchestration', 'map-design'];
 const FILE_TOKEN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.[a-z0-9]{1,12}$/;
 const NEW_PROJECT = /^project-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_METADATA_BYTES = 20 * 1024 * 1024;
@@ -361,11 +361,45 @@ function validateGameplayLibraryArchive(value) {
             return fail();
 }
 
+function validateProjectScheduleArchive(value) {
+    const fail = () => { throw new Error('项目排期存档格式异常，已停止写入'); };
+    const record = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
+    const fields = (v, keys) => keys.every(k => typeof v[k] === 'string');
+    const date = (v) => { if (v === '')
+        return true; if (typeof v !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(v))
+        return false; const n = Date.parse(v + 'T00:00:00Z'); return Number.isFinite(n) && new Date(n).toISOString().slice(0, 10) === v; };
+    const unique = new Set();
+    const id = (v) => { if (typeof v !== 'string' || !v.trim() || unique.has(v))
+        return false; unique.add(v); return true; };
+    if (!record(value) || value.schema !== 1 || !Array.isArray(value.tasks) || !Array.isArray(value.milestones))
+        return fail();
+    for (const m of value.milestones)
+        if (!record(m) || !id(m.id) || !fields(m, ['title', 'owner', 'due', 'description', 'acceptance', 'review']) || !date(m.due) || !['计划中', '进行中', '已验收'].includes(m.status))
+            return fail();
+    for (const t of value.tasks) {
+        if (!record(t) || !id(t.id) || !fields(t, ['title', 'description', 'owner', 'start', 'end', 'actualStart', 'actualEnd', 'milestoneId', 'acceptance', 'result']) ||
+            !['设计', '程序', '美术', '关卡', '测试', '其他'].includes(t.kind) || !['待开始', '进行中', '待验收', '已完成', '受阻'].includes(t.status) || !['低', '普通', '高', '紧急'].includes(t.priority) ||
+            !['start', 'end', 'actualStart', 'actualEnd'].every(k => date(t[k])) || (t.start && t.end && t.end < t.start) || (t.actualStart && t.actualEnd && t.actualEnd < t.actualStart) ||
+            !Array.isArray(t.dependencyIds) || t.dependencyIds.some(v => typeof v !== 'string' || !v.trim()) || new Set(t.dependencyIds).size !== t.dependencyIds.length || !Array.isArray(t.references))
+            return fail();
+        const refs = new Set();
+        for (const r of t.references) {
+            if (!record(r) || !['gameplay', 'capability', 'requirement', 'asset', 'map', 'prototype'].includes(r.kind) || typeof r.targetId !== 'string' || !r.targetId.trim())
+                return fail();
+            const key = JSON.stringify([r.kind, r.targetId]);
+            if (refs.has(key))
+                return fail();
+            refs.add(key);
+        }
+    }
+    return value;
+}
 function validateDocument(value) {
   if (!record(value) || value.schema !== 1 || !record(value.project) || typeof value.project.name !== 'string' || !value.project.name.trim() || value.project.name.length > 100 || !record(value.project.config) || !record(value.archives) || SECTIONS.some(section => !Object.hasOwn(value.archives, section)) || Object.keys(value.archives).some(section => ![...SECTIONS, ...OPTIONAL_SECTIONS].includes(section))) throw new Error('项目文件夹数据格式无效');
   if (value.project.defaultTablesVersion !== undefined && value.project.defaultTablesVersion !== 1) throw new Error('不支持的配置表默认值版本');
   if (Object.hasOwn(value.archives, 'gameplay-core')) validateCoreArchive(value.archives['gameplay-core']);
   if (Object.hasOwn(value.archives, 'prototype-design')) validatePrototypeArchive(value.archives['prototype-design']);
+  if (Object.hasOwn(value.archives, 'project-schedule')) validateProjectScheduleArchive(value.archives['project-schedule']);
   if (Object.hasOwn(value.archives, 'task-flows')) validateTaskArchive(value.archives['task-flows']);
   if (Object.hasOwn(value.archives, 'map-design')) validateMapArchive(value.archives['map-design']);
   if (Object.hasOwn(value.archives, 'story-orchestration')) validateStoryArchive(value.archives['story-orchestration']);

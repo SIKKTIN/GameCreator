@@ -12,6 +12,7 @@
 ├─ README.md
 ├─ data/
 │  ├─ project.json
+│  ├─ project-schedule.json
 │  ├─ project-info.json
 │  ├─ gameplay.json
 │  ├─ gameplay-core.json
@@ -34,6 +35,7 @@
 ## 包含的内容
 
 - 项目概览、里程碑与故事文档。
+- 项目排期的制作任务、计划与实际日期、负责人、前置依赖、内容来源与验收记录；旧包缺少排期时从包内里程碑恢复，详见[项目排期](project-schedule.md)。
 - 玩法设计，以及依赖、条件规则、状态流程、空间布局和时间轴。
 - 玩法核心、原型场景与交互、任务与阶段流程。
 - 故事编排的启用状态、正文、条件、检定与后果；关闭的模块也保留内容，旧包缺少此部分时默认为关闭。
@@ -50,7 +52,7 @@
 
 ## 本地批量归档
 
-仓库根目录 `ProjectCache/` 用于本机导出归档，已被 Git 忽略。当前四套原型分别保存到 `ProjectCache/空洞骑士/`、`ProjectCache/星露谷物语/`、`ProjectCache/植物大战僵尸/`、`ProjectCache/极乐迪斯科/`。这些目录是当时的完整快照，不会随之后的编辑自动更新。
+仓库根目录 `ProjectCache/` 用于本机导出归档，已被 Git 忽略。当前五套原型分别保存到 `ProjectCache/空洞骑士/`、`ProjectCache/星露谷物语/`、`ProjectCache/植物大战僵尸/`、`ProjectCache/极乐迪斯科/`、`ProjectCache/吸血鬼幸存者/`。这些目录是当时的完整快照，不会随之后的编辑自动更新。
 
 也可在 Node.js 24 环境中执行：
 

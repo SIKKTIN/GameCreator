@@ -7,7 +7,8 @@ const fn = file.statements.find(n => ts.isFunctionDeclaration(n) && n.name?.text
 if (!icons || !fn) throw new Error('Gameplay library validator not found');
 const code = ts.transpileModule([icons.getText(file), fn.getText(file)].join('\n').replaceAll('export ', '').replaceAll('categoryIcons', 'gameplayCategoryIcons').replaceAll('validateGameplayLibrary', 'validateGameplayLibraryArchive'), { compilerOptions: { target: ts.ScriptTarget.ES2020 } }).outputText;
 const target = new URL('../desktop/project-package.cjs', import.meta.url), desktop = fs.readFileSync(target, 'utf8');
-const end = desktop.indexOf('function validateDocument('), existing = desktop.indexOf('const gameplayCategoryIcons =');
+const schedule = desktop.indexOf('function validateProjectScheduleArchive(');
+const end = schedule >= 0 ? schedule : desktop.indexOf('function validateDocument('), existing = desktop.indexOf('const gameplayCategoryIcons =');
 if (end < 0) throw new Error('Desktop package validator not found');
 let next = desktop.slice(0, existing < 0 ? end : existing) + code + '\n' + desktop.slice(end);
 if (!next.includes('validateGameplayLibraryArchive(value.archives.gameplay);')) next = next.replace("  const art = value.archives['art-assets'];", "  validateGameplayLibraryArchive(value.archives.gameplay);\n  const art = value.archives['art-assets'];");

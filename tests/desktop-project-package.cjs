@@ -112,7 +112,15 @@ const sectionProperties = [['gameplay', 'gameplay'], ['functional-systems', 'fun
   }
   async function verifyUI(expectedArt) {
     await click('玩法设计'); await page.getByRole('region', { name: '玩法设计工作区', exact: true }).waitFor();
-    assert.equal(await page.getByRole('button', { name: /^打开玩法：/ }).count(), fixture.gameplay.designs.length);
+    let documentCount = 0;
+    for (const category of fixture.gameplay.categories) {
+      await click('进入分类：' + category.name);
+      documentCount += await page.getByRole('button', { name: /^打开玩法：/ }).count();
+      await click('分类总览');
+    }
+    assert.equal(documentCount, fixture.gameplay.designs.length);
+    await click('项目排期'); await page.getByRole('tab', { name: '里程碑', exact: true }).click();
+    assert.equal(await page.getByRole('button', { name: /^打开里程碑：/ }).count(), milestones.length);
     await click('功能系统'); await page.getByRole('region', { name: '功能系统工作区', exact: true }).waitFor();
     assert.equal(await page.getByRole('button', { name: /^打开系统：/ }).count(), fixture.functionalSystems.systems.length);
     await click('数据配置'); await page.locator('.data-dataset-link').first().waitFor();
@@ -136,8 +144,8 @@ const sectionProperties = [['gameplay', 'gameplay'], ['functional-systems', 'fun
     const dialog = modal('从文件夹导入项目'); await dialog.getByLabel('项目名称', { exact: true }).fill(name);
     await page.screenshot({ path: path.join(artifacts, 'project-package-import-dialog.png') });
     await dialog.getByRole('button', { name: '导入并打开', exact: true }).click();
-    await waitUntil(() => catalog().projects.length === count + 1, 'complete imported project was not published');
     await dialog.waitFor({ state: 'hidden' });
+    assert.equal(catalog().projects.length, count + 1, 'complete imported project was not published');
     const current = catalog(), project = current.projects.find(project => project.id === current.activeId);
     assert.match(project.id, /^project-[0-9a-f]{8}-[0-9a-f-]{27}$/); assert.equal(project.name, name); assert.notEqual(project.id, sourceId);
     assert.ok(!imported.some(item => item.id === project.id)); imported.push({ id: project.id, name }); return project.id;
@@ -163,7 +171,7 @@ const sectionProperties = [['gameplay', 'gameplay'], ['functional-systems', 'fun
     assert.ok((await page.locator('body').innerText()).includes('QA 模拟项目迁移写入失败'));
     await app.evaluate(({ ipcMain }) => { ipcMain.removeAllListeners('workspace-storage'); ipcMain.on('workspace-storage', globalThis.packageStorageHandler); });
     await dialog.getByRole('button', { name: '导入并打开', exact: true }).click();
-    await waitUntil(() => catalog().projects.length === count + 1, 'retry did not publish imported project'); await dialog.waitFor({ state: 'hidden' });
+    await dialog.waitFor({ state: 'hidden' }); assert.equal(catalog().projects.length, count + 1, 'retry did not publish imported project');
     const id = catalog().activeId; assert.ok(!imported.some(item => item.id === id)); imported.push({ id, name });
     await verifyContent(id, name, expectedArt); verified.push(target + ' write failure leaves original catalog and supports retry');
   }
@@ -191,7 +199,7 @@ const sectionProperties = [['gameplay', 'gameplay'], ['functional-systems', 'fun
       await dialog.locator('form').evaluate(form => form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
       assert.equal(await app.evaluate(() => globalThis.packageRestoreCalls), 1, 'duplicate submit must not create another import');
     } finally { await app.evaluate(() => globalThis.packageRestoreResume()); }
-    await waitUntil(() => catalog().projects.length === count + 1, 'held import failed after resuming'); await dialog.waitFor({ state: 'hidden' });
+    await dialog.waitFor({ state: 'hidden' }); assert.equal(catalog().projects.length, count + 1, 'held import failed after resuming');
     await app.evaluate(({ ipcMain }) => { ipcMain.removeHandler('project-package-restore-assets'); ipcMain.handle('project-package-restore-assets', globalThis.packageRestoreHandler); });
     const id = catalog().activeId; assert.ok(!imported.some(item => item.id === id)); imported.push({ id, name });
     await verifyContent(id, name, expectedArt); verified.push('pending import blocks close, switch, unload and duplicate submit');
