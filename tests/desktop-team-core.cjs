@@ -38,8 +38,9 @@ const until=async(check,message)=>{const end=Date.now()+20000;while(Date.now()<e
   try{
     let a=await launch('alice');const b=await launch('bob');await connect(a.page,'alice');await connect(b.page,'bob');
     const before=await api(route,token),other=await pos(b.page,'战斗循环');let puts=0;a.page.on('request',r=>{if(r.method()==='PUT'&&r.url().endsWith('/core'))puts++;});
-    await drag(a.page,'战斗循环');const mine=await pos(a.page,'战斗循环');assert.notDeepEqual(mine,other);assert.deepEqual(await pos(b.page,'战斗循环'),other);
-    await saved(a.page);assert.equal(puts,0);assert.deepEqual(await api(route,token),before);
+    await a.app.evaluate(({ipcMain})=>{globalThis.layoutBatchWrites=0;globalThis.originalLayoutHandler=ipcMain.listeners('workspace-storage')[0];ipcMain.removeAllListeners('workspace-storage');ipcMain.on('workspace-storage',(event,request)=>{if(request?.operation==='set'&&request.key?.startsWith('gamecreator.team-core-layout.v1:'))globalThis.layoutBatchWrites++;globalThis.originalLayoutHandler(event,request);});});
+    await button(a.page,'全选节点').click();assert.equal(await a.page.locator('.gc-node.is-selected').count(),2);const secondBefore=await pos(a.page,'养成循环');await drag(a.page,'战斗循环');const secondAfter=await pos(a.page,'养成循环');assert.notDeepEqual(secondAfter,secondBefore);const mine=await pos(a.page,'战斗循环');assert.notDeepEqual(mine,other);assert.deepEqual(await pos(b.page,'战斗循环'),other);assert.equal(parseFloat(secondAfter.x)-parseFloat(mine.x),350);assert.equal(parseFloat(secondAfter.y)-parseFloat(mine.y),0);
+    assert.equal(await a.app.evaluate(()=>globalThis.layoutBatchWrites),1,'group layout should write once');await saved(a.page);assert.equal(puts,0);assert.deepEqual(await api(route,token),before);
     await graph(a.page,'战斗循环');await graph(b.page,'养成循环');await a.page.getByLabel('流程图说明',{exact:true}).fill('Alice 战斗');await b.page.getByLabel('流程图说明',{exact:true}).fill('Bob 养成');
     await save(a.page);await save(b.page);await graph(b.page,'战斗循环');await until(async()=>await b.page.getByLabel('流程图说明',{exact:true}).inputValue()==='Alice 战斗','Independent graph not received');
     await a.page.getByLabel('流程图说明',{exact:true}).fill('Alice 草稿');await b.page.getByLabel('流程图说明',{exact:true}).fill('Bob 新版');await save(b.page);
@@ -56,12 +57,13 @@ const until=async(check,message)=>{const end=Date.now()+20000;while(Date.now()<e
     const snapshot=await api(route,token);assert.equal(snapshot.store.graphs.find(g=>g.id==='root').nodes.filter(n=>n.title==='联机新增节点').length,1);
     // Draft and layout survive unrelated modules and a full client restart.
     await graph(a.page,'战斗循环');await a.page.getByLabel('流程图说明',{exact:true}).fill('重启保留草稿');await nav(a.page,'故事文档');await nav(a.page,'玩法核心');assert.equal(await a.page.getByLabel('流程图说明',{exact:true}).inputValue(),'重启保留草稿');
-    await a.app.close();apps.delete(a.app);a=await launch('alice');await connect(a.page,'alice');assert.deepEqual(await pos(a.page,'战斗循环'),mine);await graph(a.page,'战斗循环');assert.equal(await a.page.getByLabel('流程图说明',{exact:true}).inputValue(),'重启保留草稿');await save(a.page);
+    await a.app.close();apps.delete(a.app);a=await launch('alice');await connect(a.page,'alice');assert.deepEqual(await pos(a.page,'战斗循环'),mine);assert.deepEqual(await pos(a.page,'养成循环'),secondAfter);await graph(a.page,'战斗循环');assert.equal(await a.page.getByLabel('流程图说明',{exact:true}).inputValue(),'重启保留草稿');await save(a.page);
     // Module-level permission revocation preserves the draft, while local layout still works.
     await node(b.page,'战斗').click();await b.page.getByLabel('节点说明',{exact:true}).fill('撤权前草稿');const members=await api('/projects/team-demo/members',token);
     await api('/projects/team-demo/members',token,'PUT',{revision:members.revision,members:members.members.map(m=>({userId:m.userId,role:m.role,permissions:{...m.permissions,...(m.userId==='bob'?{core:'view'}:{})}}))});
     await until(()=>b.page.getByLabel('节点说明',{exact:true}).isDisabled(),'Core permission not revoked');assert.equal(await b.page.getByLabel('节点说明',{exact:true}).inputValue(),'撤权前草稿');const bp=await pos(b.page,'战斗');await drag(b.page,'战斗');assert.notDeepEqual(await pos(b.page,'战斗'),bp);
     await connect(b.page,'viewer');await graph(b.page,'战斗循环');await node(b.page,'战斗').click();assert.ok(await b.page.getByLabel('节点说明',{exact:true}).isDisabled());const vp=await pos(b.page,'战斗');await drag(b.page,'战斗');assert.notDeepEqual(await pos(b.page,'战斗'),vp);
+    await graph(b.page,'游戏入口');await button(b.page,'全选节点').click();assert.ok(await b.page.locator('.gc-node.is-selected').count()>1);const viewerServer=await api(route,token),viewerBefore=await pos(b.page,'养成循环');await drag(b.page,'战斗循环');assert.notDeepEqual(await pos(b.page,'养成循环'),viewerBefore);assert.deepEqual(await api(route,token),viewerServer);
     await fs.mkdir(qa,{recursive:true});await a.page.screenshot({path:path.join(qa,'team-gameplay-core.png'),fullPage:true});assert.deepEqual(errors,[]);
     console.log('PASS: two clients; private layout; independent graphs; conflict and subtree protection; lost acknowledgement; draft/layout restart; editor revocation and viewer layout');
   }catch(error){await fs.mkdir(qa,{recursive:true});for(const [i,p]of pages.entries())if(!p.isClosed())await p.screenshot({path:path.join(qa,'team-core-failure-'+i+'.png'),fullPage:true});throw error;}
