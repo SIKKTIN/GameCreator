@@ -6,9 +6,14 @@ export const mapKinds = { terrain: '地形', obstacle: '障碍', decoration: '�
 export type MapReference = { kind: 'gameplay' | 'task' | 'story' | 'character' | 'asset' | 'prototype'; targetId: string };
 export type MapLayer = { id: string; name: string; visible: boolean; locked: boolean };
 export type MapObject = { id: string; name: string; kind: keyof typeof mapKinds; layerId: string; x: number; y: number; width: number; height: number; color: 'green'|'violet'|'blue'|'amber'|'red'; notes: string; references: MapReference[] };
-export type DesignMap = { id: string; name: string; region: string; description: string; perspective: 'side'|'top'; view: 'grid'|'free'; x: number; y: number; rows: number; columns: number; cellSize: number; unit: string; sourceDesignId: string; roomId: string; layers: MapLayer[]; objects: MapObject[]; sourceVisible: boolean; sourceLocked: boolean };
-export type MapConnection = { id: string; name: string; from: string; to: string; fromObjectId: string; toObjectId: string; direction: 'one'|'both'; kind: 'passage'|'shortcut'|'door'|'transport'; condition: string };
-export type MapDesignStore = { schema: 1; enabled: boolean; maps: DesignMap[]; connections: MapConnection[] };
+export type WorldPlacement = { x: number; y: number; scale: number };
+export type WorldSettings = { perspective: 'top'|'side'; unit: string; snap: number };
+export type PortalSide = 'auto'|'left'|'right'|'top'|'bottom'|'center';
+export type TravelMode = 'auto'|'walk'|'jump'|'climb'|'drop'|'transport';
+export type TravelRule = { forward: TravelMode; reverse: TravelMode; maxRise: number; maxGap: number; maxDrop: number };
+export type DesignMap = { placement?: WorldPlacement; id: string; name: string; region: string; description: string; perspective: 'side'|'top'; view: 'grid'|'free'; x: number; y: number; rows: number; columns: number; cellSize: number; unit: string; sourceDesignId: string; roomId: string; layers: MapLayer[]; objects: MapObject[]; sourceVisible: boolean; sourceLocked: boolean };
+export type MapConnection = { fromSide?: PortalSide; toSide?: PortalSide; travel?: TravelRule; id: string; name: string; from: string; to: string; fromObjectId: string; toObjectId: string; direction: 'one'|'both'; kind: 'passage'|'shortcut'|'door'|'transport'; condition: string };
+export type MapDesignStore = { world?: WorldSettings; schema: 1; enabled: boolean; maps: DesignMap[]; connections: MapConnection[] };
 export const emptyMapDesign = (): MapDesignStore => ({ schema: 1, enabled: false, maps: [], connections: [] });
 export function createDesignMap(name = '新地图'): DesignMap {
   return { id: crypto.randomUUID(), name, region: '', description: '', perspective: 'top', view: 'grid', x: 0, y: 0, rows: 12, columns: 20, cellSize: 1, unit: '格', sourceDesignId: '', roomId: '', sourceVisible: true, sourceLocked: true, layers: ['地形','障碍','装饰','交互'].map(name => ({id:crypto.randomUUID(),name,visible:true,locked:false})), objects: [] };
@@ -23,8 +28,10 @@ export function validateMapDesign(value: unknown): MapDesignStore {
   const ids = new Set<string>();
   const unique = (v: Record<string,unknown>) => { if(typeof v.id !== 'string' || !v.id.trim() || ids.has(v.id)) fail(); ids.add(v.id as string); };
   if (!record(value) || value.schema !== 1 || typeof value.enabled !== 'boolean' || !Array.isArray(value.maps) || value.maps.length > 100 || !Array.isArray(value.connections) || value.connections.length > 500) return fail();
+  if(value.world !== undefined && (!record(value.world) || !['top','side'].includes(value.world.perspective as string) || !strings(value.world,['unit']) || !num(value.world.snap,.001,10000))) return fail();
   for (const m of value.maps) {
     if (!record(m) || !strings(m,['name','region','description','unit','sourceDesignId','roomId']) || !['side','top'].includes(m.perspective as string) || !['grid','free'].includes(m.view as string) || !num(m.x) || !num(m.y) || !num(m.rows,1,30) || !Number.isInteger(m.rows) || !num(m.columns,1,40) || !Number.isInteger(m.columns) || !num(m.cellSize,.001,10000) || typeof m.sourceVisible !== 'boolean' || typeof m.sourceLocked !== 'boolean' || !Array.isArray(m.layers) || m.layers.length < 1 || m.layers.length > 30 || !Array.isArray(m.objects) || m.objects.length > 300) return fail();
+    if(m.placement !== undefined && (!record(m.placement) || !num(m.placement.x) || !num(m.placement.y) || !num(m.placement.scale,.001,1000))) return fail();
     unique(m);
     for(const l of m.layers) { if(!record(l) || !strings(l,['name']) || typeof l.visible !== 'boolean' || typeof l.locked !== 'boolean') return fail(); unique(l); }
     for(const o of m.objects) {
@@ -33,7 +40,7 @@ export function validateMapDesign(value: unknown): MapDesignStore {
       for(const r of o.references) if(!record(r) || !strings(r,['targetId']) || !['gameplay','task','story','character','asset','prototype'].includes(r.kind as string)) return fail();
     }
   }
-  for(const c of value.connections) { if(!record(c) || !strings(c,['name','from','to','fromObjectId','toObjectId','condition']) || !['one','both'].includes(c.direction as string) || !['passage','shortcut','door','transport'].includes(c.kind as string)) return fail(); unique(c); }
+  for(const c of value.connections) { if(!record(c) || !strings(c,['name','from','to','fromObjectId','toObjectId','condition']) || !['one','both'].includes(c.direction as string) || !['passage','shortcut','door','transport'].includes(c.kind as string)) return fail(); if(c.fromSide !== undefined && !['auto','left','right','top','bottom','center'].includes(c.fromSide as string)) return fail(); if(c.toSide !== undefined && !['auto','left','right','top','bottom','center'].includes(c.toSide as string)) return fail(); if(c.travel !== undefined && (!record(c.travel) || !['auto','walk','jump','climb','drop','transport'].includes(c.travel.forward as string) || !['auto','walk','jump','climb','drop','transport'].includes(c.travel.reverse as string) || !num(c.travel.maxRise,0) || !num(c.travel.maxGap,0) || !num(c.travel.maxDrop,0))) return fail(); unique(c); }
   return value as MapDesignStore;
 }
 export function readMapDesign(storage: Pick<Storage,'getItem'>, key: string) { const raw=storage.getItem(key); return {raw,store:raw===null?emptyMapDesign():validateMapDesign(JSON.parse(raw))}; }
@@ -82,6 +89,9 @@ export function mapObjectReferences(store:MapDesignStore, designs:GameplayDesign
 export function mapMarkdown(store:MapDesignStore, designs:GameplayDesign[]) {
   if(!store.enabled) return '';
   const lines=['## 地图设计',''];
+  if(store.world) lines.push(`世界总览类型：${store.world.perspective==='side'?'横版高度空间（纵轴向下）':'俯视平面（纵轴向南）'}；世界单位：${store.world.unit}；吸附：${store.world.snap}`);
+  for(const m of store.maps) if(m.placement) { const space=mapStage(m,designs); lines.push(`- ${m.name} 世界原点：(${m.placement.x}, ${m.placement.y})；世界尺寸：${space.columns*space.cellSize*m.placement.scale} × ${space.rows*space.cellSize*m.placement.scale}；每个局部单位 = ${m.placement.scale} 世界单位`); }
+  for(const c of store.connections) if(c.travel) lines.push(`- ${c.name} 出入口侧面：${c.fromSide||'auto'} → ${c.toSide||'auto'}；正向移动：${c.travel.forward}；反向移动：${c.travel.reverse}；上升 / 水平跨度 / 下落限制：${c.travel.maxRise} / ${c.travel.maxGap} / ${c.travel.maxDrop}`);
   for(const m of store.maps) { lines.push('### '+m.name,`区域：${m.region}；视角：${m.perspective==='side'?'横版':'俯视'}；来源玩法：${m.sourceDesignId||'独立地图'}；来源房间：${m.roomId||'无'}`,m.description); for(const l of m.layers) lines.push(`- 图层：${l.name}；${l.visible?'显示':'隐藏'}；${l.locked?'锁定':'可编辑'}`); for(const o of mapStage(m,designs).objects) { const g=objectGeometry(o,mapStage(m,designs)); lines.push(`- ${o.name} [${o.id}]：(${g.x}, ${g.y})，${g.width} × ${g.height}；${o.notes}`); } for(const o of m.objects) for(const r of o.references) lines.push(`- ${o.name} 关联 ${r.kind}：${r.targetId}`); }
   for(const c of store.connections) lines.push(`- ${store.maps.find(m=>m.id===c.from)?.name||c.from} ${c.direction==='both'?'↔':'→'} ${store.maps.find(m=>m.id===c.to)?.name||c.to}：${c.name}；出入口 ${c.fromObjectId} → ${c.toObjectId}；通行条件：${c.condition||'无'}`);
   return lines.join('\n');

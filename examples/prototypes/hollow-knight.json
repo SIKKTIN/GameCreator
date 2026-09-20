@@ -13394,6 +13394,11 @@
   "mapDesign": {
     "schema": 1,
     "enabled": true,
+    "world": {
+      "perspective": "side",
+      "unit": "格",
+      "snap": 1
+    },
     "maps": [
       {
         "id": "map-hk-room-A",
@@ -13470,7 +13475,12 @@
               }
             ]
           }
-        ]
+        ],
+        "placement": {
+          "x": 0,
+          "y": 0,
+          "scale": 1
+        }
       },
       {
         "id": "map-hk-room-B",
@@ -13551,7 +13561,12 @@
               }
             ]
           }
-        ]
+        ],
+        "placement": {
+          "x": 24,
+          "y": 0,
+          "scale": 1
+        }
       },
       {
         "id": "map-hk-room-C",
@@ -13632,7 +13647,12 @@
               }
             ]
           }
-        ]
+        ],
+        "placement": {
+          "x": 0,
+          "y": 16,
+          "scale": 1
+        }
       },
       {
         "id": "map-hk-room-D",
@@ -13713,7 +13733,12 @@
               }
             ]
           }
-        ]
+        ],
+        "placement": {
+          "x": 24,
+          "y": 16,
+          "scale": 1
+        }
       }
     ],
     "connections": [
@@ -13726,7 +13751,16 @@
         "toObjectId": "a7cebaf1-36a7-4765-af62-9a388b187570",
         "direction": "one",
         "kind": "passage",
-        "condition": ""
+        "condition": "",
+        "fromSide": "right",
+        "toSide": "left",
+        "travel": {
+          "forward": "jump",
+          "reverse": "jump",
+          "maxRise": 16,
+          "maxGap": 24,
+          "maxDrop": 20
+        }
       },
       {
         "id": "map-hk-sp-B_A",
@@ -13737,7 +13771,16 @@
         "toObjectId": "bba2b4f0-bdcb-4594-be44-62e67374af59",
         "direction": "one",
         "kind": "passage",
-        "condition": "试炼门未封闭"
+        "condition": "试炼门未封闭",
+        "fromSide": "left",
+        "toSide": "right",
+        "travel": {
+          "forward": "jump",
+          "reverse": "jump",
+          "maxRise": 16,
+          "maxGap": 24,
+          "maxDrop": 20
+        }
       },
       {
         "id": "map-hk-sp-A_C",
@@ -13748,7 +13791,16 @@
         "toObjectId": "11bb920a-b28c-42bb-b094-6481e37f3d6d",
         "direction": "one",
         "kind": "passage",
-        "condition": ""
+        "condition": "",
+        "fromSide": "bottom",
+        "toSide": "top",
+        "travel": {
+          "forward": "drop",
+          "reverse": "climb",
+          "maxRise": 16,
+          "maxGap": 24,
+          "maxDrop": 20
+        }
       },
       {
         "id": "map-hk-sp-C_A",
@@ -13759,7 +13811,16 @@
         "toObjectId": "54fb885f-64eb-47ca-9da8-4237ca9c57e4",
         "direction": "one",
         "kind": "passage",
-        "condition": ""
+        "condition": "",
+        "fromSide": "top",
+        "toSide": "bottom",
+        "travel": {
+          "forward": "climb",
+          "reverse": "drop",
+          "maxRise": 16,
+          "maxGap": 24,
+          "maxDrop": 20
+        }
       },
       {
         "id": "map-hk-sp-A_C_short",
@@ -13770,7 +13831,16 @@
         "toObjectId": "e40a88fa-8d90-4445-b9f9-6a4748ee24ee",
         "direction": "one",
         "kind": "shortcut",
-        "condition": "已从远岸打开永久近路"
+        "condition": "已从远岸打开永久近路",
+        "fromSide": "bottom",
+        "toSide": "top",
+        "travel": {
+          "forward": "drop",
+          "reverse": "climb",
+          "maxRise": 16,
+          "maxGap": 24,
+          "maxDrop": 20
+        }
       },
       {
         "id": "map-hk-sp-C_A_short",
@@ -13781,7 +13851,16 @@
         "toObjectId": "775486b6-75e0-446b-9197-45ca9e6ffb41",
         "direction": "one",
         "kind": "shortcut",
-        "condition": "已从远岸打开永久近路"
+        "condition": "已从远岸打开永久近路",
+        "fromSide": "top",
+        "toSide": "bottom",
+        "travel": {
+          "forward": "climb",
+          "reverse": "drop",
+          "maxRise": 16,
+          "maxGap": 24,
+          "maxDrop": 20
+        }
       },
       {
         "id": "map-hk-sp-C_D",
@@ -13792,7 +13871,16 @@
         "toObjectId": "6d9527c7-2d71-4f68-aca4-df8ead9ea5d2",
         "direction": "one",
         "kind": "passage",
-        "condition": "已到达远岸"
+        "condition": "已到达远岸",
+        "fromSide": "right",
+        "toSide": "left",
+        "travel": {
+          "forward": "jump",
+          "reverse": "jump",
+          "maxRise": 16,
+          "maxGap": 24,
+          "maxDrop": 20
+        }
       },
       {
         "id": "map-hk-sp-D_C",
@@ -13803,7 +13891,16 @@
         "toObjectId": "9f154fae-7613-472f-8289-7cc3c9d79e0b",
         "direction": "one",
         "kind": "passage",
-        "condition": "战斗门未封闭"
+        "condition": "战斗门未封闭",
+        "fromSide": "left",
+        "toSide": "right",
+        "travel": {
+          "forward": "jump",
+          "reverse": "jump",
+          "maxRise": 16,
+          "maxGap": 24,
+          "maxDrop": 20
+        }
       }
     ]
   }

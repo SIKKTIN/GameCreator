@@ -13420,6 +13420,11 @@
   "mapDesign": {
     "schema": 1,
     "enabled": true,
+    "world": {
+      "perspective": "top",
+      "unit": "地块",
+      "snap": 1
+    },
     "maps": [
       {
         "id": "map-sv-room-farm",
@@ -13514,7 +13519,12 @@
               }
             ]
           }
-        ]
+        ],
+        "placement": {
+          "x": 0,
+          "y": 0,
+          "scale": 1
+        }
       },
       {
         "id": "map-sv-room-village",
@@ -13604,7 +13614,12 @@
             "notes": "以灯光提示傍晚的河边步道。",
             "references": []
           }
-        ]
+        ],
+        "placement": {
+          "x": 16,
+          "y": 0,
+          "scale": 1
+        }
       }
     ],
     "connections": [
@@ -13617,7 +13632,16 @@
         "toObjectId": "ef96cd00-07ee-4211-b8d9-3309bb66660e",
         "direction": "both",
         "kind": "passage",
-        "condition": "未处于对话、工具动作或日结算"
+        "condition": "未处于对话、工具动作或日结算",
+        "fromSide": "right",
+        "toSide": "left",
+        "travel": {
+          "forward": "walk",
+          "reverse": "walk",
+          "maxRise": 16,
+          "maxGap": 24,
+          "maxDrop": 20
+        }
       }
     ]
   }

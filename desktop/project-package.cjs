@@ -154,7 +154,7 @@ function validatePrototypeArchive(value) {
     if (!record(s) || (s.mapId !== undefined && typeof s.mapId !== 'string') || !strings(s, ['name', 'description', 'sourceDesignId', 'roomId', 'coreNodeId']) || !number(s.width, 320, 3840) || !number(s.height, 240, 2160) || !color(s.background) || !['grid', 'free'].includes(s.view) || !Array.isArray(s.elements) || s.elements.length > 300) fail();
     unique(s);
     for (const e of s.elements) {
-      if (!record(e) || !strings(e, ['name', 'text', 'sourceObjectId', 'assetId', 'versionId', 'fileId']) || !['text', 'button', 'shape', 'image', 'hotspot'].includes(e.kind) || !number(e.x, -10000, 10000) || !number(e.y, -10000, 10000) || !number(e.width, 1, 10000) || !number(e.height, 1, 10000) || !number(e.fontSize, 8, 150) || !color(e.color) || typeof e.visible !== 'boolean' || !record(e.action) || !['none', 'scene', 'show', 'hide', 'toggle', 'restart'].includes(e.action.kind) || !strings(e.action, ['targetId', 'condition'])) fail();
+      if (!record(e) || !strings(e, ['name', 'text', 'sourceObjectId', 'assetId', 'versionId', 'fileId']) || !['text', 'button', 'shape', 'image', 'hotspot'].includes(e.kind) || !number(e.x, -10000, 10000) || !number(e.y, -10000, 10000) || !number(e.width, 1, 10000) || !number(e.height, 1, 10000) || !number(e.fontSize, 8, 150) || !color(e.color) || typeof e.visible !== 'boolean' || !record(e.action) || !['none', 'scene', 'show', 'hide', 'toggle', 'restart'].includes(e.action.kind) || !strings(e.action, ['targetId', 'condition']) || (e.action.mapConnectionId !== undefined && typeof e.action.mapConnectionId !== 'string') || (e.action.mapReverse !== undefined && typeof e.action.mapReverse !== 'boolean')) fail();
       unique(e);
     }
   }
@@ -209,8 +209,12 @@ function validateMapArchive(value) {
         fail(); ids.add(v.id); };
     if (!record(value) || value.schema !== 1 || typeof value.enabled !== 'boolean' || !Array.isArray(value.maps) || value.maps.length > 100 || !Array.isArray(value.connections) || value.connections.length > 500)
         return fail();
+    if (value.world !== undefined && (!record(value.world) || !['top', 'side'].includes(value.world.perspective) || !strings(value.world, ['unit']) || !num(value.world.snap, .001, 10000)))
+        return fail();
     for (const m of value.maps) {
         if (!record(m) || !strings(m, ['name', 'region', 'description', 'unit', 'sourceDesignId', 'roomId']) || !['side', 'top'].includes(m.perspective) || !['grid', 'free'].includes(m.view) || !num(m.x) || !num(m.y) || !num(m.rows, 1, 30) || !Number.isInteger(m.rows) || !num(m.columns, 1, 40) || !Number.isInteger(m.columns) || !num(m.cellSize, .001, 10000) || typeof m.sourceVisible !== 'boolean' || typeof m.sourceLocked !== 'boolean' || !Array.isArray(m.layers) || m.layers.length < 1 || m.layers.length > 30 || !Array.isArray(m.objects) || m.objects.length > 300)
+            return fail();
+        if (m.placement !== undefined && (!record(m.placement) || !num(m.placement.x) || !num(m.placement.y) || !num(m.placement.scale, .001, 1000)))
             return fail();
         unique(m);
         for (const l of m.layers) {
@@ -229,6 +233,12 @@ function validateMapArchive(value) {
     }
     for (const c of value.connections) {
         if (!record(c) || !strings(c, ['name', 'from', 'to', 'fromObjectId', 'toObjectId', 'condition']) || !['one', 'both'].includes(c.direction) || !['passage', 'shortcut', 'door', 'transport'].includes(c.kind))
+            return fail();
+        if (c.fromSide !== undefined && !['auto', 'left', 'right', 'top', 'bottom', 'center'].includes(c.fromSide))
+            return fail();
+        if (c.toSide !== undefined && !['auto', 'left', 'right', 'top', 'bottom', 'center'].includes(c.toSide))
+            return fail();
+        if (c.travel !== undefined && (!record(c.travel) || !['auto', 'walk', 'jump', 'climb', 'drop', 'transport'].includes(c.travel.forward) || !['auto', 'walk', 'jump', 'climb', 'drop', 'transport'].includes(c.travel.reverse) || !num(c.travel.maxRise, 0) || !num(c.travel.maxGap, 0) || !num(c.travel.maxDrop, 0)))
             return fail();
         unique(c);
     }
