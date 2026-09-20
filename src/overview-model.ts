@@ -1,3 +1,4 @@
+import { validateProjectSchedule } from './project-schedule.ts';
 import { initialMilestones, initialProject } from './project-defaults.ts';
 import type { SavedProject } from './project-catalog.ts';
 
@@ -37,6 +38,8 @@ export function readLocalOverview(storage: Pick<Storage,'getItem'>, project: Sav
     metadata = raw === null ? {} : JSON.parse(raw);
     const milestoneRaw = storage.getItem(`gamecreator.workspace.v1:${project.id}:milestones`);
     milestones = milestoneRaw === null ? (project.initialContent === 'legacy' ? initialMilestones : []) : JSON.parse(milestoneRaw);
+    const scheduleRaw = storage.getItem(`gamecreator.workspace.v1:${project.id}:project-schedule`);
+    if (scheduleRaw !== null) milestones = validateProjectSchedule(JSON.parse(scheduleRaw)).milestones.map(m => ({ title: m.title, owner: m.owner, due: m.due, status: m.status === '已验收' ? 'done' : m.status === '进行中' ? 'active' : 'planned' }));
   } catch { throw new Error('本地概览存档读取失败，请修复后重试。'); }
   if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) throw new Error('本地项目概览存档格式异常');
   const defaults = project.initialContent === 'legacy' ? initialProject : { ...initialProject,name:project.name,version:'v0.1.0',description:'' };

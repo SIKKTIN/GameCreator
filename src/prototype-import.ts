@@ -1,3 +1,4 @@
+import { emptyProjectSchedule } from './project-schedule.ts';
 import { emptyMapDesign, validateMapDesign, mapIssues, type MapDesignStore } from './map-design.ts';
 import { emptyStoryOrchestration, validateStoryOrchestration, narrativeIssues, type StoryOrchestrationStore } from './story-orchestration.ts';
 import { emptyPrototypeDesign, validatePrototypeDesign, prototypeIssues, type PrototypeDesignStore } from './prototype-design.ts';
@@ -23,7 +24,7 @@ export type PreparedPrototypeProject = {
   entries: { key: string; value: string }[];
 };
 type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
-const sections = ['map-design', 'story-orchestration', 'task-flows', 'gameplay', 'gameplay-core', 'prototype-design', 'functional-systems', 'art-assets', 'definitions', 'stories', 'project', 'milestones'] as const;
+const sections = ['project-schedule', 'map-design', 'story-orchestration', 'task-flows', 'gameplay', 'gameplay-core', 'prototype-design', 'functional-systems', 'art-assets', 'definitions', 'stories', 'project', 'milestones'] as const;
 const workspaceKey = (id: string, section: string) => 'gamecreator.workspace.v1:' + id + ':' + section;
 const enumKey = (id: string) => 'gamecreator.enum-versions.v1:' + id;
 const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
@@ -148,6 +149,7 @@ export function preparePrototypeProject(catalog: ProjectCatalog, value: unknown,
   const next = addSavedProject(catalog, name);
   const project = next.projects.find(item => item.id === next.activeId)!;
   const archives = {
+    'project-schedule': emptyProjectSchedule(),
     'map-design': example.mapDesign ?? emptyMapDesign(),
     'story-orchestration': example.storyOrchestration ?? emptyStoryOrchestration(), 'task-flows': example.taskFlows ?? emptyTaskFlows(), gameplay: example.gameplay, 'gameplay-core': example.gameplayCore ?? emptyGameplayCore(), 'prototype-design': example.prototypeDesign ?? emptyPrototypeDesign(), 'functional-systems': example.functionalSystems, 'art-assets': example.artAssets,
     definitions: example.definitions, stories: example.stories,
