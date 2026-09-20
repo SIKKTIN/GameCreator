@@ -1,3 +1,4 @@
+import { validatePrototypeDesign, prototypeIssues } from '../src/prototype-design.ts';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { validateGameplayCore, coreIssues } from '../src/gameplay-core.ts';
@@ -60,7 +61,7 @@ async function validateExample(expected) {
   const url = new URL(`../examples/prototypes/${expected.file}`, import.meta.url);
   const example = JSON.parse(await readFile(url, 'utf8'));
   assert.ok(record(example), 'example must be an object');
-  assert.deepEqual(Object.keys(example).sort(), ['schema', 'name', 'description', 'gameplay', 'gameplayCore', 'functionalSystems', 'artAssets', 'data', 'definitions', 'stories'].sort(), 'example contains missing or nonportable top-level fields');
+  assert.deepEqual(Object.keys(example).sort(), ['schema', 'name', 'description', 'gameplay', 'gameplayCore', 'prototypeDesign', 'functionalSystems', 'artAssets', 'data', 'definitions', 'stories'].sort(), 'example contains missing or nonportable top-level fields');
   assert.equal(example.schema, 1, 'example schema');
   assert.ok(nonempty(example.name) && nonempty(example.description), 'example needs a name and description');
   validateDocuments(example);
@@ -71,6 +72,9 @@ async function validateExample(expected) {
   const functional = validateFunctionalSystems(example.functionalSystems);
   const art = validateArtAssets(example.artAssets);
   validateArtMutation(emptyArtAssets(), art);
+  const prototype = validatePrototypeDesign(example.prototypeDesign);
+  assert.ok(prototype.scenes.length > 0, 'example needs populated prototype scenes');
+  assert.deepEqual(prototypeIssues(prototype, gameplay.designs, core, art), [], 'prototype scene references');
   assert.ok(gameplay.designs.length > 0, 'example needs gameplay designs');
   const storyIds = new Set(example.stories.map(story => story.id));
   const datasetKeys = new Set(example.definitions.map(definition => definition.key));
@@ -97,7 +101,7 @@ async function validateExample(expected) {
   assert.ok([...requirementUses.values()].every(count => count > 0), 'every requirement needs an asset');
   assert.ok([...assetUses.values()].every(count => count > 0), 'every asset needs a requirement');
   assert.ok([...requirementUses.values()].some(count => count > 1) && [...assetUses.values()].some(count => count > 1), 'example must demonstrate shared assets and multiple deliveries per requirement');
-  console.log(`${expected.file}: OK — ${gameplay.designs.length} gameplay, ${functional.capabilities.length} capabilities, ${art.requirements.length} art requirements, ${art.assets.length} assets, ${art.links.length} links; untested, no deliveries`);
+  console.log(`${expected.file}: OK — ${prototype.scenes.length} prototype scenes, ${gameplay.designs.length} gameplay, ${functional.capabilities.length} capabilities, ${art.requirements.length} art requirements, ${art.assets.length} assets, ${art.links.length} links; untested, no deliveries`);
 }
 
 let failed = false;

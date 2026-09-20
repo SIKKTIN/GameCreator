@@ -88,6 +88,8 @@ const digest = value => createHash('sha256').update(value).digest('hex');
     assert.ok(read(id, 'art-assets').assets.every(asset => asset.versions.length === 0 && !asset.adoptedVersionId));
   }
   async function verifyModules(id, fixture) {
+    assert.deepEqual(read(id, 'prototype-design'), fixture.value.prototypeDesign, 'all authored prototype scenes must be imported');
+
     const value = fixture.value;
     await click('玩法设计'); await page.getByRole('region', { name: '玩法设计工作区', exact: true }).waitFor();
     assert.equal(await page.getByRole('button', { name: /^打开玩法：/ }).count(), value.gameplay.designs.length);

@@ -69,11 +69,12 @@ export function prototypeGeometry(scene: PrototypeScene, designs: GameplayDesign
   const { source, objects } = prototypeSource(scene, designs);
   if (!source) return { objects: [], grid: null };
   const bounds = objects.map(o => { const g = objectGeometry(o, source.space), angle = g.rotation * Math.PI / 180, width = Math.abs(Math.cos(angle)) * g.width + Math.abs(Math.sin(angle)) * g.height, height = Math.abs(Math.sin(angle)) * g.width + Math.abs(Math.cos(angle)) * g.height; return { x: g.x + g.width / 2 - width / 2, y: g.y + g.height / 2 - height / 2, width, height }; });
+  for (const o of objects) if (o.kind === 'zone' && o.rangeShape === 'ring') { const g = objectGeometry(o, source.space); bounds.push({ x: g.x + g.width / 2 - g.range, y: g.y + g.height / 2 - g.range, width: g.range * 2, height: g.range * 2 }); }
   if (scene.view === 'grid') bounds.push({ x: 0, y: 0, width: source.space.columns * source.space.cellSize, height: source.space.rows * source.space.cellSize });
   const left = Math.min(0, ...bounds.map(g => g.x)), top = Math.min(0, ...bounds.map(g => g.y)), right = Math.max(1, ...bounds.map(g => g.x + g.width)), bottom = Math.max(1, ...bounds.map(g => g.y + g.height));
   const scale = Math.min((scene.width - 80) / (right - left), (scene.height - 160) / (bottom - top));
   const x = (scene.width - (right - left) * scale) / 2 - left * scale, y = 80 + (scene.height - 160 - (bottom - top) * scale) / 2 - top * scale;
-  return { objects: objects.map(o => { const g = objectGeometry(o, source.space); return { object: o, ...g, x: x + g.x * scale, y: y + g.y * scale, width: g.width * scale, height: g.height * scale }; }), grid: scene.view === 'grid' ? { x, y, cell: source.space.cellSize * scale, rows: source.space.rows, columns: source.space.columns } : null };
+  return { objects: objects.map(o => { const g = objectGeometry(o, source.space); return { object: o, ...g, rangePixels: g.range * scale, innerRangePixels: g.innerRange * scale, x: x + g.x * scale, y: y + g.y * scale, width: g.width * scale, height: g.height * scale }; }), grid: scene.view === 'grid' ? { x, y, cell: source.space.cellSize * scale, rows: source.space.rows, columns: source.space.columns } : null };
 }
 export function removePrototypeScene(store: PrototypeDesignStore, id: string) {
   const refs = store.scenes.filter(s => s.id !== id).flatMap(s => s.elements.filter(e => e.action.kind === 'scene' && e.action.targetId === id).map(e => s.name + ' / ' + e.name));

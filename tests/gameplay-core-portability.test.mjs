@@ -40,7 +40,7 @@ for (const { name, example } of examples) {
 }
 
 test('old examples and old folder documents gain an empty core without mutating their source', () => {
-  const legacy = structuredClone(examples[0].example); delete legacy.gameplayCore;
+  const legacy = structuredClone(examples[0].example); delete legacy.gameplayCore; delete legacy.prototypeDesign;
   assert.equal(validatePrototypeExample(legacy), legacy);
   const prepared = preparePrototypeProject(catalog, legacy, '旧示例');
   const source = storage(); writePrototypeProject(source, prepared);
