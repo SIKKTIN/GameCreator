@@ -42,15 +42,15 @@ test('default overview is admin-only; module grants are per project, revocable, 
   assert.equal((await request('/projects/team-demo/stories',bob,'POST',original)).status,403);
   assert.equal((await request('/projects/team-demo/stories/import',bob,'POST',{})).status,403);
   const second=await request('/projects',admin,'POST',{name:'另一项目',requestId:randomUUID(),members:[member('admin','admin'),member('bob','editor')]});assert.equal(second.status,201);
-  assert.deepEqual((await request('/projects/'+second.data.project.id+'/overview',bob)).data.capabilities,{overview:'view',stories:'edit',core:'edit'});
+  assert.deepEqual((await request('/projects/'+second.data.project.id+'/overview',bob)).data.capabilities,{overview:'view',stories:'edit',core:'edit',gameplay:'edit'});
   assert.equal((await request('/projects/'+second.data.project.id+'/overview',bob,'PUT',{revision:0,fields:overview})).status,403);
   const invalid=await members(admin,'team-demo',[member('admin','admin'),member('viewer','viewer',{overview:'edit',stories:'inherit'})]);assert.equal(invalid.status,400);
   // Legacy role-only updates retain the explicitly assigned module restrictions.
   assert.equal((await members(admin,'team-demo',grant.map(({userId,role})=>({userId,role})))).status,200);
-  assert.deepEqual((await request('/projects/team-demo/stories',bob)).data.capabilities,{overview:'edit',stories:'view',core:'edit'});
+  assert.deepEqual((await request('/projects/team-demo/stories',bob)).data.capabilities,{overview:'edit',stories:'view',core:'edit',gameplay:'edit'});
   const stale=(await request('/projects/team-demo/members',admin)).data;
   const competing=await Promise.all([request('/projects/team-demo/members',admin,'PUT',{revision:stale.revision,members:grant}),request('/projects/team-demo/members',admin,'PUT',{revision:stale.revision,members:grant})]);assert.deepEqual(competing.map(item=>item.status).sort(),[200,409]);
-  await restart();admin=await login('admin');const newBob=await login('bob');assert.deepEqual((await request('/projects/team-demo/overview',newBob)).data.capabilities,{overview:'edit',stories:'view',core:'edit'});
+  await restart();admin=await login('admin');const newBob=await login('bob');assert.deepEqual((await request('/projects/team-demo/overview',newBob)).data.capabilities,{overview:'edit',stories:'view',core:'edit',gameplay:'edit'});
   assert.equal((await members(admin,'team-demo',grant.map(item=>item.userId==='bob'?{...item,permissions:defaults}:item))).status,200);
   assert.equal((await request('/projects/team-demo/overview',newBob,'PUT',{revision:1,fields:overview})).status,403);
   assert.equal((await request('/projects/team-demo/stories/world',newBob,'PUT',{...original,revision:2})).status,200);

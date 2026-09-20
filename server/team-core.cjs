@@ -1,7 +1,7 @@
 const { createHash } = require('node:crypto');
 const { emptyCoreSnapshot, sameGraph, applyCoreChanges, normalizeCorePublication, graphContent } = require('../src/team-core-model.ts');
 
-function createCoreStore(db, { fail, activity }) {
+function createCoreStore(db, { fail, activity, validateReferences }) {
   db.exec(`CREATE TABLE IF NOT EXISTS core_projects (project_id TEXT PRIMARY KEY REFERENCES projects(id), root_id TEXT NOT NULL, refs TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS core_graphs (project_id TEXT NOT NULL REFERENCES projects(id), id TEXT NOT NULL, graph TEXT,
       revision INTEGER NOT NULL, updated_at TEXT NOT NULL, updated_by TEXT NOT NULL REFERENCES users(id), PRIMARY KEY(project_id,id));
@@ -39,6 +39,7 @@ function createCoreStore(db, { fail, activity }) {
     let candidate;
     try { candidate = applyCoreChanges(current.store,changes); } catch { fail(409,'流程结构已变化或不完整，请重新核对模块及内部流程', { currentRecord: current }); }
     candidate = normalize({ store: candidate, references: current.references }).store;
+    validateReferences?.(project,current.store,candidate);
     const oldNodes = new Map(current.store.graphs.flatMap(g => g.nodes.map(n => [n.id,n])));
     // Existing positions are immutable server-side. Only new nodes carry an initial layout.
     candidate = { ...candidate, graphs: candidate.graphs.map(g => ({ ...g,nodes:g.nodes.map(n => ({ ...n, ...(oldNodes.has(n.id) ? { x:oldNodes.get(n.id).x,y:oldNodes.get(n.id).y } : {}) })) })) };

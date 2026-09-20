@@ -43,7 +43,7 @@ test('deletion validates exact name, binds preview to project ID and rechecks co
 }));
 test('deletion removes every shared module, history and membership atomically while preserving accounts and other projects; retry is durable',()=>fixture(async({request,admin,preview,remove,dbop,restart,login})=>{
   const source=publication(),published=await request('/publications',admin,'POST',source),id=published.data.project.id;
-  const counts=(await preview(id)).counts;assert.deepEqual(counts,{members:2,stories:1,history:1,overview:1,milestones:1,graphs:1});
+  const counts=(await preview(id)).counts;assert.deepEqual(counts,{members:2,stories:1,history:1,overview:1,milestones:1,graphs:1,gameplays:0,gameplayHistory:0});
   const original=dbop(db=>({users:db.prepare('SELECT * FROM users ORDER BY id').all(),stories:db.prepare("SELECT * FROM stories WHERE project_id='team-demo' ORDER BY id").all(),history:db.prepare("SELECT * FROM history WHERE story_id IN (SELECT id FROM stories WHERE project_id='team-demo') ORDER BY story_id,revision").all()}));
   const base=await preview(id),deleted=await remove(id,base);assert.equal(deleted.status,200);assert.equal((await remove(id,base)).data.reused,true);
   assert.equal((await request('/admin/projects',admin)).data.projects.some(p=>p.id===id),false);assert.equal((await request('/projects',admin)).data.projects.some(p=>p.id===id),false);

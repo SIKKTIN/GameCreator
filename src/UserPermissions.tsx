@@ -56,7 +56,7 @@ function UserPermissionsContent({session,onConnect,onChanged}:{session:TeamSessi
             <button aria-label={'重置密码：'+account.username} onClick={()=>{if(canLeaveTeam())setAction({kind:'password',account});}}>重置密码</button></div></td>
         </tr>)}</tbody></table></div>
       </section>
-      <section className="overview-panel" aria-label="项目权限管理"><h2>{deletionEnabled?'协作项目管理':'我管理的协作项目'}</h2><p>编辑者默认概览只读，故事和玩法核心可编辑。项目管理员配置成员权限；服务器管理员可删除此服务器的协作项目。</p>
+      <section className="overview-panel" aria-label="项目权限管理"><h2>{deletionEnabled?'协作项目管理':'我管理的协作项目'}</h2><p>编辑者默认概览只读，故事、玩法核心和玩法设计可编辑。项目管理员配置成员权限；服务器管理员可删除此服务器的协作项目。</p>
         {!deletionEnabled&&<p>删除项目需要升级服务器后重新连接。</p>}
         {!projects.length?<p>当前没有可管理的协作项目。</p>:<ul className="user-manager-projects">{projects.map(item=><li key={item.id} data-project-id={item.id}><div><strong>{item.name}</strong><small className="user-project-id">{item.id}</small>{item.memberCount!==undefined&&<small>{item.memberCount} 位成员 · {item.storyCount} 篇故事</small>}</div>
           <div className="team-actions">{item.role==='admin'&&<button aria-label={'配置项目权限：'+item.name} onClick={()=>{if(canLeaveTeam())setProject({...item,role:'admin'});}}>配置成员与权限</button>}

@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Folder, UserRound, Map, Swords, Compass, Gem, Settings2, BookOpen, ArrowUp, ArrowDown, Pencil, Trash2, X, Plus } from 'lucide-react';
 import { categoryIcons, saveGameplayCategory, removeGameplayCategory, type GameplayCategory } from './gameplay-library';
 import { moveGameplayItem } from './gameplay';
@@ -19,7 +19,9 @@ export function GameplayCategoryManager({ controller, onClose }: { controller: G
   </dialog>;
 }
 export function GameplayTags({ tags, disabled, onChange }: { tags: string[]; disabled: boolean; onChange: (tags: string[]) => void }) {
-  const [draft, setDraft] = useState(tags.join('，'));
+  const value=tags.join('，');
+  const [draft, setDraft] = useState(value);
+  useEffect(()=>{setDraft(value);},[value]);
   const save = () => { const next = [...new Set(draft.split(/[,，\n]/).map(t => t.trim()).filter(Boolean))]; if (JSON.stringify(next) !== JSON.stringify(tags)) onChange(next); setDraft(next.join('，')); };
   return <label className="gl-tags-field">标签<input aria-label="文档标签" disabled={disabled} value={draft} placeholder="用逗号分隔，如：战斗、成长" onChange={e => setDraft(e.target.value)} onBlur={save} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); save(); } }} /></label>;
 }
