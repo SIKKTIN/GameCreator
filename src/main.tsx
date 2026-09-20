@@ -361,7 +361,7 @@ function WorkspaceApp({ role, username, testSession, onLoadTest, onExitTest, pre
   const prototype = usePrototypeDesign(dataKey);
   const tasks = useTaskFlows(dataKey);
   const narrative = useStoryOrchestration(dataKey);
-  const maps = useMapDesign(dataKey);
+  const maps = useMapDesign(dataKey, gameplay.store.designs);
   const [requestedPrototype,setRequestedPrototype] = useState('');
   const [requestedMap,setRequestedMap] = useState('');
   const [requestedCharacter,setRequestedCharacter] = useState('');

@@ -25,6 +25,7 @@ async function fixture(t) {
   const files = await createArtFiles(data).importFiles('project:' + id, [path.join(source, 'idle.png'), path.join(source, 'hero.blend')]);
   const project = {name: '便携农场 · 原型', config: {engine: 'oasis-lua', projectPath: '', enumPath: 'Script/Const', dataPath: 'Script/Config', outputFormat: 'lua', autoSync: false, backupBeforeSync: true}};
   const archives = Object.fromEntries(SECTIONS.map(section => [section, {schema: 1}]));
+  archives.gameplay = {schema: 1, designs: []};
   archives['art-assets'] = {schema: 1, requirements: [{id: 'requirement-1', status: '已通过'}], assets: [{id: 'asset-1', name: '主角', adoptedVersionId: 'version-2', versions: [{id: 'version-1', files: [files[0]], review: '需修改', feedback: '旧版本说明'}, {id: 'version-2', files, review: '已通过'}]}], links: [{id: 'link-1', requirementId: 'requirement-1', assetId: 'asset-1'}]};
   archives.project = {name: project.name, description: '包含全部历史、采用版本与真实文件'};
   archives.stories = [{id: 'story', content: '原始文档'}];
