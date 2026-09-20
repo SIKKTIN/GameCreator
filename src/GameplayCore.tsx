@@ -1,13 +1,14 @@
-import { useEffect, useId, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
+import { CORE_NODE_WIDTH as NODE_WIDTH, CORE_NODE_HEIGHT as NODE_HEIGHT, selectionRectangle, nodesInRectangle, moveCoreGroup, type CorePosition, type CanvasPoint, type SelectionRectangle } from './core-selection';
+import { useCallback, useEffect, useId, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { ArrowDownRight, ArrowLeft, ArrowRight, ChevronRight, Circle, CircleStop, CornerDownRight, GitBranch, Layers, Link2, Maximize2, Minus, MousePointer2, Play, Plus, RotateCcw, Trash2, Unlink, X } from 'lucide-react';
 import { createCoreEdge, createCoreModule, createCoreNode, coreIssues, removeCoreNode, type CoreEdge, type CoreGraph, type CoreNode, type CoreNodeKind, type GameplayCoreStore, type CoreDesignReference } from './gameplay-core';
 import type { GameplayCoreController } from './useGameplayCore';
 import './gameplay-core.css';
 import { useCoreCanvasViewport } from './useCoreCanvasViewport';
 
-type Selection = { kind: 'node' | 'edge'; id: string } | null;
-type Drag = { id: string; x: number; y: number; clientX: number; clientY: number; moved: boolean };
-const NODE_WIDTH = 218, NODE_HEIGHT = 116;
+type Selection = { kind: 'node' | 'edge'; id: string; ids?: string[] } | null;
+type GestureBase = { graphId: string; pointerId: number; element: HTMLElement; clientX: number; clientY: number; moved: boolean };
+type Drag = GestureBase & ({ kind: 'nodes'; nodes: CorePosition[]; zoom: number } | { kind: 'marquee'; start: CanvasPoint; previous: Selection; additive: boolean });
 const kindNames: Record<CoreNodeKind, string> = { entry: '入口', activity: '活动', module: '循环模块', decision: '条件分支', exit: '结束' };
 const kindIcons = { entry: Play, activity: Circle, module: Layers, decision: GitBranch, exit: CircleStop };
 const short = (text: string, length = 17) => text.length > length ? text.slice(0, length - 1) + '…' : text;
@@ -85,12 +86,12 @@ function edgeRoute(edge: CoreEdge, nodes: CoreNode[], index: number, outsideInde
   return { path: `M ${ax} ${ay} H ${right - 12} Q ${right} ${ay} ${right} ${ay + 12} V ${rail - 12} Q ${right} ${rail} ${right - 12} ${rail} H ${target + 12} Q ${target} ${rail} ${target} ${rail - 12} V ${b.y + NODE_HEIGHT + 3}`, x: (right + target) / 2, y: rail, right: right + 95, bottom: rail + 25, outside: true };
 }
 
-export function GameplayCore({ controller, designs, onOpenGameplay, team = false, onMoveNode, onGraphChange, statusLabel }: { controller: GameplayCoreController; designs: CoreDesignReference[]; onOpenGameplay: (id: string) => void;
-  team?: boolean; onMoveNode?: (id: string, x: number, y: number) => void; onGraphChange?: (id: string) => void; statusLabel?: string }) {
+export function GameplayCore({ controller, designs, onOpenGameplay, team = false, onMoveNodes, onGraphChange, statusLabel }: { controller: GameplayCoreController; designs: CoreDesignReference[]; onOpenGameplay: (id: string) => void;
+  team?: boolean; onMoveNodes?: (positions: CorePosition[]) => void; onGraphChange?: (id: string) => void; statusLabel?: string }) {
   const { store, update, blocked } = controller;
   const [graphId, setGraphId] = useState(store.rootId), [selected, setSelected] = useState<Selection>(null);
   const [linking, setLinking] = useState(false), [linkFromId, setLinkFromId] = useState<string | null>(null);
-  const [dragPosition, setDragPosition] = useState<{ id: string; x: number; y: number } | null>(null);
+  const [dragPositions, setDragPositions] = useState<CorePosition[] | null>(null), [marquee, setMarquee] = useState<SelectionRectangle | null>(null);
   const [deleteId, setDeleteId] = useState('');
   const scroll = useRef<HTMLDivElement>(null), drag = useRef<Drag | null>(null), suppressClick = useRef(false), dialog = useRef<HTMLDialogElement>(null);
   const viewport = useCoreCanvasViewport(scroll, drag);
@@ -99,12 +100,15 @@ export function GameplayCore({ controller, designs, onOpenGameplay, team = false
   const markerId = 'gc-arrow-' + useId().replace(/:/g, '');
   const graph = store.graphs.find(g => g.id === graphId) ?? store.graphs.find(g => g.id === store.rootId);
   useEffect(() => { if (graph) onGraphChange?.(graph.id); }, [graph?.id,onGraphChange]);
-  const node = selected?.kind === 'node' ? graph?.nodes.find(n => n.id === selected.id) : undefined;
+  const selectedIds = selected?.kind === 'node' ? selected.ids ?? [selected.id] : [];
+  const selectedNodes = graph?.nodes.filter(n => selectedIds.includes(n.id)) ?? [];
+  const node = selectedNodes.length === 1 ? selectedNodes[0] : undefined;
   const edge = selected?.kind === 'edge' ? graph?.edges.find(e => e.id === selected.id) : undefined;
   const path = graph ? graphPath(store, graph.id) : [];
   const linkSource = graph?.nodes.find(n => n.id === linkFromId);
   const issues = coreIssues(store, designs);
-  const paintedNodes = (graph?.nodes ?? []).map(n => dragPosition?.id === n.id ? { ...n, x: dragPosition.x, y: dragPosition.y } : n);
+  const previewPositions = new Map(dragPositions?.map(p => [p.id, p]));
+  const paintedNodes = (graph?.nodes ?? []).map(n => ({ ...n, ...previewPositions.get(n.id) }));
   let outsideIndex = 0;
   const parallelCounts = new Map<string, number>();
   const routedEdges = (graph?.edges ?? []).map((item, index) => {
@@ -120,13 +124,16 @@ export function GameplayCore({ controller, designs, onOpenGameplay, team = false
   useEffect(() => {
     if (!store.graphs.some(g => g.id === graphId)) {
       setGraphId(store.rootId); setSelected(null); setLinking(false); setLinkFromId(null);
-      drag.current = null; setDragPosition(null); fittedGraphIds.current.delete(store.rootId); resetView(1);
+      drag.current = null; setDragPositions(null); setMarquee(null); fittedGraphIds.current.delete(store.rootId); resetView(1);
     }
   }, [store.rootId, store.graphs, graphId, resetView]);
 
   useEffect(() => {
     if (linkFromId && !graph?.nodes.some(n => n.id === linkFromId)) { setLinkFromId(null); setLinking(false); }
-    if (selected && !(selected.kind === 'node' ? graph?.nodes : graph?.edges)?.some(item => item.id === selected.id)) setSelected(null);
+    if (selected?.kind === 'node') {
+      const ids = (selected.ids ?? [selected.id]).filter(id => graph?.nodes.some(n => n.id === id));
+      if (ids.length !== (selected.ids ?? [selected.id]).length) setSelected(ids.length ? { kind: 'node', id: ids[0], ids } : null);
+    } else if (selected && !graph?.edges.some(item => item.id === selected.id)) setSelected(null);
     if (deleteId && !graph?.nodes.some(n => n.id === deleteId)) { setDeleteId(''); dialog.current?.close(); }
   }, [graph, linkFromId, selected, deleteId]);
 
@@ -158,7 +165,8 @@ export function GameplayCore({ controller, designs, onOpenGameplay, team = false
   };
 
   const navigate = (id: string) => {
-    setGraphId(id); setSelected(null); setLinking(false); setLinkFromId(null); setDragPosition(null); drag.current = null; resetView(zoom);
+    cancelGesture();
+    setGraphId(id); setSelected(null); setLinking(false); setLinkFromId(null); setDragPositions(null); setMarquee(null); drag.current = null; resetView(zoom);
     if (scroll.current) { scroll.current.scrollLeft = 0; scroll.current.scrollTop = 0; }
   };
   const editGraph = (transform: (current: CoreGraph) => CoreGraph) => {
@@ -198,10 +206,11 @@ export function GameplayCore({ controller, designs, onOpenGameplay, team = false
     editGraph(g => ({ ...g, edges: [...g.edges, next] }));
     suppressModuleDoubleClick.current = true; setSelected({ kind: 'edge', id: next.id }); setLinking(false); setLinkFromId(null);
   };
-  const chooseNode = (id: string) => {
+  const chooseNode = (id: string, additive = false) => {
     if (suppressClick.current) { suppressClick.current = false; return; }
     if (linking && !blocked) { if (linkFromId) addEdge(linkFromId, id); else { setLinkFromId(id); setSelected({ kind: 'node', id }); } }
-    else setSelected({ kind: 'node', id });
+    else if (additive) { const ids = selectedIds.includes(id) ? selectedIds.filter(x => x !== id) : [...selectedIds, id]; setSelected(ids.length ? { kind: 'node', id: ids[0], ids } : null); }
+    else if (!selectedIds.includes(id)) setSelected({ kind: 'node', id });
   };
   const enterModule = (target: CoreNode, allowCreate = false) => {
     if (target.kind !== 'module' || linking) return;
@@ -211,35 +220,96 @@ export function GameplayCore({ controller, designs, onOpenGameplay, team = false
     const childId = result.graphs.find(g => g.id === graph.id)?.nodes.find(n => n.id === target.id)?.childGraphId;
     if (update(() => result) && childId) navigate(childId);
   };
+  const cancelGesture = useCallback(() => {
+    const current = drag.current; drag.current = null;
+    if (current?.kind === 'marquee') setSelected(current.previous);
+    if (current) { suppressClick.current = true; if (current.element.hasPointerCapture(current.pointerId)) current.element.releasePointerCapture(current.pointerId); }
+    setDragPositions(null); setMarquee(null);
+  }, []);
+  useEffect(() => {
+    const hidden = () => { if (document.hidden) cancelGesture(); };
+    window.addEventListener('blur', cancelGesture); document.addEventListener('visibilitychange', hidden);
+    return () => { window.removeEventListener('blur', cancelGesture); document.removeEventListener('visibilitychange', hidden); const current = drag.current; drag.current = null; if (current?.element.hasPointerCapture(current.pointerId)) current.element.releasePointerCapture(current.pointerId); };
+  }, [cancelGesture]);
+  useEffect(() => {
+    const current = drag.current;
+    if (current && (current.graphId !== graph?.id || current.kind === 'nodes' && current.nodes.some(n => !graph.nodes.some(item => item.id === n.id)))) cancelGesture();
+  }, [graph, cancelGesture]);
+  const canvasPoint = (clientX: number, clientY: number): CanvasPoint => {
+    const bounds = scroll.current!.querySelector('.gc-canvas-surface')!.getBoundingClientRect();
+    return { x: (clientX - bounds.left) / zoom, y: (clientY - bounds.top) / zoom };
+  };
+  const background = (target: EventTarget) => target instanceof Element && target.matches('.gc-canvas-scroll, .gc-canvas-sizer, .gc-canvas-surface, .gc-connections');
+  const startMarquee = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!graph || linking || event.button !== 0 || event.buttons & 2 || drag.current || !background(event.target)) return;
+    const bounds = event.currentTarget.getBoundingClientRect();
+    if (event.clientX >= bounds.left + event.currentTarget.clientWidth || event.clientY >= bounds.top + event.currentTarget.clientHeight) return;
+    event.preventDefault(); event.stopPropagation(); event.currentTarget.focus({ preventScroll: true });
+    suppressClick.current = false;
+    drag.current = { kind: 'marquee', graphId: graph.id, pointerId: event.pointerId, element: event.currentTarget, clientX: event.clientX, clientY: event.clientY, moved: false, start: canvasPoint(event.clientX, event.clientY), previous: selected, additive: event.shiftKey || event.ctrlKey || event.metaKey };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+  const moveMarquee = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const current = drag.current;
+    if (!graph || current?.kind !== 'marquee' || current.pointerId !== event.pointerId) return;
+    event.preventDefault();
+    if (event.type === 'pointermove' && !(event.buttons & 1)) { cancelGesture(); return; }
+    if (!current.moved && Math.hypot(event.clientX - current.clientX, event.clientY - current.clientY) < 4) return;
+    current.moved = true;
+    const area = selectionRectangle(current.start, canvasPoint(event.clientX, event.clientY)); setMarquee(area);
+    const previous = current.additive && current.previous?.kind === 'node' ? current.previous.ids ?? [current.previous.id] : [];
+    const ids = [...new Set([...previous, ...nodesInRectangle(graph.nodes, area)])];
+    setSelected(ids.length ? { kind: 'node', id: ids[0], ids } : null);
+  };
+  const finishMarquee = (event: ReactPointerEvent<HTMLDivElement>, cancelled = false) => {
+    const current = drag.current;
+    if (current?.kind !== 'marquee' || current.pointerId !== event.pointerId) return;
+    if (cancelled) { cancelGesture(); return; }
+    if (current.moved) moveMarquee(event);
+    else if (!current.additive) setSelected(null);
+    drag.current = null; setMarquee(null); suppressClick.current = true;
+    if (current.element.hasPointerCapture(current.pointerId)) current.element.releasePointerCapture(current.pointerId);
+  };
+  const canvasClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (!background(event.target)) return;
+    event.stopPropagation();
+    if (suppressClick.current) { suppressClick.current = false; return; }
+    if (!event.shiftKey && !event.ctrlKey && !event.metaKey) setSelected(null);
+  };
   const startDrag = (event: ReactPointerEvent<HTMLButtonElement>, target: CoreNode) => {
     if (!linking) suppressModuleDoubleClick.current = false;
-    if ((blocked && !onMoveNode) || linking || event.button !== 0) return;
+    if (drag.current || !graph || (team ? !onMoveNodes : blocked) || linking || event.button !== 0 || event.buttons & 2 || event.shiftKey || event.ctrlKey || event.metaKey) return;
     suppressClick.current = false;
-    drag.current = { id: target.id, x: target.x, y: target.y, clientX: event.clientX, clientY: event.clientY, moved: false };
+    const nodes = (selectedIds.includes(target.id) ? selectedNodes : [target]).map(({ id, x, y }) => ({ id, x, y }));
+    setSelected({ kind: 'node', id: target.id, ids: nodes.map(n => n.id) });
+    drag.current = { kind: 'nodes', graphId: graph.id, pointerId: event.pointerId, element: event.currentTarget, nodes, zoom, clientX: event.clientX, clientY: event.clientY, moved: false };
     event.currentTarget.setPointerCapture(event.pointerId);
   };
   const moveDrag = (event: ReactPointerEvent<HTMLButtonElement>) => {
     const current = drag.current;
-    if (!current) return;
-    const dx = (event.clientX - current.clientX) / zoom, dy = (event.clientY - current.clientY) / zoom;
+    if (current?.kind !== 'nodes' || current.pointerId !== event.pointerId) return;
+    if (event.type === 'pointermove' && !(event.buttons & 1)) { cancelGesture(); return; }
+    const dx = (event.clientX - current.clientX) / current.zoom, dy = (event.clientY - current.clientY) / current.zoom;
     if (!current.moved && Math.abs(dx) + Math.abs(dy) < 5) return;
     current.moved = true;
-    setSelected({ kind: 'node', id: current.id });
-    setDragPosition({ id: current.id, x: Math.max(35, Math.min(15000, Math.round(current.x + dx))), y: Math.max(65, Math.min(15000, Math.round(current.y + dy))) });
+    setDragPositions(moveCoreGroup(current.nodes, dx, dy));
   };
   const finishDrag = (event: ReactPointerEvent<HTMLButtonElement>, cancelled = false) => {
     const current = drag.current;
-    if (!current) return;
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+    if (current?.kind !== 'nodes' || current.pointerId !== event.pointerId) return;
+    if (cancelled) { cancelGesture(); return; }
+    drag.current = null; setDragPositions(null);
     if (current.moved) {
-      suppressClick.current = true;
-      if (!cancelled) {
-        const x = Math.max(35, Math.min(15000, Math.round(current.x + (event.clientX - current.clientX) / zoom))), y = Math.max(65, Math.min(15000, Math.round(current.y + (event.clientY - current.clientY) / zoom)));
-        if (onMoveNode) onMoveNode(current.id,x,y); else if (!team) patchNode(current.id,{x,y});
+      suppressClick.current = true; suppressModuleDoubleClick.current = true;
+      const positions = moveCoreGroup(current.nodes, (event.clientX - current.clientX) / current.zoom, (event.clientY - current.clientY) / current.zoom);
+      if (positions.some((p, i) => p.x !== current.nodes[i].x || p.y !== current.nodes[i].y)) {
+        if (onMoveNodes) onMoveNodes(positions);
+        else if (!team) { const changes = new Map(positions.map(p => [p.id, p])); editGraph(g => ({ ...g, nodes: g.nodes.map(n => ({ ...n, ...changes.get(n.id) })) })); }
       }
     }
-    drag.current = null; setDragPosition(null);
+    if (current.element.hasPointerCapture(current.pointerId)) current.element.releasePointerCapture(current.pointerId);
   };
+  const selectAll = () => { if (graph && !linking) { const ids = graph.nodes.map(n => n.id); setSelected(ids.length ? { kind: 'node', id: ids[0], ids } : null); } };
   const deleteNode = (id: string) => {
     if (!graph || blocked) return;
     update(current => removeCoreNode(current, graph.id, id));
@@ -272,7 +342,9 @@ export function GameplayCore({ controller, designs, onOpenGameplay, team = false
 
   return <section className="gc-workspace" aria-label="玩法核心编辑器" onKeyDown={event => {
     if (event.key === ' ') event.stopPropagation();
-    if (event.key === 'Escape' && linking) { event.stopPropagation(); setLinking(false); setLinkFromId(null); }
+    if ((event.target as Element).closest('input, textarea, select, [contenteditable=true]')) return;
+    if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); if (drag.current) cancelGesture(); else if (linking) { setLinking(false); setLinkFromId(null); } else setSelected(null); }
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'a' && (event.target as Element).closest('.gc-canvas-scroll')) { event.preventDefault(); selectAll(); }
   }}>
     <div className="gc-heading"><div><span className="gc-eyebrow">CORE GAMEPLAY</span><h2>从入口到循环，画出游戏的骨架。</h2><p>{team ? '内容保存到团队；拖动、缩放和浏览各自独立。' : '用模块组织玩法，双击进入内部循环，再关联具体的玩法设计。'}</p></div><span className={'gc-save-state' + (controller.pending || blocked ? ' is-warning' : '')}>{statusLabel ?? (controller.pending ? '有未保存修改' : blocked ? '写入已暂停' : '随编辑保存')}</span></div>
     {controller.error && <div className="gc-alert" role="alert"><span>{controller.error}</span><div className="gc-recovery-actions">{controller.pending && <button type="button" onClick={exportDraft}>导出当前草稿</button>}{!blocked && <button type="button" onClick={controller.retry}>重试保存</button>}<button type="button" onClick={reload}>重新读取存档</button></div></div>}
@@ -282,26 +354,27 @@ export function GameplayCore({ controller, designs, onOpenGameplay, team = false
       </aside>
       <div className="gc-main">
         <div className="gc-canvas-header"><nav className="gc-breadcrumbs" aria-label="玩法核心层级">{path.map((item, i) => <span key={item.id}>{i > 0 && <ChevronRight size={14} />}<button type="button" aria-label={'返回流程：' + graphName(item)} aria-current={item.id === graph.id ? 'page' : undefined} onClick={() => navigate(item.id)}>{graphName(item)}</button></span>)}</nav><button className="gc-button gc-small" type="button" onClick={() => setSelected(null)}>流程属性</button></div>
-        <div className="gc-node-tools" aria-label="添加流程节点">{(Object.keys(kindNames) as CoreNodeKind[]).map(kind => { const Icon = kindIcons[kind]; return <button type="button" key={kind} className={'gc-button gc-add-' + kind} aria-label={'添加' + kindNames[kind]} disabled={blocked} onClick={() => addNode(kind)}><Icon size={15} /><span>{kindNames[kind]}</span><Plus size={12} /></button>; })}<span className="gc-tools-divider" /><button type="button" className={'gc-button' + (linking ? ' is-active' : '')} disabled={blocked || !graph.nodes.length} aria-pressed={linking} aria-label={linking ? '取消连线' : '连接节点'} onClick={() => { setLinking(value => !value); setLinkFromId(null); }}><Link2 size={15} />{linking ? '取消连线' : '连线'}</button></div>
-        <div className={'gc-canvas-hint' + (linking ? ' is-linking' : '')} role="status">{linking ? <><Link2 size={14} /><span>{linkSource ? `从「${nodeName(linkSource)}」出发，点击目标节点（可连接自身）` : '点击起点，再点击终点，创建一条流转连线。'}</span><button type="button" className="gc-icon-button" aria-label="退出连线" onClick={() => { setLinking(false); setLinkFromId(null); }}><X size={14} /></button></> : <><MousePointer2 size={14} /><span>滚轮缩放 · 右键拖动画布 · 左键拖动节点 · 双击模块进入</span></>}</div>
-        <div className={'gc-canvas-scroll' + (linking ? ' is-linking' : '') + (viewport.panning ? ' is-panning' : '')} ref={scroll} {...viewport.handlers} aria-label="玩法流程画布" tabIndex={0} onClick={event => { if (event.target === event.currentTarget) setSelected(null); }}>
-          <div className="gc-canvas-sizer" style={{ width: width * zoom + Math.max(0, viewport.x), height: height * zoom + Math.max(0, viewport.y) }}><div className="gc-canvas-surface" style={{ width, height, transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${zoom})` }} onClick={event => { if (event.target === event.currentTarget) setSelected(null); }}>
+        <div className="gc-node-tools" aria-label="添加流程节点">{(Object.keys(kindNames) as CoreNodeKind[]).map(kind => { const Icon = kindIcons[kind]; return <button type="button" key={kind} className={'gc-button gc-add-' + kind} aria-label={'添加' + kindNames[kind]} disabled={blocked} onClick={() => addNode(kind)}><Icon size={15} /><span>{kindNames[kind]}</span><Plus size={12} /></button>; })}<span className="gc-tools-divider" /><button type="button" className={'gc-button' + (linking ? ' is-active' : '')} disabled={blocked || !graph.nodes.length} aria-pressed={linking} aria-label={linking ? '取消连线' : '连接节点'} onClick={() => { setLinking(value => !value); setLinkFromId(null); }}><Link2 size={15} />{linking ? '取消连线' : '连线'}</button><button type="button" className="gc-button" disabled={linking || !graph.nodes.length} onClick={selectAll}>全选节点</button>{selectedNodes.length > 1 && <span className="gc-selection-count" role="status">已选 {selectedNodes.length} 个节点</span>}</div>
+        <div className={'gc-canvas-hint' + (linking ? ' is-linking' : '')} role="status">{linking ? <><Link2 size={14} /><span>{linkSource ? `从「${nodeName(linkSource)}」出发，点击目标节点（可连接自身）` : '点击起点，再点击终点，创建一条流转连线。'}</span><button type="button" className="gc-icon-button" aria-label="退出连线" onClick={() => { setLinking(false); setLinkFromId(null); }}><X size={14} /></button></> : <><MousePointer2 size={14} /><span>左键空白框选 · 拖动选中节点整组移动 · Shift 加选 · 滚轮缩放 · 右键平移 · 双击模块进入</span></>}</div>
+        <div className={'gc-canvas-scroll' + (linking ? ' is-linking' : '') + (viewport.panning ? ' is-panning' : '')} ref={scroll} {...viewport.handlers} aria-label="玩法流程画布" tabIndex={0} onPointerDown={startMarquee} onPointerMove={moveMarquee} onPointerUp={finishMarquee} onPointerCancel={event => finishMarquee(event, true)} onLostPointerCapture={event => { viewport.handlers.onLostPointerCapture(event); if (drag.current?.pointerId === event.pointerId) cancelGesture(); }} onClick={canvasClick}>
+          <div className="gc-canvas-sizer" style={{ width: width * zoom + Math.max(0, viewport.x), height: height * zoom + Math.max(0, viewport.y) }}><div className="gc-canvas-surface" style={{ width, height, transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${zoom})` }} onClick={canvasClick}>
             <svg className="gc-connections" width={width} height={height} aria-label="玩法流转连线"><defs><marker id={markerId} viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#a797df" /></marker><marker id={markerId + '-active'} viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#d7caff" /></marker></defs>
               {routedEdges.map(({ item, route }) => { if (!route) return null; const active = edge?.id === item.id; const showCondition = active && !!item.condition; const caption = short(item.label || '继续', 12) + (item.condition && !active ? ' ◇' : ''), condition = short(item.condition); const captionWidth = edgeCaptionWidth(caption, showCondition ? condition : ''); const title = nodeName(paintedNodes.find(n => n.id === item.fromId)!) + ' → ' + nodeName(paintedNodes.find(n => n.id === item.toId)!) + (item.label ? ' · ' + item.label : '');
                 return <g key={item.id} className={'gc-edge' + (active ? ' is-selected' : '')} tabIndex={0} role="button" aria-label={'选择连线：' + title} onClick={event => { event.stopPropagation(); setSelected({ kind: 'edge', id: item.id }); }} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.stopPropagation(); setSelected({ kind: 'edge', id: item.id }); } }}><title>{title + (item.condition ? '\n条件：' + item.condition : '')}</title><path className="gc-edge-hit" d={route.path} /><path className="gc-edge-line" d={route.path} markerEnd={`url(#${markerId + (active ? '-active' : '')})`} /><g transform={`translate(${route.x},${route.y})`}><rect x={-captionWidth / 2} y={showCondition ? -22.5 : -14.5} width={captionWidth} height={showCondition ? 45 : 29} rx={7} /><text textAnchor="middle" y={showCondition ? -4 : 3}>{caption}</text>{showCondition && <text className="gc-edge-condition" textAnchor="middle" y={12}>{condition}</text>}</g></g>;
               })}
             </svg>
-            {paintedNodes.map(item => { const Icon = kindIcons[item.kind], child = store.graphs.find(g => g.id === item.childGraphId); return <div key={item.id} className={'gc-node gc-node-' + item.kind + (node?.id === item.id ? ' is-selected' : '') + (linkFromId === item.id ? ' is-source' : '')} style={{ left: item.x, top: item.y, width: NODE_WIDTH, height: NODE_HEIGHT }}>
-              <button type="button" className="gc-node-main" aria-label={'选择节点：' + nodeName(item)} title={item.description || nodeName(item)} onClick={() => chooseNode(item.id)} onDoubleClick={() => { if (suppressModuleDoubleClick.current) { suppressModuleDoubleClick.current = false; return; } enterModule(item); }} onPointerDown={event => startDrag(event, item)} onPointerMove={moveDrag} onPointerUp={event => finishDrag(event)} onPointerCancel={event => finishDrag(event, true)}><span className="gc-node-kind"><Icon size={14} />{kindNames[item.kind]}</span><strong>{nodeName(item)}</strong></button>
+            {paintedNodes.map(item => { const Icon = kindIcons[item.kind], child = store.graphs.find(g => g.id === item.childGraphId); return <div key={item.id} className={'gc-node gc-node-' + item.kind + (selectedIds.includes(item.id) ? ' is-selected' : '') + (linkFromId === item.id ? ' is-source' : '')} style={{ left: item.x, top: item.y, width: NODE_WIDTH, height: NODE_HEIGHT }}>
+              <button type="button" className="gc-node-main" aria-label={'选择节点：' + nodeName(item)} title={item.description || nodeName(item)} aria-pressed={selectedIds.includes(item.id)} onClick={event => chooseNode(item.id, event.shiftKey || event.ctrlKey || event.metaKey)} onDoubleClick={() => { if (suppressModuleDoubleClick.current) { suppressModuleDoubleClick.current = false; return; } enterModule(item); }} onPointerDown={event => startDrag(event, item)} onPointerMove={moveDrag} onPointerUp={event => finishDrag(event)} onPointerCancel={event => finishDrag(event, true)}><span className="gc-node-kind"><Icon size={14} />{kindNames[item.kind]}</span><strong>{nodeName(item)}</strong></button>
               <div className="gc-node-footer">{item.kind === 'module' ? <button type="button" aria-label={'进入模块：' + nodeName(item)} onClick={() => enterModule(item)}><span>{child ? child.nodes.length + ' 个节点' : '内部循环'}</span><ArrowDownRight size={14} /></button> : <span>{item.gameplayIds.length ? item.gameplayIds.length + ' 项关联玩法' : item.kind === 'exit' ? '通关 / 退出 / 阶段完成' : item.kind === 'decision' ? '按条件进入不同分支' : item.kind === 'entry' ? '玩家从这里开始' : '玩家的一项行动'}</span>}<button type="button" className="gc-node-link" disabled={blocked} aria-label={'从此节点连线：' + nodeName(item)} title="从此节点连线" onClick={() => { setLinking(true); setLinkFromId(item.id); setSelected({ kind: 'node', id: item.id }); }}><Link2 size={13} /></button></div>
             </div>; })}
+            {marquee && <div className="gc-marquee" aria-label="节点框选范围" style={{ left: marquee.x, top: marquee.y, width: marquee.width, height: marquee.height, borderWidth: 1 / zoom }} />}
             {!graph.nodes.length && <div className="gc-empty-canvas"><div className="gc-empty-icon"><GitBranch size={28} /></div><h3>{graph.id === store.rootId ? '先画出游戏的主入口' : '设计这个模块的内部循环'}</h3><p>添加入口、活动或循环模块，再用连线表达玩家的选择与循环。</p><button type="button" className="gc-button gc-primary" disabled={blocked} onClick={() => addNode('entry')}><Plus size={16} />添加第一个入口</button><small>循环可以没有终点；不同分支可以随时返回。</small></div>}
           </div></div>
         </div>
         <div className="gc-canvas-footer"><span>{graph.nodes.length} 个节点 · {graph.edges.length} 条连线</span><div className="gc-zoom-tools"><button type="button" className="gc-icon-button" aria-label="缩小画布" disabled={zoom <= .35} onClick={() => setZoom(value => Math.max(.35, value - .15))}><Minus size={15} /></button><output>{Math.round(zoom * 100)}%</output><button type="button" className="gc-icon-button" aria-label="放大画布" disabled={zoom >= 1.75} onClick={() => setZoom(value => Math.min(1.75, value + .15))}><Plus size={15} /></button><button type="button" className="gc-icon-button" aria-label="适配画布" title="适配画布" onClick={fit}><Maximize2 size={15} /></button><button type="button" className="gc-icon-button" aria-label="还原缩放" title="还原缩放" onClick={() => resetView(1)}><RotateCcw size={15} /></button></div></div>
       </div>
-      <aside className="gc-inspector" aria-label="流程属性编辑"><div className="gc-inspector-heading"><div><span className="gc-eyebrow">{node ? 'NODE' : edge ? 'TRANSITION' : 'FLOW'}</span><h3>{node ? kindNames[node.kind] + '属性' : edge ? '流转连线' : '流程属性'}</h3></div>{(node || edge) && <button type="button" className="gc-icon-button" aria-label="取消选择" onClick={() => setSelected(null)}><X size={16} /></button>}</div>
-        {node ? <div className="gc-properties"><label className="gc-field">节点名称<input aria-label="节点名称" value={node.title} disabled={blocked} onChange={event => patchNode(node.id, { title: event.target.value })} placeholder="用简短名称描述玩家正在做什么" /></label><label className="gc-field">节点说明<textarea aria-label="节点说明" rows={4} value={node.description} disabled={blocked} onChange={event => patchNode(node.id, { description: event.target.value })} placeholder="说明玩法目标、玩家行为或退出条件" /></label>
+      <aside className="gc-inspector" aria-label="流程属性编辑"><div className="gc-inspector-heading"><div><span className="gc-eyebrow">{selectedNodes.length > 1 ? 'SELECTION' : node ? 'NODE' : edge ? 'TRANSITION' : 'FLOW'}</span><h3>{selectedNodes.length > 1 ? `已选择 ${selectedNodes.length} 个节点` : node ? kindNames[node.kind] + '属性' : edge ? '流转连线' : '流程属性'}</h3></div>{(selectedNodes.length > 0 || edge) && <button type="button" className="gc-icon-button" aria-label="取消选择" onClick={() => setSelected(null)}><X size={16} /></button>}</div>
+        {selectedNodes.length > 1 ? <div className="gc-properties gc-multi-selection"><p>拖动其中任意一个节点，整组移动并保持相对位置。</p><p>{team ? '仅保存到你的个人布局。' : '松开鼠标后一次保存全部位置。'}Shift 点击可加选或取消，Esc 清除选择。</p><div className="gc-selected-list">{selectedNodes.map(n => <button className="gc-button" key={n.id} type="button" aria-label={'单独选择：' + nodeName(n)} onClick={() => setSelected({ kind: 'node', id: n.id })}>{nodeName(n)}</button>)}</div></div> : node ? <div className="gc-properties"><label className="gc-field">节点名称<input aria-label="节点名称" value={node.title} disabled={blocked} onChange={event => patchNode(node.id, { title: event.target.value })} placeholder="用简短名称描述玩家正在做什么" /></label><label className="gc-field">节点说明<textarea aria-label="节点说明" rows={4} value={node.description} disabled={blocked} onChange={event => patchNode(node.id, { description: event.target.value })} placeholder="说明玩法目标、玩家行为或退出条件" /></label>
           {node.kind === 'module' && <button type="button" className="gc-button gc-primary gc-wide" disabled={blocked && !node.childGraphId} onClick={() => enterModule(node,true)}><Layers size={15} />{team && !node.childGraphId ? '创建内部循环' : '进入内部循环'}<ArrowRight size={15} /></button>}
           <div className="gc-reference-section"><h4>关联玩法设计 <small>{node.gameplayIds.length}</small></h4><p>{team ? '玩法设计尚未接入协作，以下保留发布时的来源名称与标识。' : '引用具体规则与方案，细节在玩法设计中维护。'}</p><select aria-label="添加关联玩法" value="" disabled={blocked || team} onChange={event => { if (event.target.value) patchNode(node.id, { gameplayIds: [...node.gameplayIds, event.target.value] }); }}><option value="">选择一份玩法设计…</option>{designs.filter(d => !d.archived && !node.gameplayIds.includes(d.id)).map(d => <option value={d.id} key={d.id}>{d.title || '未命名玩法'}</option>)}</select>
             {!designs.some(d => !d.archived) && <p className="gc-muted">还没有可关联的玩法设计，可以稍后补充。</p>}

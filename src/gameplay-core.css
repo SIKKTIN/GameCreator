@@ -174,3 +174,10 @@ main.core-workspace-page > header .header-actions { flex-wrap: wrap; }
 
 /* Right-button panning takes priority over node/link pointer cursors. */
 .gc-canvas-scroll.is-panning, .gc-canvas-scroll.is-panning * { cursor: grabbing !important; user-select: none; }
+
+.gc-canvas-scroll { touch-action: none; user-select: none; }
+.gc-marquee { position: absolute; pointer-events: none; z-index: 5; border: 1px solid #c8a4ff; background: #ad7ce82a; box-sizing: border-box; }
+.gc-selection-count { font-size: 11px; color: #d3b7f4; padding: 4px 8px; border-radius: 5px; background: #453051; }
+.gc-multi-selection p { font-size: 12px; line-height: 1.8; color: #b7a5c9; }
+.gc-selected-list { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
+.gc-selected-list .gc-button { justify-content: flex-start; overflow-wrap: anywhere; text-align: left; }
