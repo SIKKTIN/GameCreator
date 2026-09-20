@@ -28,7 +28,7 @@ for (const [i, example] of examples.entries()) test(slugs[i] + ': valid tasks, i
   for (const task of example.taskFlows.tasks) { assert.ok(markdown.includes(task.title)); for (const s of task.stages) { assert.ok(markdown.includes(s.title)); for (const o of s.objectives) assert.ok(markdown.includes(o.condition)); } for (const edge of task.transitions) assert.ok(markdown.includes(edge.condition)); }
 });
 test('old projects and examples acquire empty tasks without source mutation; broken links stay portable but are rejected in bundled examples', () => {
-  const old = structuredClone(examples[0]); delete old.taskFlows;
+  const old = structuredClone(examples[0]); delete old.taskFlows; delete old.mapDesign;
   const p = preparePrototypeProject(catalog, old, '旧示例'), storage = memory(); writePrototypeProject(storage, p); assert.deepEqual(JSON.parse(storage.getItem(key(p.project.id))), emptyTaskFlows()); assert.equal(Object.hasOwn(old, 'taskFlows'), false);
   const doc = captureProjectPackage(storage, p.project).document; delete doc.archives['task-flows']; assert.deepEqual(validateProjectPackage(doc).archives['task-flows'], emptyTaskFlows()); assert.equal(Object.hasOwn(doc.archives, 'task-flows'), false);
   const example = structuredClone(examples[0]); example.taskFlows.tasks[0].references[0].targetId = 'removed'; assert.throws(() => validatePrototypeExample(example), /任务与流程/);

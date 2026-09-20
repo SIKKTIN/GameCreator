@@ -4,7 +4,7 @@ import { stageColors, stageKinds, type StageLayout } from './gameplay-stage';
 import { objectGeometry, spatialLayout, type SpatialView } from './spatial-layout';
 
 type Camera = { x: number; y: number; zoom: number };
-type Props = { space: StageLayout; view: SpatialView; roomId?: string; selected?: string; selectedRoom?: string; selectedConnection?: string; disabled?: boolean; showRanges?: boolean; counts?: Map<string, number>;
+type Props = { space: StageLayout; view: SpatialView; roomId?: string; selected?: string; selectedRoom?: string; selectedConnection?: string; disabled?: boolean; lockedIds?: string[]; showRanges?: boolean; counts?: Map<string, number>;
   onObject?: (id: string) => void; onMove?: (id: string, x: number, y: number) => void; onPlace?: (x: number, y: number) => void;
   onRoom?: (id: string) => void; onMoveRoom?: (id: string, x: number, y: number) => void; onEnterRoom?: (id: string) => void; onConnection?: (id: string) => void; label?: string; focusToken?: number };
 export function SpatialCanvas(p: Props) {
@@ -41,6 +41,7 @@ export function SpatialCanvas(p: Props) {
   useEffect(() => { const el = svg.current; if (!el) return; const wheel = (e: WheelEvent) => { e.preventDefault(); const b = el.getBoundingClientRect(); zoomRef.current(Math.exp(-Math.max(-200, Math.min(200, e.deltaY)) * .003), e.clientX - b.left, e.clientY - b.top); }; el.addEventListener('wheel', wheel, { passive: false }); return () => el.removeEventListener('wheel', wheel); }, []);
   const begin = (e: PointerEvent, type: 'pan' | 'object' | 'room', itemId = '', x = 0, y = 0) => {
     if (e.button === 2) type = 'pan'; else if (e.button !== 0 || type !== 'pan' && disabled) return;
+    if (type === 'object' && p.lockedIds?.includes(itemId)) return;
     e.preventDefault(); e.stopPropagation();
     drag.current = { pointerId: e.pointerId, type, id: itemId, startX: e.clientX, startY: e.clientY, x, y, camera: cameraRef.current, moved: false };
     svg.current?.setPointerCapture(e.pointerId); setDragging(type === 'pan');

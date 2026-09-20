@@ -1,3 +1,4 @@
+import type { MapDesignStore } from './map-design';
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
 import type { GameplayDesign } from './gameplay';
 import type { ArtStore, ArtFile } from './art-assets';
@@ -12,7 +13,7 @@ function AssetImage({ file, workspaceId, width, height }: { file?: ArtFile; work
   }, [workspaceId, file?.id, file?.storagePath]);
   return data ? <image href={data} width={width} height={height} preserveAspectRatio="xMidYMid meet" onError={() => setData('')} /> : <text x={width / 2} y={height / 2} textAnchor="middle" dominantBaseline="middle" fill="#ebe3f4" fontSize="16">{file ? '图片不可预览' : '图片占位'}</text>;
 }
-export function PrototypeCanvas({ scene, designs, art, workspaceId, selected = '', onSelect, onMove, runtime, onActivate, disabled }: { scene: PrototypeScene; designs: GameplayDesign[]; art: ArtStore; workspaceId: string; selected?: string; onSelect?: (id: string) => void; onMove?: (id: string, x: number, y: number) => void; runtime?: PrototypeRuntime; onActivate?: (id: string) => void; disabled?: boolean }) {
+export function PrototypeCanvas({ scene, designs, maps, art, workspaceId, selected = '', onSelect, onMove, runtime, onActivate, disabled }: { maps?: MapDesignStore; scene: PrototypeScene; designs: GameplayDesign[]; art: ArtStore; workspaceId: string; selected?: string; onSelect?: (id: string) => void; onMove?: (id: string, x: number, y: number) => void; runtime?: PrototypeRuntime; onActivate?: (id: string) => void; disabled?: boolean }) {
   const svg = useRef<SVGSVGElement>(null), world = useRef<SVGGElement>(null);
   const [camera, setCamera] = useState({ x: 0, y: 0, zoom: 1 });
   const [draft, setDraft] = useState<{ id: string; x: number; y: number } | null>(null);
@@ -29,7 +30,7 @@ export function PrototypeCanvas({ scene, designs, art, workspaceId, selected = '
   };
   const position = (e: PointerEvent) => { const g = gesture.current!; const p = point(e.clientX, e.clientY, g.kind === 'pan'); return { x: g.original.x + p.x - g.start.x, y: g.original.y + p.y - g.start.y }; };
   const finish = (e: PointerEvent) => { const g = gesture.current; if (!g || e.pointerId !== g.pointer) return; const p = position(e); if (g.kind === 'element' && g.moved) onMove?.(g.id, Math.round(p.x), Math.round(p.y)); cancel(); };
-  const geometry = prototypeGeometry(scene, designs);
+  const geometry = prototypeGeometry(scene, designs, maps);
   return <div className="pd-frame-wrap"><svg ref={svg} className="pd-frame" role="group" aria-label={runtime ? '原型运行画面' : '原型编辑画布'} viewBox={`0 0 ${scene.width} ${scene.height}`} style={{ aspectRatio: `${scene.width}/${scene.height}`, background: scene.background }} onContextMenu={e => e.preventDefault()} onPointerDown={e => begin(e)} onPointerMove={e => { const g = gesture.current; if (!g || g.pointer !== e.pointerId) return; const p = position(e); if (Math.abs(p.x - g.original.x) + Math.abs(p.y - g.original.y) > 2) g.moved = true; if (g.kind === 'pan') setCamera(c => ({ ...c, ...p })); else if (g.moved) setDraft({ id: g.id, ...p }); }} onPointerUp={finish} onPointerCancel={cancel} onLostPointerCapture={cancel}>
     <g ref={world} transform={runtime ? undefined : `translate(${camera.x} ${camera.y}) scale(${camera.zoom})`}>
       <rect width={scene.width} height={scene.height} fill={scene.background} />

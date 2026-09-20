@@ -18,6 +18,7 @@
 │  ├─ prototype-design.json
 │  ├─ task-flows.json
 │  ├─ story-orchestration.json
+│  ├─ map-design.json
 │  ├─ functional-systems.json
 │  ├─ art-assets.json
 │  ├─ definitions.json

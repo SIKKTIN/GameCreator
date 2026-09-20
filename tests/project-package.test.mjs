@@ -74,10 +74,10 @@ test('capture materializes legacy defaults with no writes and includes catalog +
   assert.deepEqual(snapshot.document.archives.stories, initialStoryDocs);
   assert.deepEqual(snapshot.document.archives.milestones, initialMilestones);
   assert.deepEqual(snapshot.document.archives.project, { ...initialProject, name: catalog.projects[0].name });
-  assert.equal(snapshot.expectedEntries.length, 14);
+  assert.equal(snapshot.expectedEntries.length, 15);
   assert.equal(new Set(storage.reads).size, storage.reads.length);
   assert.equal(snapshot.expectedEntries[0].key, PROJECT_CATALOG_KEY);
-  assert.equal(snapshot.expectedEntries.filter(item => item.value === null).length, 13);
+  assert.equal(snapshot.expectedEntries.filter(item => item.value === null).length, 14);
   assert.equal(snapshot.document.project.config.projectPath, '');
   assert.equal(snapshot.document.project.config.autoSync, false);
   assert.equal(catalog.projects[0].config.projectPath, config.projectPath);
@@ -120,7 +120,7 @@ test('real project round trip retains completed gameplay, functional status, art
   assert.equal(imported.project.name, '恢复后的农场');
   assert.deepEqual(imported.project.config, { ...config, projectPath: '', autoSync: false });
   assert.equal(imported.catalog.activeId, imported.project.id);
-  assert.equal(imported.entries.length, 13);
+  assert.equal(imported.entries.length, 14);
   for (const [section, content] of Object.entries(snapshot.document.archives)) {
     assert.deepEqual(JSON.parse(storage.getItem(key(imported.project.id, section))), section === 'project' ? { ...content, name: imported.project.name } : content, section);
   }

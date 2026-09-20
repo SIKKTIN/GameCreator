@@ -7,7 +7,7 @@ const { workspaceHash } = require('./art-files.cjs');
 
 const CATALOG_KEY = 'gamecreator.projects.v1';
 const SECTIONS = ['gameplay', 'functional-systems', 'art-assets', 'definitions', 'stories', 'project', 'milestones', 'enum-versions'];
-const OPTIONAL_SECTIONS = ['data-view', 'gameplay-core', 'prototype-design', 'task-flows', 'story-orchestration'];
+const OPTIONAL_SECTIONS = ['data-view', 'gameplay-core', 'prototype-design', 'task-flows', 'story-orchestration', 'map-design'];
 const FILE_TOKEN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.[a-z0-9]{1,12}$/;
 const NEW_PROJECT = /^project-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_METADATA_BYTES = 20 * 1024 * 1024;
@@ -151,7 +151,7 @@ function validatePrototypeArchive(value) {
   if (!record(value) || value.schema !== 1 || typeof value.entryId !== 'string' || !Array.isArray(value.scenes) || value.scenes.length > 100) fail();
   const ids = new Set(), unique = v => { if (typeof v.id !== 'string' || !v.id.trim() || ids.has(v.id)) fail(); ids.add(v.id); };
   for (const s of value.scenes) {
-    if (!record(s) || !strings(s, ['name', 'description', 'sourceDesignId', 'roomId', 'coreNodeId']) || !number(s.width, 320, 3840) || !number(s.height, 240, 2160) || !color(s.background) || !['grid', 'free'].includes(s.view) || !Array.isArray(s.elements) || s.elements.length > 300) fail();
+    if (!record(s) || (s.mapId !== undefined && typeof s.mapId !== 'string') || !strings(s, ['name', 'description', 'sourceDesignId', 'roomId', 'coreNodeId']) || !number(s.width, 320, 3840) || !number(s.height, 240, 2160) || !color(s.background) || !['grid', 'free'].includes(s.view) || !Array.isArray(s.elements) || s.elements.length > 300) fail();
     unique(s);
     for (const e of s.elements) {
       if (!record(e) || !strings(e, ['name', 'text', 'sourceObjectId', 'assetId', 'versionId', 'fileId']) || !['text', 'button', 'shape', 'image', 'hotspot'].includes(e.kind) || !number(e.x, -10000, 10000) || !number(e.y, -10000, 10000) || !number(e.width, 1, 10000) || !number(e.height, 1, 10000) || !number(e.fontSize, 8, 150) || !color(e.color) || typeof e.visible !== 'boolean' || !record(e.action) || !['none', 'scene', 'show', 'hide', 'toggle', 'restart'].includes(e.action.kind) || !strings(e.action, ['targetId', 'condition'])) fail();
@@ -199,6 +199,41 @@ function validateTaskArchive(value) {
     return value;
 }
 
+function validateMapArchive(value) {
+    const fail = () => { throw new Error('地图设计存档格式无效'); };
+    const record = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
+    const strings = (v, keys) => keys.every(k => typeof v[k] === 'string' && v[k].length <= 100000);
+    const num = (v, min = -1e6, max = 1e6) => typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max;
+    const ids = new Set();
+    const unique = (v) => { if (typeof v.id !== 'string' || !v.id.trim() || ids.has(v.id))
+        fail(); ids.add(v.id); };
+    if (!record(value) || value.schema !== 1 || typeof value.enabled !== 'boolean' || !Array.isArray(value.maps) || value.maps.length > 100 || !Array.isArray(value.connections) || value.connections.length > 500)
+        return fail();
+    for (const m of value.maps) {
+        if (!record(m) || !strings(m, ['name', 'region', 'description', 'unit', 'sourceDesignId', 'roomId']) || !['side', 'top'].includes(m.perspective) || !['grid', 'free'].includes(m.view) || !num(m.x) || !num(m.y) || !num(m.rows, 1, 30) || !Number.isInteger(m.rows) || !num(m.columns, 1, 40) || !Number.isInteger(m.columns) || !num(m.cellSize, .001, 10000) || typeof m.sourceVisible !== 'boolean' || typeof m.sourceLocked !== 'boolean' || !Array.isArray(m.layers) || m.layers.length < 1 || m.layers.length > 30 || !Array.isArray(m.objects) || m.objects.length > 300)
+            return fail();
+        unique(m);
+        for (const l of m.layers) {
+            if (!record(l) || !strings(l, ['name']) || typeof l.visible !== 'boolean' || typeof l.locked !== 'boolean')
+                return fail();
+            unique(l);
+        }
+        for (const o of m.objects) {
+            if (!record(o) || !strings(o, ['name', 'layerId', 'notes']) || !['terrain', 'obstacle', 'decoration', 'npc', 'building', 'resource', 'enemy', 'task', 'portal', 'note'].includes(o.kind) || !['green', 'violet', 'blue', 'amber', 'red'].includes(o.color) || !num(o.x) || !num(o.y) || !num(o.width, .001) || !num(o.height, .001) || !Array.isArray(o.references) || o.references.length > 100)
+                return fail();
+            unique(o);
+            for (const r of o.references)
+                if (!record(r) || !strings(r, ['targetId']) || !['gameplay', 'task', 'story', 'character', 'asset', 'prototype'].includes(r.kind))
+                    return fail();
+        }
+    }
+    for (const c of value.connections) {
+        if (!record(c) || !strings(c, ['name', 'from', 'to', 'fromObjectId', 'toObjectId', 'condition']) || !['one', 'both'].includes(c.direction) || !['passage', 'shortcut', 'door', 'transport'].includes(c.kind))
+            return fail();
+        unique(c);
+    }
+    return value;
+}
 function validateStoryArchive(value) {
     const fail = () => { throw new Error('故事编排存档格式异常，已停止写入'); };
     const obj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -258,6 +293,7 @@ function validateDocument(value) {
   if (Object.hasOwn(value.archives, 'gameplay-core')) validateCoreArchive(value.archives['gameplay-core']);
   if (Object.hasOwn(value.archives, 'prototype-design')) validatePrototypeArchive(value.archives['prototype-design']);
   if (Object.hasOwn(value.archives, 'task-flows')) validateTaskArchive(value.archives['task-flows']);
+  if (Object.hasOwn(value.archives, 'map-design')) validateMapArchive(value.archives['map-design']);
   if (Object.hasOwn(value.archives, 'story-orchestration')) validateStoryArchive(value.archives['story-orchestration']);
   const art = value.archives['art-assets'];
   if (!record(art) || !Array.isArray(art.assets)) throw new Error('美术资产存档格式无效');
