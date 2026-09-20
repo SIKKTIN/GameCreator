@@ -21,12 +21,13 @@ const root=path.resolve(__dirname,'..');
   await d.getByLabel('玩法名称',{exact:true}).fill(name);await d.getByRole('button',{name:'创建玩法',exact:true}).click();await d.waitFor({state:'hidden'});
  };
  const selectProject=async name=>{await page.locator('.ps-trigger').click();await page.getByRole('menuitemradio',{name:new RegExp('^'+name)}).click();await nav('玩法设计');};
- const openOriginal=()=>page.getByRole('button',{name:'打开玩法：抵挡一波敌人',exact:true}).click();
+ const openOriginal=async()=>{const uncategorized=page.getByRole('button',{name:'进入分类：未分类',exact:true});if(await uncategorized.isVisible())await uncategorized.click();await page.getByRole('button',{name:'打开玩法：抵挡一波敌人',exact:true}).click();};
  try{
   await fs.mkdir(profile);await fs.mkdir(path.join(engine,'Script/Const'),{recursive:true});await fs.writeFile(path.join(engine,'Script/Const/Const_Fixture.lua'),'local Const_Fixture = {}\nConst_Fixture.Mode = {\nA = 1,\nB = 2,\n}\nreturn Const_Fixture');
   storage.setItem('gamecreator.projects.v1',JSON.stringify({schema:2,activeId:a,mode:'project',projects:[{id:a,name:'原型A',config:cfg,initialContent:'empty'},{id:b,name:'原型B',config:cfg,initialContent:'empty'}]}));
   const story={id:'story-1',title:'防守背景',category:'世界观',status:'草稿',updated:'刚刚',summary:'守住营地',content:'营地受到袭击。',tags:[],outlines:[],relations:{characters:[],locations:[],systems:[]}};
   storage.setItem('gamecreator.workspace.v1:'+a+':stories',JSON.stringify([story]));
+  const {emptyStore}=await import('../src/enum-versions.ts');const columns=[{key:'id',label:'ID'},{key:'name',label:'名称'}];storage.setItem('gamecreator.workspace.v1:'+a+':definitions',JSON.stringify([{key:'items',label:'Items',badge:'测试',columns}]));storage.setItem('gamecreator.enum-versions.v1:'+a,JSON.stringify(emptyStore({columns:{items:columns},datasets:{items:[]}})));
   await launch();await nav('玩法设计');await page.getByRole('heading',{name:'设计你的第一个玩法',exact:true}).waitFor();
   await create('抵挡一波敌人');const originalId=read(a).designs[0].id;assert.equal(read(a).designs[0].rules,'');assert.equal(scans.length,0);
   await page.getByLabel('一句话说明',{exact:true}).fill('利用有限资源守住营地');await page.getByLabel('体验目标',{exact:true}).fill('在进攻和防守之间做出选择');

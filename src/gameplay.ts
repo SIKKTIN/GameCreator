@@ -1,3 +1,4 @@
+import { validateGameplayLibrary, categoryName, type GameplayCategory } from './gameplay-library.ts';
 import { emptyStage, copyStage, validateStage, stageMarkdown, type GameplayStage } from './gameplay-stage.ts';
 import { emptyStructure, copyStructure, validateStructure, structureMarkdown, type GameplayStructure } from './gameplay-structure.ts';
 export const gameplayStatuses = ['草稿', '待验证', '验证中', '已验证'] as const;
@@ -8,11 +9,12 @@ export type LoopStep = { id: string; text: string };
 export type PrototypeItem = LoopStep & { done: boolean };
 export type GameplayCheck = { id: string; question: string; steps: string; expected: string; actual: string; result: typeof gameplayResults[number] };
 export type GameplayDesign = GameplayStructure & GameplayStage & {
+  categoryId?: string; tags?: string[];
   id: string; title: string; summary: string; experience: string; rules: string; winCondition: string; loseCondition: string;
   status: GameplayStatus; archived: boolean; loop: LoopStep[]; prototype: PrototypeItem[]; deferred: string;
   checks: GameplayCheck[]; links: GameplayLink[]; createdAt: string; updatedAt: string;
 };
-export type GameplayStore = { schema: 3; designs: GameplayDesign[] };
+export type GameplayStore = { schema: 3; designs: GameplayDesign[]; categories?: GameplayCategory[] };
 export type GameplaySources = { stories: { id: string; title: string }[]; datasets: { key: string; label: string }[] };
 export const emptyGameplay = (): GameplayStore => ({ schema: 3, designs: [] });
 export function createGameplay(title: string): GameplayDesign {
@@ -47,6 +49,7 @@ export function validateGameplay(value: unknown): GameplayStore {
     }
   };
   if (!record(value) || ![1, 2, 3].includes(value.schema as number) || !Array.isArray(value.designs)) return fail();
+  validateGameplayLibrary(value);
   ids(value.designs, d => {
     if (!strings(d, ['title', 'summary', 'experience', 'rules', 'winCondition', 'loseCondition', 'deferred', 'createdAt', 'updatedAt']) ||
         !gameplayStatuses.includes(d.status as GameplayStatus) || typeof d.archived !== 'boolean' ||
@@ -67,7 +70,7 @@ export function validateGameplay(value: unknown): GameplayStore {
     const upgraded = value.schema !== 3 ? { ...emptyStage(), ...structure } : structure;
     validateStructure(upgraded); validateStage(upgraded); return upgraded;
   });
-  return { schema: 3, designs };
+  return { schema: 3, designs, ...(value.categories !== undefined ? { categories: value.categories as GameplayCategory[] } : {}) };
 }
 export function readGameplay(storage: Pick<Storage, 'getItem'>, key: string) {
   const raw = storage.getItem(key);
@@ -82,12 +85,13 @@ export function writeGameplay(storage: Pick<Storage, 'getItem' | 'setItem'>, key
 export function gameplayLinkName(link: GameplayLink, sources: GameplaySources): string | undefined {
   return link.kind === 'story' ? sources.stories.find(s => s.id === link.targetId)?.title : sources.datasets.find(d => d.key === link.targetId)?.label;
 }
-export function gameplayMarkdown(designs: GameplayDesign[], sources: GameplaySources, implementation?: (design: GameplayDesign) => string): string {
+export function gameplayMarkdown(designs: GameplayDesign[], sources: GameplaySources, implementation?: (design: GameplayDesign) => string, categories: GameplayCategory[] = []): string {
   const text = (s: string) => s.trim() || '待补充';
   const lines = ['## 玩法设计', ''];
+  if (categories.length) lines.push('### 文档分类', '', ...categories.map(c => '- ' + c.name + (c.description ? '：' + c.description : '')), '');
   if (!designs.length) lines.push('暂无玩法设计。', '');
   for (const design of designs) {
-    lines.push('### ' + text(design.title), '', '- 状态：' + design.status + (design.archived ? '（已归档）' : ''), '- 最后编辑：' + design.updatedAt, '',
+    lines.push('### ' + text(design.title), '', '- 分类：' + categoryName(design, categories), ...(design.tags?.length ? ['- 标签：' + design.tags.join('、')] : []), '- 状态：' + design.status + (design.archived ? '（已归档）' : ''), '- 最后编辑：' + design.updatedAt, '',
       text(design.summary), '', structureMarkdown(design, designs), '', stageMarkdown(design, designs), '', '#### 体验目标', '', text(design.experience), '', '#### 核心循环', '');
     lines.push(...(design.loop.length ? design.loop.map((s, i) => `${i + 1}. ${text(s.text)}`) : ['待补充']), '', '#### 玩法规则', '', text(design.rules), '',
       '- 胜利条件：' + text(design.winCondition), '- 失败条件：' + text(design.loseCondition), '', '#### 原型范围', '');
