@@ -7829,5 +7829,194 @@
         ]
       }
     ]
+  },
+  "taskFlows": {
+    "schema": 1,
+    "tasks": [
+      {
+        "id": "farm-task-turnips",
+        "title": "阿禾的三颗萝卜",
+        "kind": "委托",
+        "scope": "单次",
+        "summary": "在第7日结算前向阿禾提交3个萝卜，获得40金币。",
+        "availability": "从第1天起与当值地点的阿禾交谈并接取委托",
+        "archived": false,
+        "status": "草稿",
+        "prerequisiteMode": "all",
+        "prerequisiteIds": [],
+        "startId": "farm-task-turnips-collect",
+        "stages": [
+          {
+            "id": "farm-task-turnips-collect",
+            "title": "准备交付或等待期限结束",
+            "kind": "objective",
+            "description": "",
+            "mode": "any",
+            "objectives": [
+              {
+                "id": "farm-task-turnips-collect-o0",
+                "title": "背包中可交付的萝卜",
+                "condition": "当前背包萝卜数量；出货或消耗后应回退，不是累计收获数量",
+                "target": 3
+              },
+              {
+                "id": "farm-task-turnips-collect-o1",
+                "title": "委托期限结束",
+                "condition": "第7日结算开始且委托尚未完成",
+                "target": 1
+              }
+            ],
+            "result": ""
+          },
+          {
+            "id": "farm-task-turnips-done",
+            "title": "委托已完成",
+            "kind": "success",
+            "description": "",
+            "mode": "all",
+            "objectives": [],
+            "result": "一次移除3个萝卜并增加40金币，标记已完成；重复交谈不再奖励。"
+          },
+          {
+            "id": "farm-task-turnips-expired",
+            "title": "本轮未完成",
+            "kind": "failure",
+            "description": "",
+            "mode": "all",
+            "objectives": [],
+            "result": "保留七日经营结果，不发放委托奖励；原型不进入第8天。"
+          }
+        ],
+        "transitions": [
+          {
+            "id": "farm-task-turnips-e0",
+            "fromId": "farm-task-turnips-collect",
+            "toId": "farm-task-turnips-done",
+            "label": "向阿禾提交",
+            "condition": "第7日结算前，已接未完成，背包萝卜≥3，玩家与当值阿禾交互"
+          },
+          {
+            "id": "farm-task-turnips-e1",
+            "fromId": "farm-task-turnips-collect",
+            "toId": "farm-task-turnips-expired",
+            "label": "到期结束",
+            "condition": "第7日结算开始且尚未提交"
+          }
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "c21a2dab-5e57-4f0e-a0a4-1af66918c5e3",
+            "recordId": ""
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "612eb5c5-d3b8-466e-b590-7a645e01acfe",
+            "recordId": ""
+          },
+          {
+            "kind": "capability",
+            "targetId": "farm-cap-dialogue-quest",
+            "recordId": ""
+          },
+          {
+            "kind": "capability",
+            "targetId": "farm-cap-inventory-transfer",
+            "recordId": ""
+          },
+          {
+            "kind": "story",
+            "targetId": "story_ed66b37c-5e07-4ed4-862f-cc1fe4abf998",
+            "recordId": ""
+          },
+          {
+            "kind": "table",
+            "targetId": "farm_quests",
+            "recordId": "first_turnips"
+          }
+        ]
+      },
+      {
+        "id": "farm-task-week",
+        "title": "完成七日农场生活",
+        "kind": "挑战",
+        "scope": "单次",
+        "summary": "追踪七日体验终点；提前达标只显示标记，不提前结束。",
+        "availability": "新局初始化完成",
+        "archived": false,
+        "status": "草稿",
+        "prerequisiteMode": "all",
+        "prerequisiteIds": [],
+        "startId": "farm-task-week-days",
+        "stages": [
+          {
+            "id": "farm-task-week-days",
+            "title": "度过七个可玩日",
+            "kind": "objective",
+            "description": "",
+            "mode": "all",
+            "objectives": [
+              {
+                "id": "farm-task-week-days-o0",
+                "title": "完成日结算次数",
+                "condition": "每个可玩日统一结算成功后计一次；同一次结算不重复计数",
+                "target": 7
+              }
+            ],
+            "result": ""
+          },
+          {
+            "id": "farm-task-week-done",
+            "title": "七日体验结束",
+            "kind": "success",
+            "description": "",
+            "mode": "all",
+            "objectives": [],
+            "result": "第7日结算后统一评估七日目标；展示完成与未完成项，不进入第8天。"
+          }
+        ],
+        "transitions": [
+          {
+            "id": "farm-task-week-e0",
+            "fromId": "farm-task-week-days",
+            "toId": "farm-task-week-done",
+            "label": "查看七日评估",
+            "condition": ""
+          }
+        ],
+        "references": [
+          {
+            "kind": "gameplay",
+            "targetId": "11fe1000-35a3-4c5e-b2b6-21a9f33902cb",
+            "recordId": ""
+          },
+          {
+            "kind": "gameplay",
+            "targetId": "c0b157ac-9c4b-46fe-bbdc-fee604d57452",
+            "recordId": ""
+          },
+          {
+            "kind": "capability",
+            "targetId": "farm-cap-daily-settlement",
+            "recordId": ""
+          },
+          {
+            "kind": "capability",
+            "targetId": "farm-cap-goals-newgame",
+            "recordId": ""
+          },
+          {
+            "kind": "story",
+            "targetId": "story_ed66b37c-5e07-4ed4-862f-cc1fe4abf998",
+            "recordId": ""
+          },
+          {
+            "kind": "table",
+            "targetId": "farm_calendar",
+            "recordId": "day7"
+          }
+        ]
+      }
+    ]
   }
 }

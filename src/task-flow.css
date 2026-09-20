@@ -1,0 +1,32 @@
+.tf-workspace { margin-top:16px; }
+.tf-workspace .gp-library { width:auto; min-width:0; }
+.tf-workspace .gp-library-heading>svg { flex-shrink:0; }
+.tf-create { width:100%; justify-content:center; }
+.tf-tabs { display:flex; gap:6px; border-bottom:1px solid #3d344c; margin-bottom:18px; }
+.tf-tabs button { border:0; border-bottom:2px solid transparent; background:transparent; padding:12px 16px; color:#b5a9c7; }
+.tf-tabs button.active { border-bottom-color:#b49bea; color:#e2d7fa; }
+.tf-fields { border:0; padding:0; margin:0; min-width:0; }
+.tf-card { border:1px solid #3b324b; background:#1d1a28; border-radius:12px; padding:22px; margin-bottom:18px; min-width:0; }
+.tf-card h3 { margin:0 0 17px; font-size:15px; display:flex; align-items:center; gap:8px; }
+.tf-card h3:not(:first-child) { margin-top:24px; }
+.tf-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:14px; }
+.tf-card .gp-field { margin-bottom:15px; }
+.tf-card textarea { resize:vertical; }
+.tf-reference { display:flex; align-items:center; justify-content:space-between; gap:12px; border-bottom:1px solid #352e43; padding:10px 0; margin-bottom:8px; font-size:12px; overflow-wrap:anywhere; }
+.tf-link { border:0; background:transparent; color:#c3a8f7; text-align:left; overflow-wrap:anywhere; }
+.tf-objective { border:1px solid #40354f; border-radius:8px; padding:16px; background:#221e2f; margin-bottom:12px; }
+.tf-stage-list { display:grid; grid-template-columns:repeat(auto-fit,minmax(145px,1fr)); gap:10px; }
+.tf-stage-list button { display:flex; flex-direction:column; gap:8px; text-align:left; padding:13px; background:#262132; border:1px solid #453752; border-radius:8px; color:#e1d6ef; overflow-wrap:anywhere; }
+.tf-stage-list button.selected { border-color:#b49bea; background:#342944; }
+.tf-stage-list span,.tf-stage-list small { font-size:10px; color:#b5a6c9; }
+.tf-empty { display:grid; justify-items:center; text-align:center; padding:65px 25px; color:#bfa9de; border:1px dashed #514062; border-radius:12px; }
+.tf-empty h2 { color:#e5dcf1; font-size:23px; }.tf-empty p { max-width:480px; line-height:1.8; font-size:13px; }
+.tf-steps { display:flex; gap:15px; flex-wrap:wrap; justify-content:center; margin-top:20px; }.tf-steps span { padding:12px; border-radius:8px; background:#30263f; font-size:12px; }
+.tf-notice,.tf-issues { border:1px solid #685136; background:#2c251e; padding:12px 16px; margin-bottom:16px; border-radius:8px; color:#dfc497; font-size:12px; line-height:1.8; }
+.tf-issues summary { cursor:pointer; }.tf-issues button { background:none; border:0; color:inherit; text-align:left; padding:3px 0; text-decoration:underline; }
+.tf-graph-scroll { overflow:auto; border:1px solid #3c334a; border-radius:9px; background:radial-gradient(#453a55 1px,transparent 1px) 0 0/20px 20px #17141f; }
+.tf-graph-scroll svg { display:block; }.tf-graph-node { cursor:pointer; }.tf-graph-node rect { fill:#30263e; stroke:#9a7ec5; stroke-width:1.5; }.tf-graph-node.success rect { fill:#1b3931; stroke:#73b49b; }.tf-graph-node.failure rect { fill:#402933; stroke:#c48a9c; }.tf-graph-node text { fill:#f0e6fc; font-size:12px; }.tf-graph-node .tf-node-kind { fill:#c1afd6; font-size:10px; }.tf-graph-node:focus rect { stroke:#fff; stroke-width:3; }
+.tf-flow-legend { font-size:11px; line-height:1.8; color:#b4a5c7; max-height:160px; overflow:auto; overflow-wrap:anywhere; }.tf-flow-legend p { margin:7px 0; }
+.tf-preview { font-size:13px; }.tf-path { color:#ba9fea; line-height:1.8; overflow-wrap:anywhere; }.tf-preview-objective { display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid #3b324b; }.tf-preview-objective>span:first-child { flex:1; min-width:0; }.tf-preview-objective small { display:block; margin-top:6px; color:#b2a1c6; line-height:1.6; }.tf-preview-objective input { width:80px; background:#16121e; color:#e6ddef; border:1px solid #5c476f; border-radius:6px; padding:8px; }.tf-preview-edge { display:grid; justify-items:start; gap:10px; padding:15px 0; }.tf-preview-edge label { line-height:1.7; color:#c3b0d6; }.tf-result { border-left:3px solid #73b49b; background:#20342e; padding:15px; margin-bottom:15px; line-height:1.8; white-space:pre-wrap; }.tf-result.failure { border-color:#c48a9c; background:#382630; }
+@media(max-width:1150px) { .tf-workspace { grid-template-columns:210px minmax(0,1fr); gap:14px; }.tf-card { padding:16px; }.tf-card .gp-card-heading { flex-wrap:wrap; margin-bottom:12px; }.tf-workspace .gp-editor-heading { flex-direction:column; }.tf-tabs button { padding:10px; } }
+@media(max-width:800px) { .tf-workspace { grid-template-columns:minmax(0,1fr); }.tf-workspace .gp-library { position:static; max-height:320px; }.tf-grid { grid-template-columns:minmax(0,1fr); } }
