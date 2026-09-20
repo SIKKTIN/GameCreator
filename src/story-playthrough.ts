@@ -1,4 +1,5 @@
 import { predicateMet, predicateText, type Narrative, type StoryChoice, type StoryEffect } from './story-orchestration.ts';
+import { isStoryFlag } from './story-characters.ts';
 export type CheckRecord = { result: 'success' | 'failure'; sources: Record<string, number> };
 export type StoryFrame = { nodeId: string; state: Record<string, number>; used: string[]; checks: Record<string, CheckRecord>; resumeId: string; passives: string[]; tasks: Record<string, string>; visited: string[]; log: { text: string; changes: string[] }[] };
 export type StoryPlaythrough = { current: StoryFrame; history: StoryFrame[] };
@@ -7,7 +8,7 @@ export function startStory(story: Narrative, initial: Record<string, number> = {
   const state: Record<string, number> = {};
   for (const v of story.variables) {
     const x = Object.prototype.hasOwnProperty.call(initial, v.id) ? initial[v.id] : v.initial;
-    if (!Number.isFinite(x) || v.minimum !== null && x < v.minimum || v.maximum !== null && x > v.maximum) throw new Error('初始状态超出范围：' + v.name);
+    if (!Number.isFinite(x) || v.minimum !== null && x < v.minimum || v.maximum !== null && x > v.maximum || isStoryFlag(v) && x !== 0 && x !== 1) throw new Error('初始状态超出范围：' + v.name);
     state[v.id] = x;
   }
   const frame: StoryFrame = { nodeId: story.entryId, state, used: [], checks: {}, resumeId: '', passives: [], tasks: {}, visited: [], log: [] };
@@ -21,6 +22,7 @@ function applyEffects(story: Narrative, frame: StoryFrame, effects: StoryEffect[
     if (!Number.isFinite(next)) throw new Error('状态结果不是有限数值');
     if (v.minimum !== null && next < v.minimum) throw new Error('状态不足，未提交本次选择：' + v.name);
     if (v.maximum !== null) next = Math.min(v.maximum, next);
+    if (isStoryFlag(v) && next !== 0 && next !== 1) throw new Error('是／否状态只能设为两种取值：' + v.name);
     frame.state[v.id] = next;
   }
 }
@@ -59,7 +61,7 @@ export function choiceBlockReason(story: Narrative, frame: StoryFrame, choice: S
   } else if (!story.nodes.some(n => n.id === choice.toId)) return '后继片段未设置';
   return '';
 }
-export function chooseStoryOption(story: Narrative, preview: StoryPlaythrough, choiceId: string, resolution: 'success' | 'failure' | [number, number] = [3, 3]): StoryPlaythrough {
+export function chooseStoryOption(story: Narrative, preview: StoryPlaythrough, choiceId: string, resolution: 'success' | 'failure' | number[] = [3, 3]): StoryPlaythrough {
   const choice = story.choices.find(c => c.id === choiceId); if (!choice) throw new Error('选项已失效');
   const reason = choiceBlockReason(story, preview.current, choice); if (reason) throw new Error(reason);
   const before = preview.current, next = structuredClone(before);
@@ -71,11 +73,13 @@ export function chooseStoryOption(story: Narrative, preview: StoryPlaythrough, c
     if (replay) result = old.result;
     else if (typeof resolution === 'string') result = resolution;
     else {
-      if (!resolution.every(d => Number.isInteger(d) && d >= 1 && d <= 6)) throw new Error('骰点须在1至6之间');
-      const score = next.state[check.variableId] + resolution[0] + resolution[1] + check.modifiers.filter(m => predicateMet(m.condition, next.state)).reduce((a,m) => a + m.value, 0);
+      const threshold = check.mode === 'threshold', count = check.diceCount ?? 2, sides = check.diceSides ?? 6;
+      if (!threshold && (resolution.length !== count || !resolution.every(d => Number.isInteger(d) && d >= 1 && d <= sides))) throw new Error(`需要${count}颗骰子，骰点须在1至${sides}之间`);
+      const score = next.state[check.variableId] + (threshold ? 0 : resolution.reduce((sum,d) => sum+d, 0)) + check.modifiers.filter(m => predicateMet(m.condition, next.state)).reduce((a,m) => a + m.value, 0);
       if (!Number.isFinite(score)) throw new Error('检定引用了失效变量');
-      result = resolution.every(d => d === 6) || !resolution.every(d => d === 1) && score >= check.difficulty ? 'success' : 'failure';
-      description += `（骰点 ${resolution.join('+')}，合计 ${score} / ${check.difficulty}）`;
+      const criticals = !threshold && (check.criticals ?? true);
+      result = criticals && resolution.every(d => d === sides) || !(criticals && resolution.every(d => d === 1)) && score >= check.difficulty ? 'success' : 'failure';
+      description += `（${threshold ? '数值比较' : '骰点 '+resolution.join('+')}，合计 ${score} / ${check.difficulty}）`;
     }
     target = result === 'success' ? check.successId : check.failureId;
     effects = [...(result === 'success' ? check.successEffects : check.failureEffects), ...effects];

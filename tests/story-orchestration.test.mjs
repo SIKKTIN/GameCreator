@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import { createNarrative, validateStoryOrchestration, narrativeIssues, copyNarrative, removeNarrativeNode, readStoryOrchestration, writeStoryOrchestration, storyOrchestrationMarkdown } from '../src/story-orchestration.ts';
 import { importDiscoStory } from '../src/story-import-config.ts';
+import { withCharacterLibrary } from '../src/story-characters.ts';
 import { startStory, chooseStoryOption, rewindStory, visibleStoryChoices, choiceBlockReason } from '../src/story-playthrough.ts';
 const example = JSON.parse(await fs.readFile(new URL('../examples/prototypes/disco-elysium.json',import.meta.url),'utf8'));
 const story = example.storyOrchestration.stories[0];
@@ -69,7 +70,7 @@ test('shape validation blocks corrupt archives while missing references remain r
   const s=store();s.stories[0].choices[0].toId='missing';assert.equal(validateStoryOrchestration(s),s);assert.ok(narrativeIssues(s.stories[0]).some(i=>/后继/.test(i.message)));
   const raw=new Map(),storage={getItem:k=>raw.get(k)??null,setItem:(k,v)=>raw.set(k,v)};assert.equal(readStoryOrchestration(storage,'a').store.enabled,false);assert.equal(raw.size,0);
   const first=writeStoryOrchestration(storage,'a',null,{...store(),enabled:true});assert.throws(()=>writeStoryOrchestration(storage,'a',null,store()),/其他窗口/);
-  writeStoryOrchestration(storage,'a',first,store());assert.deepEqual(readStoryOrchestration(storage,'a').store.stories,store().stories);
+  writeStoryOrchestration(storage,'a',first,store());assert.deepEqual(readStoryOrchestration(storage,'a').store.stories,withCharacterLibrary(store()).stories);
   raw.set('a','{"schema":99}');assert.throws(()=>writeStoryOrchestration(storage,'a',raw.get('a'),store()));assert.equal(raw.get('a'),'{"schema":99}');
 });
 test('copy gives an independent namespace; active AI export contains every passage, conditional route and narrative outcome',()=>{

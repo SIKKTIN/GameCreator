@@ -10636,72 +10636,100 @@
           {
             "id": "partner",
             "name": "搭档林恩",
-            "description": "查明事实并保护证人；不替玩家自动解案"
+            "description": "查明事实并保护证人；不替玩家自动解案",
+            "kind": "character",
+            "characterId": "character:de-story-main:partner"
           },
           {
             "id": "host",
             "name": "店主玛拉",
-            "description": "收回欠费，保留自己的营业记录"
+            "description": "收回欠费，保留自己的营业记录",
+            "kind": "character",
+            "characterId": "character:de-story-main:host"
           },
           {
             "id": "witness",
             "name": "装卸工埃达",
-            "description": "怕失去工作而隐瞒停机记录"
+            "description": "怕失去工作而隐瞒停机记录",
+            "kind": "character",
+            "characterId": "character:de-story-main:witness"
           },
           {
             "id": "foreman",
             "name": "工头维克",
-            "description": "隐瞒设备违规运行；并非预谋杀人"
+            "description": "隐瞒设备违规运行；并非预谋杀人",
+            "kind": "character",
+            "characterId": "character:de-story-main:foreman"
           },
           {
             "id": "clerk",
             "name": "档案员诺拉",
-            "description": "不愿替管理者销毁记录"
+            "description": "不愿替管理者销毁记录",
+            "kind": "character",
+            "characterId": "character:de-story-main:clerk"
           },
           {
             "id": "doctor",
             "name": "医师赛尔",
-            "description": "保护伤者家属、不认可仓促结论"
+            "description": "保护伤者家属、不认可仓促结论",
+            "kind": "character",
+            "characterId": "character:de-story-main:doctor"
           },
           {
             "id": "voice:logic",
             "name": "逻辑 · 内心声音",
-            "description": "要求证据与时间一致；可能把整齐解释误当真实"
+            "description": "要求证据与时间一致；可能把整齐解释误当真实",
+            "kind": "voice",
+            "voiceType": "内心声音"
           },
           {
             "id": "voice:visual",
             "name": "视觉演算 · 内心声音",
-            "description": "从痕迹重建动作；缺少材料时只能形成假说"
+            "description": "从痕迹重建动作；缺少材料时只能形成假说",
+            "kind": "voice",
+            "voiceType": "内心声音"
           },
           {
             "id": "voice:empathy",
             "name": "共情 · 内心声音",
-            "description": "察觉迟疑和恐惧；感受不是证言"
+            "description": "察觉迟疑和恐惧；感受不是证言",
+            "kind": "voice",
+            "voiceType": "内心声音"
           },
           {
             "id": "voice:authority",
             "name": "权威 · 内心声音",
-            "description": "让对方正面回答；过强威压可能损伤关系"
+            "description": "让对方正面回答；过强威压可能损伤关系",
+            "kind": "voice",
+            "voiceType": "内心声音"
           },
           {
             "id": "voice:volition",
             "name": "意志 · 内心声音",
-            "description": "对内心断言保留意见；不能凭冷静获得新证据"
+            "description": "对内心断言保留意见；不能凭冷静获得新证据",
+            "kind": "voice",
+            "voiceType": "内心声音"
           },
           {
             "id": "voice:endurance",
             "name": "耐力 · 内心声音",
-            "description": "承受现场的生理冲击；坚持可能损伤健康"
+            "description": "承受现场的生理冲击；坚持可能损伤健康",
+            "kind": "voice",
+            "voiceType": "内心声音"
           },
           {
             "id": "voice:perception",
             "name": "感知 · 内心声音",
-            "description": "看见被忽略的细节；发现物件不等于解释它"
+            "description": "看见被忽略的细节；发现物件不等于解释它",
+            "kind": "voice",
+            "voiceType": "内心声音"
           },
           {
             "id": "voice:composure",
             "name": "镇定 · 内心声音",
-            "description": "控制语气与表情；镇定不能抹去已发生后果"
+            "description": "控制语气与表情；镇定不能抹去已发生后果",
+            "kind": "voice",
+            "voiceType": "内心声音"
           }
         ],
         "variables": [
@@ -10711,7 +10739,10 @@
             "category": "事实",
             "initial": 1,
             "minimum": 0,
-            "maximum": 1
+            "maximum": 1,
+            "kind": "flag",
+            "trueLabel": "是",
+            "falseLabel": "否"
           },
           {
             "id": "rope_found",
@@ -10719,7 +10750,10 @@
             "category": "证据",
             "initial": 0,
             "minimum": 0,
-            "maximum": 1
+            "maximum": 1,
+            "kind": "flag",
+            "trueLabel": "已获得",
+            "falseLabel": "未获得"
           },
           {
             "id": "ledger_found",
@@ -10727,7 +10761,10 @@
             "category": "证据",
             "initial": 0,
             "minimum": 0,
-            "maximum": 1
+            "maximum": 1,
+            "kind": "flag",
+            "trueLabel": "已获得",
+            "falseLabel": "未获得"
           },
           {
             "id": "testimony_found",
@@ -10735,7 +10772,10 @@
             "category": "证据",
             "initial": 0,
             "minimum": 0,
-            "maximum": 1
+            "maximum": 1,
+            "kind": "flag",
+            "trueLabel": "已获得",
+            "falseLabel": "未获得"
           },
           {
             "id": "copy_found",
@@ -10743,7 +10783,10 @@
             "category": "证据",
             "initial": 0,
             "minimum": 0,
-            "maximum": 1
+            "maximum": 1,
+            "kind": "flag",
+            "trueLabel": "已获得",
+            "falseLabel": "未获得"
           },
           {
             "id": "timeline_found",
@@ -10751,7 +10794,10 @@
             "category": "证据",
             "initial": 0,
             "minimum": 0,
-            "maximum": 1
+            "maximum": 1,
+            "kind": "flag",
+            "trueLabel": "已获得",
+            "falseLabel": "未获得"
           },
           {
             "id": "note_found",
@@ -10759,7 +10805,10 @@
             "category": "证据",
             "initial": 0,
             "minimum": 0,
-            "maximum": 1
+            "maximum": 1,
+            "kind": "flag",
+            "trueLabel": "已获得",
+            "falseLabel": "未获得"
           },
           {
             "id": "parcel_found",
@@ -10767,7 +10816,10 @@
             "category": "支线",
             "initial": 0,
             "minimum": 0,
-            "maximum": 1
+            "maximum": 1,
+            "kind": "flag",
+            "trueLabel": "已获得",
+            "falseLabel": "未获得"
           },
           {
             "id": "parcel_returned",
@@ -10775,7 +10827,10 @@
             "category": "支线",
             "initial": 0,
             "minimum": 0,
-            "maximum": 1
+            "maximum": 1,
+            "kind": "flag",
+            "trueLabel": "是",
+            "falseLabel": "否"
           },
           {
             "id": "rent_paid",
@@ -10783,7 +10838,10 @@
             "category": "支线",
             "initial": 0,
             "minimum": 0,
-            "maximum": 1
+            "maximum": 1,
+            "kind": "flag",
+            "trueLabel": "是",
+            "falseLabel": "否"
           },
           {
             "id": "witness_scared",
@@ -10791,7 +10849,11 @@
             "category": "关系",
             "initial": 0,
             "minimum": 0,
-            "maximum": 1
+            "maximum": 1,
+            "kind": "flag",
+            "trueLabel": "是",
+            "falseLabel": "否",
+            "characterId": "character:de-story-main:witness"
           },
           {
             "id": "partner_trust",
@@ -10799,7 +10861,8 @@
             "category": "关系",
             "initial": 0,
             "minimum": null,
-            "maximum": null
+            "maximum": null,
+            "characterId": "character:de-story-main:partner"
           },
           {
             "id": "hypothesis_sabotage",
@@ -10807,7 +10870,10 @@
             "category": "假说",
             "initial": 0,
             "minimum": 0,
-            "maximum": 1
+            "maximum": 1,
+            "kind": "flag",
+            "trueLabel": "是",
+            "falseLabel": "否"
           },
           {
             "id": "thought_doubt_known",
@@ -10815,7 +10881,10 @@
             "category": "思想",
             "initial": 0,
             "minimum": 0,
-            "maximum": 1
+            "maximum": 1,
+            "kind": "flag",
+            "trueLabel": "是",
+            "falseLabel": "否"
           },
           {
             "id": "thought_doubt_done",
@@ -10823,7 +10892,10 @@
             "category": "思想",
             "initial": 0,
             "minimum": 0,
-            "maximum": 1
+            "maximum": 1,
+            "kind": "flag",
+            "trueLabel": "是",
+            "falseLabel": "否"
           },
           {
             "id": "thought_worker_known",
@@ -10831,7 +10903,10 @@
             "category": "思想",
             "initial": 0,
             "minimum": 0,
-            "maximum": 1
+            "maximum": 1,
+            "kind": "flag",
+            "trueLabel": "是",
+            "falseLabel": "否"
           },
           {
             "id": "thought_worker_done",
@@ -10839,7 +10914,10 @@
             "category": "思想",
             "initial": 0,
             "minimum": 0,
-            "maximum": 1
+            "maximum": 1,
+            "kind": "flag",
+            "trueLabel": "是",
+            "falseLabel": "否"
           },
           {
             "id": "thought_memory_known",
@@ -10847,7 +10925,10 @@
             "category": "思想",
             "initial": 0,
             "minimum": 0,
-            "maximum": 1
+            "maximum": 1,
+            "kind": "flag",
+            "trueLabel": "是",
+            "falseLabel": "否"
           },
           {
             "id": "thought_memory_done",
@@ -10855,7 +10936,10 @@
             "category": "思想",
             "initial": 0,
             "minimum": 0,
-            "maximum": 1
+            "maximum": 1,
+            "kind": "flag",
+            "trueLabel": "是",
+            "falseLabel": "否"
           },
           {
             "id": "elapsed",
@@ -10919,7 +11003,10 @@
             "category": "阶段",
             "initial": 0,
             "minimum": 0,
-            "maximum": 1
+            "maximum": 1,
+            "kind": "flag",
+            "trueLabel": "是",
+            "falseLabel": "否"
           },
           {
             "id": "skill:logic",
@@ -10991,7 +11078,10 @@
             "category": "装备",
             "initial": 0,
             "minimum": 0,
-            "maximum": 1
+            "maximum": 1,
+            "kind": "flag",
+            "trueLabel": "是",
+            "falseLabel": "否"
           }
         ],
         "nodes": [
@@ -13644,6 +13734,157 @@
             "nodeId": "report_hub"
           }
         ]
+      }
+    ],
+    "characters": [
+      {
+        "id": "character:de-story-main:partner",
+        "name": "搭档林恩",
+        "description": "查明事实并保护证人；不替玩家自动解案",
+        "role": "调查搭档",
+        "faction": "调查组",
+        "background": "与主角共同受理盐雾码头案件，负责核对记录、协助取证和移交。",
+        "motivation": "查明事实，保护证人，保留无法证明的部分。",
+        "personality": "克制、耐心，愿意协助，也会保留异议。",
+        "speech": "简短的提示和具体的问题，避免替对方下结论。",
+        "color": "#a78bfa",
+        "portrait": null,
+        "position": {
+          "x": 450,
+          "y": 80
+        }
+      },
+      {
+        "id": "character:de-story-main:host",
+        "name": "店主玛拉",
+        "description": "收回欠费，保留自己的营业记录",
+        "role": "旅馆店主",
+        "faction": "旧灯旅馆",
+        "background": "经营港区旅馆，保管营业账本，也替住客留意来往信件。",
+        "motivation": "让旅馆继续营业，收回欠款，把家书送到收信人手里。",
+        "personality": "务实，有界限，对小事有耐心。",
+        "speech": "先谈具体事实和价钱；记不清的部分会明确指出。",
+        "color": "#67c8ce",
+        "portrait": null,
+        "position": {
+          "x": 130,
+          "y": 100
+        }
+      },
+      {
+        "id": "character:de-story-main:witness",
+        "name": "装卸工埃达",
+        "description": "怕失去工作而隐瞒停机记录",
+        "role": "装卸工 / 证人",
+        "faction": "码头工人",
+        "background": "在案发当晚的班次作业，熟悉绞盘声音，担忧开口后的处境。",
+        "motivation": "保住工作与安全，在获得信任后说出自己知道的部分。",
+        "personality": "谨慎，紧张时回避目光，会反复斟酌措辞。",
+        "speech": "短句与停顿，只有受到尊重时才愿意给出细节。",
+        "color": "#e6ad73",
+        "portrait": null,
+        "position": {
+          "x": 740,
+          "y": 160
+        }
+      },
+      {
+        "id": "character:de-story-main:foreman",
+        "name": "工头维克",
+        "description": "隐瞒设备违规运行；并非预谋杀人",
+        "role": "码头工头",
+        "faction": "码头管理",
+        "background": "负责安排作业与临时维修，停机说法和保存的记录存在冲突。",
+        "motivation": "保护自己的职位，掩盖违规运行与失职。",
+        "personality": "防御性强，擅长转移话题，在压力下可能失控。",
+        "speech": "先给出确定说法，再把话题引向别人；受到追问时语气强硬。",
+        "color": "#ed92b2",
+        "portrait": null,
+        "position": {
+          "x": 750,
+          "y": 360
+        }
+      },
+      {
+        "id": "character:de-story-main:clerk",
+        "name": "档案员诺拉",
+        "description": "不愿替管理者销毁记录",
+        "role": "档案员",
+        "faction": "港区档案室",
+        "background": "保管班次与停机账册，清楚原始记录的位置，不愿替管理者销毁它们。",
+        "motivation": "保留记录，同时让使用记录的人承担解释责任。",
+        "personality": "严谨、寡言，重视来源和抄录准确性。",
+        "speech": "区分原件内容与个人解释，常用反问提醒调查者核对。",
+        "color": "#8fca93",
+        "portrait": null,
+        "position": {
+          "x": 450,
+          "y": 370
+        }
+      },
+      {
+        "id": "character:de-story-main:doctor",
+        "name": "医师赛尔",
+        "description": "保护伤者家属、不认可仓促结论",
+        "role": "夜班医师",
+        "faction": "夜班诊所",
+        "background": "接触送诊材料并保留复写件，了解伤情，但没有见证设备启动。",
+        "motivation": "照顾伤者与家属，避免仓促结论制造新的伤害。",
+        "personality": "平静、直接，尊重求助者的意愿。",
+        "speech": "说明能够确认的范围，不对超出观察的部分作保证。",
+        "color": "#8ca9e9",
+        "portrait": null,
+        "position": {
+          "x": 150,
+          "y": 340
+        }
+      }
+    ],
+    "relationships": [
+      {
+        "id": "de-relation-partner-witness",
+        "fromId": "character:de-story-main:partner",
+        "toId": "character:de-story-main:witness",
+        "label": "保护证人",
+        "description": "林恩希望证词能被核对，也重视埃达开口后的处境。",
+        "secret": "",
+        "directed": true
+      },
+      {
+        "id": "de-relation-host-partner",
+        "fromId": "character:de-story-main:host",
+        "toId": "character:de-story-main:partner",
+        "label": "调查协助",
+        "description": "旅馆提供会面地点和营业时间旁证，住宿事务独立处理。",
+        "secret": "",
+        "directed": false
+      },
+      {
+        "id": "de-relation-foreman-witness",
+        "fromId": "character:de-story-main:foreman",
+        "toId": "character:de-story-main:witness",
+        "label": "工作上的上下级",
+        "description": "埃达的工作处境使她顾虑向调查者说明当晚情况。",
+        "secret": "",
+        "directed": true
+      },
+      {
+        "id": "de-relation-clerk-foreman",
+        "fromId": "character:de-story-main:clerk",
+        "toId": "character:de-story-main:foreman",
+        "label": "记录与说法的冲突",
+        "description": "保管的停机账册需要与维克关于设备停转的说法核对。",
+        "secret": "",
+        "directed": false
+      },
+      {
+        "id": "de-relation-doctor-partner",
+        "fromId": "character:de-story-main:doctor",
+        "toId": "character:de-story-main:partner",
+        "label": "专业协助",
+        "description": "医师提供送诊材料和伤情说明，调查者负责交叉验证。",
+        "secret": "",
+        "directed": false
       }
     ]
   }

@@ -210,6 +210,11 @@ function validateStoryArchive(value) {
     const effects = (v) => Array.isArray(v) && v.every(e => obj(e) && fields(e, ['variableId']) && ['set', 'add'].includes(e.op) && finite(e.value));
     if (!obj(value) || value.schema !== 1 || typeof value.enabled !== 'boolean' || !Array.isArray(value.stories))
         return fail();
+    const entries = (xs, check) => Array.isArray(xs) && xs.every(x => obj(x) && safe(x.id) && check(x)) && new Set(xs.map(x => x.id)).size === xs.length;
+    if (value.characters !== undefined && !entries(value.characters, c => fields(c, ['name', 'description', 'role', 'faction', 'background', 'motivation', 'personality', 'speech', 'color']) && /^#[0-9a-f]{6}$/i.test(c.color) && obj(c.position) && finite(c.position.x) && finite(c.position.y) && c.position.x >= 0 && c.position.y >= 0 && (c.portrait === null || obj(c.portrait) && fields(c.portrait, ['assetId', 'versionId', 'fileId']))))
+        return fail();
+    if (value.relationships !== undefined && !entries(value.relationships, r => fields(r, ['fromId', 'toId', 'label', 'description', 'secret']) && typeof r.directed === 'boolean'))
+        return fail();
     const storyIds = new Set();
     for (const s of value.stories) {
         if (!obj(s) || !safe(s.id) || storyIds.has(s.id) || !fields(s, ['title', 'summary', 'entryId', 'source', 'clockId']) || typeof s.archived !== 'boolean' || !list(s.taskIds) || !finite(s.timeLimit) || s.timeLimit < 0 || !['scenes', 'actors', 'variables', 'nodes', 'choices', 'checks', 'interrupts'].every(k => Array.isArray(s[k])))
@@ -225,6 +230,10 @@ function validateStoryArchive(value) {
                     return fail();
                 if (section === 'actors' && !fields(item, ['name', 'description']))
                     return fail();
+                if (section === 'actors' && (item.kind !== undefined && !['character', 'voice'].includes(item.kind) || ['characterId', 'voiceType'].some(k => item[k] !== undefined && typeof item[k] !== 'string')))
+                    return fail();
+                if (section === 'variables' && (item.kind !== undefined && !['flag', 'number'].includes(item.kind) || ['trueLabel', 'falseLabel', 'characterId'].some(k => item[k] !== undefined && typeof item[k] !== 'string') || item.kind === 'flag' && (item.minimum !== 0 || item.maximum !== 1 || ![0, 1].includes(item.initial))))
+                    return fail();
                 if (section === 'variables' && (!fields(item, ['name', 'category']) || !finite(item.initial) || !(item.minimum === null || finite(item.minimum)) || !(item.maximum === null || finite(item.maximum)) || item.minimum !== null && item.initial < item.minimum || item.maximum !== null && item.initial > item.maximum))
                     return fail();
                 if (section === 'nodes' && (!fields(item, ['sceneId', 'title', 'speakerId', 'text', 'outcome']) || !['dialogue', 'narration', 'inner', 'hub', 'ending', 'return'].includes(item.kind) || !['unchanged', 'completed', 'suspended', 'failed'].includes(item.taskStatus) || !list(item.taskIds)))
@@ -232,6 +241,8 @@ function validateStoryArchive(value) {
                 if (section === 'choices' && (!fields(item, ['fromId', 'toId', 'label', 'checkId']) || !predicate(item.condition) || !effects(item.effects) || typeof item.once !== 'boolean' || typeof item.passive !== 'boolean' || !finite(item.cost) || item.cost < 0))
                     return fail();
                 if (section === 'checks' && (!fields(item, ['name', 'variableId', 'successId', 'failureId', 'notes']) || !finite(item.difficulty) || !['always', 'once', 'on-change'].includes(item.retry) || !list(item.retryVariableIds) || !effects(item.successEffects) || !effects(item.failureEffects) || !Array.isArray(item.modifiers) || !item.modifiers.every(m => obj(m) && predicate(m.condition) && finite(m.value))))
+                    return fail();
+                if (section === 'checks' && (item.mode !== undefined && !['dice', 'threshold'].includes(item.mode) || item.criticals !== undefined && typeof item.criticals !== 'boolean' || item.diceCount !== undefined && (!Number.isInteger(item.diceCount) || item.diceCount < 1 || item.diceCount > 10) || item.diceSides !== undefined && (!Number.isInteger(item.diceSides) || item.diceSides < 2 || item.diceSides > 100)))
                     return fail();
                 if (section === 'interrupts' && (!fields(item, ['name', 'nodeId']) || !predicate(item.condition)))
                     return fail();

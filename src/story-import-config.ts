@@ -25,6 +25,7 @@ export function importDiscoStory(data: Data, taskIds: string[] = []): Narrative 
       { id: 'scarf_equipped', name: '围巾已装备', category: '装备', initial: 0, minimum: 0, maximum: 1 }],
     nodes: [], choices: [], checks: [], clockId: 'elapsed', timeLimit: 165600, interrupts: [],
   };
+  for (const variable of story.variables) if (variable.minimum === 0 && variable.maximum === 1) variable.kind = 'flag';
   story.scenes.push({ id: 'investigation', title: '调查行动', chapter: '港区疑案', description: '在场人物、主动等待、整理装备与返回报告。' });
   story.nodes = table('dialogue_nodes').map(r => ({ id: r.id, sceneId: r.id === 'exit_dialogue' ? 'investigation' : r.location, title: (r.id === 'opening' ? '旅馆开场' : r.id === 'exit_dialogue' ? '返回港区调查' : r.id.startsWith('report_') ? ({report_hub:'案情汇报',report_true:'查明真相',report_wrong:'误判结案',report_pause:'暂缓调查'}[r.id] || r.id) : r.text.slice(0,18)),
     kind: r.id === 'exit_dialogue' ? 'hub' : ['report_true','report_wrong','report_pause'].includes(r.id) ? 'ending' : r.voice ? 'inner' : 'dialogue',

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { workspaceStorage } from './workspace-storage';
+import { withCharacterLibrary } from './story-characters';
 import { emptyStoryOrchestration, readStoryOrchestration, validateStoryOrchestration, writeStoryOrchestration, type StoryOrchestrationStore } from './story-orchestration';
 
 // WorkspaceApp remounts by project ID. Failed writes retain the current draft.
@@ -23,7 +24,7 @@ export function useStoryOrchestration(workspaceId: string) {
   const update = (operation: (current: StoryOrchestrationStore) => StoryOrchestrationStore) => {
     if (loadError) return false;
     let next: StoryOrchestrationStore;
-    try { next = validateStoryOrchestration(operation(structuredClone(latest.current))); }
+    try { next = withCharacterLibrary(validateStoryOrchestration(operation(structuredClone(latest.current)))); }
     catch (error) { setOperationError('故事编排更改未应用：' + String(error)); return false; }
     latest.current = next; setStore(next); setOperationError('');
     return persist(next);
