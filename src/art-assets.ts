@@ -1,3 +1,4 @@
+import { validateArtLibrary, artLibrary, artCategoryId, artCategoryName, type ArtLibrary } from './art-library.ts';
 import { objectGeometry, spatialObjectLocation } from './spatial-layout.ts';
 import type { GameplayDesign } from './gameplay';
 import type { FunctionalStore } from './functional-systems';
@@ -12,7 +13,7 @@ export type ArtFile = { id: string; name: string; size: number; mime: string; st
 export type ArtVersion = { id: string; name: string; notes: string; placeholder: boolean; review: typeof artReviewStatuses[number]; feedback: string; files: ArtFile[]; createdAt: string };
 export type ArtAsset = { id: string; name: string; description: string; versions: ArtVersion[]; adoptedVersionId: string; archived: boolean; createdAt: string; updatedAt: string };
 export type ArtLink = { id: string; requirementId: string; assetId: string; note: string };
-export type ArtStore = { schema: 1; requirements: ArtRequirement[]; assets: ArtAsset[]; links: ArtLink[] };
+export type ArtStore = { library?: ArtLibrary; schema: 1; requirements: ArtRequirement[]; assets: ArtAsset[]; links: ArtLink[] };
 export type ArtSources = { designs: GameplayDesign[]; functional: FunctionalStore };
 export const emptyArtAssets = (): ArtStore => ({ schema: 1, requirements: [], assets: [], links: [] });
 export function createArtRequirement(name: string): ArtRequirement {
@@ -41,6 +42,7 @@ export function validateArtAssets(value: unknown): ArtStore {
       list(a.versions, v => strings(v, ['name', 'notes', 'feedback']) && typeof v.placeholder === 'boolean' && artReviewStatuses.includes(v.review as ArtVersion['review']) && date(v.createdAt) &&
         list(v.files, f => strings(f, ['name', 'mime', 'storagePath']) && !!(f.storagePath as string).trim() && typeof f.size === 'number' && Number.isSafeInteger(f.size) && f.size >= 0))) ||
     !list(value.links, l => strings(l, ['requirementId', 'assetId', 'note']))) throw new Error('美术资产存档格式异常，已停止写入');
+  if (Object.prototype.hasOwnProperty.call(value, 'library')) validateArtLibrary(value.library, value as unknown as ArtStore);
   return value as ArtStore;
 }
 export function readArtAssets(storage: Pick<Storage, 'getItem'>, key: string) {
@@ -213,7 +215,7 @@ export function artAssetsMarkdown(store: ArtStore, sources: ArtSources): string 
   const lines = ['## 美术资产', '', '> 需求与资产独立维护，一个资产可以服务多个需求。占位版本可用于原型，但不代表正式验收完成。', '', '### 美术需求', ''];
   if (!store.requirements.length) lines.push('暂无美术需求。', '');
   for (const requirement of store.requirements) {
-    lines.push('#### ' + text(requirement.name), '', '- 需求 ID：' + requirement.id, '- 分类：' + requirement.category, '- 状态：' + requirement.status + (requirement.archived ? '（已归档）' : ''), '- 优先级：' + requirement.priority, '- 负责人：' + text(requirement.owner), '- 截止日期：' + (requirement.dueDate || '未设置'), '', '需求说明：', text(requirement.description), '', '制作规格：', text(requirement.specification), '', '验收标准：', text(requirement.acceptance), '', '需求来源：');
+    lines.push('#### ' + text(requirement.name), '', '- 需求 ID：' + requirement.id, '- 所属分类：' + artCategoryName(artLibrary(store), artCategoryId(artLibrary(store), 'requirement', requirement.id)), '- 分类：' + requirement.category, '- 状态：' + requirement.status + (requirement.archived ? '（已归档）' : ''), '- 优先级：' + requirement.priority, '- 负责人：' + text(requirement.owner), '- 截止日期：' + (requirement.dueDate || '未设置'), '', '需求说明：', text(requirement.description), '', '制作规格：', text(requirement.specification), '', '验收标准：', text(requirement.acceptance), '', '需求来源：');
     if (!requirement.sources.length) lines.push('- 尚未关联来源。');
     for (const source of requirement.sources) {
       const resolved = sourceParts(source, sources);
@@ -233,7 +235,7 @@ export function artAssetsMarkdown(store: ArtStore, sources: ArtSources): string 
   lines.push('### 资产库', '');
   if (!store.assets.length) lines.push('暂无美术资产。', '');
   for (const asset of store.assets) {
-    lines.push('#### ' + text(asset.name), '', '- 资产 ID：' + asset.id, '- 归档：' + (asset.archived ? '是' : '否'), '- 当前采用：' + adoptedText(asset), '', text(asset.description), '', '服务需求：');
+    lines.push('#### ' + text(asset.name), '', '- 资产 ID：' + asset.id, '- 所属分类：' + artCategoryName(artLibrary(store), artCategoryId(artLibrary(store), 'asset', asset.id)), '- 归档：' + (asset.archived ? '是' : '否'), '- 当前采用：' + adoptedText(asset), '', text(asset.description), '', '服务需求：');
     const links = store.links.filter(l => l.assetId === asset.id);
     if (!links.length) lines.push('- 暂无关联需求。');
     for (const link of links) {
