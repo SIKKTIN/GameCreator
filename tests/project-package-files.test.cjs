@@ -87,7 +87,7 @@ test('existing export folder is never overwritten and does not leave temporary o
 test('missing originals or mismatched recorded size fail the entire export', async t => {
   const f = await fixture(t), filename = path.join(assetDirectory(f.data, f.id), f.files[1].storagePath);
   await fs.unlink(filename);
-  await assert.rejects(f.export(), /美术文件已丢失/);
+  await assert.rejects(f.export(), /素材文件已丢失/);
   assert.deepEqual(await fs.readdir(f.output), []);
   await fs.writeFile(filename, Buffer.from('changed'));
   await assert.rejects(f.export(), /校验失败/);

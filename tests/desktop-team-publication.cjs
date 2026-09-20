@@ -107,7 +107,7 @@ const waitUntil = async (check, message) => {
       assert.equal(await b.page.getByLabel(label, { exact: true }).inputValue(), value);
     }
     assert.equal(await b.page.getByRole('button', { name: /^打开故事文档：/ }).count(), 60);
-    for (const name of ['美术资产', '数据配置']) assert.ok(await b.page.getByRole('navigation', { name: '工作区模块', exact: true }).getByRole('button', { name: new RegExp('^' + name) }).isDisabled());
+    for (const name of ['素材资产', '数据配置']) assert.ok(await b.page.getByRole('navigation', { name: '工作区模块', exact: true }).getByRole('button', { name: new RegExp('^' + name) }).isDisabled());
     await b.page.getByRole('button',{name:'玩法核心',exact:true}).click();await b.page.getByRole('button',{name:'选择节点：战斗循环',exact:true}).click();await b.page.getByRole('button',{name:'打开关联玩法：'+design.title,exact:true}).click();await b.page.getByLabel('一句话说明',{exact:true}).waitFor();assert.equal(await b.page.getByLabel('一句话说明',{exact:true}).inputValue(),design.summary);const sharedGameplay=await api('/projects/'+committed.project.id+'/gameplay',token);assert.equal(sharedGameplay.store.designs.length,2);assert.notEqual(sharedGameplay.store.designs.find(d=>d.id===design.id).links[0].targetId,stories[0].id);await b.page.getByRole('button',{name:'故事文档',exact:true}).click();
     await b.page.getByLabel('文档正文', { exact: true }).fill('Bob 的团队修改');
     await b.page.getByRole('button', { name: '保存到团队', exact: true }).click();

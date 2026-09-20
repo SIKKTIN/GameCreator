@@ -103,7 +103,7 @@ async function copyChecked(source, destination, expected) {
         offset += bytesWritten;
       }
     });
-    if (expected && (info.size !== expected.size || expected.sha256 && info.sha256 !== expected.sha256)) throw new Error('美术文件校验失败：' + path.basename(source));
+    if (expected && (info.size !== expected.size || expected.sha256 && info.sha256 !== expected.sha256)) throw new Error('素材文件校验失败：' + path.basename(source));
     await handle.sync();
     return info;
   } finally { await handle.close(); }
@@ -405,20 +405,21 @@ function validateDocument(value) {
   if (Object.hasOwn(value.archives, 'story-orchestration')) validateStoryArchive(value.archives['story-orchestration']);
   validateGameplayLibraryArchive(value.archives.gameplay);
   const art = value.archives['art-assets'];
-  if (!record(art) || !Array.isArray(art.assets)) throw new Error('美术资产存档格式无效');
+  if (!record(art) || !Array.isArray(art.assets)) throw new Error('素材资产存档格式无效');
+  if (!Array.isArray(art.requirements) || art.requirements.some(r => !record(r) || Object.hasOwn(r, 'generationPrompt') && (!record(r.generationPrompt) || typeof r.generationPrompt.prompt !== 'string' || typeof r.generationPrompt.negative !== 'string'))) throw new Error('素材生成提示词格式无效');
   return value;
 }
 
 function referencedFiles(document) {
   const files = new Map();
   for (const asset of document.archives['art-assets'].assets) {
-    if (!record(asset) || !Array.isArray(asset.versions)) throw new Error('美术资产版本格式无效');
+    if (!record(asset) || !Array.isArray(asset.versions)) throw new Error('素材资产版本格式无效');
     for (const version of asset.versions) {
-      if (!record(version) || !Array.isArray(version.files)) throw new Error('美术文件版本格式无效');
+      if (!record(version) || !Array.isArray(version.files)) throw new Error('素材文件版本格式无效');
       for (const file of version.files) {
-        if (!record(file) || typeof file.storagePath !== 'string' || !FILE_TOKEN.test(file.storagePath) || !Number.isSafeInteger(file.size) || file.size < 0 || file.size > MAX_ASSET_BYTES) throw new Error('美术文件存储标识或大小无效');
+        if (!record(file) || typeof file.storagePath !== 'string' || !FILE_TOKEN.test(file.storagePath) || !Number.isSafeInteger(file.size) || file.size < 0 || file.size > MAX_ASSET_BYTES) throw new Error('素材文件存储标识或大小无效');
         const previous = files.get(file.storagePath);
-        if (previous && previous.size !== file.size) throw new Error('同一美术文件存在冲突的大小记录');
+        if (previous && previous.size !== file.size) throw new Error('同一素材文件存在冲突的大小记录');
         files.set(file.storagePath, file);
       }
     }
@@ -506,9 +507,9 @@ function createProjectPackages({dataDirectory, storage}) {
         const relative = 'assets/' + token;
         const source = path.join(base, 'art-files', workspaceHash('project:' + projectId), token);
         try { add(relative, await copyChecked(source, path.join(temporary, 'assets', token), file)); }
-        catch (error) { if (error.code === 'ENOENT') throw new Error('项目美术文件已丢失，导出已停止：' + (file.name || token)); throw error; }
+        catch (error) { if (error.code === 'ENOENT') throw new Error('项目素材文件已丢失，导出已停止：' + (file.name || token)); throw error; }
       }
-      const readme = Buffer.from('# ' + document.project.name.replace(/[\r\n]/g, ' ') + '\n\n这是 GameCreator 便携项目文件夹。复制整个文件夹后，在客户端选择“从文件夹导入”。\n\n- manifest.json：格式版本与文件校验清单。\n- data/：项目完整数据与历史。\n- assets/：全部美术版本的原始文件。\n\n引擎工程目录需要在目标设备重新配置；导入会创建独立项目，不覆盖原项目。\n请保持目录结构和文件完整，不要单独移动其中的文件。\n', 'utf8');
+      const readme = Buffer.from('# ' + document.project.name.replace(/[\r\n]/g, ' ') + '\n\n这是 GameCreator 便携项目文件夹。复制整个文件夹后，在客户端选择“从文件夹导入”。\n\n- manifest.json：格式版本与文件校验清单。\n- data/：项目完整数据与历史。\n- assets/：全部素材版本的原始文件。\n\n引擎工程目录需要在目标设备重新配置；导入会创建独立项目，不覆盖原项目。\n请保持目录结构和文件完整，不要单独移动其中的文件。\n', 'utf8');
       add('README.md', await writeBytes(path.join(temporary, 'README.md'), readme));
       const manifest = {format: 'gamecreator-project', schema: 1, projectName: document.project.name, createdAt: new Date().toISOString(), files: files.sort((a, b) => a.path.localeCompare(b.path))};
       await writeBytes(path.join(temporary, 'manifest.json'), jsonBytes(manifest));
@@ -516,7 +517,7 @@ function createProjectPackages({dataDirectory, storage}) {
       for (const [token, file] of assets) {
         const current = await readChecked(path.join(base, 'art-files', workspaceHash('project:' + projectId), token), MAX_ASSET_BYTES);
         const saved = files.find(entry => entry.path === 'assets/' + token);
-        if (current.size !== file.size || current.sha256 !== saved.sha256) throw new Error('美术文件在导出期间发生变化，请重试');
+        if (current.size !== file.size || current.sha256 !== saved.sha256) throw new Error('素材文件在导出期间发生变化，请重试');
       }
       checkSnapshot(projectId, document, snapshot);
       await secureDirectory(parent); await secureDirectory(temporary); await absent(destination);
@@ -570,8 +571,8 @@ function createProjectPackages({dataDirectory, storage}) {
     const document = validateDocument({schema: 1, project: data.get('data/project.json'), archives});
     if (document.project.name !== manifest.projectName) throw new Error('项目名称与清单不一致');
     const assets = referencedFiles(document);
-    for (const [token, file] of assets) if (entries.get('assets/' + token)?.size !== file.size) throw new Error('美术资产引用文件缺失或大小不一致：' + (file.name || token));
-    for (const relative of entries.keys()) if (relative.startsWith('assets/') && !assets.has(relative.slice(7))) throw new Error('项目包包含未被项目引用的美术文件');
+    for (const [token, file] of assets) if (entries.get('assets/' + token)?.size !== file.size) throw new Error('素材资产引用文件缺失或大小不一致：' + (file.name || token));
+    for (const relative of entries.keys()) if (relative.startsWith('assets/') && !assets.has(relative.slice(7))) throw new Error('项目包包含未被项目引用的素材文件');
     const final = await secureDirectory(root), manifestFinal = await readChecked(path.join(root, 'manifest.json'), 2 * 1024 * 1024);
     if (!sameFile(initial.stat, final.stat) || manifestRead.sha256 !== manifestFinal.sha256) throw new Error('项目文件夹在读取时发生变化');
     return {document, fingerprint: manifestRead.sha256, files: manifest.files};

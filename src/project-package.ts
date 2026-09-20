@@ -111,9 +111,9 @@ export function validateProjectPackage(value: unknown): ProjectPackageDocument {
   const art = validateArtAssets(archives['art-assets']);
   const fileMetadata = new Map<string, string>();
   for (const asset of art.assets) for (const version of asset.versions) for (const file of version.files) {
-    requireValid(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.[a-z0-9]{1,12}$/.test(file.storagePath), '美术文件路径无效：' + file.name);
+    requireValid(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.[a-z0-9]{1,12}$/.test(file.storagePath), '素材文件路径无效：' + file.name);
     const metadata = JSON.stringify([file.size, file.mime]);
-    requireValid(!fileMetadata.has(file.storagePath) || fileMetadata.get(file.storagePath) === metadata, '相同美术文件的元数据不一致');
+    requireValid(!fileMetadata.has(file.storagePath) || fileMetadata.get(file.storagePath) === metadata, '相同素材文件的元数据不一致');
     fileMetadata.set(file.storagePath, metadata);
   }
   validateVersions(archives['enum-versions']);

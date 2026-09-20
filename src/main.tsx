@@ -409,7 +409,7 @@ function WorkspaceApp({ username, testSession, onLoadTest, onExitTest, preparing
 
   const functionalSources = { designs: gameplay.store.designs, data: currentData, definitions };
   const artSources = { designs: gameplay.store.designs, functional: functional.store };
-  const openArtRequirement = (id: string) => { setArtSelection({ kind: 'requirement', id }); setActive('美术资产'); };
+  const openArtRequirement = (id: string) => { setArtSelection({ kind: 'requirement', id }); setActive('素材资产'); };
   const openCapability = (id: string) => { setFunctionalSelection({ kind: 'capability', id }); setActive('功能系统'); };
   const openGameplay = (id: string, kind = 'design', sourceId = '') => { setActiveGameplayId(id); setGameplaySource({ kind, id: sourceId }); setActive('玩法设计'); };
   const completedMilestones = milestones.filter((milestone) => milestone.status === 'done').length;
@@ -505,7 +505,7 @@ function WorkspaceApp({ username, testSession, onLoadTest, onExitTest, preparing
         {storageError && !gameplay.error && !functional.error && !art.error && !core.error && !prototype.error && !tasks.error && !narrative.error && !maps.error && !schedule.error && <p className="field-error" role="alert">{storageError}</p>}
         {gameplay.error && <div className="gp-save-error" role="alert"><span>{gameplay.error}{gameplay.pending && "。草稿保留在当前窗口，请重试保存后再切换项目。"}</span>{gameplay.pending && <button className="gp-secondary" onClick={gameplay.retry}>重试保存玩法</button>}</div>}
         {functional.error && <div className="gp-save-error" role="alert"><span>{functional.error}{functional.pending && '。草稿保留在当前窗口，请重试保存后再切换项目。'}</span>{functional.pending && <button className="gp-secondary" onClick={functional.retry}>重试保存功能系统</button>}</div>}
-        {art.error && <div className="gp-save-error" role="alert"><span>{art.error}{art.pending && '。草稿保留在当前窗口，请重试保存后再切换项目。'}</span>{art.pending && <button className="gp-secondary" onClick={art.retry}>重试保存美术资产</button>}</div>}
+        {art.error && <div className="gp-save-error" role="alert"><span>{art.error}{art.pending && '。草稿保留在当前窗口，请重试保存后再切换项目。'}</span>{art.pending && <button className="gp-secondary" onClick={art.retry}>重试保存素材资产</button>}</div>}
         {core.error && <div className="gp-save-error" role="alert"><span>{core.error}{core.pending && '。草稿保留在当前窗口，请重试保存后再切换项目。'}</span>{core.pending && <button className="gp-secondary" onClick={core.retry}>重试保存玩法核心</button>}</div>}
         {prototype.error && active !== '原型设计' && <div className="gp-save-error" role="alert"><span>{prototype.error}</span><button onClick={() => setActive('原型设计')}>处理原型存档</button></div>}
         {active === '原型设计' && <PrototypeDesign onOpenMap={id=>{setRequestedMap(id);setActive(maps.store.enabled?'地图设计':'工作区设置');}} requestedId={requestedPrototype} maps={maps.store} controller={prototype} designs={gameplay.store.designs} core={core.store} art={art.store} workspaceId={art.workspaceId} onOpenGameplay={openGameplay} />}
@@ -516,7 +516,7 @@ function WorkspaceApp({ username, testSession, onLoadTest, onExitTest, preparing
           if (ref.kind === 'gameplay') openGameplay(ref.targetId);
           else if (ref.kind === 'capability') openCapability(ref.targetId);
           else if (ref.kind === 'requirement') openArtRequirement(ref.targetId);
-          else if (ref.kind === 'asset') { setArtSelection({ kind: 'asset', id: ref.targetId }); setActive('美术资产'); }
+          else if (ref.kind === 'asset') { setArtSelection({ kind: 'asset', id: ref.targetId }); setActive('素材资产'); }
           else if (ref.kind === 'map') { setRequestedMap(ref.targetId); setActive(maps.store.enabled ? '地图设计' : '工作区设置'); }
           else { setRequestedPrototype(ref.targetId); setActive('原型设计'); }
         }}/>}
@@ -526,7 +526,7 @@ function WorkspaceApp({ username, testSession, onLoadTest, onExitTest, preparing
           else if(ref.kind==='task'){setRequestedTask({id:ref.targetId});setActive('任务与流程');}
           else if(ref.kind==='story'){setActiveStoryId(ref.targetId);setActive('故事文档');}
           else if(ref.kind==='character'){const story=narrative.store.stories.find(s=>s.actors.some(a=>a.characterId===ref.targetId));setRequestedCharacter(ref.targetId);setNarrativeId(story?.id||narrative.store.stories[0]?.id||'');setActive(narrative.store.enabled?'故事编排':'工作区设置');}
-          else if(ref.kind==='asset'){setArtSelection({kind:'asset',id:ref.targetId});setActive('美术资产');}
+          else if(ref.kind==='asset'){setArtSelection({kind:'asset',id:ref.targetId});setActive('素材资产');}
           else{setRequestedPrototype(ref.targetId);setActive('原型设计');}
         }} onGeneratePrototype={()=>{const scenes=prototypeFromMaps(maps.store,gameplay.store.designs);if(scenes.length&&prototype.update(s=>({...s,entryId:s.entryId||scenes[0].id,scenes:[...s.scenes,...scenes]}))){setRequestedPrototype(scenes[0].id);setActive('原型设计');}}}/>}
         {active === '故事编排' && narrative.store.enabled && <StoryOrchestration requestedCharacterId={requestedCharacter} art={art.store} workspaceId={art.workspaceId} controller={narrative} data={currentData} tasks={tasks.store.tasks} selectedId={narrativeId} onSelect={setNarrativeId} onOpenTask={id=>{setRequestedTask({id});setActive('任务与流程');}}/>}
@@ -535,7 +535,7 @@ function WorkspaceApp({ username, testSession, onLoadTest, onExitTest, preparing
           if (ref.kind === 'gameplay') openGameplay(ref.targetId);
           else if (ref.kind === 'capability') openCapability(ref.targetId);
           else if (ref.kind === 'story') { setActiveStoryId(ref.targetId); setActive('故事文档'); }
-          else if (ref.kind === 'asset') { setArtSelection({ kind: 'asset', id: ref.targetId }); setActive('美术资产'); }
+          else if (ref.kind === 'asset') { setArtSelection({ kind: 'asset', id: ref.targetId }); setActive('素材资产'); }
           else { setActiveDataset(ref.targetId); setActive('数据配置'); }
         }} /></div>
         <div hidden={active !== '玩法核心'}><GameplayCore controller={core} designs={gameplay.store.designs} onOpenGameplay={openGameplay} /></div>
@@ -550,11 +550,11 @@ function WorkspaceApp({ username, testSession, onLoadTest, onExitTest, preparing
             addMilestone={addMilestone}
           />
         )}
-        {active === '玩法设计' && <GameplayDesigns objectReferences={(designId, objectId) => art.blocked || prototype.blocked || tasks.blocked || maps.blocked ? ["关联存档暂不可读，请恢复后再删除对象"] : [...mapObjectReferences(maps.store, gameplay.store.designs, designId, objectId), ...art.store.requirements.filter(r => r.sources.some(s => s.kind === "gameplay" && s.targetId === designId && s.sourceKind === "object" && s.sourceId === objectId)).map(r => "美术需求 / " + r.name), ...prototype.store.scenes.filter(s => (s.mapId ? maps.store.maps.filter(m=>m.id===s.mapId).map(m=>mapSource(m,gameplay.store.designs).source?.id)[0] : prototypeSource(s, gameplay.store.designs).source?.id) === designId).flatMap(s => s.elements.filter(e => e.sourceObjectId === objectId).map(e => "原型设计 / " + s.name + " / " + e.name))]} selectedId={activeGameplayId} onSelect={id => { setActiveGameplayId(id); setGameplaySource(undefined); }} initialSource={gameplaySource} renderImplementation={d => <><GameplayFunctions controller={functional} sources={functionalSources} gameplayId={d.id} archived={d.archived} onOpenCapability={openCapability} /><ArtReferences controller={art} sources={artSources} kind="gameplay" targetId={d.id} onOpenRequirement={openArtRequirement} /></>} controller={gameplay} sources={{ stories: storyDocs, datasets: definitions }} onOpenLink={link => {
+        {active === '玩法设计' && <GameplayDesigns objectReferences={(designId, objectId) => art.blocked || prototype.blocked || tasks.blocked || maps.blocked ? ["关联存档暂不可读，请恢复后再删除对象"] : [...mapObjectReferences(maps.store, gameplay.store.designs, designId, objectId), ...art.store.requirements.filter(r => r.sources.some(s => s.kind === "gameplay" && s.targetId === designId && s.sourceKind === "object" && s.sourceId === objectId)).map(r => "素材需求 / " + r.name), ...prototype.store.scenes.filter(s => (s.mapId ? maps.store.maps.filter(m=>m.id===s.mapId).map(m=>mapSource(m,gameplay.store.designs).source?.id)[0] : prototypeSource(s, gameplay.store.designs).source?.id) === designId).flatMap(s => s.elements.filter(e => e.sourceObjectId === objectId).map(e => "原型设计 / " + s.name + " / " + e.name))]} selectedId={activeGameplayId} onSelect={id => { setActiveGameplayId(id); setGameplaySource(undefined); }} initialSource={gameplaySource} renderImplementation={d => <><GameplayFunctions controller={functional} sources={functionalSources} gameplayId={d.id} archived={d.archived} onOpenCapability={openCapability} /><ArtReferences controller={art} sources={artSources} kind="gameplay" targetId={d.id} onOpenRequirement={openArtRequirement} /></>} controller={gameplay} sources={{ stories: storyDocs, datasets: definitions }} onOpenLink={link => {
           if (link.kind === 'story') { setActiveStoryId(link.targetId); setActive('故事文档'); }
           else { setActiveDataset(link.targetId); setActive('数据配置'); }
         }} />}
-        {active === '美术资产' && <ArtAssets controller={art} sources={artSources} selected={artSelection} onSelect={setArtSelection} onOpenGameplay={openGameplay} onOpenCapability={openCapability} />}
+        {active === '素材资产' && <ArtAssets controller={art} sources={artSources} selected={artSelection} onSelect={setArtSelection} onOpenGameplay={openGameplay} onOpenCapability={openCapability} />}
         {active === '功能系统' && <FunctionalSystems workspaceId={dataKey} renderArtReferences={c => <ArtReferences controller={art} sources={artSources} kind="capability" targetId={c.id} onOpenRequirement={openArtRequirement} />} controller={functional} sources={functionalSources} selected={functionalSelection} onSelect={setFunctionalSelection} onOpenGameplay={openGameplay} onOpenDataset={key => { setActiveDataset(key); setActive('数据配置'); }} />}
         {active === '故事文档' && (
           <StoryDocuments
@@ -572,7 +572,7 @@ function WorkspaceApp({ username, testSession, onLoadTest, onExitTest, preparing
         {active === '枚举定义' && <EnumDefinitions registry={registry} />}
         {active === '枚举管理' && <EnumManager config={engineConfig} registry={registry} />}
         {active === '引擎设置' && <fieldset disabled={!!testSession} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>{testSession && <p>测试场景使用固定来源，请通过测试面板加载或重置场景。</p>}<EngineSettings config={engineConfig} registry={registry} onPickDirectory={window.desktopClient?.pickProjectDirectory} setConfig={(next) => testSession ? Promise.resolve(false) : onConfigChange(next)} /></fieldset>}
-        {active !== '项目排期' && active !== '地图设计' && active !== '工作区设置' && active !== '故事编排' && active !== '原型设计' && active !== '任务与流程' && active !== '项目概览' && active !== '玩法核心' && active !== '玩法设计' && active !== '功能系统' && active !== '美术资产' && active !== '故事文档' && active !== '数据配置' && active !== '枚举定义' && active !== '枚举管理' && active !== '引擎设置' && (
+        {active !== '项目排期' && active !== '地图设计' && active !== '工作区设置' && active !== '故事编排' && active !== '原型设计' && active !== '任务与流程' && active !== '项目概览' && active !== '玩法核心' && active !== '玩法设计' && active !== '功能系统' && active !== '素材资产' && active !== '故事文档' && active !== '数据配置' && active !== '枚举定义' && active !== '枚举管理' && active !== '引擎设置' && (
           <section className="empty">
             <div className="empty-icon"><Layers size={34} /></div>
             <h2>{active}</h2>

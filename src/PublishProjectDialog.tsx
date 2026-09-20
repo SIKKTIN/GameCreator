@@ -94,7 +94,7 @@ export function PublishProjectDialog({ session, project, onClose, onPublished }:
         <div className="team-publication-scope"><strong>来源本地项目：{preview.name}</strong>
           <p>发布全部 {preview.stories.length} 篇故事文档，保留正文、分类、状态、摘要、标签、大纲及关联设定。</p>
           <p>同时发布项目基本信息和 {preview.overview.milestones.length} 个里程碑。</p>
-          <small>协作项目开放项目概览、项目排期、玩法核心、玩法设计和故事文档。配置和美术等内容留在本地；原本地项目保留，与协作副本独立编辑。</small></div>
+          <small>协作项目开放项目概览、项目排期、玩法核心、玩法设计和故事文档。配置和素材等内容留在本地；原本地项目保留，与协作副本独立编辑。</small></div>
         <fieldset disabled={busy}>
           <label>协作项目名称<input required maxLength={100} value={name} onChange={event => setName(event.target.value)} /></label>
           <SchedulePublicationPreview schedule={preview.schedule}/><GameplayPublicationPreview gameplay={preview.gameplay}/><CorePublicationPreview core={preview.core}/><OverviewPublicationPreview overview={{...preview.overview,info:{...preview.overview.info,name}}}/>

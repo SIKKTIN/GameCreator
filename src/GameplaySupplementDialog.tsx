@@ -11,7 +11,7 @@ export function GameplayPublicationPreview({gameplay}:{gameplay:GameplayPublicat
   return <details className="team-publication-preview"><summary>查看玩法设计（{gameplay.store.designs.length} 份文档）</summary><div>
     <p>包含设计说明、玩法关联、条件规则、状态流程、空间布局、时间轴，以及分类、标签和验证记录。房间初始排布保留，发布后各自调整。</p>
     {gameplay.store.designs.map(d=><details key={d.id}><summary>{d.title} · {d.status}{d.archived?' · 已归档':''}</summary>{gameplaySections(d,gameplay.store).map(s=><details key={s.label}><summary>{s.label}</summary><pre>{s.text}</pre></details>)}</details>)}
-    {gameplay.references.some(r=>r.kind!=='story')&&<p>功能、美术和配置的引用保留名称与标识，对应模块尚未接入协作。</p>}
+    {gameplay.references.some(r=>r.kind!=='story')&&<p>功能、素材和配置的引用保留名称与标识，对应模块尚未接入协作。</p>}
   </div></details>;
 }
 export function GameplaySupplementDialog({session,project,source,target,onClose,onDone}:{session:TeamSession;project:SavedProject;source:PublicationSource;target:TeamProject;onClose:()=>void;onDone:(p:TeamProject)=>void}) {
