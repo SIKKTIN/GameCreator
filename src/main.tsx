@@ -545,7 +545,7 @@ function WorkspaceApp({ role, username, testSession, onLoadTest, onExitTest, pre
           else { setActiveDataset(link.targetId); setActive('数据配置'); }
         }} />}
         {active === '美术资产' && <ArtAssets controller={art} sources={artSources} selected={artSelection} onSelect={setArtSelection} onOpenGameplay={openGameplay} onOpenCapability={openCapability} />}
-        {active === '功能系统' && <FunctionalSystems renderArtReferences={c => <ArtReferences controller={art} sources={artSources} kind="capability" targetId={c.id} onOpenRequirement={openArtRequirement} />} controller={functional} sources={functionalSources} selected={functionalSelection} onSelect={setFunctionalSelection} onOpenGameplay={openGameplay} onOpenDataset={key => { setActiveDataset(key); setActive('数据配置'); }} />}
+        {active === '功能系统' && <FunctionalSystems workspaceId={dataKey} renderArtReferences={c => <ArtReferences controller={art} sources={artSources} kind="capability" targetId={c.id} onOpenRequirement={openArtRequirement} />} controller={functional} sources={functionalSources} selected={functionalSelection} onSelect={setFunctionalSelection} onOpenGameplay={openGameplay} onOpenDataset={key => { setActiveDataset(key); setActive('数据配置'); }} />}
         {active === '故事文档' && (
           <StoryDocuments
             documents={storyDocs}
