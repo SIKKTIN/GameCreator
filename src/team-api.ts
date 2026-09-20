@@ -1,19 +1,20 @@
 export type TeamRole = 'admin' | 'editor' | 'viewer';
-export type ModulePermissions = { overview: 'inherit' | 'view' | 'edit'; stories: 'inherit' | 'view' | 'edit'; core: 'inherit' | 'view' | 'edit' };
-export type TeamCapabilities = { overview: 'view' | 'edit'; stories: 'view' | 'edit'; core: 'view' | 'edit' };
+export type ModulePermissions = { overview: 'inherit' | 'view' | 'edit'; stories: 'inherit' | 'view' | 'edit'; core: 'inherit' | 'view' | 'edit'; gameplay: 'inherit' | 'view' | 'edit' };
+export type TeamCapabilities = { overview: 'view' | 'edit'; stories: 'view' | 'edit'; core: 'view' | 'edit'; gameplay: 'view' | 'edit' };
 export type TeamSession = { token: string; serverId: string; apiVersion?: number; invalid?: boolean; user: { id: string; username: string; serverRole?: 'admin' | 'member' }; url: string };
 export type TeamMember = { userId: string; username: string; role: TeamRole; enabled?: boolean; permissions?: ModulePermissions; capabilities?: TeamCapabilities };
 export type TeamProject = { id: string; name: string; role: TeamRole; capabilities?: TeamCapabilities };
-export const defaultPermissions = (): ModulePermissions => ({ overview: 'inherit', stories: 'inherit', core: 'inherit' });
+export const defaultPermissions = (): ModulePermissions => ({ overview: 'inherit', stories: 'inherit', core: 'inherit', gameplay: 'inherit' });
 export const effectivePermissions = (role: TeamRole, permissions = defaultPermissions()): TeamCapabilities => ({
   overview: role === 'admin' || (role === 'editor' && permissions.overview === 'edit') ? 'edit' : 'view',
+  gameplay: role === 'admin' || (role === 'editor' && permissions.gameplay !== 'view') ? 'edit' : 'view',
   core: role === 'admin' || (role === 'editor' && permissions.core !== 'view') ? 'edit' : 'view',
   stories: role === 'admin' || (role === 'editor' && permissions.stories !== 'view') ? 'edit' : 'view',
 });
 export const canEditModule = (session: TeamSession, role: TeamRole, capabilities: TeamCapabilities | undefined, module: keyof TeamCapabilities) =>
   !session.invalid && ((session.apiVersion ?? 0) >= 6 ? capabilities?.[module] === 'edit' : effectivePermissions(role)[module] === 'edit');
 export type DeletedPublication = { projectId: string; name: string; deletedAt: string };
-export type TeamPublication = { project: TeamProject; publishedAt: string; storyCount: number; overviewInitialized?: boolean; coreInitialized?: boolean };
+export type TeamPublication = { project: TeamProject; publishedAt: string; storyCount: number; overviewInitialized?: boolean; coreInitialized?: boolean; gameplayInitialized?: boolean };
 import type { StoryDoc } from './story-model';
 export type TeamStoryFields = Omit<StoryDoc, 'id' | 'updated'>;
 export type TeamStory = TeamStoryFields & { id: string; projectId: string; revision: number; updatedAt: string; updatedBy: string };

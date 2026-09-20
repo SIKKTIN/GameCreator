@@ -1,3 +1,5 @@
+import {readLocalGameplay} from './team-gameplay-publish.ts';
+import type {GameplayPublication} from './team-gameplay-model.ts';
 import { readLocalCore } from './team-core-publish.ts';
 import type { CorePublication } from './team-core-model.ts';
 import limits from '../shared/publication-limits.json' with { type: 'json' };
@@ -8,7 +10,7 @@ import { readLocalOverview, normalizeInfo, type OverviewPublication } from './ov
 
 type StorageReader = Pick<Storage, 'getItem'>;
 export type PublicationStory = TeamStoryFields & { id: string };
-export type PublicationPreview = { sourceProjectId: string; name: string; stories: PublicationStory[]; overview: OverviewPublication; core: CorePublication; signature: string };
+export type PublicationPreview = { sourceProjectId: string; name: string; stories: PublicationStory[]; overview: OverviewPublication; core: CorePublication; gameplay: GameplayPublication; signature: string };
 export type PublicationSource = { sourceInstanceId: string; sourceProjectId: string };
 export { limits as publicationLimits };
 
@@ -40,9 +42,10 @@ export function readPublicationPreview(storage: StorageReader, project: SavedPro
   const localOverview = readLocalOverview(storage,project);
   const overview = {info:localOverview.info,milestones:localOverview.milestones};
   const core = readLocalCore(storage,project.id).core;
-  const signature = JSON.stringify({ name, stories, overview, core });
+  const gameplay = readLocalGameplay(storage,project).gameplay;
+  const signature = JSON.stringify({ name, stories, overview, core, gameplay });
   checkPublicationSize(signature);
-  return { sourceProjectId: project.id, name, stories, overview, core, signature };
+  return { sourceProjectId: project.id, name, stories, overview, core, gameplay, signature };
 }
 export function assertPublicationCurrent(storage: StorageReader, project: SavedProject, preview: PublicationPreview) {
   if (project.id !== preview.sourceProjectId || readPublicationPreview(storage, project).signature !== preview.signature) {
@@ -55,6 +58,6 @@ export function checkPublicationSize(serialized: string) {
 export function publicationBody(preview: PublicationPreview, source: PublicationSource, name: string, members: { userId: string; role: TeamRole }[]) {
   if (preview.sourceProjectId !== source.sourceProjectId) throw new Error('发布来源已变化，请重新打开发布窗口。');
   const publishedName = text(name, '协作项目名称', 100, true);
-  const body = { ...source, name: publishedName, members, stories: preview.stories, core: preview.core, overview: {...preview.overview,info:normalizeInfo({...preview.overview.info,name:publishedName})} };
+  const body = { ...source, name: publishedName, members, stories: preview.stories, core: preview.core, gameplay: preview.gameplay, overview: {...preview.overview,info:normalizeInfo({...preview.overview.info,name:publishedName})} };
   checkPublicationSize(JSON.stringify(body)); return body;
 }
