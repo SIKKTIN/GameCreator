@@ -1,8 +1,9 @@
+import {physicalFixture} from './helpers/map-physical-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import {createDesignMap,validateMapDesign,writeMapDesign} from '../src/map-design.ts';
-import {withWorldLayout,worldRoom,worldPortal,worldSettings,connectionSpatial,alignWorldConnection,worldLayoutIssues,defaultTravel,suggestedPortalSides} from '../src/map-world.ts';
+import {withWorldLayout,worldRoom,worldPortal,worldSettings,connectionGeometry as connectionSpatial,alignWorldConnection,worldLayoutIssues,defaultTravel,suggestedPortalSides} from '../src/map-world.ts';
 import {prototypeFromMaps,applyPrototypeAction,startPrototype,prototypeMapRoute} from '../src/prototype-design.ts';
 function fixture(type='side'){
  const a=createDesignMap('上层A'),c=createDesignMap('下层C');a.rows=c.rows=10;a.columns=c.columns=20;a.placement={x:0,y:0,scale:1};c.placement={x:0,y:14,scale:1};
@@ -42,7 +43,7 @@ test('live source geometry, mixed scales and portal directions use the same worl
  m.placement={x:-20,y:-10,scale:.5};d.space.objects[0].geometry={x:8,y:4,width:4,height:2,rotation:30,shape:'rect',range:0,innerRange:0,arc:90};const o=worldRoom(s,m,e.gameplay.designs).objects.find(o=>o.id===id);assert.equal(o.x,-16);assert.equal(o.y,-8);assert.equal(o.rotation,30);assert.equal(worldPortal(s,m.id,id,'right',e.gameplay.designs).x,-8);
 });
 test('generated prototype follows edited world positions, direction and live conditions without regeneration',()=>{
- const s=fixture(),scenes=prototypeFromMaps(s,[]),p={schema:1,entryId:scenes[1].id,scenes},runtime=startPrototype(p),button=scenes[1].elements[0],before=JSON.stringify(p);
+ const s=physicalFixture();s.connections[0].condition='';delete s.connections[0].reverseCondition;s.connections[0].travel.maxRise=4;const scenes=prototypeFromMaps(s,[]),p={schema:1,entryId:scenes[1].id,scenes},runtime=startPrototype(p),button=scenes[1].elements[0],before=JSON.stringify(p);
  assert.equal(applyPrototypeAction(p,runtime,button.id,false,s,[]).sceneId,scenes[0].id);s.maps[1].placement.y=20;assert.throws(()=>applyPrototypeAction(p,runtime,button.id,true,s,[]),/超出/);
  s.maps[1].placement.y=14;s.connections[0].condition='新钥匙';assert.throws(()=>applyPrototypeAction(p,runtime,button.id,false,s,[]),/条件/);assert.equal(prototypeMapRoute(p,scenes[1],button,s,[]).condition,'新钥匙');assert.equal(applyPrototypeAction(p,runtime,button.id,true,s,[]).sceneId,scenes[0].id);assert.equal(JSON.stringify(p),before);
  s.connections=[];assert.throws(()=>applyPrototypeAction(p,runtime,button.id,true,s,[]),/已删除/);
@@ -102,9 +103,9 @@ test('transport and same-room connections retain center endpoints; transport doe
 });
 
 test('generated prototypes reject orientation conflicts after moving rooms without changing portal sides',()=>{
- const s=fixture(),c=s.connections[0],scenes=prototypeFromMaps(s,[]),p={schema:1,entryId:scenes[1].id,scenes},runtime=startPrototype(p),button=scenes[1].elements[0];
+ const s=physicalFixture(),c=s.connections[0],scenes=prototypeFromMaps(s,[]),p={schema:1,entryId:scenes[1].id,scenes},runtime=startPrototype(p),button=scenes[1].elements[0];
  c.travel={...c.travel,maxRise:100,maxGap:100,maxDrop:100};s.maps[1].placement={x:24,y:0,scale:1};
  assert.throws(()=>applyPrototypeAction(p,runtime,button.id,true,s,[]),/固定出入口朝向冲突/);
- assert.equal(c.fromSide,'top');assert.equal(c.toSide,'bottom');
- Object.assign(c,suggestedPortalSides(s,c,[]));assert.equal(applyPrototypeAction(p,runtime,button.id,true,s,[]).sceneId,scenes[0].id);
+ assert.equal(c.fromSide,'bottom');assert.equal(c.toSide,'top');
+ s.maps[1].placement.x=12;s.maps[0].openings[0].side='right';s.maps[1].openings[0].side='left';s.maps[0].openings[0].offset=s.maps[1].openings[0].offset=7;Object.assign(c,suggestedPortalSides(s,c,[]));assert.equal(applyPrototypeAction(p,runtime,button.id,true,s,[]).sceneId,scenes[0].id);
 });

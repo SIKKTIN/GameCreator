@@ -1,8 +1,10 @@
 // Map layouts keep live references to the existing gameplay spaces. This script
-// seeds only the optional module and never changes gameplay or prototype scenes.
+// seeds physical passages; the HK floor is split in its authoritative gameplay space.
 import fs from 'node:fs';
 import { validateMapDesign, mapIssues } from '../src/map-design.ts';
-import { alignWorldConnection, connectionSpatial, defaultTravel } from '../src/map-world.ts';
+import { connectionSpatial, defaultTravel } from '../src/map-world.ts';
+import { mergePassages, splitTerrainAtOpening } from '../src/map-passages.ts';
+import { objectGeometry } from '../src/spatial-layout.ts';
 for (const file of ['hollow-knight','stardew-valley']) {
   const path=new URL('../examples/prototypes/'+file+'.json',import.meta.url),e=JSON.parse(fs.readFileSync(path,'utf8'));
   const hk=file==='hollow-knight',owner=e.gameplay.designs.find(d=>d.space.spatial?.rooms.length),a=owner.space.spatial;
@@ -41,9 +43,32 @@ for (const file of ['hollow-knight','stardew-valley']) {
     c.fromSide=vertical?(from<to?'bottom':'top'):(from<to?'right':'left');c.toSide=vertical?(from<to?'top':'bottom'):(from<to?'left':'right');
     c.travel={...defaultTravel(),forward:vertical?(from<to?'drop':'climb'):hk?'jump':'walk',reverse:vertical?(from<to?'climb':'drop'):hk?'jump':'walk',maxRise:16,maxGap:24,maxDrop:20};
   }
-  if(!hk)e.mapDesign=alignWorldConnection(e.mapDesign,connections[0],e.gameplay.designs);
+  const addOpening=(m,id,side,offset,width=2)=>{const o={id:m.id+'-opening-'+id,name:id,side,offset,width};m.openings=[...(m.openings??[]),o];return o.id;};
+  if(hk){
+    const [A,B,C,D]=maps;
+    const ar=addOpening(A,'试炼通道','right',9),bl=addOpening(B,'回廊通道','left',9),an=addOpening(A,'近岸竖井','bottom',4),cn=addOpening(C,'近岸竖井','top',4),as=addOpening(A,'远岸近路','bottom',18),cs=addOpening(C,'远岸近路','top',18),cr=addOpening(C,'首领通道','right',9),dl=addOpening(D,'裂隙通道','left',9);
+    for(const [first,back,fo,to] of [['A_B','B_A',ar,bl],['A_C','C_A',an,cn],['A_C_short','C_A_short',as,cs],['C_D','D_C',cr,dl]]){
+      const f=e.mapDesign.connections.find(c=>c.id==='map-hk-sp-'+first),r=e.mapDesign.connections.find(c=>c.id==='map-hk-sp-'+back);
+      f.fromOpeningId=fo;f.toOpeningId=to;r.fromOpeningId=to;r.toOpeningId=fo;
+      e.mapDesign=mergePassages(e.mapDesign,f.id,r.id);
+      const merged=e.mapDesign.connections.find(c=>c.id===f.id),vertical=first.includes('A_C');
+      merged.name=vertical?(first.includes('short')?'永久近路':'近岸竖井'):first==='A_B'?'回廊与试炼':'裂隙与首领';
+      merged.structure=vertical?'ladder':'open';merged.travel.forward=vertical?'climb':'jump';merged.travel.reverse=vertical?'climb':'jump';
+    }
+    for(const m of [A,C])for(const offset of [4,18]){const id=m.id+'-ladder-'+offset;m.objects.push({id,name:offset===4?'近岸竖井梯子':'远岸近路梯子',kind:'note',layerId:m.layers[0].id,x:offset-1,y:m===A?8:0,width:2,height:m===A?4:10,color:'amber',notes:'与实际井口对齐的可攀爬路径',references:[]});m.surfaces=[...(m.surfaces??[]),{objectId:id,kind:'ladder'}];}
+    // These two authored platforms intentionally allow passage from below.
+    const source=e.gameplay.designs.find(d=>d.id===A.sourceDesignId);
+    A.surfaces=[...(A.surfaces??[]),...source.space.objects.filter(o=>o.name.startsWith('单向平台')).map(o=>({objectId:o.id,kind:'one-way'}))];
+    const floor=source.space.objects.find(o=>o.id==='68fd2f24-3b6b-44c7-bf5c-178e363a210e');
+    let pieces=[{...objectGeometry(floor,source.space),x:0,y:10,width:24,height:2}];
+    for(const opening of A.openings.filter(o=>o.side==='bottom'))pieces=pieces.flatMap(g=>opening.offset+opening.width/2>g.x&&opening.offset-opening.width/2<g.x+g.width?splitTerrainAtOpening(g,opening):[g]);
+    source.space.objects=source.space.objects.filter(o=>!o.id.startsWith('map-cut-hk-A-')).flatMap(o=>o.id===floor.id?pieces.map((geometry,i)=>({...o,id:i?'map-cut-hk-A-'+i:o.id,name:'井口间底板 '+(i+1),geometry})):[o]);
+    A.description='近岸竖井和远岸近路都有实际开口、上下梯子；试炼通道从右侧进入。往返各保留独立的门与安全落点。';
+  }else{
+    const c=e.mapDesign.connections[0];c.fromOpeningId=addOpening(maps[0],'东侧道路','right',5.5);c.toOpeningId=addOpening(maps[1],'西侧道路','left',5.5);c.structure='open';
+  }
   validateMapDesign(e.mapDesign);
-  for(const c of connections)for(const reverse of c.direction==='both'?[false,true]:[false]){const r=connectionSpatial(e.mapDesign,c,e.gameplay.designs,reverse);if(r.reason)throw new Error(c.name+': '+r.reason);}
+  for(const c of e.mapDesign.connections)for(const reverse of c.direction==='both'?[false,true]:[false]){const r=connectionSpatial(e.mapDesign,c,e.gameplay.designs,reverse);if(r.reason)throw new Error(c.name+': '+r.reason);}
   const issues=mapIssues(e.mapDesign,e.gameplay.designs);if(issues.length)throw new Error(issues.join('\n'));
-  fs.writeFileSync(path,JSON.stringify(e,null,2)+'\n');console.log(file+': '+maps.length+' maps, '+connections.length+' connections');
+  fs.writeFileSync(path,JSON.stringify(e,null,2)+'\n');console.log(file+': '+maps.length+' maps, '+e.mapDesign.connections.length+' connections');
 }

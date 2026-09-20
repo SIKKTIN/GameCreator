@@ -1448,7 +1448,7 @@
           "objects": [
             {
               "id": "68fd2f24-3b6b-44c7-bf5c-178e363a210e",
-              "name": "连续底板",
+              "name": "井口间底板 1",
               "kind": "obstacle",
               "color": "blue",
               "anchor": "cell",
@@ -1459,7 +1459,70 @@
               "direction": "right",
               "rangeShape": "none",
               "range": 3,
-              "notes": "实体地面，顶面为同高基准。"
+              "notes": "实体地面，顶面为同高基准。",
+              "geometry": {
+                "x": 0,
+                "y": 10,
+                "width": 3,
+                "height": 2,
+                "rotation": 0,
+                "shape": "rect",
+                "range": 3,
+                "innerRange": 0,
+                "arc": 90
+              }
+            },
+            {
+              "id": "map-cut-hk-A-1",
+              "name": "井口间底板 2",
+              "kind": "obstacle",
+              "color": "blue",
+              "anchor": "cell",
+              "row": 11,
+              "column": 1,
+              "width": 24,
+              "height": 2,
+              "direction": "right",
+              "rangeShape": "none",
+              "range": 3,
+              "notes": "实体地面，顶面为同高基准。",
+              "geometry": {
+                "x": 5,
+                "y": 10,
+                "width": 12,
+                "height": 2,
+                "rotation": 0,
+                "shape": "rect",
+                "range": 3,
+                "innerRange": 0,
+                "arc": 90
+              }
+            },
+            {
+              "id": "map-cut-hk-A-2",
+              "name": "井口间底板 3",
+              "kind": "obstacle",
+              "color": "blue",
+              "anchor": "cell",
+              "row": 11,
+              "column": 1,
+              "width": 24,
+              "height": 2,
+              "direction": "right",
+              "rangeShape": "none",
+              "range": 3,
+              "notes": "实体地面，顶面为同高基准。",
+              "geometry": {
+                "x": 19,
+                "y": 10,
+                "width": 5,
+                "height": 2,
+                "rotation": 0,
+                "shape": "rect",
+                "range": 3,
+                "innerRange": 0,
+                "arc": 90
+              }
             },
             {
               "id": "2233725f-1c11-4233-b6cc-58276d736943",
@@ -13438,7 +13501,7 @@
         "id": "map-hk-room-A",
         "name": "A篝台回廊 · 长椅与岔路",
         "region": "裂隙遗迹",
-        "description": "长椅作为探索中心：上层进入试炼，下层到达裂隙近岸。解锁远岸拉杆后，从长椅旁的近路快速返回后半段。保留三组独立出入口，避免出生点叠在交互门上。",
+        "description": "近岸竖井和远岸近路都有实际开口、上下梯子；试炼通道从右侧进入。往返各保留独立的门与安全落点。",
         "perspective": "side",
         "view": "free",
         "x": 0,
@@ -13508,13 +13571,80 @@
                 "targetId": "3569edee-b95b-4bfd-97e1-8a816e94b184"
               }
             ]
+          },
+          {
+            "id": "map-hk-room-A-ladder-4",
+            "name": "近岸竖井梯子",
+            "kind": "note",
+            "layerId": "map-hk-room-A-layer-0",
+            "x": 3,
+            "y": 8,
+            "width": 2,
+            "height": 4,
+            "color": "amber",
+            "notes": "与实际井口对齐的可攀爬路径",
+            "references": []
+          },
+          {
+            "id": "map-hk-room-A-ladder-18",
+            "name": "远岸近路梯子",
+            "kind": "note",
+            "layerId": "map-hk-room-A-layer-0",
+            "x": 17,
+            "y": 8,
+            "width": 2,
+            "height": 4,
+            "color": "amber",
+            "notes": "与实际井口对齐的可攀爬路径",
+            "references": []
           }
         ],
         "placement": {
           "x": 0,
           "y": 0,
           "scale": 1
-        }
+        },
+        "openings": [
+          {
+            "id": "map-hk-room-A-opening-试炼通道",
+            "name": "试炼通道",
+            "side": "right",
+            "offset": 9,
+            "width": 2
+          },
+          {
+            "id": "map-hk-room-A-opening-近岸竖井",
+            "name": "近岸竖井",
+            "side": "bottom",
+            "offset": 4,
+            "width": 2
+          },
+          {
+            "id": "map-hk-room-A-opening-远岸近路",
+            "name": "远岸近路",
+            "side": "bottom",
+            "offset": 18,
+            "width": 2
+          }
+        ],
+        "surfaces": [
+          {
+            "objectId": "map-hk-room-A-ladder-4",
+            "kind": "ladder"
+          },
+          {
+            "objectId": "map-hk-room-A-ladder-18",
+            "kind": "ladder"
+          },
+          {
+            "objectId": "6d73cb88-7e89-4524-8ebc-e1c18c1f4ff1",
+            "kind": "one-way"
+          },
+          {
+            "objectId": "b2177267-e89a-45e5-8ba4-043c1621358a",
+            "kind": "one-way"
+          }
+        ]
       },
       {
         "id": "map-hk-room-B",
@@ -13600,7 +13730,16 @@
           "x": 24,
           "y": 0,
           "scale": 1
-        }
+        },
+        "openings": [
+          {
+            "id": "map-hk-room-B-opening-回廊通道",
+            "name": "回廊通道",
+            "side": "left",
+            "offset": 9,
+            "width": 2
+          }
+        ]
       },
       {
         "id": "map-hk-room-C",
@@ -13680,13 +13819,72 @@
                 "targetId": "hk-task-shortcut"
               }
             ]
+          },
+          {
+            "id": "map-hk-room-C-ladder-4",
+            "name": "近岸竖井梯子",
+            "kind": "note",
+            "layerId": "map-hk-room-C-layer-0",
+            "x": 3,
+            "y": 0,
+            "width": 2,
+            "height": 10,
+            "color": "amber",
+            "notes": "与实际井口对齐的可攀爬路径",
+            "references": []
+          },
+          {
+            "id": "map-hk-room-C-ladder-18",
+            "name": "远岸近路梯子",
+            "kind": "note",
+            "layerId": "map-hk-room-C-layer-0",
+            "x": 17,
+            "y": 0,
+            "width": 2,
+            "height": 10,
+            "color": "amber",
+            "notes": "与实际井口对齐的可攀爬路径",
+            "references": []
           }
         ],
         "placement": {
           "x": 0,
           "y": 16,
           "scale": 1
-        }
+        },
+        "openings": [
+          {
+            "id": "map-hk-room-C-opening-近岸竖井",
+            "name": "近岸竖井",
+            "side": "top",
+            "offset": 4,
+            "width": 2
+          },
+          {
+            "id": "map-hk-room-C-opening-远岸近路",
+            "name": "远岸近路",
+            "side": "top",
+            "offset": 18,
+            "width": 2
+          },
+          {
+            "id": "map-hk-room-C-opening-首领通道",
+            "name": "首领通道",
+            "side": "right",
+            "offset": 9,
+            "width": 2
+          }
+        ],
+        "surfaces": [
+          {
+            "objectId": "map-hk-room-C-ladder-4",
+            "kind": "ladder"
+          },
+          {
+            "objectId": "map-hk-room-C-ladder-18",
+            "kind": "ladder"
+          }
+        ]
       },
       {
         "id": "map-hk-room-D",
@@ -13772,18 +13970,27 @@
           "x": 24,
           "y": 16,
           "scale": 1
-        }
+        },
+        "openings": [
+          {
+            "id": "map-hk-room-D-opening-裂隙通道",
+            "name": "裂隙通道",
+            "side": "left",
+            "offset": 9,
+            "width": 2
+          }
+        ]
       }
     ],
     "connections": [
       {
         "id": "map-hk-sp-A_B",
-        "name": "A → B",
+        "name": "回廊与试炼",
         "from": "map-hk-room-A",
         "to": "map-hk-room-B",
         "fromObjectId": "ba3569e9-7ba1-4ab2-a00d-4ac53882271d",
         "toObjectId": "a7cebaf1-36a7-4765-af62-9a388b187570",
-        "direction": "one",
+        "direction": "both",
         "kind": "passage",
         "condition": "",
         "fromSide": "right",
@@ -13794,67 +14001,61 @@
           "maxRise": 16,
           "maxGap": 24,
           "maxDrop": 20
-        }
-      },
-      {
-        "id": "map-hk-sp-B_A",
-        "name": "B → A",
-        "from": "map-hk-room-B",
-        "to": "map-hk-room-A",
-        "fromObjectId": "1372d683-9752-4bed-a181-ab71f9485c89",
-        "toObjectId": "bba2b4f0-bdcb-4594-be44-62e67374af59",
-        "direction": "one",
-        "kind": "passage",
-        "condition": "试炼门未封闭",
-        "fromSide": "left",
-        "toSide": "right",
-        "travel": {
-          "forward": "jump",
-          "reverse": "jump",
+        },
+        "fromOpeningId": "map-hk-room-A-opening-试炼通道",
+        "toOpeningId": "map-hk-room-B-opening-回廊通道",
+        "reverseFromObjectId": "1372d683-9752-4bed-a181-ab71f9485c89",
+        "reverseToObjectId": "bba2b4f0-bdcb-4594-be44-62e67374af59",
+        "reverseCondition": "试炼门未封闭",
+        "reverseLimits": {
           "maxRise": 16,
           "maxGap": 24,
           "maxDrop": 20
-        }
+        },
+        "aliases": [
+          {
+            "id": "map-hk-sp-B_A",
+            "reverse": true
+          }
+        ],
+        "structure": "open"
       },
       {
         "id": "map-hk-sp-A_C",
-        "name": "A → C",
+        "name": "近岸竖井",
         "from": "map-hk-room-A",
         "to": "map-hk-room-C",
         "fromObjectId": "421c936e-0f0b-4f60-bfe1-cfdd15dfb76f",
         "toObjectId": "11bb920a-b28c-42bb-b094-6481e37f3d6d",
-        "direction": "one",
+        "direction": "both",
         "kind": "passage",
         "condition": "",
         "fromSide": "bottom",
         "toSide": "top",
         "travel": {
-          "forward": "drop",
+          "forward": "climb",
           "reverse": "climb",
           "maxRise": 16,
           "maxGap": 24,
           "maxDrop": 20
-        }
-      },
-      {
-        "id": "map-hk-sp-C_A",
-        "name": "C → A",
-        "from": "map-hk-room-C",
-        "to": "map-hk-room-A",
-        "fromObjectId": "61ae9303-91ed-43bb-bbd2-da33bb1c241a",
-        "toObjectId": "54fb885f-64eb-47ca-9da8-4237ca9c57e4",
-        "direction": "one",
-        "kind": "passage",
-        "condition": "",
-        "fromSide": "top",
-        "toSide": "bottom",
-        "travel": {
-          "forward": "climb",
-          "reverse": "drop",
+        },
+        "fromOpeningId": "map-hk-room-A-opening-近岸竖井",
+        "toOpeningId": "map-hk-room-C-opening-近岸竖井",
+        "reverseFromObjectId": "61ae9303-91ed-43bb-bbd2-da33bb1c241a",
+        "reverseToObjectId": "54fb885f-64eb-47ca-9da8-4237ca9c57e4",
+        "reverseCondition": "",
+        "reverseLimits": {
           "maxRise": 16,
           "maxGap": 24,
           "maxDrop": 20
-        }
+        },
+        "aliases": [
+          {
+            "id": "map-hk-sp-C_A",
+            "reverse": true
+          }
+        ],
+        "structure": "ladder"
       },
       {
         "id": "map-hk-sp-A_C_short",
@@ -13863,47 +14064,44 @@
         "to": "map-hk-room-C",
         "fromObjectId": "ff360fec-87ac-4feb-90f8-42ea9db062e8",
         "toObjectId": "e40a88fa-8d90-4445-b9f9-6a4748ee24ee",
-        "direction": "one",
+        "direction": "both",
         "kind": "shortcut",
         "condition": "已从远岸打开永久近路",
         "fromSide": "bottom",
         "toSide": "top",
         "travel": {
-          "forward": "drop",
+          "forward": "climb",
           "reverse": "climb",
           "maxRise": 16,
           "maxGap": 24,
           "maxDrop": 20
-        }
-      },
-      {
-        "id": "map-hk-sp-C_A_short",
-        "name": "永久近路",
-        "from": "map-hk-room-C",
-        "to": "map-hk-room-A",
-        "fromObjectId": "de3690ca-a76e-4b93-8f86-6e4886eed279",
-        "toObjectId": "775486b6-75e0-446b-9197-45ca9e6ffb41",
-        "direction": "one",
-        "kind": "shortcut",
-        "condition": "已从远岸打开永久近路",
-        "fromSide": "top",
-        "toSide": "bottom",
-        "travel": {
-          "forward": "climb",
-          "reverse": "drop",
+        },
+        "fromOpeningId": "map-hk-room-A-opening-远岸近路",
+        "toOpeningId": "map-hk-room-C-opening-远岸近路",
+        "reverseFromObjectId": "de3690ca-a76e-4b93-8f86-6e4886eed279",
+        "reverseToObjectId": "775486b6-75e0-446b-9197-45ca9e6ffb41",
+        "reverseCondition": "已从远岸打开永久近路",
+        "reverseLimits": {
           "maxRise": 16,
           "maxGap": 24,
           "maxDrop": 20
-        }
+        },
+        "aliases": [
+          {
+            "id": "map-hk-sp-C_A_short",
+            "reverse": true
+          }
+        ],
+        "structure": "ladder"
       },
       {
         "id": "map-hk-sp-C_D",
-        "name": "C → D",
+        "name": "裂隙与首领",
         "from": "map-hk-room-C",
         "to": "map-hk-room-D",
         "fromObjectId": "22ca72f5-fc5f-4b75-b208-45db967e331f",
         "toObjectId": "6d9527c7-2d71-4f68-aca4-df8ead9ea5d2",
-        "direction": "one",
+        "direction": "both",
         "kind": "passage",
         "condition": "已到达远岸",
         "fromSide": "right",
@@ -13914,27 +14112,24 @@
           "maxRise": 16,
           "maxGap": 24,
           "maxDrop": 20
-        }
-      },
-      {
-        "id": "map-hk-sp-D_C",
-        "name": "D → C",
-        "from": "map-hk-room-D",
-        "to": "map-hk-room-C",
-        "fromObjectId": "f8247184-466c-415a-97d4-d39a8961464e",
-        "toObjectId": "9f154fae-7613-472f-8289-7cc3c9d79e0b",
-        "direction": "one",
-        "kind": "passage",
-        "condition": "战斗门未封闭",
-        "fromSide": "left",
-        "toSide": "right",
-        "travel": {
-          "forward": "jump",
-          "reverse": "jump",
+        },
+        "fromOpeningId": "map-hk-room-C-opening-首领通道",
+        "toOpeningId": "map-hk-room-D-opening-裂隙通道",
+        "reverseFromObjectId": "f8247184-466c-415a-97d4-d39a8961464e",
+        "reverseToObjectId": "9f154fae-7613-472f-8289-7cc3c9d79e0b",
+        "reverseCondition": "战斗门未封闭",
+        "reverseLimits": {
           "maxRise": 16,
           "maxGap": 24,
           "maxDrop": 20
-        }
+        },
+        "aliases": [
+          {
+            "id": "map-hk-sp-D_C",
+            "reverse": true
+          }
+        ],
+        "structure": "open"
       }
     ]
   }

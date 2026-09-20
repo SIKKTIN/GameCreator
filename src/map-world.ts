@@ -1,4 +1,5 @@
-import { mapStage, type DesignMap, type MapConnection, type MapDesignStore, type PortalSide, type TravelRule, type WorldPlacement, type WorldSettings } from './map-design.ts';
+import { checkPhysicalPassage, type PassageCheck } from './map-navigation.ts';
+import { connectionEndpoints, mapStage, type DesignMap, type MapConnection, type MapDesignStore, type PortalSide, type TravelRule, type WorldPlacement, type WorldSettings } from './map-design.ts';
 import type { GameplayDesign } from './gameplay';
 import { objectGeometry } from './spatial-layout.ts';
 
@@ -26,7 +27,7 @@ export function withWorldLayout(store:MapDesignStore,designs:GameplayDesign[]=[]
 export function worldPlacement(store:MapDesignStore,m:DesignMap):WorldPlacement { return m.placement??withWorldPlacements(store).maps.find(x=>x.id===m.id)!.placement!; }
 export function worldRoom(store:MapDesignStore,m:DesignMap,designs:GameplayDesign[]) {
   const placement=worldPlacement(store,m),space=mapStage(m,designs),scale=placement.scale;
-  const objects=space.objects.map(o=>{const g=objectGeometry(o,space);return {...g,id:o.id,name:o.name,color:o.color,kind:o.kind,x:placement.x+g.x*scale,y:placement.y+g.y*scale,width:g.width*scale,height:g.height*scale};});
+  const objects=space.objects.map(o=>{const g=objectGeometry(o,space);return {...g,id:o.id,name:o.name,color:o.color,kind:o.kind,collision:m.surfaces?.find(v=>v.objectId===o.id)?.kind??(o.kind==='obstacle'?'solid':'decoration'),x:placement.x+g.x*scale,y:placement.y+g.y*scale,width:g.width*scale,height:g.height*scale};});
   return {id:m.id,name:m.name,...placement,width:space.columns*space.cellSize*scale,height:space.rows*space.cellSize*scale,objects,space};
 }
 const oppositeSide:Record<PortalSide,PortalSide>={left:'right',right:'left',top:'bottom',bottom:'top',center:'center',auto:'auto'};
@@ -54,19 +55,20 @@ function resolvedPortalSides(store:MapDesignStore,c:MapConnection,designs:Gamepl
     :hasSide(c.toSide)?{fromSide:oppositeSide[c.toSide],toSide:c.toSide}:suggestedPortalSides(store,c,designs);
   return {fromSide:c.fromSide&&c.fromSide!=='auto'?c.fromSide:suggestion?.fromSide??'auto',toSide:c.toSide&&c.toSide!=='auto'?c.toSide:suggestion?.toSide??'auto'};
 }
-export function worldPortal(store:MapDesignStore,mapId:string,objectId:string,side:PortalSide='auto',designs:GameplayDesign[]) {
+export function worldPortal(store:MapDesignStore,mapId:string,objectId:string,side:PortalSide='auto',designs:GameplayDesign[],openingId?:string) {
   const map=store.maps.find(m=>m.id===mapId);if(!map)return null;
   const room=worldRoom(store,map,designs),object=room.objects.find(o=>o.id===objectId);if(!object)return null;
-  let x=object.x+object.width/2,y=object.y+object.height/2;
+  const opening=map.openings?.find(o=>o.id===openingId);if(openingId&&!opening)return null;if(opening)side=opening.side;
+  let x=opening?room.x+opening.offset*room.scale:object.x+object.width/2,y=opening?room.y+opening.offset*room.scale:object.y+object.height/2;
   if(side==='left'||side==='right')x=room.x+(side==='right'?room.width:0);
   if(side==='top'||side==='bottom')y=room.y+(side==='bottom'?room.height:0);
-  return {x,y,side,object,room};
+  return {x,y,side,object,room,opening,openingWidth:(opening?.width??0)*room.scale};
 }
-export function connectionSpatial(store:MapDesignStore,c:MapConnection,designs:GameplayDesign[],reverse=false) {
-  const sides=resolvedPortalSides(store,c,designs);
-  const a=worldPortal(store,reverse?c.to:c.from,reverse?c.toObjectId:c.fromObjectId,reverse?sides.toSide:sides.fromSide,designs);
-  const b=worldPortal(store,reverse?c.from:c.to,reverse?c.fromObjectId:c.toObjectId,reverse?sides.fromSide:sides.toSide,designs);
-  const settings=worldSettings(store),rule=c.travel??defaultTravel(),mode=c.kind==='transport'?'transport':reverse?rule.reverse:rule.forward;
+export function connectionGeometry(store:MapDesignStore,c:MapConnection,designs:GameplayDesign[],reverse=false) {
+  const sides=resolvedPortalSides(store,c,designs),ends=connectionEndpoints(c,reverse);
+  const a=worldPortal(store,ends.from,ends.fromObjectId,reverse?sides.toSide:sides.fromSide,designs,ends.fromOpeningId);
+  const b=worldPortal(store,ends.to,ends.toObjectId,reverse?sides.fromSide:sides.toSide,designs,ends.toOpeningId);
+  const settings=worldSettings(store),rule={...(c.travel??defaultTravel()),...(reverse?c.reverseLimits:{})},mode=c.kind==='transport'?'transport':reverse?rule.reverse:rule.forward;
   const fail=(reason:string)=>({a,b,dx:0,dy:0,rise:0,distance:0,direction:'未连接',description:reason,reason,orientationReason:'',mode,allowed:false});
   if(reverse&&c.direction!=='both')return fail('此通路只允许正向通行');
   if(!a||!b)return fail('地图或出入口未指定／已失效');
@@ -102,9 +104,30 @@ export function connectionSpatial(store:MapDesignStore,c:MapConnection,designs:G
   const description=`向${direction} · ${settings.perspective==='side'?`高差 ${rise>=0?'+':''}${n(rise)}`:`南北差 ${n(dy)}`} · 水平差 ${n(dx)} ${settings.unit} · ${travelModes[mode]}`;
   return {a,b,dx,dy,rise,distance,direction,description,reason,orientationReason,mode,allowed:!reason};
 }
+const navigationCache=new Map<string,PassageCheck>();
+export function connectionSpatial(store:MapDesignStore,c:MapConnection,designs:GameplayDesign[],reverse=false,startObjectId?:string) {
+  const route=connectionGeometry(store,c,designs,reverse);
+  const crossed:string[]=[];
+  if(route.a?.opening&&route.b?.opening&&route.mode!=='transport'&&route.distance>.00001){
+    const a=route.a,b=route.b,vertical=a.side==='top'||a.side==='bottom',span=Math.min(a.openingWidth,b.openingWidth);
+    const corridor={x:vertical?a.x-span/2:Math.min(a.x,b.x),y:vertical?Math.min(a.y,b.y):a.y-span/2,width:vertical?span:Math.abs(a.x-b.x),height:vertical?Math.abs(a.y-b.y):span};
+    for(const m of store.maps.filter(m=>m.id!==c.from&&m.id!==c.to)){const r=worldRoom(store,m,designs);if(Math.min(corridor.x+corridor.width,r.x+r.width)-Math.max(corridor.x,r.x)>.00001&&Math.min(corridor.y+corridor.height,r.y+r.height)-Math.max(corridor.y,r.y)>.00001)crossed.push(r.name);}
+  }
+  // Cache by geometry and rules, not object identity: live source edits and
+  // mutable callers must invalidate the result just as immutable UI edits do.
+  const fingerprint=(p:typeof route.a)=>p&&[p.side,p.opening,p.openingWidth,p.object.id,p.room.id,p.room.x,p.room.y,p.room.width,p.room.height,p.room.scale,p.room.objects.map(o=>[o.id,o.name,o.x,o.y,o.width,o.height,o.rotation,o.shape,o.collision])];
+  const key=JSON.stringify([c,worldSettings(store),route.reason,crossed,fingerprint(route.a),fingerprint(route.b),reverse,startObjectId]);
+  let check=navigationCache.get(key);
+  if(!check){check=!route.a||!route.b||route.orientationReason?{state:'blocked',reason:route.reason,path:[],blockers:[]}:
+    route.mode!=='transport'&&(!route.a.opening||!route.b.opening)?{state:'pending',reason:'待完善：请选择两端物理开口；室内到达点不能代替开口',path:[],blockers:[]}:
+    route.reason?{state:'blocked',reason:route.reason,path:[],blockers:[]}:crossed.length?{state:'blocked',reason:'连接段穿过其他房间：'+crossed.join('、')+'；请显式连接中间地图',path:[],blockers:[]}:checkPhysicalPassage(store,c,reverse,route.a,route.b,route.mode,{...(c.travel??defaultTravel()),...(reverse?c.reverseLimits:{})},startObjectId);
+    if(navigationCache.size>=128)navigationCache.delete(navigationCache.keys().next().value!);navigationCache.set(key,check);
+  }
+  return {...route,...check,allowed:check.state==='ready'};
+}
 export function alignWorldConnection(store:MapDesignStore,c:MapConnection,designs:GameplayDesign[]):MapDesignStore {
   if(c.from===c.to)throw new Error('同一房间的内部通路不能通过移动房间对齐');
-  const {a,b}=connectionSpatial(store,c,designs);if(!a||!b)throw new Error('先选择有效的出入口');
+  const {a,b}=connectionGeometry(store,c,designs);if(!a||!b)throw new Error('先选择有效的出入口');
   if(!opposingPortalSides(a.side,b.side))throw new Error('先设置左右或上下相对的边缘出入口，再移动房间对齐');
   const normalized=withWorldLayout(store,designs);
   return {...normalized,maps:normalized.maps.map(m=>m.id===c.to?{...m,placement:{...m.placement!,x:m.placement!.x+a.x-b.x,y:m.placement!.y+a.y-b.y}}:m)};
