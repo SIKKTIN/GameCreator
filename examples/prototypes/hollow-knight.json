@@ -3614,21 +3614,39 @@
       },
       {
         "id": "hk-system-skills",
-        "name": "技能系统",
-        "purpose": "定义各动作的释放条件、阶段、结束和打断。",
-        "boundary": "每个技能只有一份执行定义；调用移动、角色状态和战斗能力。玩家冲刺与首领冲刺斩击是不同功能。",
+        "name": "玩家能力系统",
+        "purpose": "响应玩家操作，管理玩家冲刺、普通攻击和聚焦治疗的释放与执行规则。",
+        "boundary": "负责玩家能力的解锁检查、冷却、空中次数与资源使用；调用输入、角色状态、移动和战斗能力。敌人技能由敌人技能系统定义，AI 决策由敌人 AI 系统负责。",
         "archived": false,
         "createdAt": "2026-09-18T17:28:37.881Z",
-        "updatedAt": "2026-09-18T17:28:37.881Z"
+        "updatedAt": "2026-09-20T06:35:46.718Z"
+      },
+      {
+        "id": "hk-system-enemy-skills",
+        "name": "敌人技能系统",
+        "purpose": "执行普通敌人与 Boss 的攻击动作，管理预警、锁定目标、有效窗口与恢复阶段。",
+        "boundary": "接收敌人 AI 指令并使用独立的敌人技能参数；调用共享移动与伤害结算。技能选择和阶段切换归敌人 AI，不使用玩家按键、能力解锁或空中次数规则。",
+        "archived": false,
+        "createdAt": "2026-09-20T06:35:46.718Z",
+        "updatedAt": "2026-09-20T06:35:46.718Z"
+      },
+      {
+        "id": "hk-system-enemy-ai",
+        "name": "敌人 AI 系统",
+        "purpose": "根据战斗状态和永久进度驱动普通敌人、试炼守卫与 Boss 的决策、阶段切换和重置。",
+        "boundary": "负责何时行动、选择何种攻击以及世界重置时是否生成。具体攻击交给敌人技能，命中交给战斗系统，永久击败与奖励交给进度与存档系统。",
+        "archived": false,
+        "createdAt": "2026-09-20T06:35:46.718Z",
+        "updatedAt": "2026-09-20T06:35:46.718Z"
       },
       {
         "id": "hk-system-combat",
         "name": "战斗系统",
-        "purpose": "收集命中意图、结算伤害并驱动敌人决策。",
-        "boundary": "负责战斗时序和命中去重；永久击败/掉落归进度事务，基础位移归移动系统。",
+        "purpose": "收集玩家、敌人和环境的命中意图，统一结算伤害与受击结果。",
+        "boundary": "负责命中去重、伤害和同帧结算顺序；不选择敌人技能或管理 AI 阶段。永久击败与掉落交给进度事务，基础位移交给移动系统。",
         "archived": false,
         "createdAt": "2026-09-18T17:28:37.881Z",
-        "updatedAt": "2026-09-18T17:28:37.881Z"
+        "updatedAt": "2026-09-20T06:35:46.718Z"
       },
       {
         "id": "hk-system-level",
@@ -3971,7 +3989,7 @@
       },
       {
         "id": "hk-cap-boss-lunge",
-        "systemId": "hk-system-skills",
+        "systemId": "hk-system-enemy-skills",
         "name": "首领冲刺斩击",
         "purpose": "首领专用攻击，与玩家冲刺共享扫掠执行，但不共享玩家冷却、解锁或空中额度。",
         "input": "首领决策命令、当前阶段参数、开始时朝向、战斗是否仍有效。",
@@ -4000,11 +4018,11 @@
           }
         ],
         "createdAt": "2026-09-18T17:28:37.881Z",
-        "updatedAt": "2026-09-18T17:28:37.881Z"
+        "updatedAt": "2026-09-20T06:35:46.718Z"
       },
       {
         "id": "hk-cap-boss-slam",
-        "systemId": "hk-system-skills",
+        "systemId": "hk-system-enemy-skills",
         "name": "首领跃砸与冲击波",
         "purpose": "提供有预警、锁定目标和稳定治疗窗口的另一首领攻击。",
         "input": "首领决策、当前阶段、预警开始时玩家位置。",
@@ -4033,7 +4051,7 @@
           }
         ],
         "createdAt": "2026-09-18T17:28:37.881Z",
-        "updatedAt": "2026-09-18T17:28:37.881Z"
+        "updatedAt": "2026-09-20T06:35:46.718Z"
       },
       {
         "id": "hk-cap-damage",
@@ -4084,7 +4102,7 @@
       },
       {
         "id": "hk-cap-enemy-decision",
-        "systemId": "hk-system-combat",
+        "systemId": "hk-system-enemy-ai",
         "name": "敌人决策与重置",
         "purpose": "驱动普通敌、试炼守卫和双阶段首领，按永久进度选择是否生成。",
         "input": "房间/战斗触发、目标位置、动作完成、HP阈值、休息/死亡/读档重置事件。",
@@ -4127,7 +4145,7 @@
           }
         ],
         "createdAt": "2026-09-18T17:28:37.881Z",
-        "updatedAt": "2026-09-18T17:28:37.881Z"
+        "updatedAt": "2026-09-20T06:35:46.718Z"
       },
       {
         "id": "hk-cap-room-transition",

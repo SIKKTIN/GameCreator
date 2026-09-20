@@ -4,7 +4,7 @@
 .fs-create-actions { display:flex; gap:7px; margin-top:22px; }
 .fs-create-actions button { flex:1; padding:9px 7px; }
 .fs-library .gp-search { margin-top:16px; }
-.fs-tree { display:grid; gap:16px; margin-top:22px; }
+.fs-tree { display:grid; gap:12px; margin-top:12px; }
 .fs-tree-group { min-width:0; }
 .fs-tree-system, .fs-tree-capability { display:flex; align-items:center; width:100%; text-align:left; border:1px solid transparent; border-radius:6px; color:#bcb1cd; background:none; gap:9px; }
 .fs-tree-system { padding:9px 8px; background:#25202e; }
@@ -72,3 +72,19 @@
 
 .fs-orphan-group>.fs-tree-system { color:#e5bd86; background:#302619; border-color:#5c472f; }
 .fs-orphan-group>.fs-tree-system svg { color:#c6a36e; }
+
+.fs-tree-controls { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-top:16px; }
+.fs-tree-controls button { border:1px solid #46394f; border-radius:5px; background:transparent; padding:6px 9px; color:#bdb0d3; font-size:11px; cursor:pointer; }
+.fs-tree-controls button:hover:not(:disabled) { background:#31263f; }
+.fs-tree-controls button:disabled { opacity:.4; cursor:default; }
+.fs-tree-controls small { color:#9e90ae; font-size:10px; }
+.fs-tree-system-row { display:flex; align-items:stretch; min-width:0; border:1px solid transparent; border-radius:7px; background:#25202e; }
+.fs-tree-system-row .fs-tree-system { min-width:0; flex:1; border:0; background:transparent; border-radius:0 6px 6px 0; padding-left:2px; }
+.fs-tree-system-row.selected { border-color:#8567bb; background:#342747; }
+.fs-tree-system-row.selected .fs-tree-system { color:#efddff; }
+.fs-tree-system-row.contains-selected { border-color:#68537f; }
+.fs-tree-toggle { flex:0 0 27px; padding:0; display:grid; place-items:center; border:0; border-radius:6px 0 0 6px; background:transparent; color:#ab98cb; cursor:pointer; }
+.fs-tree-toggle:hover:not(:disabled), .fs-tree-system-row .fs-tree-system:hover { background:#42314f; }
+.fs-tree-toggle:disabled { opacity:.4; cursor:default; }
+.fs-tree-toggle:focus-visible, .fs-tree-controls button:focus-visible, .fs-tree-system:focus-visible, .fs-tree-capability:focus-visible { outline:2px solid #bca0ef; outline-offset:2px; }
+.fs-view-note { font-size:11px; line-height:1.7; color:#d9b183; }

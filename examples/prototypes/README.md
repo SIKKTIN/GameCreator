@@ -4,7 +4,7 @@
 
 | 文件 | 玩法 | 功能系统 / 功能 | 美术需求 / 资产 |
 | --- | ---: | ---: | ---: |
-| [hollow-knight.json](hollow-knight.json) | 8 | 7 / 17 | 26 / 39 |
+| [hollow-knight.json](hollow-knight.json) | 8 | 9 / 17 | 26 / 39 |
 | [stardew-valley.json](stardew-valley.json) | 6 | 8 / 19 | 23 / 34 |
 | [plants-vs-zombies.json](plants-vs-zombies.json) | 5 | 7 / 17 | 20 / 32 |
 | [disco-elysium.json](disco-elysium.json) | 8 | 9 / 21 | 22 / 40 |

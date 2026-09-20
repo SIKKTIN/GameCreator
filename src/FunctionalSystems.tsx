@@ -1,14 +1,15 @@
-import { useRef, useState, type FormEvent, type ReactNode } from 'react';
-import { Archive, ArrowRight, Boxes, ChevronRight, Link2, Plus, RotateCcw, Search, Trash2, X } from 'lucide-react';
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { Archive, ArrowRight, Boxes, ChevronDown, ChevronRight, Link2, Plus, RotateCcw, Search, Trash2, X } from 'lucide-react';
 import { GameplayGraph } from './GameplayGraph';
 import { createFunctionalSystem, createCapability, removeFunctionalSystem, removeCapability, functionalIssues, configReferenceText, usageSourceText, capabilityStatuses, dependencyKinds, type FunctionalStore, type FunctionalSources, type Capability, type FunctionalUsage, type ConfigReference } from './functional-systems';
 import type { FunctionalController } from './useFunctionalSystems';
 import './gameplay.css';
 import './gameplay-structure.css';
 import './functional-systems.css';
+import { readFunctionalView, patchFunctionalExpansion } from './functional-view-state';
 
 export type FunctionalSelection = { kind: 'system' | 'capability'; id: string } | null;
-type Props = { controller: FunctionalController; sources: FunctionalSources; selected: FunctionalSelection; onSelect: (selection: FunctionalSelection) => void; onOpenGameplay: (id: string, sourceKind?: string, sourceId?: string) => void; onOpenDataset: (key: string) => void; renderArtReferences?: (capability: Capability) => ReactNode };
+type Props = { workspaceId: string; controller: FunctionalController; sources: FunctionalSources; selected: FunctionalSelection; onSelect: (selection: FunctionalSelection) => void; onOpenGameplay: (id: string, sourceKind?: string, sourceId?: string) => void; onOpenDataset: (key: string) => void; renderArtReferences?: (capability: Capability) => ReactNode };
 type Tab = 'details' | 'dependencies' | 'usages';
 type Mutate = FunctionalController['update'];
 const now = () => new Date().toISOString();
@@ -34,8 +35,10 @@ function TextField({ label, ariaLabel, value, onChange, disabled, rows = 3, plac
   return <label className="gp-field">{label}<textarea aria-label={ariaLabel || label} rows={rows} value={value} disabled={disabled} placeholder={placeholder} onChange={e => onChange(e.target.value)} /></label>;
 }
 
-export function FunctionalSystems({ controller, sources, selected, onSelect, onOpenGameplay, onOpenDataset, renderArtReferences }: Props) {
+export function FunctionalSystems({ workspaceId, controller, sources, selected, onSelect, onOpenGameplay, onOpenDataset, renderArtReferences }: Props) {
   const { store, blocked, update } = controller;
+  const [collapsed, setCollapsed] = useState(() => new Set(readFunctionalView(workspaceId).collapsedIds));
+  const [viewError, setViewError] = useState('');
   const [query, setQuery] = useState(''), [range, setRange] = useState('active'), [status, setStatus] = useState('all');
   const [tab, setTab] = useState<Tab>('details'), [newKind, setNewKind] = useState<'system' | 'capability'>('system'), [newName, setNewName] = useState(''), [newSystem, setNewSystem] = useState(''), [error, setError] = useState('');
   const dialog = useRef<HTMLDialogElement>(null), input = useRef<HTMLInputElement>(null);
@@ -54,6 +57,20 @@ export function FunctionalSystems({ controller, sources, selected, onSelect, onO
     return { system, capabilities, visible: capabilities.length > 0 || (matchesRange(system.archived) && matchSystem && status === 'all') };
   }).filter(g => g.visible);
   const orphanCapabilities = store.capabilities.filter(c => !store.systems.some(s => s.id === c.systemId) && matchesRange(c.archived) && (status === 'all' || c.status === status) && (c.name + ' ' + c.purpose).toLocaleLowerCase().includes(q));
+  const filtering = !!q || status !== 'all';
+  const expandableIds = groups.filter(g => g.capabilities.length).map(g => g.system.id);
+  const setExpanded = (ids: string[], expanded: boolean) => {
+    setCollapsed(previous => { const next = new Set(previous); for (const id of ids) { if (expanded) next.delete(id); else next.add(id); } return next; });
+    const saved = patchFunctionalExpansion(workspaceId, ids, expanded);
+    setViewError(saved ? '' : '折叠状态未能保存，当前窗口仍可继续使用。');
+  };
+  // Reveal incoming links and moved functions; manually collapsing the current group stays allowed.
+  useEffect(() => {
+    if (!selectedCap) return;
+    if (collapsed.has(selectedCap.systemId)) setExpanded([selectedCap.systemId], true);
+    const visible = groups.some(g => g.capabilities.some(c => c.id === selectedCap.id)) || orphanCapabilities.some(c => c.id === selectedCap.id);
+    if (!visible) { setQuery(''); setStatus('all'); setRange(archivedCapability(store, selectedCap) ? 'archived' : 'active'); }
+  }, [selected, selectedCap?.systemId]);
   const navigate = (value: FunctionalSelection) => {
     setError('');
     if (value) {
@@ -84,10 +101,19 @@ export function FunctionalSystems({ controller, sources, selected, onSelect, onO
       <div className="fs-create-actions"><button className="gp-secondary" disabled={blocked} onClick={() => openCreate('system')}><Plus size={14} />新建系统</button><button className="gp-secondary" disabled={blocked || !activeSystems.length} title={!activeSystems.length ? '先创建一个系统' : undefined} onClick={() => openCreate('capability')}><Plus size={14} />新建功能</button></div>
       <label className="gp-search"><Search size={16} /><input aria-label="搜索系统或功能" type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="搜索名称或用途…" /></label>
       <div className="gp-filters"><label>显示范围<select aria-label="功能系统范围" value={range} onChange={e => setRange(e.target.value)}><option value="active">有效条目</option><option value="archived">已归档</option><option value="all">全部条目</option></select></label><label>实现状态<select aria-label="实现状态筛选" value={status} onChange={e => setStatus(e.target.value)}><option value="all">全部状态</option>{capabilityStatuses.map(s => <option key={s}>{s}</option>)}</select></label></div>
-      <div className="fs-tree" role="navigation" aria-label="系统与功能目录">{groups.map(({ system, capabilities }) => <div className="fs-tree-group" key={system.id}>
-        <button className={'fs-tree-system' + (selectedSystem?.id === system.id ? ' selected' : '')} aria-label={'打开系统：' + system.name} aria-pressed={selectedSystem?.id === system.id} onClick={() => navigate({ kind: 'system', id: system.id })}><Boxes size={15} /><strong>{system.name || '未命名系统'}</strong><small>{system.archived ? '归档' : capabilities.length}</small></button>
-        {capabilities.map(c => <button key={c.id} className={'fs-tree-capability' + (selectedCap?.id === c.id ? ' selected' : '')} aria-label={'打开功能：' + c.name} aria-pressed={selectedCap?.id === c.id} onClick={() => navigate({ kind: 'capability', id: c.id })}><span>{c.name || '未命名功能'}</span><small className={c.status === '已完成' ? 'complete' : ''}>{c.archived || system.archived ? '归档' : c.status}</small></button>)}
-      </div>)}{orphanCapabilities.length > 0 && <div className="fs-tree-group fs-orphan-group" role="group" aria-label="所属系统已失效"><div className="fs-tree-system"><Boxes size={15} /><strong>所属系统已失效</strong><small>{orphanCapabilities.length}</small></div>{orphanCapabilities.map(c => <button key={c.id} className={'fs-tree-capability' + (selectedCap?.id === c.id ? ' selected' : '')} aria-label={'打开功能：' + c.name} aria-pressed={selectedCap?.id === c.id} onClick={() => navigate({ kind: 'capability', id: c.id })}><span>{c.name || '未命名功能'}</span><small>{c.archived ? '归档' : c.status}</small></button>)}</div>}</div>{!groups.length && !orphanCapabilities.length && <p className="gp-muted gp-list-empty">{store.systems.length ? '没有匹配的系统或功能。' : '先定义系统职责，再逐步拆分可复用的功能。'}</p>}
+      <div className="fs-tree-controls"><button disabled={filtering || !expandableIds.some(id => collapsed.has(id))} onClick={() => setExpanded(expandableIds, true)}>全部展开</button><button disabled={filtering || !expandableIds.some(id => !collapsed.has(id))} onClick={() => setExpanded(expandableIds, false)}>全部收起</button>{filtering && <small>筛选时自动展开</small>}</div>
+      {viewError && <p className="fs-view-note" role="status">{viewError}</p>}
+      <div className="fs-tree" role="navigation" aria-label="系统与功能目录">{groups.map(({ system, capabilities }) => {
+        const expanded = filtering || !collapsed.has(system.id), containsSelected = selectedCap?.systemId === system.id;
+        const childrenId = 'fs-children-' + system.id;
+        return <div className="fs-tree-group" key={system.id}>
+          <div className={'fs-tree-system-row' + (selectedSystem?.id === system.id ? ' selected' : '') + (!expanded && containsSelected ? ' contains-selected' : '')}>
+            <button className="fs-tree-toggle" aria-label={(expanded ? '收起系统：' : '展开系统：') + system.name} aria-expanded={expanded} aria-controls={childrenId} disabled={filtering || !capabilities.length} title={filtering ? '筛选时自动展开匹配功能' : !capabilities.length ? '系统暂无功能' : expanded ? '收起所属功能' : '展开所属功能'} onClick={() => setExpanded([system.id], !expanded)}>{expanded ? <ChevronDown size={15} /> : <ChevronRight size={15} />}</button>
+            <button className="fs-tree-system" aria-label={'打开系统：' + system.name} aria-pressed={selectedSystem?.id === system.id} onClick={() => navigate({ kind: 'system', id: system.id })}><Boxes size={15} /><strong>{system.name || '未命名系统'}</strong><small>{system.archived ? '归档' : capabilities.length}</small></button>
+          </div>
+          <div id={childrenId} hidden={!expanded}>{capabilities.map(c => <button key={c.id} className={'fs-tree-capability' + (selectedCap?.id === c.id ? ' selected' : '')} aria-label={'打开功能：' + c.name} aria-pressed={selectedCap?.id === c.id} onClick={() => navigate({ kind: 'capability', id: c.id })}><span>{c.name || '未命名功能'}</span><small className={c.status === '已完成' ? 'complete' : ''}>{c.archived || system.archived ? '归档' : c.status}</small></button>)}</div>
+        </div>;
+      })}{orphanCapabilities.length > 0 && <div className="fs-tree-group fs-orphan-group" role="group" aria-label="所属系统已失效"><div className="fs-tree-system"><Boxes size={15} /><strong>所属系统已失效</strong><small>{orphanCapabilities.length}</small></div>{orphanCapabilities.map(c => <button key={c.id} className={'fs-tree-capability' + (selectedCap?.id === c.id ? ' selected' : '')} aria-label={'打开功能：' + c.name} aria-pressed={selectedCap?.id === c.id} onClick={() => navigate({ kind: 'capability', id: c.id })}><span>{c.name || '未命名功能'}</span><small>{c.archived ? '归档' : c.status}</small></button>)}</div>}</div>{!groups.length && !orphanCapabilities.length && <p className="gp-muted gp-list-empty">{store.systems.length ? '没有匹配的系统或功能。' : '先定义系统职责，再逐步拆分可复用的功能。'}</p>}
     </div>
     <div className="gp-detail fs-detail">
 
