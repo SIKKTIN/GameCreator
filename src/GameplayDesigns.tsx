@@ -1,9 +1,12 @@
 import type { SpatialView } from './spatial-layout';
-import { useRef, useState, type ReactNode, type FormEvent } from 'react';
-import { Archive, ArrowDown, ArrowRight, ArrowUp, CheckCircle2, Copy, FileText, FlaskConical, Gamepad2, Link2, Plus, RotateCcw, Search, Trash2, X } from 'lucide-react';
+import { useEffect, useRef, useState, type ReactNode, type FormEvent } from 'react';
+import { Archive, ArrowDown, ArrowRight, ArrowUp, CheckCircle2, Copy, FileText, FlaskConical, Folder, Settings2, ChevronRight, Gamepad2, Link2, Plus, RotateCcw, Search, Trash2, X } from 'lucide-react';
 import { createGameplay, duplicateGameplay, gameplayLinkName, gameplayResults, gameplayStatuses, moveGameplayItem, type GameplayDesign, type GameplayLink, type GameplaySources, type GameplayStatus } from './gameplay';
 import type { GameplayController } from './useGameplayDesigns';
 import './gameplay.css';
+import './gameplay-library.css';
+import { categoryOf, categoryName, gameplayMatches, moveGameplayDocuments } from './gameplay-library';
+import { CategoryIcon, GameplayCategoryManager, GameplayTags } from './GameplayCategories';
 import { GameplayDependencies, GameplayRules, GameplayStateFlow } from './GameplayStructure';
 import { GameplaySpace, GameplayTime } from './GameplayStage';
 type EditorTab = 'design' | 'relations' | 'rules' | 'flow' | 'space' | 'time';
@@ -12,61 +15,58 @@ type ImplementationProps = { initialSpatialView?: SpatialView; objectReferences?
 const sourceTab = (kind?: string): EditorTab => kind === 'rule' ? 'rules' : kind === 'state' ? 'flow' : kind === 'event' ? 'time' : kind === 'object' ? 'space' : 'design';
 type Props = ImplementationProps & { selectedId: string; onSelect: (id: string) => void; controller: GameplayController; sources: GameplaySources; onOpenLink: (link: GameplayLink) => void };
 export function GameplayDesigns({ controller, selectedId, onSelect: setSelectedId, sources, onOpenLink, renderImplementation, initialSource, objectReferences }: Props) {
-  const { store, blocked, update } = controller;
+  const { store, blocked, update } = controller, categories = store.categories || [];
+  const selected = store.designs.find(d => d.id === selectedId);
+  const [categoryId, setCategoryId] = useState<string | null>(() => selected ? categoryOf(selected, categories) : null);
   const [spatialNavigation, setSpatialNavigation] = useState<{ id: string; view?: SpatialView }>();
   const [editorTab, setEditorTab] = useState<EditorTab>(sourceTab(initialSource?.kind));
-  const [query, setQuery] = useState('');
-  const [status, setStatus] = useState('all');
-  const [archived, setArchived] = useState(!!store.designs.find(d => d.id === selectedId)?.archived);
-  const [title, setTitle] = useState('');
-  const [formError, setFormError] = useState('');
-  const dialog = useRef<HTMLDialogElement>(null);
-  const nameInput = useRef<HTMLInputElement>(null);
-  const newButton = useRef<HTMLButtonElement>(null);
-  const filter = query.trim().toLowerCase();
-  const visible = store.designs.filter(d => d.archived === archived && (status === 'all' || d.status === status) && (d.title + ' ' + d.summary).toLowerCase().includes(filter));
-  const selected = visible.find(d => d.id === selectedId) ?? visible[0];
-  const activeCount = store.designs.filter(d => !d.archived).length;
-  const addDesign = (design: GameplayDesign) => {
-    update(current => ({ ...current, designs: [...current.designs, design] }));
-    setArchived(false); setStatus('all'); setQuery(''); setSelectedId(design.id); setEditorTab('design');
+  const [query, setQuery] = useState(''), [scope, setScope] = useState('category'), [status, setStatus] = useState('all'), [archived, setArchived] = useState(!!selected?.archived);
+  const [title, setTitle] = useState(''), [formError, setFormError] = useState(''), [managerOpen, setManagerOpen] = useState(false), [chosen, setChosen] = useState<string[]>([]), [moveTarget, setMoveTarget] = useState('');
+  const dialog = useRef<HTMLDialogElement>(null), nameInput = useRef<HTMLInputElement>(null), newButton = useRef<HTMLButtonElement>(null), manageButton = useRef<HTMLButtonElement>(null);
+  const currentCategory = categoryId === null ? null : categories.find(c => c.id === categoryId);
+  const effectiveCategoryId = currentCategory?.id || '';
+  const globalSearch = categoryId === null || (scope === 'all' && !!query.trim());
+  const filtered = store.designs.filter(d => d.archived === archived && (status === 'all' || d.status === status) && gameplayMatches(d, query));
+  const visible = filtered.filter(d => globalSearch || categoryOf(d, categories) === effectiveCategoryId);
+  const overview = categoryId === null && !query.trim() && status === 'all' && !archived;
+  const showEditor = !!selected && !globalSearch;
+  const openDocument = (id: string, view?: SpatialView) => {
+    const next = store.designs.find(d => d.id === id); if (!next) return;
+    setSpatialNavigation(view ? { id, view } : undefined); setCategoryId(categoryOf(next, categories)); setArchived(next.archived); setStatus('all'); setQuery(''); setScope('category'); setChosen([]); setSelectedId(id); if (view) setEditorTab('space');
   };
-  const create = (event: FormEvent) => {
-    event.preventDefault();
-    if (blocked) return;
-    if (!title.trim()) { setFormError('请输入玩法名称'); return; }
-    addDesign(createGameplay(title)); dialog.current?.close();
-  };
-  const patch = (id: string, changes: Partial<GameplayDesign>) => update(current => ({ ...current,
-    designs: current.designs.map(d => d.id === id ? { ...d, ...changes, updatedAt: new Date().toISOString() } : d) }));
-  return <section className="gp-workspace" aria-label="玩法设计工作区">
-    <div className="gp-library">
-      <div className="gp-library-heading"><div><span className="gp-kicker">GAMEPLAY LIBRARY</span><h2>玩法库 <small>{activeCount}</small></h2></div>
-        <button className="gp-icon" ref={newButton} aria-label="新建玩法" disabled={blocked} onClick={() => { setTitle(''); setFormError(''); dialog.current?.showModal(); nameInput.current?.focus(); }}><Plus size={18} /></button></div>
-      <label className="gp-search"><Search size={16} /><input type="search" aria-label="搜索玩法" value={query} onChange={e => setQuery(e.target.value)} placeholder="搜索名称或说明…" /></label>
-      <div className="gp-filters"><label>设计状态<select aria-label="玩法状态筛选" value={status} onChange={e => setStatus(e.target.value)}><option value="all">全部状态</option>{gameplayStatuses.map(s => <option key={s}>{s}</option>)}</select></label>
-        <label>显示范围<select aria-label="玩法范围" value={archived ? 'archived' : 'active'} onChange={e => setArchived(e.target.value === 'archived')}><option value="active">有效玩法</option><option value="archived">已归档（{store.designs.length - activeCount}）</option></select></label></div>
-      <div className="gp-list">{visible.map(d => <button key={d.id} className={'gp-list-card' + (selected?.id === d.id ? ' selected' : '')} aria-label={'打开玩法：' + (d.title || '未命名玩法')} aria-pressed={selected?.id === d.id} onClick={() => { setSpatialNavigation(undefined); setSelectedId(d.id); }}>
-        <span className={'gp-badge' + (d.status === '已验证' ? ' verified' : '')}>{d.status}</span><strong>{d.title || '未命名玩法'}</strong><p>{d.summary || '补充一句话，描述玩家在这里做什么。'}</p>
-        <small>{d.prototype.filter(i => i.done).length}/{d.prototype.length} 项制作完成 · {d.checks.filter(c => c.result === '通过').length}/{d.checks.length} 项验证通过</small></button>)}</div>
-      {!visible.length && <p className="gp-muted gp-list-empty">{store.designs.length ? '当前筛选下没有玩法' : '从一个想法开始，逐步补充规则和验证方式。'}</p>}
-    </div>
-    <div className="gp-detail">
-      {blocked ? <div className="gp-empty" role="status"><FileText size={34} /><h2>玩法存档暂时无法读取</h2><p>请恢复存档后重新打开项目，现有内容未被覆盖。</p></div>
-        : selected ? <GameplayEditor initialSpatialView={spatialNavigation?.id === selected.id ? spatialNavigation.view : undefined} objectReferences={objectReferences} renderImplementation={renderImplementation} initialSource={initialSource} key={selected.id} design={selected} designs={store.designs} tab={editorTab} onTab={setEditorTab} onNavigate={(id, view) => { setSpatialNavigation({ id, view }); const next = store.designs.find(d => d.id === id); if (next) { setQuery(''); setStatus('all'); setArchived(next.archived); setSelectedId(id); } }} sources={sources} onChange={changes => patch(selected.id, changes)}
-          onCopy={() => addDesign(duplicateGameplay(selected))} onArchive={() => { patch(selected.id, { archived: !selected.archived }); setArchived(!selected.archived); setSelectedId(selected.id); }} onOpenLink={onOpenLink} />
-          : <div className="gp-empty"><Gamepad2 size={36} /><span className="gp-kicker">从想法到第一次试玩</span><h2>{store.designs.length ? '选择或新建一个玩法' : '设计你的第一个玩法'}</h2><p>写下玩家的目标、行动与反馈，再确定这次原型要验证什么。无需连接引擎。</p>
-            <div className="gp-empty-flow"><span>体验目标</span><ArrowRight size={15} /><span>玩法规则</span><ArrowRight size={15} /><span>试玩验证</span></div>
-            <button className="primary" onClick={() => newButton.current?.click()}><Plus size={16} />创建第一个玩法</button></div>}
-    </div>
-    <dialog className="gp-dialog" ref={dialog} aria-labelledby="gp-new-title" onClose={() => newButton.current?.focus()}>
-      <form onSubmit={create}><div className="gp-card-heading"><div><span className="gp-kicker">NEW GAMEPLAY</span><h2 id="gp-new-title">新建玩法</h2></div><button type="button" className="gp-icon" aria-label="关闭新建玩法" onClick={() => dialog.current?.close()}><X size={19} /></button></div>
-        <p className="gp-muted">先给玩法起个名字，其他内容可以边做原型边补充。</p><label className="gp-field">玩法名称<input ref={nameInput} required value={title} onChange={e => { setTitle(e.target.value); setFormError(''); }} placeholder="例如：抵挡一波敌人" /></label>
-        {formError && <p className="field-error" role="alert">{formError}</p>}<div className="gp-dialog-actions"><button type="button" className="gp-secondary" onClick={() => dialog.current?.close()}>取消</button><button className="primary" type="submit">创建玩法</button></div>
-      </form>
-    </dialog>
+  useEffect(() => {
+    if (!selected) return;
+    setCategoryId(categoryOf(selected, categories)); setArchived(selected.archived); setQuery(''); setStatus('all'); setChosen([]);
+    if (initialSource) setEditorTab(sourceTab(initialSource.kind));
+  }, [selectedId, initialSource, selected?.categoryId]);
+  const goHome = () => { setCategoryId(null); setSelectedId(''); setQuery(''); setStatus('all'); setArchived(false); setChosen([]); };
+  const openCategory = (id: string) => { setCategoryId(id); setSelectedId(''); setQuery(''); setStatus('all'); setScope('category'); setChosen([]); };
+  const addDesign = (design: GameplayDesign) => { update(current => ({ ...current, designs: [...current.designs, design] })); setCategoryId(categoryOf(design, categories)); setArchived(false); setStatus('all'); setQuery(''); setSelectedId(design.id); setEditorTab('design'); };
+  const create = (event: FormEvent) => { event.preventDefault(); if (blocked) return; try { addDesign({ ...createGameplay(title), categoryId: categoryId === null ? '' : effectiveCategoryId }); dialog.current?.close(); } catch (e) { setFormError(String(e)); } };
+  const patch = (id: string, changes: Partial<GameplayDesign>) => update(current => ({ ...current, designs: current.designs.map(d => d.id === id ? { ...d, ...changes, updatedAt: new Date().toISOString() } : d) }));
+  const openManager = () => { setManagerOpen(true); setFormError(''); };
+  const move = (ids: string[], target: string) => { try { update(s => moveGameplayDocuments(s, ids, target)); setChosen([]); setFormError(''); } catch (e) { setFormError(String(e)); } };
+  const card = (id: string, name: string, description: string, icon: typeof categories[number]['icon'] = 'folder') => <button key={id} className="gl-category-card" aria-label={'进入分类：' + name} onClick={() => openCategory(id)}><span className="gl-category-top"><span className="gl-category-icon"><CategoryIcon icon={icon} /></span><small>{store.designs.filter(d => !d.archived && categoryOf(d, categories) === id).length} 篇文档</small></span><strong>{name}</strong><p>{description || '按主题整理详细玩法，集中查看相关文档。'}</p><span className="gl-category-enter">查看文档 <ArrowRight size={16} /></span></button>;
+  return <section className="gp-workspace gl-workspace" aria-label="玩法设计工作区">
+    <div className="gl-heading"><nav className="gl-breadcrumb" aria-label="玩法文档路径"><button onClick={goHome}><Folder size={16} />分类总览</button>{categoryId !== null && <><ChevronRight size={14} /><button onClick={() => openCategory(effectiveCategoryId)}>{currentCategory?.name || '未分类'}</button></>}{showEditor && <><ChevronRight size={14} /><span>{selected.title || '未命名玩法'}</span></>}</nav><div className="gp-actions"><button className="gp-secondary" ref={manageButton} disabled={blocked} onClick={openManager}><Settings2 size={15} />管理分类</button><button className="primary" ref={newButton} aria-label="新建玩法" disabled={blocked} onClick={() => { setTitle(''); setFormError(''); dialog.current?.showModal(); nameInput.current?.focus(); }}><Plus size={16} />新建文档</button></div></div>
+    <div className="gl-toolbar"><label className="gp-search"><Search size={16} /><input type="search" aria-label="搜索玩法" value={query} onChange={e => { setQuery(e.target.value); setChosen([]); }} placeholder={categoryId === null || scope === 'all' ? '搜索全部文档、正文或标签…' : '搜索当前分类的文档…'} /></label>{categoryId !== null && <label>搜索范围<select aria-label="文档搜索范围" value={scope} onChange={e => setScope(e.target.value)}><option value="category">当前分类</option><option value="all">全部分类</option></select></label>}<label>设计状态<select aria-label="玩法状态筛选" value={status} onChange={e => { setStatus(e.target.value); setChosen([]); }}><option value="all">全部状态</option>{gameplayStatuses.map(s => <option key={s}>{s}</option>)}</select></label><label>显示范围<select aria-label="玩法范围" value={archived ? 'archived' : 'active'} onChange={e => { setArchived(e.target.value === 'archived'); setChosen([]); }}><option value="active">有效文档</option><option value="archived">已归档</option></select></label></div>
+    {formError && !dialog.current?.open && <p className="gl-notice" role="alert">{formError}</p>}
+    {blocked ? <div className="gp-empty" role="status"><FileText size={34} /><h2>玩法存档暂时无法读取</h2><p>请恢复存档后重新打开项目，现有内容未被覆盖。</p></div> : overview ? <>
+      <div className="gl-intro"><div><span className="gp-kicker">GAMEPLAY LIBRARY</span><h2>按主题组织你的玩法设计</h2><p>从一个分类进入，找到体验目标、详细规则与设计文档。</p></div><span>{categories.length} 个分类 · {store.designs.filter(d => !d.archived).length} 篇文档</span></div>
+      {(categories.length || store.designs.length) ? <div className="gl-category-grid">{categories.map(c => card(c.id, c.name, c.description, c.icon))}{store.designs.some(d => !categoryOf(d, categories)) && card('', '未分类', '尚未归类的文档保留在这里，可以随时移入合适的分类。')}<button className="gl-add-category" onClick={openManager}><Plus size={25} /><strong>新建分类</strong><span>按照项目需要，自由划分设计主题</span></button></div> : <div className="gl-welcome"><span className="gl-category-icon"><FileText size={28} /></span><h2>设计你的第一个玩法</h2><p>先创建分类组织内容，也可以直接写下第一份设计文档。</p><div className="gp-actions"><button className="primary" onClick={openManager}><Plus size={16} />新建分类</button><button className="gp-secondary" onClick={() => newButton.current?.click()}>创建第一个玩法</button></div></div>}
+    </> : <>
+      {!showEditor && <div className="gl-section-heading"><div><h2>{globalSearch ? '全部文档' : currentCategory?.name || '未分类'}</h2><p>{globalSearch ? '搜索结果包含所属分类，可直接进入文档。' : currentCategory?.description || '在这里查看、创建和整理当前分类的文档。'}</p></div><span>{visible.length} 篇文档</span></div>}
+      {showEditor ? <div className="gl-editor-layout"><div className="gp-library gl-document-nav"><div className="gp-library-heading"><h3>{currentCategory?.name || '未分类'}</h3><small>{visible.length}</small></div><div className="gp-list">{visible.map(d => <button key={d.id} className={'gp-list-card gl-document-link' + (selected.id === d.id ? ' selected' : '')} aria-label={'打开玩法：' + (d.title || '未命名玩法')} aria-pressed={selected.id === d.id} onClick={() => openDocument(d.id)}><strong>{d.title || '未命名玩法'}</strong><span>{d.status}</span></button>)}</div>{!visible.length && <p className="gp-muted">当前筛选下没有文档。</p>}<button className="gp-secondary" onClick={() => openCategory(effectiveCategoryId)}>查看分类全部文档</button></div><div className="gp-detail"><div className="gl-document-meta"><label>所属分类<select aria-label="文档所属分类" value={categoryOf(selected, categories)} onChange={e => move([selected.id], e.target.value)}><option value="">未分类</option>{categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label><GameplayTags key={selected.id} tags={selected.tags || []} disabled={selected.archived} onChange={tags => patch(selected.id, { tags })} /></div><GameplayEditor initialSpatialView={spatialNavigation?.id === selected.id ? spatialNavigation.view : undefined} objectReferences={objectReferences} renderImplementation={renderImplementation} initialSource={initialSource} key={selected.id} design={selected} designs={store.designs} tab={editorTab} onTab={setEditorTab} onNavigate={openDocument} sources={sources} onChange={changes => patch(selected.id, changes)} onCopy={() => addDesign(duplicateGameplay(selected))} onArchive={() => { patch(selected.id, { archived: !selected.archived }); setArchived(!selected.archived); }} onOpenLink={onOpenLink} /></div></div> : <>
+        {!!visible.length && <div className="gl-bulk-bar"><label><input type="checkbox" aria-label="选择当前结果全部文档" checked={visible.length > 0 && visible.every(d => chosen.includes(d.id))} onChange={e => setChosen(e.target.checked ? visible.map(d => d.id) : [])} />选择文档</label>{chosen.length > 0 && <><span>已选 {chosen.length} 篇</span><select aria-label="批量移动目标分类" value={moveTarget} onChange={e => setMoveTarget(e.target.value)}><option value="">未分类</option>{categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select><button className="gp-secondary" onClick={() => move(chosen, moveTarget)}>移动所选文档</button></>}</div>}
+        <div className="gl-document-grid">{visible.map(d => <article key={d.id} className="gl-document-card"><label className="gl-doc-check"><input type="checkbox" aria-label={'选择文档：' + d.title} checked={chosen.includes(d.id)} onChange={e => setChosen(ids => e.target.checked ? [...ids, d.id] : ids.filter(id => id !== d.id))} /></label><button className="gp-list-card" aria-label={'打开玩法：' + (d.title || '未命名玩法')} onClick={() => { openDocument(d.id); setEditorTab('design'); }}><span className="gl-document-path">{categoryName(d, categories)}</span><strong>{d.title || '未命名玩法'}</strong><p>{d.summary || '设计说明待补充'}</p><span className="gl-doc-bottom"><small className="gp-badge">{d.status}{d.archived ? ' · 已归档' : ''}</small>{d.tags?.length ? <small>{d.tags.join(' · ')}</small> : <FileText size={16} />}</span></button></article>)}</div>
+        {!visible.length && <div className="gl-no-documents"><FileText size={30} /><h3>{query || status !== 'all' || archived ? '没有匹配的文档' : '这个分类还没有文档'}</h3><p>{query || status !== 'all' || archived ? '可以调整关键词或筛选条件。' : '新建一份文档，或把“未分类”中的文档移动到这里。'}</p><button className="gp-secondary" onClick={() => newButton.current?.click()}><Plus size={15} />新建文档</button></div>}
+      </>}
+    </>}
+    <dialog className="gp-dialog" ref={dialog} aria-labelledby="gp-new-title" onClose={() => newButton.current?.focus()}><form onSubmit={create}><div className="gp-card-heading"><div><span className="gp-kicker">NEW GAMEPLAY</span><h2 id="gp-new-title">新建玩法</h2></div><button type="button" className="gp-icon" aria-label="关闭新建玩法" onClick={() => dialog.current?.close()}><X size={19} /></button></div><p className="gp-muted">{categoryId === null ? '新文档会保存在“未分类”，之后可随时移动。' : '新文档将保存在当前分类。'}</p><label className="gp-field">玩法名称<input ref={nameInput} required value={title} onChange={e => { setTitle(e.target.value); setFormError(''); }} placeholder="例如：角色冲刺与空中控制" /></label>{formError && <p className="field-error" role="alert">{formError}</p>}<div className="gp-dialog-actions"><button type="button" className="gp-secondary" onClick={() => dialog.current?.close()}>取消</button><button className="primary" type="submit" disabled={blocked}>创建玩法</button></div></form></dialog>
+    {managerOpen && <GameplayCategoryManager controller={controller} onClose={() => { setManagerOpen(false); manageButton.current?.focus(); }} />}
   </section>;
 }
+
 function GameplayEditor({ design: d, designs, tab, onTab, onNavigate, sources, onChange, onCopy, onArchive, onOpenLink, renderImplementation, initialSource, objectReferences, initialSpatialView }: ImplementationProps & {
   design: GameplayDesign; designs: GameplayDesign[]; tab: EditorTab; onTab: (tab: EditorTab) => void; onNavigate: (id: string, view?: SpatialView) => void; sources: GameplaySources; onChange: (changes: Partial<GameplayDesign>) => void; onCopy: () => void; onArchive: () => void; onOpenLink: (link: GameplayLink) => void;
 }) {

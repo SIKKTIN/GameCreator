@@ -297,6 +297,28 @@ function validateStoryArchive(value) {
     return value;
 }
 
+const gameplayCategoryIcons = { folder: '文件夹', character: '角色', map: '地图', combat: '战斗', exploration: '探索', growth: '成长', rules: '规则', book: '文档' };
+function validateGameplayLibraryArchive(value) {
+    const record = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
+    const fail = () => { throw new Error('玩法分类存档格式异常，已停止写入'); };
+    if (!record(value) || !Array.isArray(value.designs))
+        return fail();
+    if (value.categories !== undefined) {
+        if (!Array.isArray(value.categories))
+            return fail();
+        const ids = new Set(), names = new Set();
+        for (const c of value.categories) {
+            if (!record(c) || typeof c.id !== 'string' || !c.id.trim() || ids.has(c.id) || typeof c.name !== 'string' || !c.name.trim() || names.has(c.name.trim().toLocaleLowerCase()) || typeof c.description !== 'string' || typeof c.icon !== 'string' || !Object.prototype.hasOwnProperty.call(gameplayCategoryIcons, c.icon))
+                return fail();
+            ids.add(c.id);
+            names.add(c.name.trim().toLocaleLowerCase());
+        }
+    }
+    for (const d of value.designs)
+        if (!record(d) || (d.categoryId !== undefined && typeof d.categoryId !== 'string') || (d.tags !== undefined && (!Array.isArray(d.tags) || d.tags.some(t => typeof t !== 'string' || !t.trim()) || new Set(d.tags).size !== d.tags.length)))
+            return fail();
+}
+
 function validateDocument(value) {
   if (!record(value) || value.schema !== 1 || !record(value.project) || typeof value.project.name !== 'string' || !value.project.name.trim() || value.project.name.length > 100 || !record(value.project.config) || !record(value.archives) || SECTIONS.some(section => !Object.hasOwn(value.archives, section)) || Object.keys(value.archives).some(section => ![...SECTIONS, ...OPTIONAL_SECTIONS].includes(section))) throw new Error('项目文件夹数据格式无效');
   if (value.project.defaultTablesVersion !== undefined && value.project.defaultTablesVersion !== 1) throw new Error('不支持的配置表默认值版本');
@@ -305,6 +327,7 @@ function validateDocument(value) {
   if (Object.hasOwn(value.archives, 'task-flows')) validateTaskArchive(value.archives['task-flows']);
   if (Object.hasOwn(value.archives, 'map-design')) validateMapArchive(value.archives['map-design']);
   if (Object.hasOwn(value.archives, 'story-orchestration')) validateStoryArchive(value.archives['story-orchestration']);
+  validateGameplayLibraryArchive(value.archives.gameplay);
   const art = value.archives['art-assets'];
   if (!record(art) || !Array.isArray(art.assets)) throw new Error('美术资产存档格式无效');
   return value;

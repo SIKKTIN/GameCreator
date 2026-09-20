@@ -402,7 +402,7 @@ function WorkspaceApp({ role, username, testSession, onLoadTest, onExitTest, pre
 
   const exportAiContext = async () => {
     if (testSession || gameplay.blocked || gameplay.pending || functional.blocked || functional.pending || art.blocked || art.pending || core.blocked || prototype.blocked || tasks.blocked || narrative.blocked || maps.blocked || core.pending || prototype.pending || tasks.pending || narrative.pending || maps.pending) return;
-    const markdown = buildAiMarkdown(project, storyDocs, currentData, definitions, engineConfig, registry, gameplay.store.designs, functional.store, art.store, core.store, prototype.store, tasks.store, narrative.store, maps.store);
+    const markdown = buildAiMarkdown(project, storyDocs, currentData, definitions, engineConfig, registry, gameplay.store.designs, functional.store, art.store, core.store, prototype.store, tasks.store, narrative.store, maps.store, gameplay.store.categories || []);
     const location = await saveAiMarkdown(markdown, formalProject.id);
 
     window.alert(`AI 文档已生成：${location}`);
