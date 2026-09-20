@@ -1,3 +1,4 @@
+import { emptyPrototypeDesign, validatePrototypeDesign, prototypeIssues, type PrototypeDesignStore } from './prototype-design.ts';
 import { addSavedProject, validateCatalog, type ProjectCatalog, type SavedProject } from './project-catalog.ts';
 import { emptyGameplayCore, validateGameplayCore, coreIssues, type GameplayCoreStore } from './gameplay-core.ts';
 import { validateGameplay, type GameplayStore } from './gameplay.ts';
@@ -10,7 +11,7 @@ import type { ColumnDef, DatasetDef, ProjectData } from './data-model.ts';
 import type { StoryDoc } from './story-model.ts';
 
 export type PrototypeExample = {
-  schema: 1; name: string; description: string; gameplay: GameplayStore; gameplayCore?: GameplayCoreStore;
+  schema: 1; name: string; description: string; gameplay: GameplayStore; gameplayCore?: GameplayCoreStore; prototypeDesign?: PrototypeDesignStore;
   functionalSystems: FunctionalStore; artAssets: ArtStore; data: ProjectData;
   definitions: DatasetDef[]; stories: StoryDoc[];
 };
@@ -19,7 +20,7 @@ export type PreparedPrototypeProject = {
   entries: { key: string; value: string }[];
 };
 type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
-const sections = ['gameplay', 'gameplay-core', 'functional-systems', 'art-assets', 'definitions', 'stories', 'project', 'milestones'] as const;
+const sections = ['gameplay', 'gameplay-core', 'prototype-design', 'functional-systems', 'art-assets', 'definitions', 'stories', 'project', 'milestones'] as const;
 const workspaceKey = (id: string, section: string) => 'gamecreator.workspace.v1:' + id + ':' + section;
 const enumKey = (id: string) => 'gamecreator.enum-versions.v1:' + id;
 const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
@@ -52,7 +53,7 @@ function validateColumns(items: unknown, label: string): asserts items is Column
 export function validatePrototypeExample(value: unknown): PrototypeExample {
   requireValid(record(value), '内容必须是对象');
   const fields = ['schema', 'name', 'description', 'gameplay', 'functionalSystems', 'artAssets', 'data', 'definitions', 'stories'];
-  requireValid(fields.every(field => Object.prototype.hasOwnProperty.call(value, field)) && Object.keys(value).every(field => [...fields, 'gameplayCore'].includes(field)), '包含缺失字段或非便携配置');
+  requireValid(fields.every(field => Object.prototype.hasOwnProperty.call(value, field)) && Object.keys(value).every(field => [...fields, 'gameplayCore', 'prototypeDesign'].includes(field)), '包含缺失字段或非便携配置');
   requireValid(value.schema === 1 && nonempty(value.name) && nonempty(value.description), '版本或名称无效');
   requireValid(record(value.gameplay) && value.gameplay.schema === 3, '玩法版本无效');
   const gameplay = validateGameplay(value.gameplay);
@@ -63,6 +64,10 @@ export function validatePrototypeExample(value: unknown): PrototypeExample {
   const functional = validateFunctionalSystems(value.functionalSystems);
   const art = validateArtAssets(value.artAssets);
   validateArtMutation(emptyArtAssets(), art);
+  if (Object.prototype.hasOwnProperty.call(value, 'prototypeDesign')) {
+    const prototype = validatePrototypeDesign(value.prototypeDesign);
+    requireValid(prototypeIssues(prototype, gameplay.designs, value.gameplayCore ? validateGameplayCore(value.gameplayCore) : emptyGameplayCore(), art).length === 0, '原型设计含有失效引用');
+  }
 
   unique(value.stories, 'id', '故事文档');
   for (const story of value.stories) {
@@ -125,7 +130,7 @@ export function preparePrototypeProject(catalog: ProjectCatalog, value: unknown,
   const next = addSavedProject(catalog, name);
   const project = next.projects.find(item => item.id === next.activeId)!;
   const archives = {
-    gameplay: example.gameplay, 'gameplay-core': example.gameplayCore ?? emptyGameplayCore(), 'functional-systems': example.functionalSystems, 'art-assets': example.artAssets,
+    gameplay: example.gameplay, 'gameplay-core': example.gameplayCore ?? emptyGameplayCore(), 'prototype-design': example.prototypeDesign ?? emptyPrototypeDesign(), 'functional-systems': example.functionalSystems, 'art-assets': example.artAssets,
     definitions: example.definitions, stories: example.stories,
     project: { name: project.name, description: example.description, genre: '未指定', platform: '未指定', version: 'v0.1.0', status: '原型设计' },
     milestones: [],

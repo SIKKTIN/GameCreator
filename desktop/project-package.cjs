@@ -7,7 +7,7 @@ const { workspaceHash } = require('./art-files.cjs');
 
 const CATALOG_KEY = 'gamecreator.projects.v1';
 const SECTIONS = ['gameplay', 'functional-systems', 'art-assets', 'definitions', 'stories', 'project', 'milestones', 'enum-versions'];
-const OPTIONAL_SECTIONS = ['data-view', 'gameplay-core'];
+const OPTIONAL_SECTIONS = ['data-view', 'gameplay-core', 'prototype-design'];
 const FILE_TOKEN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.[a-z0-9]{1,12}$/;
 const NEW_PROJECT = /^project-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_METADATA_BYTES = 20 * 1024 * 1024;
@@ -143,10 +143,28 @@ function validateCoreArchive(value) {
   if (visited.size !== graphs.size) invalid();
 }
 
+function validatePrototypeArchive(value) {
+  const fail = () => { throw new Error('原型设计存档格式无效'); };
+  const strings = (v, keys) => keys.every(k => typeof v[k] === 'string');
+  const number = (v, min, max) => typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max;
+  const color = v => typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v);
+  if (!record(value) || value.schema !== 1 || typeof value.entryId !== 'string' || !Array.isArray(value.scenes) || value.scenes.length > 100) fail();
+  const ids = new Set(), unique = v => { if (typeof v.id !== 'string' || !v.id.trim() || ids.has(v.id)) fail(); ids.add(v.id); };
+  for (const s of value.scenes) {
+    if (!record(s) || !strings(s, ['name', 'description', 'sourceDesignId', 'roomId', 'coreNodeId']) || !number(s.width, 320, 3840) || !number(s.height, 240, 2160) || !color(s.background) || !['grid', 'free'].includes(s.view) || !Array.isArray(s.elements) || s.elements.length > 300) fail();
+    unique(s);
+    for (const e of s.elements) {
+      if (!record(e) || !strings(e, ['name', 'text', 'sourceObjectId', 'assetId', 'versionId', 'fileId']) || !['text', 'button', 'shape', 'image', 'hotspot'].includes(e.kind) || !number(e.x, -10000, 10000) || !number(e.y, -10000, 10000) || !number(e.width, 1, 10000) || !number(e.height, 1, 10000) || !number(e.fontSize, 8, 150) || !color(e.color) || typeof e.visible !== 'boolean' || !record(e.action) || !['none', 'scene', 'show', 'hide', 'toggle', 'restart'].includes(e.action.kind) || !strings(e.action, ['targetId', 'condition'])) fail();
+      unique(e);
+    }
+  }
+}
+
 function validateDocument(value) {
   if (!record(value) || value.schema !== 1 || !record(value.project) || typeof value.project.name !== 'string' || !value.project.name.trim() || value.project.name.length > 100 || !record(value.project.config) || !record(value.archives) || SECTIONS.some(section => !Object.hasOwn(value.archives, section)) || Object.keys(value.archives).some(section => ![...SECTIONS, ...OPTIONAL_SECTIONS].includes(section))) throw new Error('项目文件夹数据格式无效');
   if (value.project.defaultTablesVersion !== undefined && value.project.defaultTablesVersion !== 1) throw new Error('不支持的配置表默认值版本');
   if (Object.hasOwn(value.archives, 'gameplay-core')) validateCoreArchive(value.archives['gameplay-core']);
+  if (Object.hasOwn(value.archives, 'prototype-design')) validatePrototypeArchive(value.archives['prototype-design']);
   const art = value.archives['art-assets'];
   if (!record(art) || !Array.isArray(art.assets)) throw new Error('美术资产存档格式无效');
   return value;
@@ -216,7 +234,7 @@ function createProjectPackages({dataDirectory, storage}) {
   };
   function checkSnapshot(projectId, document, expectedEntries) {
     sourceProject(projectId);
-    const required = new Set([CATALOG_KEY, ...SECTIONS.map(section => archiveKey(projectId, section)), ...OPTIONAL_SECTIONS.map(section => archiveKey(projectId, section))]);
+    const required = new Set([CATALOG_KEY, ...SECTIONS.map(section => archiveKey(projectId, section)), ...OPTIONAL_SECTIONS.filter(section => section !== 'prototype-design' || Object.hasOwn(document.archives, section)).map(section => archiveKey(projectId, section))]);
     if (document.project.defaultTablesVersion === 1) required.add(archiveKey(projectId, 'default-table-migration'));
     if (!Array.isArray(expectedEntries) || expectedEntries.length !== required.size) throw new Error('项目导出快照不完整');
     for (const entry of expectedEntries) {
