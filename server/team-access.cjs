@@ -13,12 +13,14 @@ function createAccessStore(db, { fail, textField }) {
   } catch (error) { db.exec('ROLLBACK'); throw error; }
   if (!db.prepare('PRAGMA table_info(member_permissions)').all().some(column => column.name === 'core')) db.exec("ALTER TABLE member_permissions ADD COLUMN core TEXT NOT NULL DEFAULT 'inherit'");
   if (!db.prepare('PRAGMA table_info(member_permissions)').all().some(column => column.name === 'gameplay')) db.exec("ALTER TABLE member_permissions ADD COLUMN gameplay TEXT NOT NULL DEFAULT 'inherit'");
-  const inherit = () => ({ overview: 'inherit', stories: 'inherit', core: 'inherit', gameplay: 'inherit' });
+  if (!db.prepare('PRAGMA table_info(member_permissions)').all().some(column => column.name === 'schedule')) db.exec("ALTER TABLE member_permissions ADD COLUMN schedule TEXT NOT NULL DEFAULT 'inherit'");
+  const inherit = () => ({ overview: 'inherit', stories: 'inherit', core: 'inherit', gameplay: 'inherit', schedule: 'inherit' });
   const permissions = (project, user) => {
-    const row = db.prepare('SELECT overview,stories,core,gameplay FROM member_permissions WHERE project_id=? AND user_id=?').get(project, user);
+    const row = db.prepare('SELECT overview,stories,core,gameplay,schedule FROM member_permissions WHERE project_id=? AND user_id=?').get(project, user);
     return row ? { ...row } : inherit();
   };
   const effective = (role, overrides = inherit()) => ({
+    schedule: role === 'admin' || (role === 'editor' && overrides.schedule === 'edit') ? 'edit' : 'view',
     overview: role === 'admin' || (role === 'editor' && overrides.overview === 'edit') ? 'edit' : 'view',
     stories: role === 'admin' || (role === 'editor' && overrides.stories !== 'view') ? 'edit' : 'view',
     gameplay: role === 'admin' || (role === 'editor' && overrides.gameplay !== 'view') ? 'edit' : 'view',
@@ -35,7 +37,7 @@ function createAccessStore(db, { fail, textField }) {
     const row = db.prepare('SELECT role FROM members WHERE project_id=? AND user_id=?').get(project, user);
     if (!row) fail(403, '你不是这个项目的成员');
     const capabilities = effective(row.role, permissions(project, user));
-    if (writeModule && capabilities[writeModule] !== 'edit') fail(403, `你只有${{overview:'项目概览',stories:'故事文档',core:'玩法核心',gameplay:'玩法设计'}[writeModule]}查看权限，请联系项目管理员授权。`);
+    if (writeModule && capabilities[writeModule] !== 'edit') fail(403, `你只有${{overview:'项目概览',stories:'故事文档',core:'玩法核心',gameplay:'玩法设计',schedule:'项目排期'}[writeModule]}查看权限，请联系项目管理员授权。`);
     return { ...row, capabilities };
   };
   const requireServerAdmin = user => { if (activeUser(user).server_role !== 'admin') fail(403, '此操作需要服务器管理员权限'); };
@@ -54,10 +56,12 @@ function createAccessStore(db, { fail, textField }) {
       seen.add(item.userId);
       // Older clients may edit roles but must not erase existing module restrictions.
       let overrides = item.permissions ?? (previous?.role === item.role ? permissions(project, item.userId) : inherit());
-      if (!overrides || typeof overrides !== 'object' || Array.isArray(overrides) || Object.keys(overrides).some(key => !['overview','stories','core','gameplay'].includes(key)) ||
+      if (!overrides || typeof overrides !== 'object' || Array.isArray(overrides) || Object.keys(overrides).some(key => !['overview','stories','core','gameplay','schedule'].includes(key)) ||
         ['overview','stories'].some(key => !['inherit','view','edit'].includes(overrides[key]))) fail(400, '模块权限配置无效');
       overrides = { ...overrides, core: overrides.core === undefined ? (previous?.role === item.role ? permissions(project,item.userId).core : 'inherit') : overrides.core };
       overrides.gameplay = overrides.gameplay === undefined ? (previous?.role === item.role ? permissions(project,item.userId).gameplay : 'inherit') : overrides.gameplay;
+      overrides.schedule = overrides.schedule === undefined ? (previous?.role === item.role ? permissions(project,item.userId).schedule : 'inherit') : overrides.schedule;
+      if (!['inherit','view','edit'].includes(overrides.schedule)) fail(400,'项目排期权限配置无效');
       if (!['inherit','view','edit'].includes(overrides.gameplay)) fail(400,'玩法设计权限配置无效');
       if (!['inherit','view','edit'].includes(overrides.core)) fail(400,'玩法核心权限配置无效');
       if (item.role === 'viewer' && Object.values(overrides).includes('edit')) fail(400, '只读成员不能获得编辑权限，请先调整成员角色');
@@ -72,7 +76,7 @@ function createAccessStore(db, { fail, textField }) {
     db.prepare('DELETE FROM members WHERE project_id=?').run(project);
     for (const member of members) {
       db.prepare('INSERT INTO members VALUES (?,?,?)').run(project, member.userId, member.role);
-      db.prepare('INSERT INTO member_permissions (project_id,user_id,overview,stories,core,gameplay) VALUES (?,?,?,?,?,?)').run(project, member.userId, member.permissions.overview, member.permissions.stories, member.permissions.core, member.permissions.gameplay);
+      db.prepare('INSERT INTO member_permissions (project_id,user_id,overview,stories,core,gameplay,schedule) VALUES (?,?,?,?,?,?,?)').run(project, member.userId, member.permissions.overview, member.permissions.stories, member.permissions.core, member.permissions.gameplay, member.permissions.schedule);
     }
   };
   const account = id => {

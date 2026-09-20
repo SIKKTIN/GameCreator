@@ -11,7 +11,7 @@ const until=async(check,message)=>{const end=Date.now()+20000;while(Date.now()<e
   const api=async(route,token,method='GET',body)=>{const response=await fetch(service.url+'/api/team'+route,{method,headers:{'Content-Type':'application/json',Authorization:'Bearer '+(token||'')},body:body===undefined?undefined:JSON.stringify(body)});assert.ok(response.ok,route+' '+response.status);return response.json();};
   const token=(await api('/login','','POST',{username:'admin',password:'admin123'})).token;
   assert.deepEqual((await api('/projects/team-demo/overview',token)).activity,[]);
-  await api('/projects/team-demo/members',token,'PUT',{revision:1,members:[{userId:'admin',role:'admin'},{userId:'viewer',role:'viewer'},...['alice','bob'].map(userId=>({userId,role:'editor',permissions:{overview:'edit',stories:'inherit'}}))]});
+  await api('/projects/team-demo/members',token,'PUT',{revision:1,members:[{userId:'admin',role:'admin'},{userId:'viewer',role:'viewer'},...['alice','bob'].map(userId=>({userId,role:'editor',permissions:{overview:'edit',stories:'inherit',schedule:'edit'}}))]});
   const launch=async profile=>{
     const env={...process.env,GAMECREATOR_DATA_DIR:path.join(directory,profile,'data'),GAMECREATOR_USER_DATA_DIR:path.join(directory,profile,'profile'),GAMECREATOR_TEAM_DATA_DIR:path.join(directory,'server'),GAMECREATOR_TEAM_PORT:new URL(service.url).port};
     delete env.ELECTRON_RUN_AS_NODE;delete env.GAMECREATOR_TEAM_ACCOUNT;
@@ -59,7 +59,7 @@ const until=async(check,message)=>{const end=Date.now()+20000;while(Date.now()<e
     await info(a.page).getByLabel('项目简介',{exact:true}).fill('离线草稿');await info(a.page).getByRole('button',{name:'保存基本信息到团队',exact:true}).click();
     await until(async()=>await info(a.page).getByRole('alert').count()>0,'Offline failure not shown');
     await nav(a.page,'故事文档');await a.page.getByLabel('文档正文',{exact:true}).fill('故事草稿同样保留');await nav(a.page,'项目概览');
-    assert.equal(await info(a.page).getByLabel('项目简介',{exact:true}).inputValue(),'离线草稿');await a.page.getByRole('button',{name:'服务器管理',exact:true}).click();
+    assert.equal(await info(a.page).getByLabel('项目简介',{exact:true}).inputValue(),'离线草稿');await a.page.getByRole('button',{name:'本机服务器',exact:true}).click();
     await a.page.getByRole('button',{name:'返回工作区',exact:true}).click();assert.equal(await info(a.page).getByLabel('项目简介',{exact:true}).inputValue(),'离线草稿');
     await a.page.getByRole('button',{name:'添加里程碑',exact:true}).click();await newMilestone(a.page).getByLabel('负责人',{exact:true}).fill('未命名草稿');
     await a.app.close();apps.delete(a.app);a=await launch('alice');await connect(a.page,'alice');

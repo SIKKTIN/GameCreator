@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { beforeLogoutEvent } from './auth';
 import { leaveTeamEvent, teamRequest, TeamError, type TeamSession } from './team-api';
 
-type Preview = {project:{id:string;name:string};deleted:boolean;deletedAt?:string;version?:string;counts?:{members:number;stories:number;history:number;overview:number;milestones:number;graphs:number;gameplays?:number;gameplayHistory?:number}};
+type Preview = {project:{id:string;name:string};deleted:boolean;deletedAt?:string;version?:string;counts?:{members:number;stories:number;history:number;overview:number;milestones:number;graphs:number;gameplays?:number;gameplayHistory?:number;scheduleTasks?:number;scheduleHistory?:number}};
 export function DeleteTeamProjectDialog({session,project,onClose,onDeleted}:{session:TeamSession;project:{id:string;name:string};onClose:()=>void;onDeleted:()=>void}) {
   const dialog=useRef<HTMLDialogElement>(null),alive=useRef(true),operating=useRef(false);
   const [preview,setPreview]=useState<Preview|null>(null),[confirmation,setConfirmation]=useState('');
@@ -36,7 +36,7 @@ export function DeleteTeamProjectDialog({session,project,onClose,onDeleted}:{ses
       <p>服务器：{session.url}</p><p>项目：<strong>{preview?.project.name??project.name}</strong></p><p className="delete-project-id">项目标识：<code>{project.id}</code></p>
       {loading?<p role="status">正在核对删除范围…</p>:preview?.deleted?<p role="status">此协作项目已删除，删除时间：{new Date(preview.deletedAt!).toLocaleString('zh-CN')}。</p>:counts&&<>
         <p className="team-message">将永久删除此项目的团队内容及成员配置，所有协作者将无法继续访问。此操作不能撤销。</p>
-        <ul><li>{counts.stories} 篇故事文档、{counts.history} 条文档历史</li><li>{counts.graphs} 个玩法核心流程</li>{counts.gameplays!==undefined&&<li>{counts.gameplays} 份玩法设计、{counts.gameplayHistory} 条玩法历史</li>}<li>{counts.overview} 份项目概览、{counts.milestones} 个里程碑</li><li>{counts.members} 位成员的项目配置及项目动态</li></ul>
+        <ul><li>{counts.stories} 篇故事文档、{counts.history} 条文档历史</li><li>{counts.graphs} 个玩法核心流程</li>{counts.gameplays!==undefined&&<li>{counts.gameplays} 份玩法设计、{counts.gameplayHistory} 条玩法历史</li>}{counts.scheduleTasks!==undefined&&<li>{counts.scheduleTasks} 个制作任务、{counts.scheduleHistory} 条排期历史</li>}<li>{counts.overview} 份项目概览、{counts.milestones} 个里程碑</li><li>{counts.members} 位成员的项目配置及项目动态</li></ul>
         <p>原本地项目、各客户端未提交草稿和个人布局保留；账号及其他协作项目不受影响。</p>
         <label>输入完整项目名称确认<input aria-label="删除确认项目名称" value={confirmation} disabled={busy||stale} autoComplete="off" onChange={event=>setConfirmation(event.target.value)}/></label>
       </>}

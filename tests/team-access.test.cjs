@@ -34,7 +34,7 @@ test('default overview is admin-only; module grants are per project, revocable, 
   }
   const original=(await request('/projects/team-demo/stories/world',bob)).data.story;
   assert.equal((await request('/projects/team-demo/stories/world',bob,'PUT',{...original,content:'默认故事可编辑'})).status,200);
-  const grant=[member('admin','admin'),member('bob','editor',{overview:'edit',stories:'view'}),member('alice','editor'),member('viewer','viewer')];
+  const grant=[member('admin','admin'),member('bob','editor',{overview:'edit',stories:'view',schedule:'edit'}),member('alice','editor'),member('viewer','viewer')];
   assert.equal((await members(admin,'team-demo',grant)).status,200);
   assert.equal((await request('/projects/team-demo/overview',bob,'PUT',{revision:0,fields:overview})).status,200);
   assert.equal((await request('/projects/team-demo/milestones/'+randomUUID(),bob,'PUT',{revision:0,fields:milestone})).status,200);
@@ -42,15 +42,15 @@ test('default overview is admin-only; module grants are per project, revocable, 
   assert.equal((await request('/projects/team-demo/stories',bob,'POST',original)).status,403);
   assert.equal((await request('/projects/team-demo/stories/import',bob,'POST',{})).status,403);
   const second=await request('/projects',admin,'POST',{name:'另一项目',requestId:randomUUID(),members:[member('admin','admin'),member('bob','editor')]});assert.equal(second.status,201);
-  assert.deepEqual((await request('/projects/'+second.data.project.id+'/overview',bob)).data.capabilities,{overview:'view',stories:'edit',core:'edit',gameplay:'edit'});
+  assert.deepEqual((await request('/projects/'+second.data.project.id+'/overview',bob)).data.capabilities,{overview:'view',stories:'edit',core:'edit',gameplay:'edit',schedule:'view'});
   assert.equal((await request('/projects/'+second.data.project.id+'/overview',bob,'PUT',{revision:0,fields:overview})).status,403);
   const invalid=await members(admin,'team-demo',[member('admin','admin'),member('viewer','viewer',{overview:'edit',stories:'inherit'})]);assert.equal(invalid.status,400);
   // Legacy role-only updates retain the explicitly assigned module restrictions.
   assert.equal((await members(admin,'team-demo',grant.map(({userId,role})=>({userId,role})))).status,200);
-  assert.deepEqual((await request('/projects/team-demo/stories',bob)).data.capabilities,{overview:'edit',stories:'view',core:'edit',gameplay:'edit'});
+  assert.deepEqual((await request('/projects/team-demo/stories',bob)).data.capabilities,{overview:'edit',stories:'view',core:'edit',gameplay:'edit',schedule:'edit'});
   const stale=(await request('/projects/team-demo/members',admin)).data;
   const competing=await Promise.all([request('/projects/team-demo/members',admin,'PUT',{revision:stale.revision,members:grant}),request('/projects/team-demo/members',admin,'PUT',{revision:stale.revision,members:grant})]);assert.deepEqual(competing.map(item=>item.status).sort(),[200,409]);
-  await restart();admin=await login('admin');const newBob=await login('bob');assert.deepEqual((await request('/projects/team-demo/overview',newBob)).data.capabilities,{overview:'edit',stories:'view',core:'edit',gameplay:'edit'});
+  await restart();admin=await login('admin');const newBob=await login('bob');assert.deepEqual((await request('/projects/team-demo/overview',newBob)).data.capabilities,{overview:'edit',stories:'view',core:'edit',gameplay:'edit',schedule:'edit'});
   assert.equal((await members(admin,'team-demo',grant.map(item=>item.userId==='bob'?{...item,permissions:defaults}:item))).status,200);
   assert.equal((await request('/projects/team-demo/overview',newBob,'PUT',{revision:1,fields:overview})).status,403);
   assert.equal((await request('/projects/team-demo/stories/world',newBob,'PUT',{...original,revision:2})).status,200);
@@ -141,7 +141,7 @@ test('a failure recording a permission change rolls back credentials, membership
   db.exec("CREATE TRIGGER reject_access_audit BEFORE INSERT ON access_audit BEGIN SELECT RAISE(ABORT,'injected audit failure'); END;");const logs=t.mock.method(console,'error',()=>{});
   try{
     assert.equal((await request('/admin/users/bob/password',admin,'POST',{revision:1,password:'NotSaved-123'})).status,500);assert.deepEqual(db.prepare('SELECT * FROM users WHERE id=?').get('bob'),before);assert.equal((await request('/projects',bob)).status,200);
-    assert.equal((await request('/projects/team-demo/members',admin,'PUT',{revision:members.revision,members:[member('admin','admin'),member('bob','editor',{overview:'edit',stories:'view'})]})).status,500);
+    assert.equal((await request('/projects/team-demo/members',admin,'PUT',{revision:members.revision,members:[member('admin','admin'),member('bob','editor',{overview:'edit',stories:'view',schedule:'edit'})]})).status,500);
     assert.deepEqual((await request('/projects/team-demo/members',admin)).data,members);assert.equal(db.prepare('SELECT COUNT(*) AS n FROM project_activity').get().n,0);
   }finally{logs.mock.restore();db.close();}
 }));

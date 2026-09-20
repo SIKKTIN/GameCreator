@@ -1,3 +1,4 @@
+import {TeamProjectSchedule} from './TeamProjectSchedule';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Check, Cloud, CloudOff, History, RefreshCw } from 'lucide-react';
 import { beforeLogoutEvent } from './auth';
@@ -31,6 +32,7 @@ export function TeamProjectWorkspace({ project, session, picker, localProjects, 
   const writableStories = !accessBlocked && loaded && canEditModule(session,role,capabilities,'stories');
   const [active,setActive] = useState('故事文档');
   const [selectedGameplayId,setSelectedGameplayId] = useState('');
+  const scheduleEnabled = (session.apiVersion ?? 0) >= 10;
   const gameplayEnabled = (session.apiVersion ?? 0) >= 9;
   const gameplay = useTeamGameplay(session,project.id,accessBlocked,status=>{setAccessDenied(true);if(status===410)setProjectDeleted(true);});
   const overviewEnabled = (session.apiVersion ?? 0) >= 5;
@@ -90,7 +92,7 @@ export function TeamProjectWorkspace({ project, session, picker, localProjects, 
   const selected = stories.find(item => item.id === selectedId);
   return <div className="app team-project">
     {manageMembers && !accessBlocked && role === 'admin' && <TeamProjectDialog session={session} project={project} onClose={() => setManageMembers(false)} onSaved={() => setRefresh(value => value + 1)} />}
-    <WorkspaceSidebar picker={picker} team teamGameplay={gameplayEnabled} teamOverview={overviewEnabled} teamCore={(session.apiVersion ?? 0) >= 7} active={serverPage ? adminPageName??'服务器管理' : active} onManageServer={onManageServer} onManageUsers={onManageUsers}
+    <WorkspaceSidebar picker={picker} team teamSchedule={scheduleEnabled} teamGameplay={gameplayEnabled} teamOverview={overviewEnabled} teamCore={(session.apiVersion ?? 0) >= 7} active={serverPage ? adminPageName??'服务器管理' : active} onManageServer={onManageServer} onManageUsers={onManageUsers}
       onNavigate={name=>{if(canLeaveTeam()){onLeaveServer();setActive(name);}}} footer={<>
       <div className="user"><div className="avatar">{session.user.username[0].toUpperCase()}</div><span>{session.user.username}<small>团队成员 · {roleLabels[role]}</small></span></div>
       <details className="team-members"><summary>项目成员 · {members.length}</summary>{members.map(item => <p key={item.username}>{item.username}<small>{roleLabels[item.role]}</small></p>)}</details>
@@ -98,13 +100,14 @@ export function TeamProjectWorkspace({ project, session, picker, localProjects, 
     {serverPage}
     <main hidden={!!serverPage} className={active === '玩法核心' ? 'core-workspace-page' : undefined}><header><div><div className="crumb">{project.name} <span>/</span> 团队项目</div><h1>{active}</h1></div>
       <div className="team-actions">{!accessBlocked && role === 'admin' && <button onClick={() => { if (canLeaveTeam()) setManageMembers(true); }}>成员管理</button>}<button onClick={onConnection}>连接设置</button><button onClick={onDisconnect}>断开团队连接</button></div></header>
-      <div className="team-project-info"><span>团队项目 · {session.url}</span><span>当前成员：{session.user.username} · {roleLabels[role]}</span><span>已共享：{gameplayEnabled ? '项目概览、玩法核心、玩法设计、故事文档' : (session.apiVersion ?? 0) >= 7 ? '项目概览、玩法核心、故事文档' : overviewEnabled ? '项目概览、故事文档' : '故事文档'}</span></div>
+      <div className="team-project-info"><span>团队项目 · {session.url}</span><span>当前成员：{session.user.username} · {roleLabels[role]}</span><span>已共享：{scheduleEnabled ? '项目概览、项目排期、玩法核心、玩法设计、故事文档' : gameplayEnabled ? '项目概览、玩法核心、玩法设计、故事文档' : (session.apiVersion ?? 0) >= 7 ? '项目概览、玩法核心、故事文档' : overviewEnabled ? '项目概览、故事文档' : '故事文档'}</span></div>
       <div className={'team-sync ' + (syncError ? 'offline' : '')} role="status">{syncError ? <CloudOff size={16} /> : <Cloud size={16} />}
         <span>{syncError || (loaded ? '已连接 · 每 2 秒检查团队更新' : '正在读取团队故事…')}</span>
         <button aria-label="立即刷新团队内容" onClick={() => setRefresh(value => value + 1)}><RefreshCw size={15} /></button></div>
       {accessBlocked && <p className="team-message" role="alert">{projectDeleted?'此协作项目已被管理员删除。本机项目和未提交草稿仍保留，请从项目列表选择其他项目。':session.invalid?'团队登录已失效，请重新连接。本机未提交草稿仍保留。':'你已无权访问这个项目。本机未提交草稿仍保留，请选择其他项目或联系项目管理员。'}</p>}
-      {overviewEnabled&&<div hidden={accessBlocked||active!=='项目概览'}><TeamOverview blocked={accessBlocked} session={session} projectId={project.id} members={members} onMembers={()=>setManageMembers(true)} onDenied={status=>{setAccessDenied(true);if(status===410)setProjectDeleted(true);}}/></div>}
+      {overviewEnabled&&<div hidden={accessBlocked||active!=='项目概览'}><TeamOverview onSchedule={scheduleEnabled?()=>{if(canLeaveTeam())setActive('项目排期');}:undefined} blocked={accessBlocked} session={session} projectId={project.id} members={members} onMembers={()=>setManageMembers(true)} onDenied={status=>{setAccessDenied(true);if(status===410)setProjectDeleted(true);}}/></div>}
       {(session.apiVersion ?? 0) >= 7 && <div hidden={accessBlocked || active !== '玩法核心'}><TeamGameplayCore session={session} projectId={project.id} blocked={accessBlocked} designs={gameplay.remote?.store.designs} designsReady={!!gameplay.remote?.initialized} onOpenGameplay={id=>{if(canLeaveTeam()){setSelectedGameplayId(id);setActive('玩法设计');}}} onDenied={status=>{setAccessDenied(true);if(status===410)setProjectDeleted(true);}}/></div>}
+      {scheduleEnabled&&<div hidden={accessBlocked||active!=='项目排期'}><TeamProjectSchedule session={session} projectId={project.id} blocked={accessBlocked} designs={gameplay.remote?.store.designs} onOpenGameplay={id=>{if(canLeaveTeam()){setSelectedGameplayId(id);setActive('玩法设计');}}} onDenied={status=>{setAccessDenied(true);if(status===410)setProjectDeleted(true);}}/></div>}
       {gameplayEnabled&&<div hidden={accessBlocked||active!=='玩法设计'}><TeamGameplayDesign state={gameplay} session={session} projectId={project.id} stories={stories} selectedId={selectedGameplayId} onSelect={id=>{if(canLeaveTeam())setSelectedGameplayId(id);}} onOpenStory={id=>{if(canLeaveTeam()){setSelectedId(id);setActive('故事文档');}}}/></div>}
       <div hidden={active!=='故事文档'}>
       {writableStories && <div className="team-import-toolbar"><StoryImportDialog projects={localProjects} session={session} projectId={project.id} onImported={imported => {

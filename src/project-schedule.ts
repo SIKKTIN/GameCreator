@@ -108,7 +108,7 @@ export function buildScheduleSources(designs: GameplayDesign[], functional: Func
 }
 export function scheduleReference(ref: ScheduleReference, sources: ScheduleSources) {
   const item = sources[ref.kind].find(s => s.id === ref.targetId);
-  return { label: item?.name || '来源已删除：' + ref.targetId, available: !!item && !item.unavailable, status: item?.unavailable ? '来源已归档或模块已关闭' : item?.status || '' };
+  return { label: item?.name || '来源已删除：' + ref.targetId, available: !!item && !item.unavailable, status: item?.unavailable ? item.status || '来源已归档或模块已关闭' : item?.status || '' };
 }
 export function projectScheduleIssues(store: ProjectScheduleStore, today = scheduleToday(), sources?: ScheduleSources): ScheduleIssue[] {
   const issues: ScheduleIssue[] = [], byId = new Map(store.tasks.map(t => [t.id, t]));
