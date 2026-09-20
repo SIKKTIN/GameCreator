@@ -1318,7 +1318,8 @@
           "events": []
         },
         "createdAt": "2026-09-19T08:00:00.000Z",
-        "updatedAt": "2026-09-19T08:00:00.000Z"
+        "updatedAt": "2026-09-19T08:00:00.000Z",
+        "categoryId": "vampire-survivors-category-run"
       },
       {
         "id": "vs-play-movement",
@@ -1841,7 +1842,8 @@
           "events": []
         },
         "createdAt": "2026-09-19T08:00:00.000Z",
-        "updatedAt": "2026-09-19T08:00:00.000Z"
+        "updatedAt": "2026-09-19T08:00:00.000Z",
+        "categoryId": "vampire-survivors-category-battle"
       },
       {
         "id": "vs-play-combat",
@@ -2107,7 +2109,8 @@
           "events": []
         },
         "createdAt": "2026-09-19T08:00:00.000Z",
-        "updatedAt": "2026-09-19T08:00:00.000Z"
+        "updatedAt": "2026-09-19T08:00:00.000Z",
+        "categoryId": "vampire-survivors-category-battle"
       },
       {
         "id": "vs-play-growth",
@@ -2441,7 +2444,8 @@
           ]
         },
         "createdAt": "2026-09-19T08:00:00.000Z",
-        "updatedAt": "2026-09-19T08:00:00.000Z"
+        "updatedAt": "2026-09-19T08:00:00.000Z",
+        "categoryId": "vampire-survivors-category-build"
       },
       {
         "id": "vs-play-build",
@@ -2688,7 +2692,8 @@
           "events": []
         },
         "createdAt": "2026-09-19T08:00:00.000Z",
-        "updatedAt": "2026-09-19T08:00:00.000Z"
+        "updatedAt": "2026-09-19T08:00:00.000Z",
+        "categoryId": "vampire-survivors-category-build"
       },
       {
         "id": "vs-play-evolution",
@@ -2996,7 +3001,8 @@
           ]
         },
         "createdAt": "2026-09-19T08:00:00.000Z",
-        "updatedAt": "2026-09-19T08:00:00.000Z"
+        "updatedAt": "2026-09-19T08:00:00.000Z",
+        "categoryId": "vampire-survivors-category-build"
       },
       {
         "id": "vs-play-waves",
@@ -3490,7 +3496,8 @@
           ]
         },
         "createdAt": "2026-09-19T08:00:00.000Z",
-        "updatedAt": "2026-09-19T08:00:00.000Z"
+        "updatedAt": "2026-09-19T08:00:00.000Z",
+        "categoryId": "vampire-survivors-category-battle"
       },
       {
         "id": "vs-play-meta",
@@ -3735,7 +3742,8 @@
           "events": []
         },
         "createdAt": "2026-09-19T08:00:00.000Z",
-        "updatedAt": "2026-09-19T08:00:00.000Z"
+        "updatedAt": "2026-09-19T08:00:00.000Z",
+        "categoryId": "vampire-survivors-category-meta"
       },
       {
         "id": "vs-play-settlement",
@@ -4017,7 +4025,34 @@
           ]
         },
         "createdAt": "2026-09-19T08:00:00.000Z",
-        "updatedAt": "2026-09-19T08:00:00.000Z"
+        "updatedAt": "2026-09-19T08:00:00.000Z",
+        "categoryId": "vampire-survivors-category-run"
+      }
+    ],
+    "categories": [
+      {
+        "id": "vampire-survivors-category-run",
+        "name": "对局与结算",
+        "description": "选角开局、暂停仲裁、终局入账与再来一局。",
+        "icon": "book"
+      },
+      {
+        "id": "vampire-survivors-category-battle",
+        "name": "移动与战斗",
+        "description": "自由走位、拾取、自动攻击，以及怪潮和精英时序。",
+        "icon": "combat"
+      },
+      {
+        "id": "vampire-survivors-category-build",
+        "name": "升级与装备构筑",
+        "description": "经验三选一、武器被动槽位、精英宝箱与武器进化。",
+        "icon": "growth"
+      },
+      {
+        "id": "vampire-survivors-category-meta",
+        "name": "局外成长",
+        "description": "角色解锁、统计成就与跨局永久强化。",
+        "icon": "character"
       }
     ]
   },

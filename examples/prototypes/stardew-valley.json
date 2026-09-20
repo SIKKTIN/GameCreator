@@ -234,7 +234,8 @@
           }
         ],
         "createdAt": "2026-09-18T16:30:36.508Z",
-        "updatedAt": "2026-09-19T00:14:45.681Z"
+        "updatedAt": "2026-09-19T00:14:45.681Z",
+        "categoryId": "stardew-valley-category-daily-life"
       },
       {
         "dependencies": [
@@ -713,7 +714,8 @@
           }
         ],
         "createdAt": "2026-09-18T16:30:36.509Z",
-        "updatedAt": "2026-09-19T00:14:45.681Z"
+        "updatedAt": "2026-09-19T00:14:45.681Z",
+        "categoryId": "stardew-valley-category-farming"
       },
       {
         "dependencies": [
@@ -1191,7 +1193,8 @@
           }
         ],
         "createdAt": "2026-09-18T16:30:36.509Z",
-        "updatedAt": "2026-09-19T00:14:45.681Z"
+        "updatedAt": "2026-09-19T00:14:45.681Z",
+        "categoryId": "stardew-valley-category-farming"
       },
       {
         "dependencies": [
@@ -1727,7 +1730,8 @@
           }
         ],
         "createdAt": "2026-09-18T16:30:36.509Z",
-        "updatedAt": "2026-09-18T16:30:36.509Z"
+        "updatedAt": "2026-09-18T16:30:36.509Z",
+        "categoryId": "stardew-valley-category-daily-life"
       },
       {
         "dependencies": [
@@ -2013,7 +2017,8 @@
           }
         ],
         "createdAt": "2026-09-18T16:30:36.509Z",
-        "updatedAt": "2026-09-19T00:14:45.681Z"
+        "updatedAt": "2026-09-19T00:14:45.681Z",
+        "categoryId": "stardew-valley-category-economy"
       },
       {
         "dependencies": [
@@ -2599,7 +2604,34 @@
           }
         ],
         "createdAt": "2026-09-18T16:30:36.509Z",
-        "updatedAt": "2026-09-19T00:14:45.681Z"
+        "updatedAt": "2026-09-19T00:14:45.681Z",
+        "categoryId": "stardew-valley-category-village"
+      }
+    ],
+    "categories": [
+      {
+        "id": "stardew-valley-category-daily-life",
+        "name": "生活节奏",
+        "description": "七日目标、昼夜、体力与日结算，串起农场生活的整体节奏。",
+        "icon": "book"
+      },
+      {
+        "id": "stardew-valley-category-farming",
+        "name": "农场与种植",
+        "description": "农场空间、移动工具、浇水、作物生长与收获。",
+        "icon": "growth"
+      },
+      {
+        "id": "stardew-valley-category-economy",
+        "name": "物品与经济",
+        "description": "背包管理、种子采购、商店与出货收入。",
+        "icon": "rules"
+      },
+      {
+        "id": "stardew-valley-category-village",
+        "name": "村庄与社交",
+        "description": "村庄活动、人物日程、对话与交货委托。",
+        "icon": "character"
       }
     ]
   },

@@ -78,6 +78,9 @@ async function validateExample(expected) {
   assert.ok(prototype.scenes.length > 0, 'example needs populated prototype scenes');
   assert.deepEqual(prototypeIssues(prototype, gameplay.designs, core, art), [], 'prototype scene references');
   assert.ok(gameplay.designs.length > 0, 'example needs gameplay designs');
+  assert.ok(gameplay.categories?.length > 0, 'example needs gameplay categories');
+  assert.ok(gameplay.designs.every(d => gameplay.categories.some(c => c.id === d.categoryId)), 'all example gameplay documents need a valid category');
+  assert.ok(gameplay.categories.every(c => gameplay.designs.some(d => d.categoryId === c.id)), 'example categories should contain documents');
   const storyIds = new Set(example.stories.map(story => story.id));
   const datasetKeys = new Set(example.definitions.map(definition => definition.key));
   for (const design of gameplay.designs) {

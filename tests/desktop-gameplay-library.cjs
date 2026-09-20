@@ -4,6 +4,8 @@ const root=path.resolve(__dirname,'..'),{createWorkspaceStorage}=require('../des
 (async()=>{
  const dir=await fs.mkdtemp(path.join(os.tmpdir(),'gc-library-ui-')),storage=createWorkspaceStorage(path.join(dir,'data'));
  const {emptyStore}=await import('../src/enum-versions.ts'),example=JSON.parse(await fs.readFile(path.join(root,'examples/prototypes/hollow-knight.json'),'utf8'));
+ // Keep an explicit pre-category archive to test backward compatibility.
+ delete example.gameplay.categories;for(const design of example.gameplay.designs)delete design.categoryId;
  const ids=['project-library-a','project-library-b'],key=id=>'gamecreator.workspace.v1:'+id+':gameplay',read=()=>JSON.parse(storage.getItem(key(ids[0])));
  const cfg={engine:'oasis-lua',projectPath:'',enumPath:'Script/Const',dataPath:'Script/Config',outputFormat:'lua',autoSync:false,backupBeforeSync:true};
  storage.setItem('gamecreator.projects.v1',JSON.stringify({schema:2,activeId:ids[0],mode:'project',projects:ids.map((id,i)=>({id,name:'分类项目'+i,config:cfg,initialContent:'empty'}))}));
