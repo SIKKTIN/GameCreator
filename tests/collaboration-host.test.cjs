@@ -6,7 +6,6 @@ const os = require('node:os');
 const http = require('node:http');
 const vm = require('node:vm');
 const { createCollaborationHost } = require('../desktop/collaboration-host.cjs');
-const { createLocalAuth } = require('../desktop/local-auth.cjs');
 const { createCollaborationServer } = require('../server/collaboration.cjs');
 const root = path.resolve(__dirname, '..');
 const freePort = async () => {
@@ -68,12 +67,7 @@ test('managed service survives manager recreation, deduplicates start, protects 
   }
 });
 
-test('main-process admin authority cannot be forged with renderer roles and rejects untrusted IPC frames', async () => {
-  const auth = createLocalAuth(); assert.throws(() => auth.requireAdmin(), /管理员/);
-  assert.throws(() => auth.login({ username:'__proto__', password:'x' }), /账号或密码/);
-  auth.login({ username:'user', password:'user123', role:'admin' }); assert.throws(() => auth.requireAdmin(), /管理员/);
-  auth.login({ username:'admin', password:'admin123' }); auth.requireAdmin();
-  const view = auth.current(); view.role='user'; auth.requireAdmin(); auth.logout(); assert.throws(() => auth.requireAdmin(), /管理员/);
+test('local service control needs no account and still rejects untrusted IPC frames and arbitrary operations', async () => {
   const handlers = new Map(), listeners = new Map(), calls = [];
   const electron = { app:{requestSingleInstanceLock:()=>true,on(){},setPath(){},whenReady:()=>new Promise(()=>{})}, BrowserWindow:class{}, shell:{}, session:{}, dialog:{},
     ipcMain:{on:(name,handler)=>listeners.set(name,handler),handle:(name,handler)=>handlers.set(name,handler)} };
@@ -86,12 +80,11 @@ test('main-process admin authority cannot be forged with renderer roles and reje
   vm.runInNewContext(fs.readFileSync(path.join(root,'desktop/main.cjs'),'utf8')+'\nglobalThis.setWindow=(w,s)=>{mainWindow=w;localServer=s;};',context);
   const frame = {url:'http://127.0.0.1:43210/'}, contents = {mainFrame:frame}; context.setWindow({webContents:contents},{url:'http://127.0.0.1:43210'});
   const trusted = {sender:contents,senderFrame:frame};
-  await assert.rejects(handlers.get('collaboration-host')(trusted,'start'), /管理员/);
-  listeners.get('local-auth')(trusted,{operation:'login',input:{username:'user',password:'user123',role:'admin'}});
-  await assert.rejects(handlers.get('collaboration-host')(trusted,'start'), /管理员/);
-  listeners.get('local-auth')(trusted,{operation:'login',input:{username:'admin',password:'admin123'}});
+  assert.equal(listeners.has('local-auth'),false);
   await assert.rejects(handlers.get('collaboration-host')({sender:contents,senderFrame:{url:frame.url}},'start'), /不允许/);
   await assert.rejects(handlers.get('collaboration-host')(trusted,{operation:'start',command:'arbitrary'}), /未知/);
   await handlers.get('collaboration-host')(trusted,'start'); assert.deepEqual(calls,['start']);
-  listeners.get('local-auth')(trusted,{operation:'logout'}); await assert.rejects(handlers.get('collaboration-host')(trusted,'stop'), /管理员/);
+  await handlers.get('collaboration-host')(trusted,'stop');assert.deepEqual(calls,['start','stop']);
+  frame.url='https://untrusted.example/';await assert.rejects(handlers.get('collaboration-host')(trusted,'start'),/不允许/);
+  frame.url='http://127.0.0.1:43210/';await assert.rejects(handlers.get('collaboration-host')({sender:{mainFrame:frame},senderFrame:frame},'start'),/不允许/);
 });

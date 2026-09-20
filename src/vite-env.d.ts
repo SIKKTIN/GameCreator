@@ -2,7 +2,6 @@
 interface Window {
   desktopClient?: {
     platform: string; localFiles: boolean;
-    auth?: { session: () => { username: string; role: 'admin' | 'user' } | null; login: (input: { username: string; password: string }) => { username: string; role: 'admin' | 'user' }; logout: () => void };
     collaborationHost?: {
       status: () => Promise<import('./ServerManager').HostStatus>;
       start: () => Promise<import('./ServerManager').HostStatus>;

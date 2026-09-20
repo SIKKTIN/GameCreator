@@ -52,7 +52,7 @@ const digest = value => createHash('sha256').update(value).digest('hex');
     page = await app.firstWindow(); page.setDefaultTimeout(15000);
     page.on('pageerror', error => errors.push(error.message));
     await page.waitForFunction(() => document.querySelector('.ps-trigger') || document.querySelector('.auth-submit'));
-    if (await page.getByRole('button', { name: '登录', exact: true }).isVisible()) await click('登录');
+    if (await page.getByRole('button', { name: '进入本地工作区', exact: true }).isVisible()) await click('进入本地工作区');
     await page.locator('.ps-trigger').waitFor();
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1440, 1000));
   }
@@ -171,13 +171,12 @@ const digest = value => createHash('sha256').update(value).digest('hex');
     await failureAndRetry(fixtures[2], 'catalog', 'QA 发布失败后重试');
     for (const [key, raw] of oldArchives) assert.equal(storage.getItem(key), raw, 'existing archive changed: ' + key);
     for (const fixture of fixtures) assert.equal(digest(await fs.readFile(fixture.file, 'utf8')), fixture.hash, 'example changed');
-    await click('退出登录'); await page.getByLabel('账号', { exact: true }).fill('user'); await page.getByLabel('密码', { exact: true }).fill('user123');
-    await click('登录'); await page.locator('.ps-trigger').click();
-    assert.equal(await page.getByRole('menuitem', { name: '从原型示例创建项目', exact: true }).count(), 0);
+    await click('返回启动页'); await click('进入本地工作区'); await page.locator('.ps-trigger').click();
+    assert.equal(await page.getByRole('menuitem', { name: '从原型示例创建项目', exact: true }).count(), 1);
     assert.deepEqual(errors, []);
     await fs.writeFile(path.join(artifacts, 'prototype-import-results.json'), JSON.stringify({ examples: results, importedProjects: catalog().projects.length - 1,
-      verified: ['five complete imports', 'module rendering', 'repeat import isolation', 'edit/restart persistence', 'module-write failure/retry', 'catalog-write failure/retry', 'existing archives unchanged', 'repository examples unchanged', 'admin-only entry'] }, null, 2));
-    console.log('PASS prototype import: five examples, module rendering, independent repeat copies, edit/restart, module and catalog write failures/retry, unchanged existing projects and examples, admin-only entry');
+      verified: ['five complete imports', 'module rendering', 'repeat import isolation', 'edit/restart persistence', 'module-write failure/retry', 'catalog-write failure/retry', 'existing archives unchanged', 'repository examples unchanged', 'local reentry'] }, null, 2));
+    console.log('PASS prototype import: five examples, module rendering, independent repeat copies, edit/restart, module and catalog write failures/retry, unchanged existing projects and examples, local reentry');
   } catch (error) {
     if (page && !page.isClosed()) {
       await page.screenshot({ path: path.join(artifacts, 'prototype-import-failure.png') }).catch(() => {});

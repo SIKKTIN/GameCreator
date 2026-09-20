@@ -23,7 +23,7 @@ const { createWorkspaceStorage } = require('../desktop/test-workspaces.cjs');
   async function launch() {
     app = await _electron.launch({ executablePath: require('electron'), args: [path.join(root, 'desktop/main.cjs')], env });
     page = await app.firstWindow(); page.setDefaultTimeout(12000); page.on('pageerror', e => errors.push(e.message)); page.on('dialog', d => d.accept());
-    await click('登录'); await page.locator('.ps-trigger').waitFor(); await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1550, 1050)); await click('任务与流程');
+    await click('进入本地工作区'); await page.locator('.ps-trigger').waitFor(); await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1550, 1050)); await click('任务与流程');
   }
   async function choose(name) { await page.locator('.ps-trigger').click(); await page.getByRole('menuitemradio').filter({ hasText: name }).click(); await click('任务与流程'); }
   async function create(name) { await click('新建任务'); await field('新任务名称').fill(name); await click('创建任务'); await field('任务名称').waitFor(); }
@@ -49,7 +49,7 @@ const { createWorkspaceStorage } = require('../desktop/test-workspaces.cjs');
       if (request.operation === 'set' && request.key === storageKey) event.returnValue = { ok: false, error: '模拟磁盘写入失败' }; else original(event, request);
     }); }, key(a));
     await field('任务说明').fill('保存失败后保留任务草稿'); await button('重试保存任务与流程').waitFor(); assert.equal(storage.getItem(key(a)), committed);
-    assert.equal(await page.locator('.ps-trigger').isDisabled(), true); assert.equal(await button('生成 AI 文档').isDisabled(), true); await click('退出登录'); assert.equal(await field('任务说明').inputValue(), '保存失败后保留任务草稿');
+    assert.equal(await page.locator('.ps-trigger').isDisabled(), true); assert.equal(await button('生成 AI 文档').isDisabled(), true); await click('返回启动页'); assert.equal(await field('任务说明').inputValue(), '保存失败后保留任务草稿');
     await app.evaluate(({ ipcMain }) => { ipcMain.removeAllListeners('workspace-storage'); ipcMain.on('workspace-storage', globalThis.taskStorageHandler); }); await click('重试保存任务与流程'); assert.equal(t().summary, '保存失败后保留任务草稿');
     const external = read(a); external.tasks[0].summary = '其他窗口的更新'; storage.setItem(key(a), JSON.stringify(external)); await field('任务说明').fill('冲突草稿'); await button('导出任务草稿').waitFor(); assert.equal(read(a).tasks[0].summary, '其他窗口的更新');
     const draftPath = path.join(dir, 'task-draft.json'); await app.evaluate(({ session }, filename) => { session.defaultSession.once('will-download', (_event, item) => item.setSavePath(filename)); }, draftPath);

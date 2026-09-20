@@ -27,7 +27,7 @@ const root = path.resolve(__dirname, '..'), catalogKey = 'gamecreator.projects.v
     app = await _electron.launch({ executablePath: require('electron'), args: [path.join(root, 'desktop/main.cjs')], env });
     page = await app.firstWindow(); page.setDefaultTimeout(12000);
     page.on('pageerror', error => errors.push(error.message));
-    await button('登录').click(); await page.locator('.ps-trigger').waitFor();
+    await button('进入本地工作区').click(); await page.locator('.ps-trigger').waitFor();
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1500, 1000));
   }
   async function openContext(name) {
@@ -92,10 +92,9 @@ const root = path.resolve(__dirname, '..'), catalogKey = 'gamecreator.projects.v
     await app.close(); app = null; await launch();
     await page.getByRole('heading', { name: '暂无本地项目', exact: true }).waitFor();
     assert.equal(read().projects.length, 0);
-    await button('用户与权限').click();
-    const users = page.getByRole('main', { name: '用户与权限', exact: true });
-    await users.getByRole('button', { name: '连接服务器管理员', exact: true }).waitFor();
-    await users.getByRole('button', { name: '返回工作区', exact: true }).click();
+    assert.equal(await button('用户与权限').count(),0);
+    await button('本机服务器').click();
+    await page.getByRole('main',{name:'服务器管理',exact:true}).getByRole('button',{name:'返回工作区',exact:true}).click();
     await page.getByRole('heading', { name: '暂无本地项目', exact: true }).waitFor();
     await page.locator('.ps-trigger').click(); await menu().getByRole('menuitem', { name: '新建项目', exact: true }).click();
     const create = page.getByRole('dialog', { name: '新建项目', exact: true });
@@ -112,14 +111,13 @@ const root = path.resolve(__dirname, '..'), catalogKey = 'gamecreator.projects.v
     await importer.getByLabel('项目名称', { exact: true }).fill('导入后的项目');
     await importer.getByRole('button', { name: '创建并打开', exact: true }).click();
     await importer.waitFor({ state: 'hidden' }); assert.equal(read().projects.length, 1);
-    // Local read-only users can switch, but must have no delete operation.
-    await button('退出登录').click(); await page.getByLabel('账号', { exact: true }).fill('user'); await page.getByLabel('密码', { exact: true }).fill('user123');
-    await button('登录').click(); await page.locator('.ps-trigger').click();
+    // Local project operations remain available after returning through startup.
+    await button('返回启动页').click(); await button('进入本地工作区').click(); await page.locator('.ps-trigger').click();
     await row('导入后的项目').click({ button: 'right' }); await settle();
-    assert.equal(await context().count(), 0); assert.equal(await page.getByRole('menuitem', { name: '删除项目', exact: true }).count(), 0);
+    assert.equal(await context().count(), 1); assert.ok(await page.getByRole('menuitem', { name: '删除项目', exact: true }).isEnabled());
     assert.equal(storage.getItem(archivedKey), archived);
     assert.deepEqual(errors, []);
-    console.log('PASS: right-click/keyboard/cancel; inactive editor preservation; failed write and save guard; current/last project deletion; empty restart/create/import; local-user permissions; original archives retained.');
+    console.log('PASS: right-click/keyboard/cancel; inactive editor preservation; failed write and save guard; current/last project deletion; empty restart/create/import; local reentry; original archives retained.');
   } catch (error) {
     if (page && !page.isClosed()) {
       console.error((await page.locator('body').innerText()).slice(0, 5000));

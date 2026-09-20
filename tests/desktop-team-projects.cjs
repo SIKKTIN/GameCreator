@@ -21,9 +21,7 @@ const waitUntil = async (check, message) => {
     const app = await _electron.launch({ executablePath: require('electron'), args: [path.join(root, 'desktop/main.cjs')], env, timeout: 30000 });
     apps.push(app); const page = await app.firstWindow(); pages.push(page); page.setDefaultTimeout(15000);
     page.on('pageerror', error => errors.push(error.message));
-    await page.getByLabel('账号', { exact: true }).fill(account);
-    await page.getByLabel('密码', { exact: true }).fill(account + '123');
-    await page.getByRole('button', { name: '登录', exact: true }).click(); await page.locator('.ps-trigger').waitFor();
+    await page.getByRole('button', { name: '进入本地工作区', exact: true }).click(); await page.locator('.ps-trigger').waitFor();
     return page;
   };
   const menu = async page => { await page.locator('.ps-trigger').click(); return page.getByRole('menu', { name: '项目列表' }); };
@@ -56,13 +54,14 @@ const waitUntil = async (check, message) => {
   try {
     const a = await launch('admin'), b = await launch('user');
     const userMenu = await menu(b);
-    assert.equal(await userMenu.getByRole('menuitem', { name: '新建协作项目', exact: true }).count(), 0);
+    assert.equal(await userMenu.getByRole('menuitem', { name: '新建协作项目', exact: true }).count(), 1);
     await userMenu.getByRole('menuitem', { name: '连接团队服务器', exact: true }).click(); await connect(b, 'bob');
     await b.locator('.team-project .story-workspace').waitFor();
+    assert.equal(await (await menu(b)).getByRole('menuitem',{name:'新建协作项目',exact:true}).count(),0);await b.keyboard.press('Escape');
     await (await menu(a)).getByRole('menuitem', { name: '新建协作项目', exact: true }).click();
     assert.equal(await connection(a).getByLabel('团队账号', { exact: true }).inputValue(), 'admin');
     await connection(a).getByLabel('团队密码', { exact: true }).fill('保留已输入密码');
-    await connection(a).getByRole('button', { name: '前往服务器管理', exact: true }).click();
+    await connection(a).getByRole('button', { name: '管理本机服务器', exact: true }).click();
     await a.getByRole('main', { name: '服务器管理', exact: true }).getByRole('button', { name: '返回连接设置', exact: true }).click();
     assert.equal(await connection(a).getByLabel('团队密码', { exact: true }).inputValue(), '保留已输入密码');
     await connect(a, 'admin'); await create(a, '项目甲', 'bob');
@@ -101,7 +100,7 @@ const waitUntil = async (check, message) => {
       body: JSON.stringify({ revision: 1, members: [{ userId: 'admin', role: 'admin' }] }) });
     assert.equal(reset.status, 200);
     await b.getByRole('button', { name: '连接设置', exact: true }).click(); await connect(b, 'viewer');
-    await menu(b); await b.getByText('已连接 viewer，尚未加入协作项目。请联系项目管理员添加。', { exact: true }).waitFor();
+    await b.getByRole('heading',{name:'尚未加入协作项目',exact:true}).waitFor();await menu(b);
     await a.getByRole('button', { name: '成员管理', exact: true }).click();
     const finalMembers = a.getByRole('dialog', { name: '成员管理', exact: true });
     await finalMembers.getByLabel('viewer 权限', { exact: true }).selectOption('viewer');
@@ -110,7 +109,7 @@ const waitUntil = async (check, message) => {
     await b.getByRole('heading', { name: '暂无故事文档', exact: true }).waitFor();
     assert.equal(await b.getByRole('button', { name: '新建故事文档', exact: true }).count(), 0);
     assert.deepEqual(errors, []);
-    console.log('PASS: two real clients; admin creation from project picker; connection form survives server management; two empty isolated projects; live membership directory; viewer/revoked rights; preserved draft after restoring membership; local user cannot create server projects.');
+    console.log('PASS: two real clients; admin creation from project picker; connection form survives server management; two empty isolated projects; live membership directory; viewer/revoked rights; preserved draft after restoring membership; ordinary team member cannot create server projects.');
   } catch (error) {
     for (const page of pages) if (!page.isClosed()) console.error((await page.locator('body').innerText()).slice(0, 3000));
     throw error;

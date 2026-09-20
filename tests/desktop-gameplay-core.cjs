@@ -36,7 +36,7 @@ const root = path.resolve(__dirname, '..');
   async function launch() {
     app = await _electron.launch({ executablePath: require('electron'), args: [path.join(root, 'desktop/main.cjs')], env });
     page = await app.firstWindow(); page.setDefaultTimeout(12000); page.on('pageerror', error => errors.push(error.message)); page.on('dialog', dialog => dialog.accept());
-    await page.getByRole('button', { name: '登录', exact: true }).click(); await page.locator('.ps-trigger').waitFor();
+    await page.getByRole('button', { name: '进入本地工作区', exact: true }).click(); await page.locator('.ps-trigger').waitFor();
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1600, 1000));
     await click('玩法核心');
   }
@@ -86,7 +86,7 @@ const root = path.resolve(__dirname, '..');
       }); }, key(a));
     await field('节点说明').fill('保存失败后保留的核心草稿'); await button('重试保存玩法核心').waitFor();
     assert.equal(storage.getItem(key(a)), committed); assert.equal(await page.locator('.ps-trigger').isDisabled(), true);
-    assert.equal(await button('生成 AI 文档').isDisabled(), true); await click('退出登录'); assert.equal(await field('节点说明').inputValue(), '保存失败后保留的核心草稿');
+    assert.equal(await button('生成 AI 文档').isDisabled(), true); await click('返回启动页'); assert.equal(await field('节点说明').inputValue(), '保存失败后保留的核心草稿');
     await app.evaluate(({ ipcMain }) => { ipcMain.removeAllListeners('workspace-storage'); ipcMain.on('workspace-storage', globalThis.coreStorageHandler); });
     await click('重试保存玩法核心'); await wait(() => graph().nodes.find(n => n.title === '挑战关卡').description === '保存失败后保留的核心草稿', 'retry did not save');
     await app.evaluate(({ ipcMain }) => { ipcMain.removeHandler('write-markdown'); ipcMain.handle('write-markdown', (_event, payload) => { globalThis.coreMarkdown = payload; return '隔离测试导出'; }); });

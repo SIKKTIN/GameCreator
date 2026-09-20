@@ -19,7 +19,7 @@ const root = path.resolve(__dirname, '..');
   const launch = async () => {
     app = await _electron.launch({ executablePath: require('electron'), args: [path.join(root, 'desktop/main.cjs')], env });
     const page = await app.firstWindow();
-    await page.getByRole('button', { name: '登录', exact: true }).click();
+    await page.getByRole('button', { name: '进入本地工作区', exact: true }).click();
     return page;
   };
   try {

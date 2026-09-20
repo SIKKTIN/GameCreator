@@ -147,7 +147,7 @@ export function TestPanel(props: Props) {
           </div>}
         </div> : <div id="test-debug-body" role="tabpanel" aria-labelledby="test-debug-tab">
           <dl className="test-debug-grid">
-            <div><dt>运行环境</dt><dd>{report.mode} · {props.username}（管理员）</dd></div>
+            <div><dt>运行环境</dt><dd>{report.mode} · {props.username}</dd></div>
             <div><dt>当前页面</dt><dd>{props.page} · {testSession?'测试工作区':'正式工作区'}</dd></div>
             <div><dt>稳定版本</dt><dd>{report.stable??'尚未发布'}</dd></div>
             <div><dt>候选版本</dt><dd>{report.candidate??'暂无候选'}</dd></div>

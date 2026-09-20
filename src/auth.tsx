@@ -1,71 +1,20 @@
-import { FormEvent, useState } from 'react';
+import type {ReactNode} from 'react';
+import {PanelLeftClose,PanelLeftOpen} from 'lucide-react';
+import {useWorkspaceNavigation} from './useWorkspaceNavigation';
+import type {TeamSession} from './team-api';
 import './auth.css';
-import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
-import { useWorkspaceNavigation } from './useWorkspaceNavigation';
 
-export const beforeLogoutEvent = 'gamecreator:before-logout';
-export type UserRole = 'admin' | 'user';
-type Session = { username: string; role: UserRole };
+export const beforeLogoutEvent='gamecreator:before-logout';
 
-const SESSION_KEY = 'gamecreator.auth.session';
-const ACCOUNTS: Record<string, { password: string; role: UserRole; label: string }> = {
-  admin: { password: 'admin123', role: 'admin', label: '管理员' },
-  user: { password: 'user123', role: 'user', label: '用户' },
-};
-
-function readSession(): Session | null {
-  try {
-    if (window.desktopClient?.auth) return window.desktopClient.auth.session();
-    const value = JSON.parse(localStorage.getItem(SESSION_KEY) ?? 'null');
-    return value?.username && value?.role ? value : null;
-  } catch { return null; }
-}
-
-export function AuthGate({ children }: { children: (session: Session) => React.ReactNode }) {
-  const [session, setSession] = useState<Session | null>(readSession);
-  const navigation = useWorkspaceNavigation();
-  const [username, setUsername] = useState('admin');
-  const [password, setPassword] = useState('admin123');
-  const [error, setError] = useState('');
-
-  const login = (event: FormEvent) => {
-    event.preventDefault();
-    if (window.desktopClient?.auth) {
-      try { setSession(window.desktopClient.auth.login({ username, password })); setError(''); }
-      catch (reason) { setError((reason as Error).message); }
-      return;
-    }
-    const account = ACCOUNTS[username.trim().toLowerCase()];
-    if (!account || account.password !== password) { setError('账号或密码错误'); return; }
-    const next = { username: username.trim().toLowerCase(), role: account.role };
-    localStorage.setItem(SESSION_KEY, JSON.stringify(next));
-    setSession(next); setError('');
-  };
-
-  if (!session) return <main className="auth-page"><form className="auth-card" onSubmit={login}>
-    <div className="auth-logo">✦</div><span className="section-kicker">GAMECREATOR LOCAL</span>
-    <h1>登录工作区</h1><p>使用本地账号进入项目客户端。</p>
-    <label>账号<input value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" /></label>
-    <label>密码<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" /></label>
-    {error && <div className="auth-error">{error}</div>}
-    <button className="primary auth-submit" type="submit">登录</button>
-    <small className="auth-hint">演示账号：admin / admin123；用户：user / user123</small>
-  </form></main>;
-
-  const logout = () => {
-    if (!window.dispatchEvent(new Event(beforeLogoutEvent, { cancelable: true }))) return;
-    if (window.desktopClient?.auth) window.desktopClient.auth.logout();
-    localStorage.removeItem(SESSION_KEY); setSession(null);
-  };
-  return <div className={`authenticated-shell role-${session.role}${navigation.visible ? '' : ' navigation-hidden'}`}>
+export function WorkspaceShell({children,session,teamWorkspace,onHome,onDisconnect,onProjects}:{children:ReactNode;session:TeamSession|null;teamWorkspace:boolean;onHome:()=>void;onDisconnect:()=>void;onProjects:()=>void}){
+  const navigation=useWorkspaceNavigation();
+  return <div className={`authenticated-shell${navigation.visible?'':' navigation-hidden'}`}>
     <div className="auth-toolbar">
-      <button className="auth-navigation-toggle" type="button" onClick={navigation.toggle}
-        aria-label={navigation.visible ? '隐藏主导航栏' : '显示主导航栏'} title={navigation.visible ? '隐藏主导航栏' : '显示主导航栏'}
-        aria-expanded={navigation.visible} aria-controls="workspace-navigation">
-        {navigation.visible ? <PanelLeftClose size={18} aria-hidden="true" /> : <PanelLeftOpen size={18} aria-hidden="true" />}
-      </button>
-      {navigation.saveError && <span className="auth-preference-status" role="status">导航状态仅在本次会话生效，未能保存偏好</span>}
-      <span>本机账号：<b>{session.username}</b><em>{ACCOUNTS[session.username]?.label}</em></span><button className="auth-logout" onClick={logout}>退出登录</button></div>
-    {children(session)}
+      <button className="auth-navigation-toggle" type="button" onClick={navigation.toggle} aria-label={navigation.visible?'隐藏主导航栏':'显示主导航栏'} title={navigation.visible?'隐藏主导航栏':'显示主导航栏'} aria-expanded={navigation.visible} aria-controls="workspace-navigation">{navigation.visible?<PanelLeftClose size={18}/>:<PanelLeftOpen size={18}/>}</button>
+      {navigation.saveError&&<span className="auth-preference-status" role="status">导航状态仅在本次会话生效，未能保存偏好</span>}
+      <span>{teamWorkspace&&session?<>团队账号：<b>{session.user.username}</b><em>{session.invalid?'登录已失效':session.user.serverRole==='admin'?'服务器管理员':'团队成员'}</em></>:<b>本地工作区</b>}</span>
+      {session&&<><button className="auth-logout" onClick={onProjects}>团队项目</button><button className="auth-logout" onClick={onDisconnect}>退出团队账号</button></>}
+      <button className="auth-logout" onClick={onHome}>返回启动页</button>
+    </div>{children}
   </div>;
 }

@@ -29,7 +29,7 @@ const root = path.resolve(__dirname, '..'), key = 'gamecreator.ui-preferences.v1
     page = await app.firstWindow(); page.setDefaultTimeout(15000);
     page.on('pageerror', error => errors.push(error.message));
     await page.waitForFunction(() => document.querySelector('.auth-submit') || document.querySelector('.auth-navigation-toggle'));
-    if (await button('登录').isVisible()) await button('登录').click();
+    if (await button('进入本地工作区').isVisible()) await button('进入本地工作区').click();
     await toggle().waitFor();
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1800, 1050));
   }
@@ -88,10 +88,9 @@ const root = path.resolve(__dirname, '..'), key = 'gamecreator.ui-preferences.v1
     await app.evaluate(({ ipcMain }) => { ipcMain.removeAllListeners('workspace-storage'); ipcMain.on('workspace-storage', globalThis.navigationStorageHandler); });
     await toggle().click(); await check(true);
     assert.equal(await page.locator('.auth-preference-status').count(), 0);
-    // Logout and ordinary-user login must not block this UI-only preference.
-    await toggle().click(); await button('退出登录').click();
-    await page.getByLabel('账号', { exact: true }).fill('user'); await page.getByLabel('密码', { exact: true }).fill('user123');
-    await button('登录').click(); await check(false); await toggle().click(); await check(true);
+    // Returning through startup must not block this UI-only preference.
+    await toggle().click(); await button('返回启动页').click();
+    await button('进入本地工作区').click(); await check(false); await toggle().click(); await check(true);
     await page.locator('.ps-trigger').click();
     await page.getByRole('menuitem', { name: '连接团队服务器', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: '连接团队服务器', exact: true });
@@ -110,7 +109,7 @@ const root = path.resolve(__dirname, '..'), key = 'gamecreator.ui-preferences.v1
     await launch(); await check(true); await toggle().click(); await check(false);
     assert.deepEqual(JSON.parse(storage.getItem(key)), { schema: 1, navigationVisible: false });
     assert.deepEqual(errors, []);
-    console.log('PASS: main navigation layout, editing/camera preservation, keyboard/scrolling, restart and project persistence, failed-save recovery, local user and team workspace.');
+    console.log('PASS: main navigation layout, editing/camera preservation, keyboard/scrolling, restart and project persistence, failed-save recovery, local reentry and team workspace.');
   } catch (error) {
     if (page && !page.isClosed()) {
       console.error((await page.locator('body').innerText()).slice(0, 3500));

@@ -13,7 +13,7 @@ const root=path.resolve(__dirname,'..');
  let app,page;const errors=[],scans=[];
  const launch=async()=>{
   app=await _electron.launch({executablePath:require('electron'),args:[path.join(root,'desktop/main.cjs')],env});page=await app.firstWindow();page.on('pageerror',e=>errors.push(e.message));
-  page.on('request',r=>{if(r.url().includes('/api/engine/scan'))scans.push(r.url());});await page.getByRole('button',{name:'登录',exact:true}).click();
+  page.on('request',r=>{if(r.url().includes('/api/engine/scan'))scans.push(r.url());});await page.getByRole('button',{name:'进入本地工作区',exact:true}).click();
  };
  const nav=name=>page.getByRole('button',{name,exact:true}).click();
  const create=async name=>{

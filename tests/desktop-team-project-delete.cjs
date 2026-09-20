@@ -22,13 +22,13 @@ const until=async(check,message)=>{const end=Date.now()+20000;while(Date.now()<e
     const env={...process.env,GAMECREATOR_DATA_DIR:data,GAMECREATOR_USER_DATA_DIR:path.join(directory,user,'profile'),GAMECREATOR_TEAM_DATA_DIR:path.join(directory,'server'),GAMECREATOR_TEAM_PORT:new URL(service.url).port};delete env.ELECTRON_RUN_AS_NODE;delete env.GAMECREATOR_TEAM_ACCOUNT;
     const app=await _electron.launch({executablePath:require('electron'),args:[path.join(root,'desktop/main.cjs')],env,timeout:30000});apps.push(app);
     const page=await app.firstWindow();pages.push(page);page.setDefaultTimeout(20000);page.on('pageerror',e=>errors.push(e.message));
-    await page.getByLabel('账号',{exact:true}).fill(user);await page.getByLabel('密码',{exact:true}).fill(user+'123');await page.getByRole('button',{name:'登录',exact:true}).click();await page.locator('.ps-trigger').waitFor();return page;
+    await page.getByRole('button',{name:'进入本地工作区',exact:true}).click();await page.locator('.ps-trigger').waitFor();return page;
   };
   const button=(p,n)=>p.getByRole('button',{name:n,exact:true}),modal=p=>p.getByRole('dialog',{name:'删除协作项目',exact:true});
   const menu=async p=>{await p.locator('.ps-trigger').click();return p.getByRole('menu',{name:'项目列表'});};
   const connect=async(p,user)=>{
     await (await menu(p)).getByRole('menuitem',{name:'连接团队服务器',exact:true}).click();const d=p.getByRole('dialog',{name:'连接团队服务器',exact:true});
-    await d.getByLabel('协作服务地址',{exact:true}).fill(service.url);await d.getByLabel('团队账号',{exact:true}).fill(user);await d.getByLabel('团队密码',{exact:true}).fill(user+'123');await button(d,'连接并进入项目').click();await p.locator('.team-project .story-workspace').waitFor();
+    await d.getByLabel('协作服务地址',{exact:true}).fill(service.url);await d.getByLabel('团队账号',{exact:true}).fill(user);await d.getByLabel('团队密码',{exact:true}).fill(user+'123');await button(d,'连接并进入项目').click();await button(p,'进入协作项目：'+name).click();await p.locator('.team-project .story-workspace').waitFor();
   };
   const nav=(p,n)=>p.getByRole('navigation',{name:'工作区模块',exact:true}).getByRole('button',{name:n,exact:true}).click();
   let release;

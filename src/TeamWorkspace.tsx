@@ -18,9 +18,8 @@ import './team.css';
 const displayTime = (value: string) => new Date(value).toLocaleString('zh-CN', { hour12: false });
 type Draft = { base: TeamStory; fields: TeamStoryFields };
 
-export function TeamProjectWorkspace({ project, session, picker, localProjects, onConnection, onDisconnect, localAdmin, serverPage, onManageServer, onLeaveServer, adminPageName, onManageUsers }: {
+export function TeamProjectWorkspace({ project, session, picker, localProjects, onConnection, onDisconnect, serverPage, onManageServer, onLeaveServer, adminPageName, onManageUsers }: {
   project: TeamProject; session: TeamSession; picker: ReactNode; localProjects: SavedProject[]; onConnection: () => void; onDisconnect: () => void;
-  localAdmin: boolean;
 } & ServerModuleNavigation) {
   const [stories, setStories] = useState<TeamStory[]>([]), [selectedId, setSelectedId] = useState('');
   const [members, setMembers] = useState<{ username: string; role: TeamRole }[]>([]);
@@ -91,7 +90,7 @@ export function TeamProjectWorkspace({ project, session, picker, localProjects, 
   const selected = stories.find(item => item.id === selectedId);
   return <div className="app team-project">
     {manageMembers && !accessBlocked && role === 'admin' && <TeamProjectDialog session={session} project={project} onClose={() => setManageMembers(false)} onSaved={() => setRefresh(value => value + 1)} />}
-    <WorkspaceSidebar picker={picker} team teamGameplay={gameplayEnabled} teamOverview={overviewEnabled} teamCore={(session.apiVersion ?? 0) >= 7} admin={localAdmin} active={serverPage ? adminPageName??'服务器管理' : active} onManageServer={onManageServer} onManageUsers={onManageUsers}
+    <WorkspaceSidebar picker={picker} team teamGameplay={gameplayEnabled} teamOverview={overviewEnabled} teamCore={(session.apiVersion ?? 0) >= 7} active={serverPage ? adminPageName??'服务器管理' : active} onManageServer={onManageServer} onManageUsers={onManageUsers}
       onNavigate={name=>{if(canLeaveTeam()){onLeaveServer();setActive(name);}}} footer={<>
       <div className="user"><div className="avatar">{session.user.username[0].toUpperCase()}</div><span>{session.user.username}<small>团队成员 · {roleLabels[role]}</small></span></div>
       <details className="team-members"><summary>项目成员 · {members.length}</summary>{members.map(item => <p key={item.username}>{item.username}<small>{roleLabels[item.role]}</small></p>)}</details>
