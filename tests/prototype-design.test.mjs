@@ -26,7 +26,8 @@ for (const {name,data} of examples) test(name + ': compose every spatial view as
   }
   assert.equal(JSON.stringify(data), before);
   const scenes = prototypeFromSpace(data.gameplay.designs[0], data.gameplay.designs), prototypeDesign = {schema:1, entryId:scenes[0].id, scenes};
-  const extended = {...structuredClone(data),prototypeDesign}; validatePrototypeExample(extended);
+  // Replacing prototype scenes also replaces the schedule fixture that referenced the original scenes.
+  const extended = {...structuredClone(data),prototypeDesign}; delete extended.projectSchedule; validatePrototypeExample(extended);
   const catalog = defaultCatalog({...config,projectPath:'E:/QA/Existing'},'旧项目'), p = preparePrototypeProject(catalog,extended,'原型'), storage=memory(); writePrototypeProject(storage,p);
   const doc = captureProjectPackage(storage,p.project).document; assert.deepEqual(doc.archives['prototype-design'],prototypeDesign);
   const prepared = prepareProjectPackageImport(catalog,doc,'转移后的原型'), target=memory(); writeProjectPackageImport(target,prepared);
