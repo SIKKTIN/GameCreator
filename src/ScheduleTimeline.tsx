@@ -36,9 +36,12 @@ function TaskBar({ task, start, width, disabled, onOpen, onMove }: { task: Produ
     drag.current = { x: e.clientX, mode: mode || 'move', original: structuredClone(task), next: task, moved: false }; suppressClick.current = false; e.currentTarget.setPointerCapture(e.pointerId);
   };
   const finish = (e: PointerEvent<HTMLDivElement>, cancel = false) => {
-    const current = drag.current; if (!current) return; drag.current = null; setPreview(null); suppressClick.current = current.moved || cancel;
+    const current = drag.current; if (!current) return; drag.current = null; setPreview(null);
+    // Commit the release position even if the last pointermove was coalesced.
+    const moved = current.moved || Math.abs(e.clientX - current.x) > 4;
+    suppressClick.current = moved || cancel;
     if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
-    if (!cancel && current.moved) onMove(current.next, current.original);
+    if (!cancel && moved) onMove(moveProductionTask(current.original, Math.round((e.clientX - current.x) / dayWidth), current.mode), current.original);
   };
   const keyboard = (e: React.KeyboardEvent, mode: 'move' | 'start' | 'end') => { if (disabled || !['ArrowLeft', 'ArrowRight'].includes(e.key)) return; e.preventDefault(); e.stopPropagation(); onMove(moveProductionTask(task, e.key === 'ArrowRight' ? 1 : -1, mode), task); };
   return <div className={'sch-bar sch-status-' + task.status + (preview ? ' dragging' : '')} role="button" tabIndex={0} aria-label={'排期条：' + task.title} title={shown.start + ' → ' + shown.end + ' · ' + task.status + '；拖动移动，边缘调整日期；方向键移动一天'} style={{ left: Math.max(0, left) + 2, width: Math.max(20, Math.min(width, left + length) - Math.max(0, left) - 4) }}
