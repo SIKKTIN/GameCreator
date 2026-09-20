@@ -6,15 +6,15 @@ import { importDiscoStory } from '../src/story-import-config.ts';
 import { startStory, chooseStoryOption, rewindStory, visibleStoryChoices, choiceBlockReason } from '../src/story-playthrough.ts';
 const example = JSON.parse(await fs.readFile(new URL('../examples/prototypes/disco-elysium.json',import.meta.url),'utf8'));
 const story = example.storyOrchestration.stories[0];
-const store = () => structuredClone(example.storyOrchestration);
+const store = () => ({ ...structuredClone(example.storyOrchestration), enabled: false });
 function walk(initial={}) {
   let preview=startStory(story,initial);
   return { get preview(){return preview;}, get node(){return preview.current.nodeId;}, get state(){return preview.current.state;}, step(id,result='success'){preview=chooseStoryOption(story,preview,id,result);return preview;}, set(p){preview=p;}, option(label){return visibleStoryChoices(story,preview.current).find(x=>x.choice.label===label&&!x.reason)?.choice.id;} };
 }
 function toYard(w) { w.step('begin'); assert.equal(w.node,'yard_voice'); w.step('doubt_voice'); w.step('leave_thought_hint'); w.step('visit-yard'); assert.equal(w.node,'yard_hub'); }
 function until(w,time){while(w.state.elapsed<time)w.step('wait-half-hour');}
-test('optional module defaults off and bundled story preserves all authored text, choices, checks and valid task references',()=>{
-  assert.equal(example.storyOrchestration.enabled,false);assert.equal(story.nodes.length,37);assert.equal(story.choices.length,76);assert.equal(story.checks.length,5);
+test('Disco opts into story orchestration with an expanded script, while configuration imports preserve their original authored text',()=>{
+  assert.equal(example.storyOrchestration.enabled,true);assert.equal(story.nodes.length,37);assert.equal(story.choices.length,76);assert.equal(story.checks.length,5);
   validateStoryOrchestration(store()); assert.deepEqual(narrativeIssues(story,example.taskFlows.tasks),[]);
   const before=JSON.stringify(example.data), imported=importDiscoStory(example.data,example.taskFlows.tasks.map(t=>t.id));
   for(const n of example.data.datasets.de_dialogue_nodes)assert.equal(imported.nodes.find(x=>x.id===n.id).text,n.text);

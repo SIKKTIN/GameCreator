@@ -17,7 +17,7 @@
 - name、description：示例名称与范围。
 - gameplayCore：schema 1 分层入口、调查循环、内部模块及玩法关联。
 - taskFlows：schema 1 玩家任务、阶段目标、分支结果、前置解锁和内容引用（共13个任务；全部为草稿，参见[任务与流程](../../docs/task-flows.md)）。
-- storyOrchestration：可选 schema 1 故事编排。港区疑案包含默认关闭的 37 片段、76 选项和 5 检定；其他示例缺省关闭且无故事。在“工作区设置”按项目添加，关闭保留内容，参见[故事编排](../../docs/story-orchestration.md)。
+- storyOrchestration：可选 schema 1 故事编排。港区疑案默认启用，包含约 5500 字的 37 片段、76 选项和 5 检定；其他示例缺省关闭且无故事。在“工作区设置”按项目添加或关闭，关闭保留内容，参见[故事编排](../../docs/story-orchestration.md)。
 - gameplay：schema 3 玩法设计，包括依赖、条件规则、状态流程、空间布局、时间轴、制作与验证清单。
 - functionalSystems：schema 1 功能系统、能力定义、依赖、配置引用和玩法关联。
 - artAssets：schema 1 美术需求、资产台账、需求来源及复用关系。
