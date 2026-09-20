@@ -63,22 +63,22 @@ else {
     return prepareTestWorkspace(root, dataDirectory, scenario);
   });
   ipcMain.handle('art-files-import', async (event, workspaceId) => {
-    if (!trusted(event)) throw new Error('不允许导入美术文件');
+    if (!trusted(event)) throw new Error('不允许导入素材文件');
     validateWorkspaceId(workspaceId);
     const requestingWindow = mainWindow;
     const result = await dialog.showOpenDialog(requestingWindow, {
-      title: '导入美术文件', properties: ['openFile', 'multiSelections'],
+      title: '导入素材文件', properties: ['openFile', 'multiSelections'],
     });
     if (result.canceled || !result.filePaths.length) return null;
     if (mainWindow !== requestingWindow || !trusted(event)) throw new Error('原工作区窗口已关闭，请重新导入');
     return artFiles.importFiles(workspaceId, result.filePaths);
   });
   ipcMain.handle('art-files-preview', async (event, payload) => {
-    if (!trusted(event)) throw new Error('不允许读取美术文件');
+    if (!trusted(event)) throw new Error('不允许读取素材文件');
     return artFiles.readPreview(payload?.workspaceId, payload?.storagePath);
   });
   ipcMain.handle('art-files-reveal', async (event, payload) => {
-    if (!trusted(event)) throw new Error('不允许定位美术文件');
+    if (!trusted(event)) throw new Error('不允许定位素材文件');
     const requestingWindow = mainWindow;
     await artFiles.reveal(payload?.workspaceId, payload?.storagePath, filename => {
       if (mainWindow !== requestingWindow || !trusted(event)) throw new Error('原工作区窗口已关闭，未打开文件夹');

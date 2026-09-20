@@ -122,7 +122,7 @@ export function validatePrototypeExample(value: unknown): PrototypeExample {
     ...artIssues(art, { designs: gameplay.designs, functional })];
   requireValid(references.length === 0, references.join('；'));
   requireValid(functional.capabilities.every(capability => capability.status === '待开发'), '示例不能包含已开发功能');
-  requireValid(art.requirements.every(requirement => requirement.status === '待制作' && requirement.owner === '' && requirement.dueDate === ''), '示例美术需求必须保持未分配、待制作');
+  requireValid(art.requirements.every(requirement => requirement.status === '待制作' && requirement.owner === '' && requirement.dueDate === ''), '示例素材需求必须保持未分配、待制作');
   requireValid(art.assets.every(asset => asset.versions.length === 0 && asset.adoptedVersionId === ''), '示例不能携带本地交付文件或采用版本');
   if (Object.prototype.hasOwnProperty.call(value, 'taskFlows')) {
     const tasks = validateTaskFlows(value.taskFlows);

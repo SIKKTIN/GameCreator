@@ -7,7 +7,7 @@ import type { PrototypeDesignStore } from './prototype-design.ts';
 export const productionKinds = ['设计', '程序', '美术', '关卡', '测试', '其他'] as const;
 export const productionStatuses = ['待开始', '进行中', '待验收', '已完成', '受阻'] as const;
 export const productionPriorities = ['低', '普通', '高', '紧急'] as const;
-export const scheduleReferenceLabels = { gameplay: '玩法文档', capability: '程序功能', requirement: '美术需求', asset: '美术资产', map: '地图', prototype: '原型场景' };
+export const scheduleReferenceLabels = { gameplay: '玩法文档', capability: '程序功能', requirement: '素材需求', asset: '素材资产', map: '地图', prototype: '原型场景' };
 export type ScheduleReference = { kind: keyof typeof scheduleReferenceLabels; targetId: string };
 export type ProductionTask = {
   id: string; title: string; description: string; kind: typeof productionKinds[number]; owner: string;

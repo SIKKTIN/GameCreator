@@ -65,7 +65,7 @@ export function prototypeIssues(store: PrototypeDesignStore, designs: GameplayDe
       if (e.sourceObjectId && !objects.some(o => o.id === e.sourceObjectId)) issue(e.name + '的空间对象已失效');
       if (e.action.kind === 'scene' && !store.scenes.some(t => t.id === e.action.targetId)) issue(e.name + '的跳转场景未指定或已失效');
       if (['show', 'hide', 'toggle'].includes(e.action.kind) && !s.elements.some(t => t.id === e.action.targetId)) issue(e.name + '的目标元素未指定或已失效');
-      if (e.assetId && !art.assets.find(a => a.id === e.assetId)?.versions.find(v => v.id === e.versionId)?.files.some(f => f.id === e.fileId)) issue(e.name + '的美术文件已失效');
+      if (e.assetId && !art.assets.find(a => a.id === e.assetId)?.versions.find(v => v.id === e.versionId)?.files.some(f => f.id === e.fileId)) issue(e.name + '的素材文件已失效');
     }
   }
   return issues;
@@ -150,5 +150,5 @@ export function prototypeFromSpace(design: GameplayDesign, designs: GameplayDesi
   return [start, ...content];
 }
 export function prototypeMarkdown(store: PrototypeDesignStore) {
-  return ['## 原型设计', '', '启动场景：' + (store.scenes.find(s => s.id === store.entryId)?.name || '未指定'), '点击预览用于验证界面与场景流转；条件由预览者确认。', ...store.scenes.flatMap(s => ['', '### ' + s.name, s.description, `画面：${s.width} × ${s.height}；空间来源：${s.sourceDesignId || '独立界面'}；房间：${s.roomId || '无'}；玩法核心：${s.coreNodeId || '未关联'}`, ...s.elements.map(e => `- ${e.name}：${e.text}；${prototypeKinds[e.kind]}；${prototypeActions[e.action.kind]} → ${e.action.targetId || '无'}；条件：${e.action.condition || '无'}；位置：${e.x}, ${e.y}；空间对象：${e.sourceObjectId || '无'}；美术文件：${[e.assetId, e.versionId, e.fileId].filter(Boolean).join('/') || '无'}`)])].join('\n');
+  return ['## 原型设计', '', '启动场景：' + (store.scenes.find(s => s.id === store.entryId)?.name || '未指定'), '点击预览用于验证界面与场景流转；条件由预览者确认。', ...store.scenes.flatMap(s => ['', '### ' + s.name, s.description, `画面：${s.width} × ${s.height}；空间来源：${s.sourceDesignId || '独立界面'}；房间：${s.roomId || '无'}；玩法核心：${s.coreNodeId || '未关联'}`, ...s.elements.map(e => `- ${e.name}：${e.text}；${prototypeKinds[e.kind]}；${prototypeActions[e.action.kind]} → ${e.action.targetId || '无'}；条件：${e.action.condition || '无'}；位置：${e.x}, ${e.y}；空间对象：${e.sourceObjectId || '无'}；素材文件：${[e.assetId, e.versionId, e.fileId].filter(Boolean).join('/') || '无'}`)])].join('\n');
 }

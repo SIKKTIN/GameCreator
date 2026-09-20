@@ -1,3 +1,4 @@
+import { materialPromptText, type MaterialGenerationPrompt } from './material-prompt.ts';
 import { validateArtLibrary, artLibrary, artCategoryId, artCategoryName, type ArtLibrary } from './art-library.ts';
 import { objectGeometry, spatialObjectLocation } from './spatial-layout.ts';
 import type { GameplayDesign } from './gameplay';
@@ -8,7 +9,7 @@ export const artPriorities = ['普通', '高', '低'] as const;
 export const artRequirementStatuses = ['待制作', '制作中', '待审核', '需修改', '已通过'] as const;
 export const artReviewStatuses = ['待审核', '需修改', '已通过'] as const;
 export type ArtSource = { id: string; kind: 'gameplay' | 'capability'; targetId: string; sourceKind: 'design' | 'rule' | 'state' | 'event' | 'object'; sourceId: string; note: string };
-export type ArtRequirement = { id: string; name: string; category: typeof artCategories[number]; description: string; specification: string; acceptance: string; owner: string; dueDate: string; priority: typeof artPriorities[number]; status: typeof artRequirementStatuses[number]; archived: boolean; sources: ArtSource[]; createdAt: string; updatedAt: string };
+export type ArtRequirement = { generationPrompt?: MaterialGenerationPrompt; id: string; name: string; category: typeof artCategories[number]; description: string; specification: string; acceptance: string; owner: string; dueDate: string; priority: typeof artPriorities[number]; status: typeof artRequirementStatuses[number]; archived: boolean; sources: ArtSource[]; createdAt: string; updatedAt: string };
 export type ArtFile = { id: string; name: string; size: number; mime: string; storagePath: string };
 export type ArtVersion = { id: string; name: string; notes: string; placeholder: boolean; review: typeof artReviewStatuses[number]; feedback: string; files: ArtFile[]; createdAt: string };
 export type ArtAsset = { id: string; name: string; description: string; versions: ArtVersion[]; adoptedVersionId: string; archived: boolean; createdAt: string; updatedAt: string };
@@ -17,12 +18,12 @@ export type ArtStore = { library?: ArtLibrary; schema: 1; requirements: ArtRequi
 export type ArtSources = { designs: GameplayDesign[]; functional: FunctionalStore };
 export const emptyArtAssets = (): ArtStore => ({ schema: 1, requirements: [], assets: [], links: [] });
 export function createArtRequirement(name: string): ArtRequirement {
-  if (!name.trim()) throw new Error('请输入美术需求名称');
+  if (!name.trim()) throw new Error('请输入素材需求名称');
   const now = new Date().toISOString();
   return { id: crypto.randomUUID(), name: name.trim(), category: '其他', description: '', specification: '', acceptance: '', owner: '', dueDate: '', priority: '普通', status: '待制作', archived: false, sources: [], createdAt: now, updatedAt: now };
 }
 export function createArtAsset(name: string): ArtAsset {
-  if (!name.trim()) throw new Error('请输入美术资产名称');
+  if (!name.trim()) throw new Error('请输入素材资产名称');
   const now = new Date().toISOString();
   return { id: crypto.randomUUID(), name: name.trim(), description: '', versions: [], adoptedVersionId: '', archived: false, createdAt: now, updatedAt: now };
 }
@@ -36,12 +37,12 @@ export function validateArtAssets(value: unknown): ArtStore {
     return xs.every(x => { if (!record(x) || typeof x.id !== 'string' || !x.id.trim() || seen.has(x.id) || !check(x)) return false; seen.add(x.id); return true; });
   };
   if (!record(value) || value.schema !== 1 ||
-    !list(value.requirements, r => strings(r, ['name', 'description', 'specification', 'acceptance', 'owner', 'dueDate']) && artCategories.includes(r.category as ArtRequirement['category']) && artPriorities.includes(r.priority as ArtRequirement['priority']) && artRequirementStatuses.includes(r.status as ArtRequirement['status']) && typeof r.archived === 'boolean' && date(r.createdAt) && date(r.updatedAt) && due(r.dueDate) &&
+    !list(value.requirements, r => (!Object.prototype.hasOwnProperty.call(r, 'generationPrompt') || record(r.generationPrompt) && strings(r.generationPrompt, ['prompt', 'negative'])) && strings(r, ['name', 'description', 'specification', 'acceptance', 'owner', 'dueDate']) && artCategories.includes(r.category as ArtRequirement['category']) && artPriorities.includes(r.priority as ArtRequirement['priority']) && artRequirementStatuses.includes(r.status as ArtRequirement['status']) && typeof r.archived === 'boolean' && date(r.createdAt) && date(r.updatedAt) && due(r.dueDate) &&
       list(r.sources, s => strings(s, ['targetId', 'sourceId', 'note']) && ['gameplay', 'capability'].includes(s.kind as string) && ['design', 'rule', 'state', 'event', 'object'].includes(s.sourceKind as string) && (s.sourceKind !== 'design' || s.sourceId === '') && (s.kind !== 'capability' || s.sourceKind === 'design' && s.sourceId === ''))) ||
     !list(value.assets, a => strings(a, ['name', 'description', 'adoptedVersionId']) && typeof a.archived === 'boolean' && date(a.createdAt) && date(a.updatedAt) &&
       list(a.versions, v => strings(v, ['name', 'notes', 'feedback']) && typeof v.placeholder === 'boolean' && artReviewStatuses.includes(v.review as ArtVersion['review']) && date(v.createdAt) &&
         list(v.files, f => strings(f, ['name', 'mime', 'storagePath']) && !!(f.storagePath as string).trim() && typeof f.size === 'number' && Number.isSafeInteger(f.size) && f.size >= 0))) ||
-    !list(value.links, l => strings(l, ['requirementId', 'assetId', 'note']))) throw new Error('美术资产存档格式异常，已停止写入');
+    !list(value.links, l => strings(l, ['requirementId', 'assetId', 'note']))) throw new Error('素材资产存档格式异常，已停止写入');
   if (Object.prototype.hasOwnProperty.call(value, 'library')) validateArtLibrary(value.library, value as unknown as ArtStore);
   return value as ArtStore;
 }
@@ -54,7 +55,7 @@ export function artRequirementReadiness(requirementId: string, store: ArtStore):
   const requirement = store.requirements.find(r => r.id === requirementId);
   if (!requirement) return { ready: false, issues: ['需求已失效（' + requirementId + '）'] };
   const links = store.links.filter(l => l.requirementId === requirementId), issues: string[] = [];
-  if (!links.length) issues.push('至少需要关联一个美术资产');
+  if (!links.length) issues.push('至少需要关联一个素材资产');
   for (const link of links) {
     const asset = store.assets.find(a => a.id === link.assetId);
     if (!asset) { issues.push('关联资产已失效（' + link.assetId + '）'); continue; }
@@ -75,13 +76,13 @@ export function validateArtMutation(previous: ArtStore, next: ArtStore): ArtStor
   validateArtAssets(next);
   for (const requirement of previous.requirements) {
     const changed = next.requirements.find(r => r.id === requirement.id);
-    if (!changed) throw new Error('美术需求保留历史，请使用归档');
-    if (requirement.archived && withoutArchive(requirement) !== withoutArchive(changed)) throw new Error('美术需求已归档，请先恢复后再修改：' + requirement.name);
+    if (!changed) throw new Error('素材需求保留历史，请使用归档');
+    if (requirement.archived && withoutArchive(requirement) !== withoutArchive(changed)) throw new Error('素材需求已归档，请先恢复后再修改：' + requirement.name);
   }
   for (const asset of previous.assets) {
     const changed = next.assets.find(a => a.id === asset.id);
-    if (!changed) throw new Error('美术资产保留历史，请使用归档');
-    if (asset.archived && withoutArchive(asset) !== withoutArchive(changed)) throw new Error('美术资产已归档，请先恢复后再修改：' + asset.name);
+    if (!changed) throw new Error('素材资产保留历史，请使用归档');
+    if (asset.archived && withoutArchive(asset) !== withoutArchive(changed)) throw new Error('素材资产已归档，请先恢复后再修改：' + asset.name);
     for (const version of asset.versions) {
       const changedVersion = changed.versions.find(v => v.id === version.id);
       if (!changedVersion || immutableVersion(version) !== immutableVersion(changedVersion)) throw new Error('已有版本内容与文件不可修改或删除，请上传新增版本：' + asset.name + ' / ' + version.name);
@@ -105,7 +106,7 @@ export function validateArtMutation(previous: ArtStore, next: ArtStore): ArtStor
     const old = previous.links.find(l => l.id === link.id);
     if ((!old || JSON.stringify(old) !== JSON.stringify(link)) && archivedEndpoint(link, next)) throw new Error('不能为已归档需求或资产新增或更改关联');
     const pair = JSON.stringify([link.requirementId, link.assetId]);
-    if (linkPairs.has(pair)) throw new Error('同一美术需求与资产不能重复关联');
+    if (linkPairs.has(pair)) throw new Error('同一素材需求与资产不能重复关联');
     linkPairs.add(pair);
   }
   for (const requirement of next.requirements) if (requirement.status === '已通过') {
@@ -117,7 +118,7 @@ export function validateArtMutation(previous: ArtStore, next: ArtStore): ArtStor
 export function writeArtAssets(storage: Pick<Storage, 'getItem' | 'setItem'>, key: string, expected: string | null, store: ArtStore): string {
   const current = storage.getItem(key);
   const previous = current === null ? emptyArtAssets() : validateArtAssets(JSON.parse(current));
-  if (current !== expected) throw new Error('其他窗口已更新美术资产，当前草稿已保留，请先处理版本冲突');
+  if (current !== expected) throw new Error('其他窗口已更新素材资产，当前草稿已保留，请先处理版本冲突');
   const raw = JSON.stringify(validateArtMutation(previous, validateArtAssets(store)));
   storage.setItem(key, raw); return raw;
 }
@@ -162,7 +163,7 @@ export function artSourceText(source: ArtSource, sources: ArtSources): string {
 export function artIssues(store: ArtStore, sources: ArtSources): string[] {
   const issues: string[] = [], pairs = new Set<string>();
   for (const requirement of store.requirements) {
-    if (!requirement.name.trim()) issues.push('有美术需求尚未命名');
+    if (!requirement.name.trim()) issues.push('有素材需求尚未命名');
     const seen = new Set<string>();
     for (const source of requirement.sources) {
       const tuple = JSON.stringify([source.kind, source.targetId, source.sourceKind, source.sourceId]);
@@ -172,7 +173,7 @@ export function artIssues(store: ArtStore, sources: ArtSources): string[] {
     if (requirement.status === '已通过') issues.push(...artRequirementReadiness(requirement.id, store).issues.map(i => '已通过需求“' + requirement.name + '”：' + i));
   }
   for (const asset of store.assets) {
-    if (!asset.name.trim()) issues.push('有美术资产尚未命名');
+    if (!asset.name.trim()) issues.push('有素材资产尚未命名');
     for (const version of asset.versions) if (!version.files.length) issues.push(asset.name + ' / ' + version.name + '：版本没有文件');
     if (asset.adoptedVersionId) {
       const adopted = asset.versions.find(v => v.id === asset.adoptedVersionId);
@@ -199,8 +200,8 @@ const adoptedText = (asset: ArtAsset) => {
 };
 export function artReferencesMarkdown(kind: 'gameplay' | 'capability', id: string, store: ArtStore, sources: ArtSources): string {
   const requirements = store.requirements.filter(r => r.sources.some(s => s.kind === kind && s.targetId === id));
-  const lines = ['#### 美术需求与资产', ''];
-  if (!requirements.length) lines.push('暂无关联美术需求。');
+  const lines = ['#### 素材需求与资产', ''];
+  if (!requirements.length) lines.push('暂无关联素材需求。');
   for (const requirement of requirements) {
     lines.push(`- ${text(requirement.name)} [需求 ID：${requirement.id}] · ${requirement.status}${requirement.archived ? '（已归档）' : ''}`);
     for (const source of requirement.sources.filter(s => s.kind === kind && s.targetId === id)) lines.push('  - 来源：' + artSourceText(source, sources) + '；' + text(source.note));
@@ -212,8 +213,8 @@ export function artReferencesMarkdown(kind: 'gameplay' | 'capability', id: strin
   return lines.join('\n') + '\n';
 }
 export function artAssetsMarkdown(store: ArtStore, sources: ArtSources): string {
-  const lines = ['## 美术资产', '', '> 需求与资产独立维护，一个资产可以服务多个需求。占位版本可用于原型，但不代表正式验收完成。', '', '### 美术需求', ''];
-  if (!store.requirements.length) lines.push('暂无美术需求。', '');
+  const lines = ['## 素材资产', '', '> 需求与资产独立维护，一个资产可以服务多个需求。占位版本可用于原型，但不代表正式验收完成。', '', '### 素材需求', ''];
+  if (!store.requirements.length) lines.push('暂无素材需求。', '');
   for (const requirement of store.requirements) {
     lines.push('#### ' + text(requirement.name), '', '- 需求 ID：' + requirement.id, '- 所属分类：' + artCategoryName(artLibrary(store), artCategoryId(artLibrary(store), 'requirement', requirement.id)), '- 分类：' + requirement.category, '- 状态：' + requirement.status + (requirement.archived ? '（已归档）' : ''), '- 优先级：' + requirement.priority, '- 负责人：' + text(requirement.owner), '- 截止日期：' + (requirement.dueDate || '未设置'), '', '需求说明：', text(requirement.description), '', '制作规格：', text(requirement.specification), '', '验收标准：', text(requirement.acceptance), '', '需求来源：');
     if (!requirement.sources.length) lines.push('- 尚未关联来源。');
@@ -222,6 +223,7 @@ export function artAssetsMarkdown(store: ArtStore, sources: ArtSources): string 
       lines.push(`- ${artSourceText(source, sources)} [${source.kind === 'gameplay' ? '玩法' : '功能'} ID：${source.targetId}；来源 ID：${source.sourceId || '整体'}]；用途：${text(source.note)}`);
       if (resolved.detail) lines.push('  需求上下文：' + resolved.detail);
     }
+    if (requirement.generationPrompt) lines.push('', '素材生成提示词：', materialPromptText(requirement.generationPrompt) || '尚未填写', '');
     lines.push('', '关联资产：');
     const links = store.links.filter(l => l.requirementId === requirement.id);
     if (!links.length) lines.push('- 暂无关联资产。');
@@ -233,7 +235,7 @@ export function artAssetsMarkdown(store: ArtStore, sources: ArtSources): string 
     lines.push('', '正式版本就绪检查：' + (readiness.ready ? '关联资产全部采用了已通过的正式版本；需求最终状态仍由人工确认。' : readiness.issues.join('；')), '');
   }
   lines.push('### 资产库', '');
-  if (!store.assets.length) lines.push('暂无美术资产。', '');
+  if (!store.assets.length) lines.push('暂无素材资产。', '');
   for (const asset of store.assets) {
     lines.push('#### ' + text(asset.name), '', '- 资产 ID：' + asset.id, '- 所属分类：' + artCategoryName(artLibrary(store), artCategoryId(artLibrary(store), 'asset', asset.id)), '- 归档：' + (asset.archived ? '是' : '否'), '- 当前采用：' + adoptedText(asset), '', text(asset.description), '', '服务需求：');
     const links = store.links.filter(l => l.assetId === asset.id);
@@ -254,6 +256,6 @@ export function artAssetsMarkdown(store: ArtStore, sources: ArtSources): string 
   const lost = store.links.filter(l => !store.requirements.some(r => r.id === l.requirementId) && !store.assets.some(a => a.id === l.assetId));
   if (lost.length) lines.push('### 两端失效的资产关联', '', ...lost.map(l => `- 需求 ${l.requirementId} → 资产 ${l.assetId}；${text(l.note)}`), '');
   const issues = artIssues(store, sources);
-  if (issues.length) lines.push('### 美术引用与审核检查', '', ...issues.map(i => '- ' + i), '');
+  if (issues.length) lines.push('### 素材引用与审核检查', '', ...issues.map(i => '- ' + i), '');
   return lines.join('\n');
 }

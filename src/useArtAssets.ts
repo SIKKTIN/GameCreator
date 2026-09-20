@@ -17,13 +17,13 @@ export function useArtAssets(workspaceId: string, fileWorkspaceId = 'project:' +
       if (initial.error) throw new Error(initial.error);
       committed.current = writeArtAssets(workspaceStorage, key, committed.current, next);
       setSaveError(''); setOperationError(''); return true;
-    } catch (error) { setSaveError('美术资产修改未保存：' + String(error)); return false; }
+    } catch (error) { setSaveError('素材资产修改未保存：' + String(error)); return false; }
   };
   const update = (operation: (current: ArtStore) => ArtStore) => {
     if (initial.error) return false;
     let next: ArtStore;
     try { next = validateArtMutation(latest.current, validateArtAssets(operation(structuredClone({ ...latest.current, library: artLibrary(latest.current) })))); }
-    catch (error) { setOperationError('美术更改未应用：' + String(error)); return false; }
+    catch (error) { setOperationError('素材更改未应用：' + String(error)); return false; }
     latest.current = next; setStore(next); setOperationError('');
     return persist(next);
   };
@@ -35,6 +35,6 @@ export function useArtAssets(workspaceId: string, fileWorkspaceId = 'project:' +
     return () => window.removeEventListener('beforeunload', warn);
   }, [pending]);
   return { workspaceId: fileWorkspaceId, store, update, retry: () => persist(latest.current), blocked: !!initial.error, pending,
-    error: initial.error ? '美术资产存档读取失败，已停止写入：' + initial.error : [saveError, operationError].filter(Boolean).join('；') };
+    error: initial.error ? '素材资产存档读取失败，已停止写入：' + initial.error : [saveError, operationError].filter(Boolean).join('；') };
 }
 export type ArtController = ReturnType<typeof useArtAssets>;

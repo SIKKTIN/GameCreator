@@ -15,7 +15,7 @@ import { Text, Select, NumberField } from './StoryFields';
 import { connectionEndpoints, mapObjectStage, createDesignMap, mapKinds, mapStage, mapSource, mapIssues, removeDesignMap, removeMapObject, type DesignMap, type MapConnection, type MapObject, type MapReference, type MapTargets, type MapOpening, type SurfaceKind } from './map-design';
 import './map-design.css';
 
-const refNames = { gameplay:'玩法',task:'任务',story:'故事',character:'人物',asset:'美术资产',prototype:'原型场景' };
+const refNames = { gameplay:'玩法',task:'任务',story:'故事',character:'人物',asset:'素材资产',prototype:'原型场景' };
 const connectionKinds = { passage:'通路',shortcut:'捷径',door:'门与室内',transport:'传送' };
 const choices = (names:Record<string,string>) => Object.entries(names).map(([id,name])=>({id,name}));
 export function MapRecovery({controller:c}:{controller:MapDesignController}) {
