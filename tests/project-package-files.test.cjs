@@ -337,3 +337,23 @@ test('core edits during export invalidate its captured snapshot', async t => {
   await assert.rejects(f.export(), /导出期间发生变化/);
   assert.equal(await exists(f.directory), false);
 });
+
+
+test('prototype scene archives are portable, hash protected and included in export race checks', async t => {
+  const {createPrototypeScene,createPrototypeElement}=await import('../src/prototype-design.ts');
+  const f=await fixture(t),scene=createPrototypeScene('开始界面');scene.elements=[createPrototypeElement('button')];
+  const value={schema:1,entryId:scene.id,scenes:[scene]},key=archiveKey(f.id,'prototype-design');
+  f.document.archives['prototype-design']=value;f.storage.setItem(key,JSON.stringify(value));f.args.expectedEntries.push({key,value:JSON.stringify(value)});
+  const changed=structuredClone(value);changed.scenes[0].name='另一个窗口';f.storage.setItem(key,JSON.stringify(changed));
+  await assert.rejects(f.export(),/导出期间发生变化/);assert.equal(await exists(f.directory),false);f.storage.setItem(key,JSON.stringify(value));
+  await f.export();assert.deepEqual((await f.service.readFolder(f.directory)).document.archives['prototype-design'],value);
+  const manifest=await f.manifest(),file=manifest.files.find(f=>f.path==='data/prototype-design.json');assert.ok(file);assert.equal(sha(await fs.readFile(path.join(f.directory,file.path))),file.sha256);
+  await fs.writeFile(path.join(f.directory,file.path),JSON.stringify(changed));await assert.rejects(f.service.readFolder(f.directory),/校验失败/);
+});
+test('malformed prototype archives fail before any project folder is created',async t=>{
+ const {createPrototypeScene,createPrototypeElement}=await import('../src/prototype-design.ts');
+ for(const mutate of [s=>s.schema=999,s=>s.scenes[0].elements[0].action.kind='eval',s=>s.scenes[0].elements[0].x=null,s=>s.scenes[0].width=0]){
+  const f=await fixture(t),scene=createPrototypeScene();scene.elements=[createPrototypeElement('button')];const value={schema:1,entryId:scene.id,scenes:[scene]};mutate(value);f.document.archives['prototype-design']=value;
+  await assert.rejects(f.export(),/原型设计存档格式无效/);assert.equal(await exists(f.directory),false);
+ }
+});

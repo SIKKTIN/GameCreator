@@ -42,6 +42,7 @@ export function ProjectPackageDialog({ state, names, onClose, onChoose, onImport
       {state?.directory && <div className="pp-success" role="status"><CheckCircle2 size={22} /><div><strong>项目已导出</strong><p>{state.directory}</p><small>{state.fileCount} 个美术文件已包含在项目文件夹中。</small></div></div>}
       {importing && archives && <>
         <div className="pp-summary"><strong>{state?.document?.project.name}</strong><dl>
+          <div><dt>原型场景</dt><dd>{archives['prototype-design'].scenes.length}</dd></div>
           <div><dt>玩法核心节点</dt><dd>{archives['gameplay-core'].graphs.reduce((sum, graph) => sum + graph.nodes.length, 0)}</dd></div>
           <div><dt>玩法设计</dt><dd>{archives.gameplay.designs.length}</dd></div>
           <div><dt>功能系统</dt><dd>{archives['functional-systems'].systems.length}</dd></div>

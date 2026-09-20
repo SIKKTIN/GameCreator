@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react';
-import { Layers, Gamepad2, ListTree, Palette, BookOpen, Database, Tag, Settings2, GitBranch, BarChart3, Server, Workflow, Users } from 'lucide-react';
+import { Layers, Gamepad2, ListTree, Palette, BookOpen, Database, Tag, Settings2, GitBranch, BarChart3, Server, Workflow, Users, PanelsTopLeft } from 'lucide-react';
 
 export const workspaceNavigation = [
-  ['项目概览', Layers], ['玩法核心', Workflow], ['玩法设计', Gamepad2], ['功能系统', ListTree], ['美术资产', Palette], ['故事文档', BookOpen],
+  ['项目概览', Layers], ['玩法核心', Workflow], ['玩法设计', Gamepad2], ['原型设计', PanelsTopLeft], ['功能系统', ListTree], ['美术资产', Palette], ['故事文档', BookOpen],
   ['数据配置', Database], ['枚举定义', Tag], ['枚举管理', Tag], ['引擎设置', Settings2], ['任务与流程', GitBranch], ['数值分析', BarChart3],
 ] as const;
 
