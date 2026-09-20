@@ -3,7 +3,7 @@ export type CoreNode = { id: string; kind: CoreNodeKind; title: string; descript
 export type CoreEdge = { id: string; fromId: string; toId: string; label: string; condition: string };
 export type CoreGraph = { id: string; title: string; summary: string; nodes: CoreNode[]; edges: CoreEdge[] };
 export type GameplayCoreStore = { schema: 1; rootId: string; graphs: CoreGraph[] };
-export type CoreDesignReference = { id: string; title: string; archived?: boolean };
+export type CoreDesignReference = { id: string; title: string; archived?: boolean; sourceOnly?: boolean };
 export type CoreIssue = { graphId: string; nodeId?: string; message: string };
 
 export const coreNodeKinds: CoreNodeKind[] = ['entry', 'activity', 'module', 'decision', 'exit'];

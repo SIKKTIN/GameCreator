@@ -20,12 +20,15 @@ function createProjectAdminStore(db, { fail, audit }) {
     const milestones = db.prepare('SELECT id,revision FROM project_milestones WHERE project_id=? ORDER BY id').all(id);
     const graphs = db.prepare('SELECT id,revision,graph IS NOT NULL AS live FROM core_graphs WHERE project_id=? ORDER BY id').all(id);
     const core = db.prepare('SELECT root_id,refs FROM core_projects WHERE project_id=?').get(id) ?? null;
+    const gameplay = db.prepare('SELECT id,revision FROM gameplay_documents WHERE project_id=? ORDER BY id').all(id);
+    const gameplayMeta = db.prepare('SELECT category_revision FROM gameplay_projects WHERE project_id=?').get(id)??null;
     const counts = {
+      gameplays:gameplay.length,gameplayHistory:db.prepare('SELECT COUNT(*) AS n FROM gameplay_history WHERE project_id=?').get(id).n,
       members:db.prepare('SELECT COUNT(*) AS n FROM members WHERE project_id=?').get(id).n,
       stories:stories.length, history:db.prepare('SELECT COUNT(*) AS n FROM history WHERE story_id IN (SELECT id FROM stories WHERE project_id=?)').get(id).n,
       overview:overview?.initialized ? 1 : 0, milestones:milestones.length, graphs:graphs.filter(g => g.live).length,
     };
-    const version = createHash('sha256').update(JSON.stringify({id:project.id,name:project.name,members:project.member_revision,stories,overview,milestones,graphs,core,counts})).digest('hex');
+    const version = createHash('sha256').update(JSON.stringify({id:project.id,name:project.name,members:project.member_revision,stories,overview,milestones,graphs,core,gameplay,gameplayMeta,counts})).digest('hex');
     return { project:{id:project.id,name:project.name},deleted:false,counts,version };
   };
   // Called inside the request's authorization transaction. Retain only project identity
@@ -40,7 +43,7 @@ function createProjectAdminStore(db, { fail, audit }) {
     const current = preview(id);
     if (current.version !== input.version) fail(409,'项目内容或成员已变化，请重新核对删除范围后确认');
     db.prepare('DELETE FROM history WHERE story_id IN (SELECT id FROM stories WHERE project_id=?)').run(id);
-    for (const table of ['story_imports','stories','project_milestones','project_overviews','project_activity','core_operations','core_graphs','core_projects','member_permissions','members']) {
+    for (const table of ['gameplay_history','gameplay_operations','gameplay_documents','gameplay_projects','story_imports','stories','project_milestones','project_overviews','project_activity','core_operations','core_graphs','core_projects','member_permissions','members']) {
       db.prepare(`DELETE FROM ${table} WHERE project_id=?`).run(id);
     }
     const deletedAt = new Date().toISOString();

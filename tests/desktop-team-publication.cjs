@@ -27,9 +27,9 @@ const waitUntil = async (check, message) => {
   storage.setItem(metaKey, JSON.stringify({ name: '本地原型', genre: '动作 RPG', platform: 'PC', version: 'v1.0.0', status: '制作中', description: '随项目发布的简介' }));
   storage.setItem(milestoneKey, JSON.stringify([{ title: '本地任务', owner: 'admin', due: '2026/10/20', status: 'planned' }]));
   const coreKey = `gamecreator.workspace.v1:${projectId}:gameplay-core`, gameplayKey = `gamecreator.workspace.v1:${projectId}:gameplay`;
-  const design = require('../src/gameplay.ts').createGameplay('来源战斗规则');
+  const gameplayStore=require('./gameplay-fixture.cjs').sample(),design=gameplayStore.designs[0];design.title='来源战斗规则';design.links=[{kind:'story',targetId:stories[0].id}];
   const core = {schema:1,rootId:'published-root',graphs:[{id:'published-root',title:'本地入口',summary:'初始核心',nodes:[{id:'published-node',kind:'module',title:'战斗循环',description:'来源引用',x:420,y:220,childGraphId:'published-child',gameplayIds:[design.id]}],edges:[]},{id:'published-child',title:'战斗循环',summary:'子流程',nodes:[],edges:[]}]};
-  storage.setItem(coreKey,JSON.stringify(core));storage.setItem(gameplayKey,JSON.stringify({schema:3,designs:[design]}));
+  storage.setItem(coreKey,JSON.stringify(core));storage.setItem(gameplayKey,JSON.stringify(gameplayStore));
   storage.setItem('gamecreator.workspace.v1:project-legacy-source:gameplay-core',JSON.stringify(core));storage.setItem('gamecreator.workspace.v1:project-legacy-source:gameplay',storage.getItem(gameplayKey));
   const preserved = [coreKey,gameplayKey,metaKey, milestoneKey].map(key => [key, storage.getItem(key)]);
   const sourceInstanceId=require('node:crypto').randomUUID();storage.setItem('gamecreator.local-source.v1',JSON.stringify(sourceInstanceId));
@@ -108,8 +108,8 @@ const waitUntil = async (check, message) => {
       assert.equal(await b.page.getByLabel(label, { exact: true }).inputValue(), value);
     }
     assert.equal(await b.page.getByRole('button', { name: /^打开故事文档：/ }).count(), 60);
-    for (const name of ['玩法设计', '美术资产', '数据配置']) assert.ok(await b.page.getByRole('navigation', { name: '工作区模块', exact: true }).getByRole('button', { name: new RegExp('^' + name) }).isDisabled());
-    await b.page.getByRole('button',{name:'玩法核心',exact:true}).click();await b.page.getByRole('button',{name:'选择节点：战斗循环',exact:true}).click();await b.page.getByText('来源标识：'+design.id+' · 玩法设计尚未接入协作',{exact:true}).waitFor();assert.ok(await b.page.getByLabel('添加关联玩法',{exact:true}).isDisabled());await b.page.getByRole('button',{name:'故事文档',exact:true}).click();
+    for (const name of ['美术资产', '数据配置']) assert.ok(await b.page.getByRole('navigation', { name: '工作区模块', exact: true }).getByRole('button', { name: new RegExp('^' + name) }).isDisabled());
+    await b.page.getByRole('button',{name:'玩法核心',exact:true}).click();await b.page.getByRole('button',{name:'选择节点：战斗循环',exact:true}).click();await b.page.getByRole('button',{name:'打开关联玩法：'+design.title,exact:true}).click();await b.page.getByLabel('一句话说明',{exact:true}).waitFor();assert.equal(await b.page.getByLabel('一句话说明',{exact:true}).inputValue(),design.summary);const sharedGameplay=await api('/projects/'+committed.project.id+'/gameplay',token);assert.equal(sharedGameplay.store.designs.length,2);assert.notEqual(sharedGameplay.store.designs.find(d=>d.id===design.id).links[0].targetId,stories[0].id);await b.page.getByRole('button',{name:'故事文档',exact:true}).click();
     await b.page.getByLabel('文档正文', { exact: true }).fill('Bob 的团队修改');
     await b.page.getByRole('button', { name: '保存到团队', exact: true }).click();
     await waitUntil(async () => (await b.page.locator('.team-save-state').innerText()).includes('当前内容已保存到团队'), 'Bob save not confirmed');
@@ -138,7 +138,8 @@ const waitUntil = async (check, message) => {
     const coreSupplement=a.page.getByRole('dialog',{name:'补充玩法核心',exact:true});await coreSupplement.getByText('查看玩法核心（2 个流程）',{exact:true}).click();await coreSupplement.getByRole('button',{name:'确认补充玩法核心',exact:true}).click();await a.page.locator('.team-project .story-workspace').waitFor();const supplemented=await api('/projects/'+legacy.project.id+'/core',token);assert.equal(supplemented.initialized,true);assert.deepEqual(supplemented.references,[{id:design.id,title:design.title}]);await a.page.getByRole('button',{name:'项目概览',exact:true}).click();
     const overviewForm=a.page.getByRole('form',{name:'项目基本信息',exact:true});assert.equal(await overviewForm.getByLabel('项目名称',{exact:true}).inputValue(),'旧团队名称');assert.equal(await overviewForm.getByLabel('项目简介',{exact:true}).inputValue(),'随项目发布的简介');
     assert.equal((await api('/projects/'+legacy.project.id+'/stories',token)).stories.length,1);
-    await choose(a.page,'旧发布来源');await openPublish(a.page);await modal(a.page).getByRole('button',{name:'进入已发布项目',exact:true}).waitFor();assert.equal(await modal(a.page).getByRole('button',{name:'补充项目概览',exact:true}).count(),0);await modal(a.page).getByRole('button',{name:'取消',exact:true}).click();
+    await choose(a.page,'旧发布来源');await openPublish(a.page);await modal(a.page).getByRole('button',{name:'补充玩法设计',exact:true}).click();const gameplaySupplement=a.page.getByRole('dialog',{name:'补充玩法设计',exact:true});await gameplaySupplement.getByRole('button',{name:'确认补充玩法设计',exact:true}).click();await a.page.locator('.team-project .story-workspace').waitFor();assert.equal((await api('/projects/'+legacy.project.id+'/gameplay',token)).store.designs.length,2);
+    await choose(a.page,'旧发布来源');await openPublish(a.page);await modal(a.page).getByRole('button',{name:'进入已发布项目',exact:true}).waitFor();assert.equal(await modal(a.page).getByRole('button',{name:'补充项目概览',exact:true}).count(),0);assert.equal(await modal(a.page).getByRole('button',{name:'补充玩法设计',exact:true}).count(),0);await modal(a.page).getByRole('button',{name:'取消',exact:true}).click();
     await choose(a.page, '空白本地'); await openPublish(a.page);
     await modal(a.page).getByLabel('协作项目名称', { exact: true }).fill('空白协作'); await submit(a.page);
     await a.page.getByRole('heading', { name: '暂无故事文档', exact: true }).waitFor();

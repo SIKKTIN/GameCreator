@@ -7,6 +7,7 @@ const publicationLimits = require('../shared/publication-limits.json');
 const { createOverviewStore } = require('./team-overview.cjs');
 const { createAccessStore } = require('./team-access.cjs');
 const { createCoreStore } = require('./team-core.cjs');
+const { createGameplayStore } = require('./team-gameplay.cjs');
 const { createProjectAdminStore } = require('./team-project-admin.cjs');
 
 const demoAccounts = ['admin', 'alice', 'bob', 'viewer'];
@@ -134,7 +135,8 @@ async function createCollaborationServer({ directory, port = 4747, root = path.r
   };
   const { membership, requireServerAdmin, memberRows, memberInput, writeMembers } = access;
   const overview = createOverviewStore(db, { fail, textField });
-  const core = createCoreStore(db, { fail, activity: overview.activity });
+  const gameplay = createGameplayStore(db, { fail, activity: overview.activity });
+  const core = createCoreStore(db, { fail, activity: overview.activity, validateReferences: gameplay.validateCoreReferences });
   const projectAdmin = createProjectAdminStore(db, { fail, audit: access.audit });
   const serverRole = user => access.activeUser(user).server_role;
   const publicationSource = input => ({
@@ -148,7 +150,7 @@ async function createCollaborationServer({ directory, port = 4747, root = path.r
     if (projectAdmin.deletedPublication(source)) return null;
     const member = membership(published.projectId, user);
     const project = db.prepare('SELECT id,name FROM projects WHERE id=?').get(published.projectId);
-    return { project: { ...project, ...member }, publishedAt: published.publishedAt, storyCount: published.storyCount, overviewInitialized: overview.info(published.projectId).initialized, coreInitialized: core.read(published.projectId).initialized };
+    return { project: { ...project, ...member }, publishedAt: published.publishedAt, storyCount: published.storyCount, overviewInitialized: overview.info(published.projectId).initialized, coreInitialized: core.read(published.projectId).initialized, gameplayInitialized: gameplay.read(published.projectId).initialized };
   };
   const prepareImports = (stories, source, maximum, minimum = 1) => {
     if (!Array.isArray(stories) || stories.length < minimum || stories.length > maximum) fail(400, `本次应包含 ${minimum}–${maximum} 篇故事文档`);
@@ -205,7 +207,7 @@ async function createCollaborationServer({ directory, port = 4747, root = path.r
         }
         fail(405, '不支持此操作');
       }
-      if (route === '/api/team/health' && request.method === 'GET') return send(response, 200, { service: 'gamecreator-collaboration', serverId, apiVersion: 8 });
+      if (route === '/api/team/health' && request.method === 'GET') return send(response, 200, { service: 'gamecreator-collaboration', serverId, apiVersion: 9 });
       if (route === '/api/team/login' && request.method === 'POST') {
         const input = await readBody(request);
         const username = textField(input.username, '账号', 80, true).toLowerCase();
@@ -216,7 +218,7 @@ async function createCollaborationServer({ directory, port = 4747, root = path.r
         for (const [token, session] of sessions) if (session.expires < Date.now()) sessions.delete(token);
         const token = randomBytes(32).toString('hex');
         sessions.set(token, { userId: user.id, username: user.username, authRevision: user.auth_revision, expires: Date.now() + 12 * 60 * 60 * 1000 });
-        return send(response, 200, { token, serverId, apiVersion: 8, user: { id: user.id, username: user.username, serverRole: user.server_role } });
+        return send(response, 200, { token, serverId, apiVersion: 9, user: { id: user.id, username: user.username, serverRole: user.server_role } });
       }
       if (route.startsWith('/api/team/')) {
         const session = authenticate(request);
@@ -269,6 +271,18 @@ async function createCollaborationServer({ directory, port = 4747, root = path.r
           requireServerAdmin(session.userId);
           return send(response, 200, { publication: findPublication(source, session.userId), deletedPublication: projectAdmin.deletedPublication(source) });
         }
+        if (route === '/api/team/publications/gameplay' && request.method === 'POST') {
+          requireServerAdmin(session.userId);
+          const input = await readBody(request,publicationLimits.maxBytes), source = publicationSource(input);
+          return send(response,200,authorized(() => {
+            requireServerAdmin(session.userId);
+            const previous = findPublication(source,session.userId);
+            if (!previous) fail(404,'找不到这个本地项目的发布记录');
+            if (membership(previous.project.id,session.userId).role !== 'admin') fail(403,'只有项目管理员可以补充玩法设计');
+            gameplay.initialize(previous.project.id,input.gameplay,session.userId,source);
+            return findPublication(source,session.userId);
+          }));
+        }
         if (route === '/api/team/publications/core' && request.method === 'POST') {
           requireServerAdmin(session.userId);
           const input = await readBody(request, publicationLimits.maxBytes), source = publicationSource(input);
@@ -315,10 +329,11 @@ async function createCollaborationServer({ directory, port = 4747, root = path.r
             if (input.overview !== undefined) overview.initialize(id,input.overview,session.userId,name);
             if (input.core !== undefined) core.initialize(id,input.core,session.userId);
             for (const entry of imports) insertImportedStory(id, entry, session.userId);
+            if (input.gameplay !== undefined) gameplay.initialize(id,input.gameplay,session.userId,source);
             db.prepare(`INSERT INTO project_publications VALUES (?, ?, ?, ?, ?, ?)
               ON CONFLICT(source_instance_id,source_project_id) DO UPDATE SET project_id=excluded.project_id,published_by=excluded.published_by,published_at=excluded.published_at,story_count=excluded.story_count`)
               .run(source.sourceInstanceId, source.sourceProjectId, id, session.userId, publishedAt, imports.length);
-            return { project: { id, name, ...membership(id,session.userId) }, publishedAt, storyCount: imports.length, reused: false, overviewInitialized: overview.info(id).initialized, coreInitialized: core.read(id).initialized };
+            return { project: { id, name, ...membership(id,session.userId) }, publishedAt, storyCount: imports.length, reused: false, overviewInitialized: overview.info(id).initialized, coreInitialized: core.read(id).initialized, gameplayInitialized: gameplay.read(id).initialized };
           });
           return send(response, result.reused ? 200 : 201, result);
         }
@@ -334,8 +349,9 @@ async function createCollaborationServer({ directory, port = 4747, root = path.r
             if (previous) {
               const legacySignature = members.every(item => Object.values(item.permissions).every(value => value === 'inherit'))
                 ? JSON.stringify({ name, members: members.map(({ userId, role }) => ({ userId, role })) }) : null;
-              const v6Signature = members.every(item => item.permissions.core === 'inherit') ? JSON.stringify({ name, members: members.map(item => ({...item,permissions:{overview:item.permissions.overview,stories:item.permissions.stories}})) }) : null;
-              if (![signature,legacySignature,v6Signature].includes(previous.signature)) fail(409, '同一创建请求的内容已变化，请重新发起创建');
+              const v6Signature = members.every(item => item.permissions.core === 'inherit' && item.permissions.gameplay === 'inherit') ? JSON.stringify({ name, members: members.map(item => ({...item,permissions:{overview:item.permissions.overview,stories:item.permissions.stories}})) }) : null;
+              const v7Signature = members.every(item => item.permissions.gameplay === 'inherit') ? JSON.stringify({name,members:members.map(item=>({...item,permissions:{overview:item.permissions.overview,stories:item.permissions.stories,core:item.permissions.core}}))}) : null;
+              if (![signature,legacySignature,v6Signature,v7Signature].includes(previous.signature)) fail(409, '同一创建请求的内容已变化，请重新发起创建');
               const member = membership(previous.project_id, session.userId);
               const project = db.prepare('SELECT id,name FROM projects WHERE id=?').get(previous.project_id);
               return { project: { ...project, role: member.role }, reused: true };
@@ -347,6 +363,18 @@ async function createCollaborationServer({ directory, port = 4747, root = path.r
             return { project: { id, name, role: 'admin' }, reused: false };
           });
           return send(response, result.reused ? 200 : 201, result);
+        }
+        const gameplayMatch = /^\/api\/team\/projects\/([^/]+)\/gameplay(?:\/([^/]+)\/history)?$/.exec(route);
+        if (gameplayMatch) {
+          const [,project,encodedId] = gameplayMatch, member = membership(project,session.userId);
+          let id;try { id = encodedId ? decodeURIComponent(encodedId) : undefined; } catch { fail(400,'玩法标识无效'); }
+          if (request.method === 'GET') return send(response,200,id?{history:gameplay.history(project,id)}:{...gameplay.read(project),...member});
+          if (!id && request.method === 'PUT') {
+            membership(project,session.userId,'gameplay');
+            const input = await readBody(request,publicationLimits.maxBytes);
+            return send(response,200,authorized(() => { const currentMember = membership(project,session.userId,'gameplay'); return {...gameplay.update(project,input,session.userId),...currentMember}; }));
+          }
+          fail(405,'不支持此操作');
         }
         const coreMatch = /^\/api\/team\/projects\/([^/]+)\/core$/.exec(route);
         if (coreMatch) {

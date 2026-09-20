@@ -2,14 +2,14 @@ import type { CorePosition } from './core-selection';
 import { useEffect, useRef, useState } from 'react';
 import { beforeLogoutEvent } from './auth';
 import { GameplayCore } from './GameplayCore';
-import { validateGameplayCore } from './gameplay-core';
+import { validateGameplayCore, type CoreDesignReference } from './gameplay-core';
 import { applyCoreChanges, coreChanges, coreDiff, emptyCoreSnapshot, reconcileCore, validateCoreDraft, validateCoreLayout, withCoreLayout, type CoreDraft, type CoreLayout, type CoreSnapshot } from './team-core-model';
 import { canEditModule, leaveTeamEvent, teamRequest, TeamError, type TeamCapabilities, type TeamRole, type TeamSession } from './team-api';
 import { workspaceStorage } from './workspace-storage';
 import type { GameplayCoreController } from './useGameplayCore';
 
 type Response = CoreSnapshot & { role: TeamRole; capabilities: TeamCapabilities };
-export function TeamGameplayCore({ session, projectId, blocked, onDenied }: { session: TeamSession; projectId: string; blocked: boolean; onDenied: (status?: number) => void }) {
+export function TeamGameplayCore({ session, projectId, blocked, onDenied, designs = [], designsReady = false, onOpenGameplay = () => {} }: { session: TeamSession; projectId: string; blocked: boolean; designs?: CoreDesignReference[]; designsReady?: boolean; onOpenGameplay?: (id: string) => void; onDenied: (status?: number) => void }) {
   const key = `gamecreator.team-draft.v1:${session.serverId}:${session.user.id}:${projectId}:gameplay-core`;
   const layoutKey = `gamecreator.team-core-layout.v1:${session.serverId}:${session.user.id}:${projectId}`;
   const [initial] = useState(() => {
@@ -127,7 +127,7 @@ export function TeamGameplayCore({ session, projectId, blocked, onDenied }: { se
       }}>已对照合并，准备提交</button><button disabled={saving || !!initial.error} onClick={() => {
         if (window.confirm('确定丢弃本机玩法核心草稿，采用团队最新内容？个人布局会保留。')) { change({base:conflict.remote,store:conflict.remote.store}); setConflict(null); setError(''); }
       }}>采用团队版本并丢弃玩法草稿</button></div></section>}
-    {(loaded || initial.restored) && <GameplayCore controller={controller} designs={draft.base.references} onOpenGameplay={() => {}} team
+    {(loaded || initial.restored) && <GameplayCore controller={controller} designs={[...designs,...draft.base.references.filter(r=>!designs.some(d=>d.id===r.id)).map(r=>({...r,sourceOnly:true}))]} onOpenGameplay={onOpenGameplay} team teamDesignsReady={designsReady}
       onMoveNodes={initialLayout.error ? undefined : move} onGraphChange={setGraphId} statusLabel={dirty ? '草稿待提交' : readOnly ? '内容只读 · 布局可调整' : '内容已同步 · 布局仅本机'}/>}
   </section>;
 }

@@ -15,7 +15,7 @@ export type GameplayDesign = GameplayStructure & GameplayStage & {
   checks: GameplayCheck[]; links: GameplayLink[]; createdAt: string; updatedAt: string;
 };
 export type GameplayStore = { schema: 3; designs: GameplayDesign[]; categories?: GameplayCategory[] };
-export type GameplaySources = { stories: { id: string; title: string }[]; datasets: { key: string; label: string }[] };
+export type GameplaySources = { stories: { id: string; title: string; sourceOnly?: boolean }[]; datasets: { key: string; label: string }[] };
 export const emptyGameplay = (): GameplayStore => ({ schema: 3, designs: [] });
 export function createGameplay(title: string): GameplayDesign {
   if (!title.trim()) throw new Error('请输入玩法名称');

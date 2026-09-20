@@ -12,7 +12,7 @@ const until=async(check,message)=>{const end=Date.now()+20000;while(Date.now()<e
   const token=(await api('/login','','POST',{username:'admin',password:'admin123'})).token;
   const source={sourceInstanceId:crypto.randomUUID(),sourceProjectId:'local-source'},name='01 删除验收';
   const story={id:'local-story',title:'保留本地原稿',category:'世界观',status:'草稿',summary:'',content:'本地原始内容',updated:'本地',tags:[],outlines:[],relations:{characters:[],locations:[],systems:[]}},core=emptyGameplayCore();
-  const project=(await api('/publications',token,'POST',{...source,name,members:[{userId:'admin',role:'admin'},{userId:'bob',role:'editor'}],stories:[story],core:{store:core,references:[]}})).project;
+  const project=(await api('/publications',token,'POST',{...source,name,members:[{userId:'admin',role:'admin'},{userId:'bob',role:'editor'}],stories:[story],core:{store:core,references:[]},gameplay:{store:require('./gameplay-fixture.cjs').sample(),references:[]}})).project;
   const storages={};
   const launch=async user=>{
     const data=path.join(directory,user,'data'),storage=createWorkspaceStorage(data);storages[user]=storage;
