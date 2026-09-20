@@ -35,9 +35,9 @@ function StoryRecovery({controller}:{controller:StoryOrchestrationController}) {
   return <div className="ns-warning"><p>{controller.error}</p><div className="gp-actions"><button className="gp-secondary" onClick={()=>{const u=URL.createObjectURL(new Blob([JSON.stringify(controller.store,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=u;a.download='story-orchestration-draft.json';a.click();URL.revokeObjectURL(u);}}>导出故事草稿</button>{controller.pending&&<button className="gp-secondary" onClick={controller.retry}>重试保存故事编排</button>}<button className="gp-secondary" onClick={()=>{if(!controller.pending||window.confirm('重新读取会放弃当前未保存的故事草稿。请先导出备份。继续？'))controller.reload();}}>重新读取故事存档</button></div></div>;
 }
 
-export function StoryOrchestration({controller,data,tasks,selectedId,onSelect,onOpenTask,art,workspaceId}:{controller:StoryOrchestrationController;data:ProjectData;tasks:Task[];art:ArtStore;workspaceId:string;selectedId:string;onSelect:(id:string)=>void;onOpenTask:(id:string)=>void}) {
+export function StoryOrchestration({controller,data,tasks,selectedId,onSelect,onOpenTask,art,workspaceId,requestedCharacterId}:{requestedCharacterId?:string;controller:StoryOrchestrationController;data:ProjectData;tasks:Task[];art:ArtStore;workspaceId:string;selectedId:string;onSelect:(id:string)=>void;onOpenTask:(id:string)=>void}) {
   const {store,update,blocked}=controller;
-  const [query,setQuery]=useState(''),[range,setRange]=useState('active'),[sceneId,setScene]=useState(''),[nodeId,setNode]=useState(''),[view,setView]=useState('script'),[name,setName]=useState(''),[error,setError]=useState(''),[selectedState,setSelectedState]=useState('');
+  const [query,setQuery]=useState(''),[range,setRange]=useState('active'),[sceneId,setScene]=useState(''),[nodeId,setNode]=useState(''),[view,setView]=useState(requestedCharacterId?'people':'script'),[name,setName]=useState(''),[error,setError]=useState(''),[selectedState,setSelectedState]=useState('');
   const dialog=useRef<HTMLDialogElement>(null);
   const storedStory=store.stories.find(s=>s.id===selectedId), story=storedStory?resolveStoryActors(store,storedStory):undefined, scene=story?.scenes.find(s=>s.id===sceneId)??story?.scenes[0], node=story?.nodes.find(n=>n.id===nodeId && n.sceneId===scene?.id)??story?.nodes.find(n=>n.sceneId===scene?.id);
   const disabled=blocked||!!story?.archived;
@@ -65,7 +65,7 @@ export function StoryOrchestration({controller,data,tasks,selectedId,onSelect,on
           <h3>玩家选项与自动插话</h3>{story.choices.filter(c=>c.fromId===node.id).map((c,index)=><ChoiceEditor key={c.id} choice={c} index={index} story={story} onChange={p=>patch({choices:story.choices.map(x=>x.id===c.id?{...x,...p}:x)})} onRemove={()=>patch({choices:story.choices.filter(x=>x.id!==c.id)})} onOpen={openNode}/>)}<button className="gp-secondary" disabled={node.kind==='ending'||node.kind==='return'} onClick={()=>patch({choices:[...story.choices,{id:crypto.randomUUID(),fromId:node.id,toId:'',label:'新的选择',condition:always(),effects:[],once:false,passive:false,cost:0,checkId:''}]})}>添加故事选项</button>
         </fieldset>}</>}
       {view==='graph'&&<StoryStructure story={story} onOpen={openNode}/>}
-      {view==='people'&&<StoryPeople key={story.id} controller={controller} story={story} art={art} workspaceId={workspaceId} disabled={disabled} onOpenNode={openNode} onOpenStory={select} onOpenState={id=>{setSelectedState(id);setView('state');}}/>}
+      {view==='people'&&<StoryPeople requestedCharacterId={requestedCharacterId} key={story.id} controller={controller} story={story} art={art} workspaceId={workspaceId} disabled={disabled} onOpenNode={openNode} onOpenStory={select} onOpenState={id=>{setSelectedState(id);setView('state');}}/>}
       {view==='voices'&&<StoryVoices key={story.id} story={story} disabled={disabled} onChange={patch} onOpen={openNode}/>}
       {view==='state'&&<StoryStates key={story.id} story={story} characters={store.characters||[]} disabled={disabled} onChange={patch} selectedId={selectedState}/>}
       {view==='checks'&&<StoryChecks story={story} disabled={disabled} onChange={patch}/>}

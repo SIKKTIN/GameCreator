@@ -13416,5 +13416,209 @@
         ]
       }
     ]
+  },
+  "mapDesign": {
+    "schema": 1,
+    "enabled": true,
+    "maps": [
+      {
+        "id": "map-sv-room-farm",
+        "name": "农场",
+        "region": "春日河谷",
+        "description": "农田、农舍、出货箱和水井组成每日工作回路。东门接村庄西口；耕种区域与固定障碍分离，方便检查工具邻接范围和返家路线。沿用七日原型的室外交互范围。",
+        "perspective": "top",
+        "view": "grid",
+        "x": 0,
+        "y": 80,
+        "rows": 12,
+        "columns": 16,
+        "cellSize": 1,
+        "unit": "地块",
+        "sourceDesignId": "d3491dbb-2524-461c-84e6-62c7c3cb924c",
+        "roomId": "",
+        "sourceVisible": true,
+        "sourceLocked": true,
+        "layers": [
+          {
+            "id": "map-sv-room-farm-layer-0",
+            "name": "地形规划",
+            "visible": true,
+            "locked": false
+          },
+          {
+            "id": "map-sv-room-farm-layer-1",
+            "name": "障碍规划",
+            "visible": true,
+            "locked": false
+          },
+          {
+            "id": "map-sv-room-farm-layer-2",
+            "name": "环境装饰",
+            "visible": true,
+            "locked": false
+          },
+          {
+            "id": "map-sv-room-farm-layer-3",
+            "name": "任务与标记",
+            "visible": true,
+            "locked": false
+          }
+        ],
+        "objects": [
+          {
+            "id": "map-sv-room-farm-flowers",
+            "name": "门旁花圃",
+            "kind": "decoration",
+            "x": 1,
+            "y": 5,
+            "width": 1,
+            "height": 2,
+            "layerId": "map-sv-room-farm-layer-2",
+            "color": "green",
+            "notes": "布置在日常行进路线边缘，不占据农田或固定交互点。",
+            "references": []
+          },
+          {
+            "id": "map-sv-room-farm-guide",
+            "name": "七日生活计划牌",
+            "kind": "task",
+            "x": 8,
+            "y": 8,
+            "width": 1,
+            "height": 1,
+            "layerId": "map-sv-room-farm-layer-3",
+            "color": "violet",
+            "notes": "记录首周目标；连接任务目录，具体进度由任务模块管理。",
+            "references": [
+              {
+                "kind": "task",
+                "targetId": "farm-task-week"
+              }
+            ]
+          },
+          {
+            "id": "map-sv-room-farm-path-note",
+            "name": "返家路线标记",
+            "kind": "note",
+            "x": 11,
+            "y": 5,
+            "width": 1,
+            "height": 1,
+            "layerId": "map-sv-room-farm-layer-3",
+            "color": "green",
+            "notes": "黄昏时从东门沿主路回到农舍，预留无障碍通路。",
+            "references": [
+              {
+                "kind": "gameplay",
+                "targetId": "d3491dbb-2524-461c-84e6-62c7c3cb924c"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "map-sv-room-village",
+        "name": "村庄",
+        "region": "春日河谷",
+        "description": "西口接农场，广场、柜台、河边与阿禾家门组成日程路线。采集点靠近步道；根据时段寻找阿禾并提交三颗萝卜，室外柜台承担商店交互。",
+        "perspective": "top",
+        "view": "grid",
+        "x": 400,
+        "y": 80,
+        "rows": 12,
+        "columns": 16,
+        "cellSize": 1,
+        "unit": "地块",
+        "sourceDesignId": "c21a2dab-5e57-4f0e-a0a4-1af66918c5e3",
+        "roomId": "",
+        "sourceVisible": true,
+        "sourceLocked": true,
+        "layers": [
+          {
+            "id": "map-sv-room-village-layer-0",
+            "name": "地形规划",
+            "visible": true,
+            "locked": false
+          },
+          {
+            "id": "map-sv-room-village-layer-1",
+            "name": "障碍规划",
+            "visible": true,
+            "locked": false
+          },
+          {
+            "id": "map-sv-room-village-layer-2",
+            "name": "环境装饰",
+            "visible": true,
+            "locked": false
+          },
+          {
+            "id": "map-sv-room-village-layer-3",
+            "name": "任务与标记",
+            "visible": true,
+            "locked": false
+          }
+        ],
+        "objects": [
+          {
+            "id": "map-sv-room-village-flowers",
+            "name": "广场花坛",
+            "kind": "decoration",
+            "x": 2,
+            "y": 7,
+            "width": 1,
+            "height": 1,
+            "layerId": "map-sv-room-village-layer-2",
+            "color": "green",
+            "notes": "广场边缘的环境装饰，避开NPC停留点。",
+            "references": []
+          },
+          {
+            "id": "map-sv-room-village-board",
+            "name": "村口委托告示",
+            "kind": "task",
+            "x": 1,
+            "y": 4,
+            "width": 1,
+            "height": 1,
+            "layerId": "map-sv-room-village-layer-3",
+            "color": "violet",
+            "notes": "指引玩家寻找阿禾；关联三颗萝卜任务。",
+            "references": [
+              {
+                "kind": "task",
+                "targetId": "farm-task-turnips"
+              }
+            ]
+          },
+          {
+            "id": "map-sv-room-village-lantern",
+            "name": "河边路灯",
+            "kind": "decoration",
+            "x": 12,
+            "y": 6,
+            "width": 1,
+            "height": 1,
+            "layerId": "map-sv-room-village-layer-2",
+            "color": "green",
+            "notes": "以灯光提示傍晚的河边步道。",
+            "references": []
+          }
+        ]
+      }
+    ],
+    "connections": [
+      {
+        "id": "map-sv-room-road",
+        "name": "东门与西口",
+        "from": "map-sv-room-farm",
+        "to": "map-sv-room-village",
+        "fromObjectId": "affbb03b-e2e4-41b2-b152-c8ca75878429",
+        "toObjectId": "ef96cd00-07ee-4211-b8d9-3309bb66660e",
+        "direction": "both",
+        "kind": "passage",
+        "condition": "未处于对话、工具动作或日结算"
+      }
+    ]
   }
 }

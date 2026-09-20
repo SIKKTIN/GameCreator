@@ -49,7 +49,7 @@ export function ProjectPackageDialog({ state, names, onClose, onChoose, onImport
           <div><dt>美术需求</dt><dd>{archives['art-assets'].requirements.length}</dd></div>
           <div><dt>美术文件</dt><dd>{fileCount}</dd></div>
           <div><dt>故事文档</dt><dd>{archives.stories.length}</dd></div>
-          <div><dt>故事编排</dt><dd>{archives['story-orchestration'].stories.length} · {archives['story-orchestration'].enabled ? '已启用' : '未启用'}</dd></div>
+          <div><dt>地图设计</dt><dd>{archives['map-design'].maps.length} · {archives['map-design'].enabled ? '已启用' : '未启用'}</dd></div><div><dt>故事编排</dt><dd>{archives['story-orchestration'].stories.length} · {archives['story-orchestration'].enabled ? '已启用' : '未启用'}</dd></div>
           <div><dt>数据记录</dt><dd>{Object.values(archives['enum-versions'].data.datasets).reduce((sum, rows) => sum + rows.length, 0)}</dd></div>
         </dl></div>
         <label className="pi-name-field" htmlFor={id + '-name'}>项目名称<input id={id + '-name'} required maxLength={100} disabled={state?.busy} value={name} onChange={event => setName(event.target.value)} /></label>

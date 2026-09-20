@@ -17,10 +17,10 @@ function Portrait({character,art,workspaceId}:{character:StoryCharacter;art:ArtS
   const url=usePortrait(character,art,workspaceId);
   return <span className="nc-portrait" style={{background:character.color+'25',color:character.color}}>{url?<img src={url} alt={character.name+'肖像'}/>:<span>{character.name.trim().slice(0,1)||<UserRound size={30}/>}</span>}</span>;
 }
-type Props={controller:StoryOrchestrationController;story:Narrative;art:ArtStore;workspaceId:string;disabled:boolean;onOpenNode:(id:string)=>void;onOpenStory:(id:string)=>void;onOpenState:(id:string)=>void};
-export function StoryPeople({controller,story,art,workspaceId,disabled,onOpenNode,onOpenStory,onOpenState}:Props) {
+type Props={requestedCharacterId?:string;controller:StoryOrchestrationController;story:Narrative;art:ArtStore;workspaceId:string;disabled:boolean;onOpenNode:(id:string)=>void;onOpenStory:(id:string)=>void;onOpenState:(id:string)=>void};
+export function StoryPeople({controller,story,art,workspaceId,disabled,onOpenNode,onOpenStory,onOpenState,requestedCharacterId}:Props) {
   const {store,update}=controller,characters=store.characters||[],relations=store.relationships||[];
-  const [view,setView]=useState('cards'),[scope,setScope]=useState('cast'),[query,setQuery]=useState(''),[selected,setSelected]=useState(''),[selectedRelation,setRelation]=useState(''),[name,setName]=useState(''),[error,setError]=useState('');
+  const [view,setView]=useState('cards'),[scope,setScope]=useState(requestedCharacterId?'all':'cast'),[query,setQuery]=useState(''),[selected,setSelected]=useState(requestedCharacterId||''),[selectedRelation,setRelation]=useState(''),[name,setName]=useState(''),[error,setError]=useState('');
   const dialog=useRef<HTMLDialogElement>(null);
   const cast=new Set(story.actors.map(a=>a.characterId).filter(Boolean)),current=characters.find(c=>c.id===selected);
   const visible=characters.filter(c=>(scope==='all'||cast.has(c.id))&&(c.name+c.role+c.faction+c.description).toLowerCase().includes(query.toLowerCase()));

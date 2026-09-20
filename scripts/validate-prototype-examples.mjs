@@ -62,7 +62,7 @@ async function validateExample(expected) {
   const url = new URL(`../examples/prototypes/${expected.file}`, import.meta.url);
   const example = JSON.parse(await readFile(url, 'utf8'));
   assert.ok(record(example), 'example must be an object');
-  assert.deepEqual(Object.keys(example).filter(k=>k !== 'storyOrchestration').sort(), ['schema', 'name', 'description', 'gameplay', 'gameplayCore', 'prototypeDesign', 'taskFlows', 'functionalSystems', 'artAssets', 'data', 'definitions', 'stories'].sort(), 'example contains missing or nonportable top-level fields');
+  assert.deepEqual(Object.keys(example).filter(k=>k !== 'storyOrchestration' && k !== 'mapDesign').sort(), ['schema', 'name', 'description', 'gameplay', 'gameplayCore', 'prototypeDesign', 'taskFlows', 'functionalSystems', 'artAssets', 'data', 'definitions', 'stories'].sort(), 'example contains missing or nonportable top-level fields');
   assert.equal(example.schema, 1, 'example schema');
   assert.ok(nonempty(example.name) && nonempty(example.description), 'example needs a name and description');
   validateDocuments(example);

@@ -1,3 +1,4 @@
+import { emptyMapDesign, validateMapDesign, mapIssues, type MapDesignStore } from './map-design.ts';
 import { emptyStoryOrchestration, validateStoryOrchestration, narrativeIssues, type StoryOrchestrationStore } from './story-orchestration.ts';
 import { emptyPrototypeDesign, validatePrototypeDesign, prototypeIssues, type PrototypeDesignStore } from './prototype-design.ts';
 import { emptyTaskFlows, validateTaskFlows, taskFlowIssues, type TaskFlowStore } from './task-flow.ts';
@@ -13,7 +14,7 @@ import type { ColumnDef, DatasetDef, ProjectData } from './data-model.ts';
 import type { StoryDoc } from './story-model.ts';
 
 export type PrototypeExample = {
-  schema: 1; name: string; description: string; gameplay: GameplayStore; gameplayCore?: GameplayCoreStore; prototypeDesign?: PrototypeDesignStore; taskFlows?: TaskFlowStore; storyOrchestration?: StoryOrchestrationStore;
+  schema: 1; name: string; description: string; gameplay: GameplayStore; gameplayCore?: GameplayCoreStore; prototypeDesign?: PrototypeDesignStore; taskFlows?: TaskFlowStore; storyOrchestration?: StoryOrchestrationStore; mapDesign?: MapDesignStore;
   functionalSystems: FunctionalStore; artAssets: ArtStore; data: ProjectData;
   definitions: DatasetDef[]; stories: StoryDoc[];
 };
@@ -22,7 +23,7 @@ export type PreparedPrototypeProject = {
   entries: { key: string; value: string }[];
 };
 type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
-const sections = ['story-orchestration', 'task-flows', 'gameplay', 'gameplay-core', 'prototype-design', 'functional-systems', 'art-assets', 'definitions', 'stories', 'project', 'milestones'] as const;
+const sections = ['map-design', 'story-orchestration', 'task-flows', 'gameplay', 'gameplay-core', 'prototype-design', 'functional-systems', 'art-assets', 'definitions', 'stories', 'project', 'milestones'] as const;
 const workspaceKey = (id: string, section: string) => 'gamecreator.workspace.v1:' + id + ':' + section;
 const enumKey = (id: string) => 'gamecreator.enum-versions.v1:' + id;
 const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
@@ -55,10 +56,11 @@ function validateColumns(items: unknown, label: string): asserts items is Column
 export function validatePrototypeExample(value: unknown): PrototypeExample {
   requireValid(record(value), '内容必须是对象');
   const fields = ['schema', 'name', 'description', 'gameplay', 'functionalSystems', 'artAssets', 'data', 'definitions', 'stories'];
-  requireValid(fields.every(field => Object.prototype.hasOwnProperty.call(value, field)) && Object.keys(value).every(field => [...fields, 'gameplayCore', 'prototypeDesign', 'taskFlows', 'storyOrchestration'].includes(field)), '包含缺失字段或非便携配置');
+  requireValid(fields.every(field => Object.prototype.hasOwnProperty.call(value, field)) && Object.keys(value).every(field => [...fields, 'gameplayCore', 'prototypeDesign', 'taskFlows', 'storyOrchestration', 'mapDesign'].includes(field)), '包含缺失字段或非便携配置');
   requireValid(value.schema === 1 && nonempty(value.name) && nonempty(value.description), '版本或名称无效');
   requireValid(record(value.gameplay) && value.gameplay.schema === 3, '玩法版本无效');
   const gameplay = validateGameplay(value.gameplay);
+  if (Object.prototype.hasOwnProperty.call(value, 'mapDesign')) validateMapDesign(value.mapDesign);
   if (Object.prototype.hasOwnProperty.call(value, 'gameplayCore')) {
     const core = validateGameplayCore(value.gameplayCore);
     requireValid(coreIssues(core, gameplay.designs).length === 0, '玩法核心包含失效的关联或未连接的节点');
@@ -68,7 +70,7 @@ export function validatePrototypeExample(value: unknown): PrototypeExample {
   validateArtMutation(emptyArtAssets(), art);
   if (Object.prototype.hasOwnProperty.call(value, 'prototypeDesign')) {
     const prototype = validatePrototypeDesign(value.prototypeDesign);
-    requireValid(prototypeIssues(prototype, gameplay.designs, value.gameplayCore ? validateGameplayCore(value.gameplayCore) : emptyGameplayCore(), art).length === 0, '原型设计含有失效引用');
+    requireValid(prototypeIssues(prototype, gameplay.designs, value.gameplayCore ? validateGameplayCore(value.gameplayCore) : emptyGameplayCore(), art, value.mapDesign ? validateMapDesign(value.mapDesign) : emptyMapDesign()).length === 0, '原型设计含有失效引用');
   }
 
   unique(value.stories, 'id', '故事文档');
@@ -130,6 +132,11 @@ export function validatePrototypeExample(value: unknown): PrototypeExample {
     const narrative = validateStoryOrchestration(value.storyOrchestration);
     requireValid(narrative.stories.every(s => narrativeIssues(s, example.taskFlows?.tasks ?? []).length === 0), '故事编排包含失效引用或不完整片段');
   }
+  if (example.mapDesign) requireValid(mapIssues(example.mapDesign, gameplay.designs, {
+    gameplay: gameplay.designs.map(d=>({id:d.id,name:d.title})), task:(example.taskFlows?.tasks??[]).map(t=>({id:t.id,name:t.title})),
+    story:example.stories.map(s=>({id:s.id,name:s.title})), character:(example.storyOrchestration?.characters??[]).map(c=>({id:c.id,name:c.name})),
+    asset:art.assets.map(a=>({id:a.id,name:a.name})), prototype:example.prototypeDesign?.scenes??[]
+  }).length===0, '地图设计包含失效引用');
   return example;
 }
 
@@ -141,6 +148,7 @@ export function preparePrototypeProject(catalog: ProjectCatalog, value: unknown,
   const next = addSavedProject(catalog, name);
   const project = next.projects.find(item => item.id === next.activeId)!;
   const archives = {
+    'map-design': example.mapDesign ?? emptyMapDesign(),
     'story-orchestration': example.storyOrchestration ?? emptyStoryOrchestration(), 'task-flows': example.taskFlows ?? emptyTaskFlows(), gameplay: example.gameplay, 'gameplay-core': example.gameplayCore ?? emptyGameplayCore(), 'prototype-design': example.prototypeDesign ?? emptyPrototypeDesign(), 'functional-systems': example.functionalSystems, 'art-assets': example.artAssets,
     definitions: example.definitions, stories: example.stories,
     project: { name: project.name, description: example.description, genre: '未指定', platform: '未指定', version: 'v0.1.0', status: '原型设计' },

@@ -13390,5 +13390,421 @@
         ]
       }
     ]
+  },
+  "mapDesign": {
+    "schema": 1,
+    "enabled": true,
+    "maps": [
+      {
+        "id": "map-hk-room-A",
+        "name": "A篝台回廊 · 长椅与岔路",
+        "region": "裂隙遗迹",
+        "description": "长椅作为探索中心：上层进入试炼，下层到达裂隙近岸。解锁远岸拉杆后，从长椅旁的近路快速返回后半段。保留三组独立出入口，避免出生点叠在交互门上。",
+        "perspective": "side",
+        "view": "free",
+        "x": 0,
+        "y": 0,
+        "rows": 12,
+        "columns": 24,
+        "cellSize": 1,
+        "unit": "格",
+        "sourceDesignId": "3569edee-b95b-4bfd-97e1-8a816e94b184",
+        "roomId": "",
+        "sourceVisible": true,
+        "sourceLocked": true,
+        "layers": [
+          {
+            "id": "map-hk-room-A-layer-0",
+            "name": "地形规划",
+            "visible": true,
+            "locked": false
+          },
+          {
+            "id": "map-hk-room-A-layer-1",
+            "name": "障碍规划",
+            "visible": true,
+            "locked": false
+          },
+          {
+            "id": "map-hk-room-A-layer-2",
+            "name": "环境装饰",
+            "visible": true,
+            "locked": false
+          },
+          {
+            "id": "map-hk-room-A-layer-3",
+            "name": "任务与标记",
+            "visible": true,
+            "locked": false
+          }
+        ],
+        "objects": [
+          {
+            "id": "map-hk-room-A-light",
+            "name": "引导光源",
+            "kind": "decoration",
+            "x": 5,
+            "y": 3,
+            "width": 1,
+            "height": 1,
+            "layerId": "map-hk-room-A-layer-2",
+            "color": "green",
+            "notes": "用环境光提示可探索的方向；仅作为地图美术布置。",
+            "references": []
+          },
+          {
+            "id": "map-hk-room-A-sign",
+            "name": "路线指示牌",
+            "kind": "note",
+            "x": 8,
+            "y": 2,
+            "width": 2,
+            "height": 1,
+            "layerId": "map-hk-room-A-layer-3",
+            "color": "green",
+            "notes": "长椅作为探索中心：上层进入试炼，下层到达裂隙近岸。解锁远岸拉杆后，从长椅旁的近路快速返回后半段。保留三组独立出入口，避免出生点叠在交互门上。",
+            "references": [
+              {
+                "kind": "gameplay",
+                "targetId": "3569edee-b95b-4bfd-97e1-8a816e94b184"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "map-hk-room-B",
+        "name": "B静默试炼 · 永久冲刺",
+        "region": "裂隙遗迹",
+        "description": "由左侧安全点进入，跨过触发线开始试炼。战斗期间封闭返回门；清场后开放冲刺印记与返程。获得冲刺后回到回廊探索先前无法通过的裂隙。",
+        "perspective": "side",
+        "view": "free",
+        "x": 420,
+        "y": 0,
+        "rows": 12,
+        "columns": 24,
+        "cellSize": 1,
+        "unit": "格",
+        "sourceDesignId": "8ac7f8f8-455d-46ab-ba80-87ab4c579173",
+        "roomId": "",
+        "sourceVisible": true,
+        "sourceLocked": true,
+        "layers": [
+          {
+            "id": "map-hk-room-B-layer-0",
+            "name": "地形规划",
+            "visible": true,
+            "locked": false
+          },
+          {
+            "id": "map-hk-room-B-layer-1",
+            "name": "障碍规划",
+            "visible": true,
+            "locked": false
+          },
+          {
+            "id": "map-hk-room-B-layer-2",
+            "name": "环境装饰",
+            "visible": true,
+            "locked": false
+          },
+          {
+            "id": "map-hk-room-B-layer-3",
+            "name": "任务与标记",
+            "visible": true,
+            "locked": false
+          }
+        ],
+        "objects": [
+          {
+            "id": "map-hk-room-B-light",
+            "name": "引导光源",
+            "kind": "decoration",
+            "x": 5,
+            "y": 3,
+            "width": 1,
+            "height": 1,
+            "layerId": "map-hk-room-B-layer-2",
+            "color": "green",
+            "notes": "用环境光提示可探索的方向；仅作为地图美术布置。",
+            "references": []
+          },
+          {
+            "id": "map-hk-room-B-sign",
+            "name": "区域设计标记",
+            "kind": "note",
+            "x": 8,
+            "y": 2,
+            "width": 2,
+            "height": 1,
+            "layerId": "map-hk-room-B-layer-3",
+            "color": "green",
+            "notes": "由左侧安全点进入，跨过触发线开始试炼。战斗期间封闭返回门；清场后开放冲刺印记与返程。获得冲刺后回到回廊探索先前无法通过的裂隙。",
+            "references": [
+              {
+                "kind": "gameplay",
+                "targetId": "8ac7f8f8-455d-46ab-ba80-87ab4c579173"
+              },
+              {
+                "kind": "task",
+                "targetId": "hk-task-dash"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "map-hk-room-C",
+        "name": "C裂隙回路 · 冲刺门槛与近路",
+        "region": "裂隙遗迹",
+        "description": "近岸与远岸间隔六格尖刺沟，先展示能力门槛。冲刺越过后先开启永久近路，再抵达首领门；失败回收点放在战斗门外。",
+        "perspective": "side",
+        "view": "free",
+        "x": 0,
+        "y": 310,
+        "rows": 12,
+        "columns": 24,
+        "cellSize": 1,
+        "unit": "格",
+        "sourceDesignId": "d217ca56-8558-443b-994e-c39838c7a49d",
+        "roomId": "",
+        "sourceVisible": true,
+        "sourceLocked": true,
+        "layers": [
+          {
+            "id": "map-hk-room-C-layer-0",
+            "name": "地形规划",
+            "visible": true,
+            "locked": false
+          },
+          {
+            "id": "map-hk-room-C-layer-1",
+            "name": "障碍规划",
+            "visible": true,
+            "locked": false
+          },
+          {
+            "id": "map-hk-room-C-layer-2",
+            "name": "环境装饰",
+            "visible": true,
+            "locked": false
+          },
+          {
+            "id": "map-hk-room-C-layer-3",
+            "name": "任务与标记",
+            "visible": true,
+            "locked": false
+          }
+        ],
+        "objects": [
+          {
+            "id": "map-hk-room-C-light",
+            "name": "引导光源",
+            "kind": "decoration",
+            "x": 16,
+            "y": 3,
+            "width": 1,
+            "height": 1,
+            "layerId": "map-hk-room-C-layer-2",
+            "color": "green",
+            "notes": "用环境光提示可探索的方向；仅作为地图美术布置。",
+            "references": []
+          },
+          {
+            "id": "map-hk-room-C-sign",
+            "name": "区域设计标记",
+            "kind": "note",
+            "x": 19,
+            "y": 2,
+            "width": 2,
+            "height": 1,
+            "layerId": "map-hk-room-C-layer-3",
+            "color": "green",
+            "notes": "近岸与远岸间隔六格尖刺沟，先展示能力门槛。冲刺越过后先开启永久近路，再抵达首领门；失败回收点放在战斗门外。",
+            "references": [
+              {
+                "kind": "gameplay",
+                "targetId": "d217ca56-8558-443b-994e-c39838c7a49d"
+              },
+              {
+                "kind": "task",
+                "targetId": "hk-task-shortcut"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "map-hk-room-D",
+        "name": "D遗壳守卫 · 双阶段首领",
+        "region": "裂隙遗迹",
+        "description": "左侧保留安全缓冲区，中段触发战斗并封门。场地中央留出冲刺与攻击空间；胜利后开放奖励箱和出口石碑，避免重复奖励。",
+        "perspective": "side",
+        "view": "free",
+        "x": 420,
+        "y": 310,
+        "rows": 12,
+        "columns": 24,
+        "cellSize": 1,
+        "unit": "格",
+        "sourceDesignId": "adcd86ce-5557-4fec-96e4-c1f42b638c7e",
+        "roomId": "",
+        "sourceVisible": true,
+        "sourceLocked": true,
+        "layers": [
+          {
+            "id": "map-hk-room-D-layer-0",
+            "name": "地形规划",
+            "visible": true,
+            "locked": false
+          },
+          {
+            "id": "map-hk-room-D-layer-1",
+            "name": "障碍规划",
+            "visible": true,
+            "locked": false
+          },
+          {
+            "id": "map-hk-room-D-layer-2",
+            "name": "环境装饰",
+            "visible": true,
+            "locked": false
+          },
+          {
+            "id": "map-hk-room-D-layer-3",
+            "name": "任务与标记",
+            "visible": true,
+            "locked": false
+          }
+        ],
+        "objects": [
+          {
+            "id": "map-hk-room-D-light",
+            "name": "引导光源",
+            "kind": "decoration",
+            "x": 5,
+            "y": 3,
+            "width": 1,
+            "height": 1,
+            "layerId": "map-hk-room-D-layer-2",
+            "color": "green",
+            "notes": "用环境光提示可探索的方向；仅作为地图美术布置。",
+            "references": []
+          },
+          {
+            "id": "map-hk-room-D-sign",
+            "name": "区域设计标记",
+            "kind": "note",
+            "x": 8,
+            "y": 2,
+            "width": 2,
+            "height": 1,
+            "layerId": "map-hk-room-D-layer-3",
+            "color": "green",
+            "notes": "左侧保留安全缓冲区，中段触发战斗并封门。场地中央留出冲刺与攻击空间；胜利后开放奖励箱和出口石碑，避免重复奖励。",
+            "references": [
+              {
+                "kind": "gameplay",
+                "targetId": "adcd86ce-5557-4fec-96e4-c1f42b638c7e"
+              },
+              {
+                "kind": "task",
+                "targetId": "hk-task-boss"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "connections": [
+      {
+        "id": "map-hk-sp-A_B",
+        "name": "A → B",
+        "from": "map-hk-room-A",
+        "to": "map-hk-room-B",
+        "fromObjectId": "ba3569e9-7ba1-4ab2-a00d-4ac53882271d",
+        "toObjectId": "a7cebaf1-36a7-4765-af62-9a388b187570",
+        "direction": "one",
+        "kind": "passage",
+        "condition": ""
+      },
+      {
+        "id": "map-hk-sp-B_A",
+        "name": "B → A",
+        "from": "map-hk-room-B",
+        "to": "map-hk-room-A",
+        "fromObjectId": "1372d683-9752-4bed-a181-ab71f9485c89",
+        "toObjectId": "bba2b4f0-bdcb-4594-be44-62e67374af59",
+        "direction": "one",
+        "kind": "passage",
+        "condition": "试炼门未封闭"
+      },
+      {
+        "id": "map-hk-sp-A_C",
+        "name": "A → C",
+        "from": "map-hk-room-A",
+        "to": "map-hk-room-C",
+        "fromObjectId": "421c936e-0f0b-4f60-bfe1-cfdd15dfb76f",
+        "toObjectId": "11bb920a-b28c-42bb-b094-6481e37f3d6d",
+        "direction": "one",
+        "kind": "passage",
+        "condition": ""
+      },
+      {
+        "id": "map-hk-sp-C_A",
+        "name": "C → A",
+        "from": "map-hk-room-C",
+        "to": "map-hk-room-A",
+        "fromObjectId": "61ae9303-91ed-43bb-bbd2-da33bb1c241a",
+        "toObjectId": "54fb885f-64eb-47ca-9da8-4237ca9c57e4",
+        "direction": "one",
+        "kind": "passage",
+        "condition": ""
+      },
+      {
+        "id": "map-hk-sp-A_C_short",
+        "name": "永久近路",
+        "from": "map-hk-room-A",
+        "to": "map-hk-room-C",
+        "fromObjectId": "ff360fec-87ac-4feb-90f8-42ea9db062e8",
+        "toObjectId": "e40a88fa-8d90-4445-b9f9-6a4748ee24ee",
+        "direction": "one",
+        "kind": "shortcut",
+        "condition": "已从远岸打开永久近路"
+      },
+      {
+        "id": "map-hk-sp-C_A_short",
+        "name": "永久近路",
+        "from": "map-hk-room-C",
+        "to": "map-hk-room-A",
+        "fromObjectId": "de3690ca-a76e-4b93-8f86-6e4886eed279",
+        "toObjectId": "775486b6-75e0-446b-9197-45ca9e6ffb41",
+        "direction": "one",
+        "kind": "shortcut",
+        "condition": "已从远岸打开永久近路"
+      },
+      {
+        "id": "map-hk-sp-C_D",
+        "name": "C → D",
+        "from": "map-hk-room-C",
+        "to": "map-hk-room-D",
+        "fromObjectId": "22ca72f5-fc5f-4b75-b208-45db967e331f",
+        "toObjectId": "6d9527c7-2d71-4f68-aca4-df8ead9ea5d2",
+        "direction": "one",
+        "kind": "passage",
+        "condition": "已到达远岸"
+      },
+      {
+        "id": "map-hk-sp-D_C",
+        "name": "D → C",
+        "from": "map-hk-room-D",
+        "to": "map-hk-room-C",
+        "fromObjectId": "f8247184-466c-415a-97d4-d39a8961464e",
+        "toObjectId": "9f154fae-7613-472f-8289-7cc3c9d79e0b",
+        "direction": "one",
+        "kind": "passage",
+        "condition": "战斗门未封闭"
+      }
+    ]
   }
 }

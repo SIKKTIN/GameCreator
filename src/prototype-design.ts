@@ -1,3 +1,4 @@
+import { emptyMapDesign, mapStage, mapIssues, type MapDesignStore } from './map-design.ts';
 import type { GameplayDesign } from './gameplay';
 import type { GameplayCoreStore } from './gameplay-core';
 import type { ArtStore } from './art-assets';
@@ -7,7 +8,7 @@ export const prototypeKinds = { text: '文字', button: '按钮', shape: '色块
 export const prototypeActions = { none: '无动作', scene: '切换场景', show: '显示元素', hide: '隐藏元素', toggle: '切换元素显隐', restart: '重新开始' } as const;
 export type PrototypeAction = { kind: keyof typeof prototypeActions; targetId: string; condition: string };
 export type PrototypeElement = { id: string; kind: keyof typeof prototypeKinds; name: string; text: string; x: number; y: number; width: number; height: number; color: string; fontSize: number; visible: boolean; sourceObjectId: string; assetId: string; versionId: string; fileId: string; action: PrototypeAction };
-export type PrototypeScene = { id: string; name: string; description: string; width: number; height: number; background: string; view: 'grid' | 'free'; sourceDesignId: string; roomId: string; coreNodeId: string; elements: PrototypeElement[] };
+export type PrototypeScene = { mapId?: string; id: string; name: string; description: string; width: number; height: number; background: string; view: 'grid' | 'free'; sourceDesignId: string; roomId: string; coreNodeId: string; elements: PrototypeElement[] };
 export type PrototypeDesignStore = { schema: 1; entryId: string; scenes: PrototypeScene[] };
 export const emptyPrototypeDesign = (): PrototypeDesignStore => ({ schema: 1, entryId: '', scenes: [] });
 export const createPrototypeScene = (name = '新场景'): PrototypeScene => ({ id: crypto.randomUUID(), name, description: '', width: 960, height: 540, background: '#151622', view: 'free', sourceDesignId: '', roomId: '', coreNodeId: '', elements: [] });
@@ -24,7 +25,7 @@ export function validatePrototypeDesign(value: unknown): PrototypeDesignStore {
   const ids = new Set<string>();
   const unique = (v: Record<string, unknown>) => { if (typeof v.id !== 'string' || !v.id.trim() || ids.has(v.id)) fail(); ids.add(v.id as string); };
   for (const s of value.scenes) {
-    if (!record(s) || !strings(s, ['name', 'description', 'sourceDesignId', 'roomId', 'coreNodeId']) || !number(s.width, 320, 3840) || !number(s.height, 240, 2160) || !color(s.background) || !['grid', 'free'].includes(s.view as string) || !Array.isArray(s.elements) || s.elements.length > 300) return fail();
+    if (!record(s) || (s.mapId !== undefined && typeof s.mapId !== 'string') || !strings(s, ['name', 'description', 'sourceDesignId', 'roomId', 'coreNodeId']) || !number(s.width, 320, 3840) || !number(s.height, 240, 2160) || !color(s.background) || !['grid', 'free'].includes(s.view as string) || !Array.isArray(s.elements) || s.elements.length > 300) return fail();
     unique(s);
     for (const e of s.elements) {
       if (!record(e) || !strings(e, ['name', 'text', 'sourceObjectId', 'assetId', 'versionId', 'fileId']) || !has(prototypeKinds, e.kind) || !number(e.x, -10000, 10000) || !number(e.y, -10000, 10000) || !number(e.width, 1, 10000) || !number(e.height, 1, 10000) || !number(e.fontSize, 8, 150) || !color(e.color) || typeof e.visible !== 'boolean' || !record(e.action) || !has(prototypeActions, e.action.kind) || !strings(e.action, ['targetId', 'condition'])) return fail();
@@ -39,18 +40,21 @@ export function writePrototypeDesign(storage: Pick<Storage, 'getItem' | 'setItem
   if (storage.getItem(key) !== expected) throw new Error('其他窗口已修改原型设计，请备份草稿后重新读取');
   storage.setItem(key, raw); return raw;
 }
-export function prototypeSource(scene: PrototypeScene, designs: GameplayDesign[]) {
+export function prototypeSource(scene: PrototypeScene, designs: GameplayDesign[], maps: MapDesignStore = emptyMapDesign()) {
+  if (scene.mapId) { const map=maps.maps.find(m=>m.id===scene.mapId), space=map&&mapStage(map,designs); return {owner:undefined,room:undefined,source:map&&space?{id:map.id,title:map.name,archived:false,space}:undefined,objects:space?.objects??[]}; }
   const owner = designs.find(d => d.id === scene.sourceDesignId), room = owner && spatialLayout(owner.space).rooms.find(r => r.id === scene.roomId);
   const source = owner && (room ? roomSource(room, owner, designs) : owner);
   const objects = source && (!scene.roomId || room) ? source.space.objects.filter(o => (o.roomId || '') === (room && !room.sourceDesignId ? room.id : '')) : [];
   return { owner, room, source, objects };
 }
-export function prototypeIssues(store: PrototypeDesignStore, designs: GameplayDesign[], core: GameplayCoreStore, art: ArtStore) {
+export function prototypeIssues(store: PrototypeDesignStore, designs: GameplayDesign[], core: GameplayCoreStore, art: ArtStore, maps: MapDesignStore = emptyMapDesign()) {
   const issues: string[] = [];
   if (store.scenes.length && !store.scenes.some(s => s.id === store.entryId)) issues.push('请选择启动场景');
   for (const s of store.scenes) {
-    const { owner, room, source, objects } = prototypeSource(s, designs);
+    const { owner, room, source, objects } = prototypeSource(s, designs, maps);
     const issue = (text: string) => issues.push(s.name + '：' + text);
+    if(s.mapId && !source) issue('地图来源已失效');
+    if(s.mapId) {const map=maps.maps.find(m=>m.id===s.mapId);if(map)for(const detail of mapIssues({...maps,maps:[map],connections:[]},designs))issue(detail);}
     if (s.sourceDesignId && (!owner || !source)) issue('空间来源已失效');
     if (s.roomId && !room) issue('来源房间已失效');
     if (owner?.archived || source?.archived) issue('空间来源已归档');
@@ -65,8 +69,8 @@ export function prototypeIssues(store: PrototypeDesignStore, designs: GameplayDe
   return issues;
 }
 /** One fit transform is used for both visible objects and their linked interaction areas. */
-export function prototypeGeometry(scene: PrototypeScene, designs: GameplayDesign[]) {
-  const { source, objects } = prototypeSource(scene, designs);
+export function prototypeGeometry(scene: PrototypeScene, designs: GameplayDesign[], maps: MapDesignStore = emptyMapDesign()) {
+  const { source, objects } = prototypeSource(scene, designs, maps);
   if (!source) return { objects: [], grid: null };
   const bounds = objects.map(o => { const g = objectGeometry(o, source.space), angle = g.rotation * Math.PI / 180, width = Math.abs(Math.cos(angle)) * g.width + Math.abs(Math.sin(angle)) * g.height, height = Math.abs(Math.sin(angle)) * g.width + Math.abs(Math.cos(angle)) * g.height; return { x: g.x + g.width / 2 - width / 2, y: g.y + g.height / 2 - height / 2, width, height }; });
   for (const o of objects) if (o.kind === 'zone' && o.rangeShape === 'ring') { const g = objectGeometry(o, source.space); bounds.push({ x: g.x + g.width / 2 - g.range, y: g.y + g.height / 2 - g.range, width: g.range * 2, height: g.range * 2 }); }
@@ -88,6 +92,18 @@ export function removePrototypeElement(scene: PrototypeScene, id: string) {
 export function duplicatePrototypeScene(scene: PrototypeScene): PrototypeScene {
   const id = crypto.randomUUID(), ids = new Map(scene.elements.map(e => [e.id, crypto.randomUUID()]));
   return { ...structuredClone(scene), id, name: scene.name + ' 副本', elements: scene.elements.map(e => ({ ...structuredClone(e), id: ids.get(e.id)!, action: { ...e.action, targetId: e.action.kind === 'scene' && e.action.targetId === scene.id ? id : ['show', 'hide', 'toggle'].includes(e.action.kind) ? ids.get(e.action.targetId) || e.action.targetId : e.action.targetId } })) };
+}
+/** Geometry stays in map/gameplay archives; generated hotspots only retain object IDs. */
+export function prototypeFromMaps(maps: MapDesignStore, designs: GameplayDesign[]): PrototypeScene[] {
+  const scenes = maps.maps.map(map => ({ ...createPrototypeScene(map.name), mapId: map.id, view: map.view, description: map.description }));
+  for (const c of maps.connections) for (const forward of c.direction === 'both' ? [true, false] : [true]) {
+    const from = forward ? c.from : c.to, to = forward ? c.to : c.from;
+    const scene = scenes.find(s => s.mapId === from), target = scenes.find(s => s.mapId === to);
+    const objectId = forward ? c.fromObjectId : c.toObjectId;
+    if (!scene || !target || !prototypeSource(scene, designs, maps).objects.some(o => o.id === objectId)) continue;
+    scene.elements.push({ ...createPrototypeElement('button'), name: c.name, text: c.name + ' → ' + target.name, sourceObjectId: objectId, action: { kind: 'scene', targetId: target.id, condition: c.condition } });
+  }
+  return scenes;
 }
 export type PrototypeRuntime = { sceneId: string; visibility: Record<string, boolean> };
 export const prototypeVisible = (runtime: PrototypeRuntime, element: PrototypeElement) => Object.prototype.hasOwnProperty.call(runtime.visibility, element.id) ? runtime.visibility[element.id] : element.visible;
