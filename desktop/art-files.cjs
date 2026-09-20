@@ -12,9 +12,9 @@ const comparable = value => process.platform === 'win32' ? value.toLowerCase() :
 const sameFile = (a, b) => a.dev === b.dev && a.ino === b.ino;
 
 function validateWorkspaceId(value) {
-  if (typeof value !== 'string' || value.length > 1100 || /[\x00-\x1f\x7f]/.test(value)) throw new Error('美术文件工作区标识无效');
+  if (typeof value !== 'string' || value.length > 1100 || /[\x00-\x1f\x7f]/.test(value)) throw new Error('素材文件工作区标识无效');
   const match = /^(project|test):(.+)$/.exec(value);
-  if (!match || match[2] !== match[2].trim() || match[2].length > 1024 || (match[1] === 'test' && !UUID.test(match[2]))) throw new Error('美术文件工作区标识无效');
+  if (!match || match[2] !== match[2].trim() || match[2].length > 1024 || (match[1] === 'test' && !UUID.test(match[2]))) throw new Error('素材文件工作区标识无效');
   // Project IDs may be a legacy normalized project path. They are hashed as opaque IDs, never resolved as paths.
   return value;
 }
@@ -104,11 +104,11 @@ function validImage(bytes, mime) {
 }
 
 function createArtFiles(dataDirectory, options = {}) {
-  if (typeof dataDirectory !== 'string' || !dataDirectory) throw new Error('美术文件存储目录无效');
+  if (typeof dataDirectory !== 'string' || !dataDirectory) throw new Error('素材文件存储目录无效');
   const base = path.resolve(dataDirectory), artRoot = path.join(base, 'art-files');
   const maxFileBytes = options.maxFileBytes ?? MAX_FILE_BYTES;
   const maxPreviewBytes = options.maxPreviewBytes ?? MAX_PREVIEW_BYTES;
-  if (!Number.isSafeInteger(maxFileBytes) || maxFileBytes < 1 || !Number.isSafeInteger(maxPreviewBytes) || maxPreviewBytes < 1) throw new Error('美术文件大小限制无效');
+  if (!Number.isSafeInteger(maxFileBytes) || maxFileBytes < 1 || !Number.isSafeInteger(maxPreviewBytes) || maxPreviewBytes < 1) throw new Error('素材文件大小限制无效');
   async function secureDirectory(directory, create = false) {
     const absolute = path.resolve(directory), root = path.parse(absolute).root;
     let current = root;
@@ -122,27 +122,27 @@ function createArtFiles(dataDirectory, options = {}) {
         try { await fs.mkdir(current); } catch (mkdirError) { if (mkdirError.code !== 'EEXIST') throw mkdirError; }
         stat = await fs.lstat(current);
       }
-      if (stat.isSymbolicLink() || !stat.isDirectory()) throw new Error('美术文件目录不能是符号链接或非目录');
+      if (stat.isSymbolicLink() || !stat.isDirectory()) throw new Error('素材文件目录不能是符号链接或非目录');
     }
     const real = await fs.realpath(absolute);
-    if (comparable(real) !== comparable(absolute)) throw new Error('美术文件目录超出受管目录');
+    if (comparable(real) !== comparable(absolute)) throw new Error('素材文件目录超出受管目录');
     return absolute;
   }
   function workspaceDirectory(workspaceId) { return path.join(artRoot, workspaceHash(workspaceId)); }
   async function checkedPath(workspaceId, storagePath) {
-    if (typeof storagePath !== 'string' || !FILE_TOKEN.test(storagePath)) throw new Error('美术文件存储标识无效');
+    if (typeof storagePath !== 'string' || !FILE_TOKEN.test(storagePath)) throw new Error('素材文件存储标识无效');
     const directory = workspaceDirectory(workspaceId);
     await secureDirectory(directory);
     const filename = path.join(directory, storagePath);
-    if (path.dirname(filename) !== directory) throw new Error('美术文件不能越过工作区目录');
+    if (path.dirname(filename) !== directory) throw new Error('素材文件不能越过工作区目录');
     const stat = await fs.lstat(filename);
-    if (stat.isSymbolicLink() || !stat.isFile()) throw new Error('美术文件不能是目录或符号链接');
+    if (stat.isSymbolicLink() || !stat.isFile()) throw new Error('素材文件不能是目录或符号链接');
     const real = await fs.realpath(filename);
-    if (comparable(real) !== comparable(filename)) throw new Error('美术文件超出受管目录');
+    if (comparable(real) !== comparable(filename)) throw new Error('素材文件超出受管目录');
     return { filename, stat };
   }
   function missing(error) {
-    if (error.code === 'ENOENT') return new Error('美术文件已丢失，或不属于当前项目，请重新导入');
+    if (error.code === 'ENOENT') return new Error('素材文件已丢失，或不属于当前项目，请重新导入');
     return error;
   }
   async function openedManaged(workspaceId, storagePath) {
@@ -150,20 +150,20 @@ function createArtFiles(dataDirectory, options = {}) {
     const handle = await fs.open(before.filename, constants.O_RDONLY | (constants.O_NOFOLLOW || 0));
     try {
       const actual = await handle.stat(), after = await checkedPath(workspaceId, storagePath);
-      if (!actual.isFile() || !sameFile(before.stat, actual) || !sameFile(actual, after.stat)) throw new Error('美术文件在读取时发生变化，请重试');
+      if (!actual.isFile() || !sameFile(before.stat, actual) || !sameFile(actual, after.stat)) throw new Error('素材文件在读取时发生变化，请重试');
       return {handle, filename: before.filename, stat: actual};
     } catch (error) { await handle.close(); throw error; }
   }
   async function importFiles(workspaceId, selectedPaths) {
     const directory = workspaceDirectory(workspaceId);
-    if (!Array.isArray(selectedPaths) || !selectedPaths.length || selectedPaths.some(p => typeof p !== 'string' || !path.isAbsolute(p))) throw new Error('请选择有效的美术文件');
+    if (!Array.isArray(selectedPaths) || !selectedPaths.length || selectedPaths.some(p => typeof p !== 'string' || !path.isAbsolute(p))) throw new Error('请选择有效的素材文件');
     const inputs = [], created = [], result = [];
     try {
       // Preflight the whole native-dialog selection before creating any managed file.
       for (const sourcePath of selectedPaths) {
         const stat = await fs.lstat(sourcePath);
         if (stat.isSymbolicLink() || !stat.isFile()) throw new Error('仅可导入普通文件，不能导入目录或符号链接：' + path.basename(sourcePath));
-        if (stat.size > maxFileBytes) throw new Error('单个美术文件不能超过 ' + Math.round(maxFileBytes / 1024 / 1024) + ' MB：' + path.basename(sourcePath));
+        if (stat.size > maxFileBytes) throw new Error('单个素材文件不能超过 ' + Math.round(maxFileBytes / 1024 / 1024) + ' MB：' + path.basename(sourcePath));
         const handle = await fs.open(sourcePath, constants.O_RDONLY | (constants.O_NOFOLLOW || 0));
         try {
           const current = await handle.stat();
@@ -193,7 +193,7 @@ function createArtFiles(dataDirectory, options = {}) {
             let written = 0;
             while (written < bytesRead) {
               const part = await destination.write(chunk, written, bytesRead - written, total - bytesRead + written);
-              if (!part.bytesWritten) throw new Error('美术文件写入未完成');
+              if (!part.bytesWritten) throw new Error('素材文件写入未完成');
               written += part.bytesWritten;
             }
           }
@@ -202,7 +202,7 @@ function createArtFiles(dataDirectory, options = {}) {
           await destination.sync();
         } finally { await destination.close(); }
         const saved = await checkedPath(workspaceId, storagePath);
-        if (!sameFile(saved.stat, identity) || saved.stat.size !== total) throw new Error('美术文件复制校验失败');
+        if (!sameFile(saved.stat, identity) || saved.stat.size !== total) throw new Error('素材文件复制校验失败');
         result.push({id, name, size: total, mime: sniffMime(header), storagePath});
       }
       return result;
@@ -215,7 +215,7 @@ function createArtFiles(dataDirectory, options = {}) {
           await fs.unlink(own.filename);
         } catch (cleanupError) { if (cleanupError.code !== 'ENOENT') uncleared++; }
       }
-      throw new Error('美术文件导入失败，本批未添加任何文件记录：' + missing(error).message + (uncleared ? '。部分本批文件未能安全清理，可稍后检查存储目录' : ''));
+      throw new Error('素材文件导入失败，本批未添加任何文件记录：' + missing(error).message + (uncleared ? '。部分本批文件未能安全清理，可稍后检查存储目录' : ''));
     } finally { await Promise.all(inputs.map(input => input.handle.close())); }
   }
   async function readPreview(workspaceId, storagePath) {
@@ -231,7 +231,7 @@ function createArtFiles(dataDirectory, options = {}) {
         total += bytesRead;
       }
       const after = await opened.handle.stat();
-      if (total !== bytes.length || after.size !== opened.stat.size || after.mtimeMs !== opened.stat.mtimeMs) throw new Error('美术文件在预览时发生变化，请重试');
+      if (total !== bytes.length || after.size !== opened.stat.size || after.mtimeMs !== opened.stat.mtimeMs) throw new Error('素材文件在预览时发生变化，请重试');
       await checkedPath(workspaceId, storagePath);
       const mime = sniffMime(bytes);
       if (!['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(mime)) return null;

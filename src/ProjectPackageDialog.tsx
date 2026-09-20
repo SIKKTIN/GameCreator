@@ -37,9 +37,9 @@ export function ProjectPackageDialog({ state, names, onClose, onChoose, onImport
     <form aria-busy={state?.busy} onSubmit={event => { event.preventDefault(); if (state?.token && !state.busy && name.trim()) void onImport(name.trim()); }}>
       <div className="pi-heading"><div><span className="pi-kicker">PORTABLE PROJECT</span><h2 id={id + '-title'}>{title}</h2></div>
         <button className="pi-close" type="button" aria-label="关闭项目迁移" disabled={state?.busy} onClick={onClose}><X size={19} /></button></div>
-      <p className="pi-description">{importing ? '选择导出的项目文件夹，恢复为独立的本地项目。玩法核心、玩法设计、系统、配置、枚举版本和美术文件会一起导入。' : '保存当前项目的完整副本。将整个文件夹复制到其他电脑，即可在客户端中导入。'}</p>
-      {state?.busy && <div className="pp-progress" role="status"><LoaderCircle className="pi-spinner" size={20} />{state.token ? '正在校验并恢复项目…' : importing ? '正在选择并检查项目文件夹…' : '正在保存项目数据和美术文件…'}</div>}
-      {state?.directory && <div className="pp-success" role="status"><CheckCircle2 size={22} /><div><strong>项目已导出</strong><p>{state.directory}</p><small>{state.fileCount} 个美术文件已包含在项目文件夹中。</small></div></div>}
+      <p className="pi-description">{importing ? '选择导出的项目文件夹，恢复为独立的本地项目。玩法核心、玩法设计、系统、配置、枚举版本和素材文件会一起导入。' : '保存当前项目的完整副本。将整个文件夹复制到其他电脑，即可在客户端中导入。'}</p>
+      {state?.busy && <div className="pp-progress" role="status"><LoaderCircle className="pi-spinner" size={20} />{state.token ? '正在校验并恢复项目…' : importing ? '正在选择并检查项目文件夹…' : '正在保存项目数据和素材文件…'}</div>}
+      {state?.directory && <div className="pp-success" role="status"><CheckCircle2 size={22} /><div><strong>项目已导出</strong><p>{state.directory}</p><small>{state.fileCount} 个素材文件已包含在项目文件夹中。</small></div></div>}
       {importing && archives && <>
         <div className="pp-summary"><strong>{state?.document?.project.name}</strong><dl>
           <div><dt>制作任务</dt><dd>{archives['project-schedule'].tasks.length}</dd></div>
@@ -48,8 +48,8 @@ export function ProjectPackageDialog({ state, names, onClose, onChoose, onImport
           <div><dt>玩法核心节点</dt><dd>{archives['gameplay-core'].graphs.reduce((sum, graph) => sum + graph.nodes.length, 0)}</dd></div>
           <div><dt>玩法设计</dt><dd>{archives.gameplay.designs.length}</dd></div>
           <div><dt>功能系统</dt><dd>{archives['functional-systems'].systems.length}</dd></div>
-          <div><dt>美术需求</dt><dd>{archives['art-assets'].requirements.length}</dd></div>
-          <div><dt>美术文件</dt><dd>{fileCount}</dd></div>
+          <div><dt>素材需求</dt><dd>{archives['art-assets'].requirements.length}</dd></div>
+          <div><dt>素材文件</dt><dd>{fileCount}</dd></div>
           <div><dt>故事文档</dt><dd>{archives.stories.length}</dd></div>
           <div><dt>地图设计</dt><dd>{archives['map-design'].maps.length} · {archives['map-design'].enabled ? '已启用' : '未启用'}</dd></div><div><dt>故事编排</dt><dd>{archives['story-orchestration'].stories.length} · {archives['story-orchestration'].enabled ? '已启用' : '未启用'}</dd></div>
           <div><dt>数据记录</dt><dd>{Object.values(archives['enum-versions'].data.datasets).reduce((sum, rows) => sum + rows.length, 0)}</dd></div>

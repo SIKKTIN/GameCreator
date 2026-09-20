@@ -22,7 +22,7 @@ export const artCategoryId = (library: ArtLibrary, kind: ArtItemKind, id: string
 export const artCategoryName = (library: ArtLibrary, id: string) => library.categories.find(c=>c.id===id)?.name || '未分类';
 export function validateArtLibrary(value: unknown, store: ArtStore): void {
   const object = (x: unknown): x is Record<string,unknown> => !!x && typeof x==='object' && !Array.isArray(x);
-  const fail = () => { throw new Error('美术分类存档格式异常，已停止写入'); };
+  const fail = () => { throw new Error('素材分类存档格式异常，已停止写入'); };
   if (!object(value) || !Array.isArray(value.categories) || !object(value.requirements) || !object(value.assets)) return fail();
   const ids=new Set<string>(),names=new Set<string>();
   for(const c of value.categories) {
@@ -35,8 +35,8 @@ export function validateArtLibrary(value: unknown, store: ArtStore): void {
 }
 export function assignArtCategory(store: ArtStore, kind: ArtItemKind, id: string, categoryId: string): ArtStore {
   const library=structuredClone(artLibrary(store));
-  if(!store[kind==='requirement'?'requirements':'assets'].some(i=>i.id===id))throw new Error('美术条目不存在');
-  if(categoryId&&!library.categories.some(c=>c.id===categoryId))throw new Error('美术分类不存在');
+  if(!store[kind==='requirement'?'requirements':'assets'].some(i=>i.id===id))throw new Error('素材条目不存在');
+  if(categoryId&&!library.categories.some(c=>c.id===categoryId))throw new Error('素材分类不存在');
   (kind==='requirement'?library.requirements:library.assets)[id]=categoryId;
   return {...store,library};
 }

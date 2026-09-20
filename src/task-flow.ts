@@ -1,7 +1,7 @@
 export const taskKinds = ['主线', '支线', '委托', '探索', '关卡', '挑战'] as const;
 export const taskScopes = ['单次', '每局', '每日', '跨局'] as const;
 export const referenceKinds = ['gameplay', 'capability', 'story', 'asset', 'table'] as const;
-export const referenceLabels = { gameplay: '玩法', capability: '程序功能', story: '故事', asset: '美术资产', table: '配置表' };
+export const referenceLabels = { gameplay: '玩法', capability: '程序功能', story: '故事', asset: '素材资产', table: '配置表' };
 export type TaskReference = { kind: typeof referenceKinds[number]; targetId: string; recordId: string };
 export type TaskObjective = { id: string; title: string; condition: string; target: number };
 export type TaskStage = { id: string; title: string; kind: 'objective' | 'success' | 'failure'; description: string; mode: 'all' | 'any'; objectives: TaskObjective[]; result: string };

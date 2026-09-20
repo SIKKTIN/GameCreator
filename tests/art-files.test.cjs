@@ -74,8 +74,8 @@ test('preview and reveal reject path traversal, absolute paths and unowned file 
   }
   assert.equal(calls, 0);
   await fs.unlink(path.join(assetDir(f.data), asset.storagePath));
-  await assert.rejects(f.service.readPreview(PROJECT, asset.storagePath), /美术文件已丢失/);
-  await assert.rejects(f.service.reveal(PROJECT, asset.storagePath, () => {calls++;}), /美术文件已丢失/);
+  await assert.rejects(f.service.readPreview(PROJECT, asset.storagePath), /素材文件已丢失/);
+  await assert.rejects(f.service.reveal(PROJECT, asset.storagePath, () => {calls++;}), /素材文件已丢失/);
   assert.equal(calls, 0);
 });
 
@@ -132,7 +132,7 @@ test('100MB import and 12MB preview limits are enforced without buffering oversi
 test('invalid selection fails the whole batch before saving any metadata or copy', async t => {
   const f = await setup(t), good = await f.file('good.png');
   await assert.rejects(f.service.importFiles(PROJECT, [good, f.source]), /不能导入目录/);
-  await assert.rejects(f.service.importFiles(PROJECT, [good, path.join(f.source,'missing.png')]), /美术文件已丢失/);
+  await assert.rejects(f.service.importFiles(PROJECT, [good, path.join(f.source,'missing.png')]), /素材文件已丢失/);
   await assert.rejects(f.service.importFiles(PROJECT, ['relative.png']), /请选择有效/);
   await assert.rejects(fs.stat(path.join(f.data,'art-files')), {code:'ENOENT'});
 });
