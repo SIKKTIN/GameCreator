@@ -96,7 +96,7 @@ const artifacts = path.join(root, '.gamecreator', 'qa');
     app = await _electron.launch({ executablePath: require('electron'), args: [path.join(root, 'desktop', 'main.cjs')], env });
     page = await app.firstWindow(); page.setDefaultTimeout(15000);
     page.on('pageerror', error => errors.push(error.message));
-    await click('登录'); await click('数据配置');
+    await click('进入本地工作区'); await click('数据配置');
     await resize(1440);
   }
   try {

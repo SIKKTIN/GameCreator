@@ -111,7 +111,7 @@ const root = path.resolve(__dirname, '..');
     app = await _electron.launch({ executablePath: require('electron'), args: [path.join(root, 'desktop/main.cjs')], env });
     page = await app.firstWindow(); page.setDefaultTimeout(12000);
     page.on('pageerror', error => errors.push(error.message)); page.on('dialog', dialog => dialog.accept());
-    await click('登录'); await page.locator('.ps-trigger').waitFor();
+    await click('进入本地工作区'); await page.locator('.ps-trigger').waitFor();
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1900, 1150));
     await click('玩法核心'); await page.locator('.gc-edge-line').first().waitFor({ state: 'attached' });
     await click('适配画布'); await page.locator('.gc-canvas-scroll').scrollIntoViewIfNeeded();

@@ -3,7 +3,7 @@ const path = require('node:path');
 const { createHash, randomUUID } = require('node:crypto');
 
 function allowedKey(key) {
-  return typeof key === 'string' && (['gamecreator.ui-preferences.v1', 'gamecreator.engine-config.v1', 'gamecreator.dataset-definitions.v1', 'gamecreator.test-session.v1', 'gamecreator.projects.v1', 'gamecreator.team-connection.v1', 'gamecreator.local-source.v1'].includes(key) ||
+  return typeof key === 'string' && (['gamecreator.entry-preferences.v1', 'gamecreator.ui-preferences.v1', 'gamecreator.engine-config.v1', 'gamecreator.dataset-definitions.v1', 'gamecreator.test-session.v1', 'gamecreator.projects.v1', 'gamecreator.team-connection.v1', 'gamecreator.local-source.v1'].includes(key) ||
     ['gamecreator.enum-versions.v1:', 'gamecreator.workspace.v1:', 'gamecreator.team-draft.v1:', 'gamecreator.team-core-layout.v1:', 'gamecreator.team-gameplay-layout.v1:'].some(prefix => key.startsWith(prefix) && key.length > prefix.length));
 }
 function atomicWrite(filename, content) {

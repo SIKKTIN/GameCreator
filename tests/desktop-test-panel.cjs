@@ -18,7 +18,7 @@ const root=path.resolve(__dirname,'..');
  const launch=async()=>{
   app=await _electron.launch({executablePath:require('electron'),args:[path.join(root,'desktop/main.cjs')],env});
   page=await app.firstWindow();page.on('pageerror',error=>errors.push(error.message));
-  await page.getByRole('button',{name:'登录',exact:true}).click();
+  await page.getByRole('button',{name:'进入本地工作区',exact:true}).click();
  };
  const session=()=>JSON.parse(storage.getItem(sessionKey)||'null');
  const testKey=()=> 'gamecreator.enum-versions.v1:'+session().config.projectPath.replaceAll('\\','/').toLowerCase();
@@ -110,14 +110,12 @@ const root=path.resolve(__dirname,'..');
   await page.locator('.test-workspace-banner').getByRole('button',{name:'返回原工作区',exact:true}).click();
   assert.equal(session(),null);assert.equal(await page.locator('.test-workspace-banner').count(),0);
   assert.deepEqual(await officialFiles(),official);
-  await page.getByRole('button',{name:'退出登录',exact:true}).click();
-  await page.getByRole('textbox',{name:'账号',exact:true}).fill('user');
-  await page.getByLabel('密码',{exact:true}).fill('user123');
-  await page.getByRole('button',{name:'登录',exact:true}).click();
-  assert.equal(await page.getByRole('button',{name:/^测试面板/}).count(),0);
-  await page.locator('h1').click();await page.keyboard.press('Space');assert.equal(await page.getByRole('dialog').count(),0);
+  await page.getByRole('button',{name:'返回启动页',exact:true}).click();
+  await page.getByRole('button',{name:'进入本地工作区',exact:true}).click();
+  assert.equal(await page.getByRole('button',{name:/^测试面板/}).count(),1);
+  await page.locator('h1').click();await page.keyboard.press('Space');await page.getByRole('dialog',{name:'测试面板',exact:true}).waitFor();await close();
   assert.deepEqual(errors,[]);
-  console.log('PASS: Space/Esc, key repeat/IME/input guards, modal focus, all eight scenarios, isolated disk data, diagnostics/clipboard/logs, safe reset, restored test session, return to formal workspace, admin-only UI.');
+  console.log('PASS: Space/Esc, key repeat/IME/input guards, modal focus, all eight scenarios, isolated disk data, diagnostics/clipboard/logs, safe reset, restored test session, return to formal workspace, local workspace UI without account gates.');
  }finally{
   if(app)await app.close();
   await fs.rm(directory,{recursive:true,force:true});

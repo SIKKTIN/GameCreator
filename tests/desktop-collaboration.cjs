@@ -41,8 +41,9 @@ const pauseUntil = async (check, message) => {
     return { app, page };
   };
   const login = async (page, account) => {
+    if(await page.getByRole('main',{name:'工作区入口',exact:true}).isVisible()) await page.getByRole('tab',{name:'本地工作区',exact:true}).click();
     await page.locator('.auth-submit, .ps-trigger').first().waitFor();
-    if (await page.getByRole('button', { name: '登录', exact: true }).isVisible()) await page.getByRole('button', { name: '登录', exact: true }).click();
+    if (await page.getByRole('button', { name: '进入本地工作区', exact: true }).isVisible()) await page.getByRole('button', { name: '进入本地工作区', exact: true }).click();
     await page.locator('.ps-trigger').waitFor();
     const dialog = page.getByRole('dialog', { name: '连接团队服务器', exact: true });
     if (!await dialog.isVisible()) {
@@ -64,7 +65,7 @@ const pauseUntil = async (check, message) => {
   try {
     let a = await launch('alice'); const b = await launch('bob');
     await login(a.page, 'alice'); await login(b.page, 'bob');
-    assert.ok(await a.page.getByRole('button', { name: /^玩法设计/ }).isDisabled());
+    assert.ok(await a.page.getByRole('button', { name: /^玩法设计/ }).isEnabled());
     assert.equal(await a.page.locator('.story-workspace').count(), 1);
     const sourceBefore = await a.page.evaluate(key => window.desktopClient.storage.getItem(key), sourceKey);
     await a.page.getByRole('button', { name: '从本地导入故事', exact: true }).click();

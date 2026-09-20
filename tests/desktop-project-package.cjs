@@ -63,7 +63,7 @@ const sectionProperties = [['gameplay', 'gameplay'], ['functional-systems', 'fun
     app = await _electron.launch({ executablePath: require('electron'), args: [path.join(root, 'desktop', 'main.cjs')], env });
     page = await app.firstWindow(); page.setDefaultTimeout(15000); page.on('pageerror', error => errors.push(error.message));
     await page.waitForFunction(() => document.querySelector('.ps-trigger') || document.querySelector('.auth-submit'));
-    if (await page.getByRole('button', { name: '登录', exact: true }).isVisible()) await click('登录');
+    if (await page.getByRole('button', { name: '进入本地工作区', exact: true }).isVisible()) await click('进入本地工作区');
     await page.locator('.ps-trigger').waitFor();
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1440, 1000));
   }
@@ -268,10 +268,10 @@ const sectionProperties = [['gameplay', 'gameplay'], ['functional-systems', 'fun
     const missingFiles = await allFiles(path.join(missingFolder, 'assets')); await fs.unlink(missingFiles[0]); await rejectFolder(missingFolder, 'missing asset rejection');
     for (const [key, raw] of sourceArchives) assert.equal(storage.getItem(key), raw, 'source archive changed: ' + key);
     await verifyContent(secondId, 'QA 迁入原型 B', expectedArt); verified.push('existing archives remain byte-for-byte unchanged');
-    await click('退出登录'); await page.getByLabel('账号', { exact: true }).fill('user'); await page.getByLabel('密码', { exact: true }).fill('user123'); await click('登录');
+    await click('返回启动页'); await click('进入本地工作区');
     await page.locator('.ps-trigger').click();
-    for (const name of ['从文件夹导入项目', '导出项目到文件夹']) assert.equal(await page.getByRole('menuitem', { name, exact: true }).count(), 0);
-    verified.push('admin-only project folder actions'); assert.deepEqual(errors, []);
+    for (const name of ['从文件夹导入项目', '导出项目到文件夹']) assert.equal(await page.getByRole('menuitem', { name, exact: true }).count(), 1);
+    verified.push('project folder actions available after local reentry'); assert.deepEqual(errors, []);
     await fs.writeFile(path.join(artifacts, 'project-package-results.json'), JSON.stringify({ verified, importedProjects: imported.length, deliveryVersions: expectedArt.assets[0].versions.length, deliveryFiles: exportedFiles.length }, null, 2));
     console.log('PASS project folder portability: ' + verified.join('; '));
   } catch (error) {

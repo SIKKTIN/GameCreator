@@ -19,7 +19,7 @@ const until=async(check,message)=>{const end=Date.now()+20000;while(Date.now()<e
     delete env.ELECTRON_RUN_AS_NODE;delete env.GAMECREATOR_TEAM_ACCOUNT;
     const app=await _electron.launch({executablePath:require('electron'),args:[path.join(root,'desktop/main.cjs')],env,timeout:30000});apps.add(app);
     const page=await app.firstWindow();pages.push(page);page.setDefaultTimeout(20000);page.on('pageerror',e=>errors.push(e.message));
-    await page.getByLabel('账号',{exact:true}).fill('admin');await page.getByLabel('密码',{exact:true}).fill('admin123');await page.getByRole('button',{name:'登录',exact:true}).click();await page.locator('.ps-trigger').waitFor();return {app,page};
+    await page.getByRole('button',{name:'进入本地工作区',exact:true}).click();await page.locator('.ps-trigger').waitFor();return {app,page};
   };
   const nav=(p,name)=>p.getByRole('navigation',{name:'工作区模块',exact:true}).getByRole('button',{name,exact:true}).click();
   const button=(p,name)=>p.getByRole('button',{name,exact:true});

@@ -80,7 +80,7 @@ const sections = [['gameplay', 'gameplay'], ['functional-systems', 'functionalSy
     app = await _electron.launch({ executablePath: require('electron'), args: [path.join(root, 'desktop', 'main.cjs')], env });
     page = await app.firstWindow(); page.setDefaultTimeout(15000); page.on('pageerror', error => errors.push(error.message));
     await page.waitForFunction(() => document.querySelector('.ps-trigger') || document.querySelector('.auth-submit'));
-    if (await page.getByRole('button', { name: '登录', exact: true }).isVisible()) await click('登录');
+    if (await page.getByRole('button', { name: '进入本地工作区', exact: true }).isVisible()) await click('进入本地工作区');
     await page.locator('.ps-trigger').waitFor();
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1440, 1000));
   }

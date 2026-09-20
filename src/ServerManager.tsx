@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { ArrowLeft, Copy, Play, RefreshCw, Server, Square } from 'lucide-react';
-import type { UserRole } from './auth';
 import './server-manager.css';
 
 export type HostStatus = {
@@ -10,15 +9,15 @@ export type HostStatus = {
 };
 const labels: Record<HostStatus['state'], string> = { stopped: '未启动', running: '运行中', external: '外部服务运行中', unavailable: '端口不可用', stopping: '正在停止' };
 
-export type ServerModuleNavigation = { serverPage: ReactNode; onManageServer: () => void; onLeaveServer: () => void;
+export type ServerModuleNavigation = { serverPage: ReactNode; onManageServer?: () => void; onLeaveServer: () => void;
   adminPageName?: '服务器管理'|'用户与权限'; onManageUsers?: () => void };
-type ServerManagerProps = { role: UserRole; onBack: () => void; returnToConnection: boolean; onUseAddress: (address: string) => void };
+type ServerManagerProps = { backLabel?: string; onBack: () => void; returnToConnection: boolean; onUseAddress: (address: string) => void };
 
 export function ServerManager(props: ServerManagerProps) {
-  return props.role === 'admin' ? <ServerManagerPage {...props} /> : null;
+  return <ServerManagerPage {...props} />;
 }
 
-function ServerManagerPage({ onBack, returnToConnection, onUseAddress }: ServerManagerProps) {
+function ServerManagerPage({ backLabel, onBack, returnToConnection, onUseAddress }: ServerManagerProps) {
   const api = window.desktopClient?.collaborationHost;
   const active = useRef(true), busyRef = useRef(false), sequence = useRef(0);
   const [status, setStatus] = useState<HostStatus | null>(null);
@@ -47,8 +46,8 @@ function ServerManagerPage({ onBack, returnToConnection, onUseAddress }: ServerM
   const running = status?.state === 'running' || status?.state === 'external';
   return <main className="server-manager-page" aria-label="服务器管理">
       <header><div><div className="crumb">本机管理 <span>/</span> 团队协作服务</div><h1>服务器管理</h1></div>
-        <button type="button" onClick={onBack}><ArrowLeft size={15} />{returnToConnection ? '返回连接设置' : '返回工作区'}</button></header>
-      <p className="server-manager-intro">在本地或团队工作区均可管理这台电脑上的协作服务器，权限以本机登录账号为准。</p>
+        <button type="button" onClick={onBack}><ArrowLeft size={15} />{backLabel ?? (returnToConnection ? '返回连接设置' : '返回工作区')}</button></header>
+      <p className="server-manager-intro">管理这台电脑上由客户端托管的协作服务。协作账号、项目和成员权限由服务器管理员管理。</p>
       <section className="server-manager-card" aria-label="本机协作服务器">
       <h2>本机协作服务器</h2>
       {!api ? <p className="server-manager-error" role="alert">请使用桌面客户端管理本机服务器。</p> : <>
@@ -71,7 +70,7 @@ function ServerManagerPage({ onBack, returnToConnection, onUseAddress }: ServerM
         <div className="server-manager-actions"><button className="server-manager-start" type="button" disabled={!!busy || status?.state !== 'stopped'} onClick={() => void run('start')}><Play size={15} />启动服务器</button>
           <button type="button" disabled={!!busy || !status?.managed || status.state !== 'running'} onClick={() => setConfirmStop(true)}><Square size={14} />停止服务器</button>
           <button type="button" disabled={!!busy || !running} onClick={() => onUseAddress(status!.url)}>使用此地址连接</button></div>
-        <p className="server-manager-footnote">关闭客户端或退出登录后，服务器继续在后台运行。重新打开客户端后，管理员仍可在这里停止服务。停止服务会保留已保存的数据。</p>
+        <p className="server-manager-footnote">关闭客户端或退出团队账号后，服务器继续在后台运行。重新打开客户端后，仍可在这里停止本机托管的服务。停止服务会保留已保存的数据。</p>
       </>}
       </section>
     </main>;

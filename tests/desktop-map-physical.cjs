@@ -15,7 +15,7 @@ const {createWorkspaceStorage}=require('../desktop/test-workspaces.cjs');
  const env={...process.env,GAMECREATOR_DATA_DIR:path.join(dir,'data'),GAMECREATOR_USER_DATA_DIR:path.join(dir,'profile')};delete env.ELECTRON_RUN_AS_NODE;
  let app,page;const errors=[],read=()=>JSON.parse(storage.getItem(key)),button=name=>page.getByRole('button',{name,exact:true}),click=name=>button(name).click(),select=name=>page.getByRole('combobox',{name,exact:true});
  const chooseRoute=()=>page.locator('.md-link-list button').filter({hasText:'上下竖井'}).click();
- async function launch(){app=await _electron.launch({executablePath:require('electron'),args:[path.join(root,'desktop/main.cjs')],env});page=await app.firstWindow();page.setDefaultTimeout(15000);page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());await click('登录');await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setContentSize(1780,1100));await click('地图设计');}
+ async function launch(){app=await _electron.launch({executablePath:require('electron'),args:[path.join(root,'desktop/main.cjs')],env});page=await app.firstWindow();page.setDefaultTimeout(15000);page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());await click('进入本地工作区');await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setContentSize(1780,1100));await click('地图设计');}
  async function switchProject(name){await page.locator('.ps-trigger').click();await page.getByRole('menuitemradio').filter({hasText:name}).click();await click('地图设计');}
  try{
   await launch();assert.equal(await page.locator('[data-route-state]').count(),2);await chooseRoute();await select('合并为往返的通路').selectOption('back');await click('合并往返为一条通路');

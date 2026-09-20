@@ -13,7 +13,7 @@ const until=async(check,message)=>{const end=Date.now()+20000;while(Date.now()<e
     delete env.ELECTRON_RUN_AS_NODE;delete env.GAMECREATOR_TEAM_ACCOUNT;
     const app=await _electron.launch({executablePath:require('electron'),args:[path.join(root,'desktop/main.cjs')],env,timeout:30000});apps.push(app);
     const page=await app.firstWindow();pages.push(page);page.setDefaultTimeout(20000);page.on('pageerror',error=>errors.push(error.message));
-    await page.getByLabel('账号',{exact:true}).fill(username);await page.getByLabel('密码',{exact:true}).fill(username+'123');await page.getByRole('button',{name:'登录',exact:true}).click();await page.locator('.ps-trigger').waitFor();return page;
+    await page.getByRole('button',{name:'进入本地工作区',exact:true}).click();await page.locator('.ps-trigger').waitFor();return page;
   };
   const dialog=(page,name)=>page.getByRole('dialog',{name,exact:true});
   const connection=page=>dialog(page,'连接团队服务器');
@@ -31,8 +31,7 @@ const until=async(check,message)=>{const end=Date.now()+20000;while(Date.now()<e
   const accountState=async(page,name,state)=>{await manager(page).getByRole('button',{name:'管理账号：'+name,exact:true}).click();const d=dialog(page,'管理协作账号');await d.getByLabel('账号状态',{exact:true}).selectOption(state);await d.getByRole('button',{name:'保存账号配置',exact:true}).click();await d.waitFor({state:'hidden'});};
   try{
     const a=await launch('admin'),b=await launch('user');assert.equal(await b.getByRole('button',{name:'用户与权限',exact:true}).count(),0);
-    await a.getByRole('button',{name:'用户与权限',exact:true}).click();await manager(a).getByRole('button',{name:'连接服务器管理员',exact:true}).click();
-    assert.equal(await connection(a).getByLabel('团队密码',{exact:true}).inputValue(),'');await credentials(a,'admin','admin123');await manager(a).getByRole('button',{name:'创建协作账号',exact:true}).waitFor();
+    assert.equal(await a.getByRole('button',{name:'用户与权限',exact:true}).count(),0);await connect(a,'admin');await a.getByRole('button',{name:'用户与权限',exact:true}).click();await manager(a).getByRole('button',{name:'创建协作账号',exact:true}).waitFor();
     await connect(b,'bob');await nav(b,'项目概览');assert.ok(await info(b).getByLabel('项目简介',{exact:true}).isDisabled());assert.equal(await b.getByRole('button',{name:'添加里程碑',exact:true}).count(),0);
     await nav(b,'故事文档');await b.getByLabel('文档正文',{exact:true}).fill('故事撤权前的草稿');
     // A new account request succeeds but its acknowledgement is lost. It remains a single account after refresh.
@@ -65,7 +64,7 @@ const until=async(check,message)=>{const end=Date.now()+20000;while(Date.now()<e
     await manager(a).getByRole('button',{name:'返回工作区',exact:true}).click();await nav(a,'项目概览');await info(a).getByLabel('项目简介',{exact:true}).fill('管理员工作区草稿');await a.getByRole('button',{name:'用户与权限',exact:true}).click();
     await manager(a).getByRole('button',{name:'管理账号：writer.new',exact:true}).waitFor();await a.screenshot({path:path.join(root,'.gamecreator/qa/user-permissions.png')});await manager(a).getByRole('button',{name:'返回工作区',exact:true}).click();assert.equal(await info(a).getByLabel('项目简介',{exact:true}).inputValue(),'管理员工作区草稿');
     await connect(b,'bob');await nav(b,'项目概览');assert.equal(await info(b).getByLabel('项目简介',{exact:true}).inputValue(),'概览撤权前的草稿');assert.ok(await info(b).getByLabel('项目简介',{exact:true}).isDisabled());assert.equal(await b.getByRole('form',{name:'新里程碑',exact:true}).getByLabel('里程碑名称',{exact:true}).inputValue(),'未提交里程碑');
-    assert.deepEqual(errors,[]);console.log('PASS: independent admin module; standard team login/new accounts; no entry for local user; default overview read-only; explicit module grants/revocation and preserved drafts; lost create response; password reset and disabled sessions; administrator protection; manager/workspace navigation.');
+    assert.deepEqual(errors,[]);console.log('PASS: independent admin module; standard team login/new accounts; entry only for authenticated server administrators; default overview read-only; explicit module grants/revocation and preserved drafts; lost create response; password reset and disabled sessions; administrator protection; manager/workspace navigation.');
   }catch(error){for(const page of pages)if(!page.isClosed())console.error((await page.locator('body').innerText()).slice(0,6000));throw error;}
   finally{release?.();for(const app of apps)await app.close();await service.close();assert.ok(path.resolve(directory).startsWith(path.resolve(prefix)));await fs.rm(directory,{recursive:true,force:true});}
 })().catch(error=>{console.error(error);process.exitCode=1;});

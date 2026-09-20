@@ -21,7 +21,7 @@ const root=path.resolve(__dirname,'..');
  const launch=async()=>{
   app=await _electron.launch({executablePath:require('electron'),args:[path.join(root,'desktop/main.cjs')],env});
   page=await app.firstWindow();page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>{if(r.url().includes('/api/engine/scan'))scanRequests.push(r.url());});
-  await page.getByRole('button',{name:'登录',exact:true}).click();
+  await page.getByRole('button',{name:'进入本地工作区',exact:true}).click();
  };
  const nav=async name=>page.getByRole('button',{name,exact:true}).click();
  const idle=()=>page.waitForFunction(()=>!document.querySelector('.ps-trigger')?.disabled);
@@ -68,7 +68,7 @@ const root=path.resolve(__dirname,'..');
   await page.getByRole('button',{name:/^B任务/}).waitFor();await idle();await nav('新增记录');await page.getByRole('region',{name:'记录详情',exact:true}).waitFor();await nav('关闭记录详情');await page.locator('.data-table input').waitFor();await idle();
   await page.locator('.data-table input').fill('b_quest');await page.waitForFunction(key=>JSON.parse(window.desktopClient.storage.getItem(key)).data.datasets.quests?.[0]?.id==='b_quest',bk);
   await nav('故事文档');await nav('新建故事文档');await page.locator('.story-title-input').fill('B故事');await page.locator('.story-body').fill('B独有正文');
-  await nav('项目概览');await page.getByRole('textbox',{name:'项目名称',exact:true}).fill('项目B已编辑');await nav('添加里程碑');
+  await nav('项目概览');await page.getByRole('textbox',{name:'项目名称',exact:true}).fill('项目B已编辑');await nav('添加里程碑');const milestone=page.getByRole('dialog',{name:'新建里程碑',exact:true});await milestone.getByLabel('里程碑名称',{exact:true}).fill('B里程碑');await milestone.getByRole('button',{name:'创建',exact:true}).click();await milestone.waitFor({state:'hidden'});await page.getByRole('dialog',{name:'里程碑详情',exact:true}).waitFor();await page.keyboard.press('Escape');
   // A second unbound prototype has its own content and storage identity.
   dialog=await addDialog();await dialog.getByLabel('项目名称',{exact:true}).fill('项目C原型');await dialog.getByRole('button',{name:'创建并切换',exact:true}).click();await idle();
   const cid=read(catalogKey).activeId;assert.notEqual(cid,bid);assert.equal(read(catalogKey).projects[2].config.projectPath,'');

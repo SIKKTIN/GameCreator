@@ -23,8 +23,7 @@ const waitUntil = async (check, message) => {
     page = await app.firstWindow({timeout:20000}); page.setDefaultTimeout(15000); page.on('pageerror',e=>errors.push(e.message));
   };
   const login = async username => {
-    await page.getByLabel('账号',{exact:true}).fill(username); await page.getByLabel('密码',{exact:true}).fill(username+'123');
-    await page.getByRole('button',{name:'登录',exact:true}).click(); await page.locator('.ps-trigger').waitFor();
+    await page.getByRole('button',{name:'进入本地工作区',exact:true}).click(); await page.locator('.ps-trigger').waitFor();
   };
   const closeApp = async (closingApp = app) => {
     if (!closingApp) return;
@@ -36,22 +35,16 @@ const waitUntil = async (check, message) => {
     if (app === closingApp) app = null;
   };
   const manager = () => page.getByRole('main',{name:'服务器管理',exact:true});
-  const openManager = async () => { await page.getByRole('navigation',{name:'管理模块',exact:true}).getByRole('button',{name:'服务器管理',exact:true}).click(); await manager().waitFor(); };
+  const openManager = async () => { await page.getByRole('navigation',{name:'管理模块',exact:true}).getByRole('button',{name:'本机服务器',exact:true}).click(); await manager().waitFor(); };
   const closeManager = () => manager().getByRole('button',{name:'返回工作区',exact:true}).click();
-  const assertDenied = async () => {
-    const result = await page.evaluate(async()=>{try{await window.desktopClient.collaborationHost.start();return 'allowed';}catch(e){return e.message;}});
-    assert.match(result,/管理员/);
-  };
   try {
-    await launch(); await page.getByRole('button',{name:'登录',exact:true}).waitFor();
+    await launch(); await page.getByRole('button',{name:'进入本地工作区',exact:true}).waitFor();
     await page.evaluate(()=>localStorage.setItem('gamecreator.auth.session',JSON.stringify({username:'admin',role:'admin'})));
-    await page.reload(); await page.getByRole('button',{name:'登录',exact:true}).waitFor(); await assertDenied();
-    await login('user'); assert.equal(await page.getByRole('button',{name:'服务器管理',exact:true}).count(),0); await assertDenied();
-    await page.evaluate(()=>localStorage.setItem('gamecreator.auth.session',JSON.stringify({username:'admin',role:'admin'})));
-    await page.reload(); await page.locator('.ps-trigger').waitFor(); await assertDenied();
-    await page.getByRole('button',{name:'退出登录',exact:true}).click(); await login('admin');
-    console.log('PASS: administrator permissions and forged-role rejection');
-    assert.equal(await page.locator('.auth-toolbar').getByRole('button',{name:'服务器管理',exact:true}).count(),0);
+    await page.reload(); await page.getByRole('button',{name:'进入本地工作区',exact:true}).waitFor();
+    assert.equal(await page.evaluate(()=>typeof window.desktopClient.auth),'undefined');
+    await login();
+    assert.equal(await page.getByRole('button',{name:'本机服务器',exact:true}).count(),1);
+    console.log('PASS: local workspace has no account gate; old roles cannot bypass startup');
     await page.getByRole('navigation',{name:'工作区模块',exact:true}).getByRole('button',{name:'数据配置',exact:true}).click();
     await page.getByRole('heading',{name:'还没有配置表',exact:true}).waitFor();
     assert.equal(await page.locator('.data-directory-heading small').innerText(),'0');
@@ -84,11 +77,11 @@ const waitUntil = async (check, message) => {
     const connection = page.getByRole('dialog',{name:'连接团队服务器',exact:true});
     await connection.getByLabel('团队账号',{exact:true}).fill('bob');
     await connection.getByLabel('团队密码',{exact:true}).fill('保留连接表单');
-    await connection.getByRole('button',{name:'前往服务器管理',exact:true}).click();
+    await connection.getByRole('button',{name:'管理本机服务器',exact:true}).click();
     await manager().getByRole('button',{name:'返回连接设置',exact:true}).click();
     assert.equal(await connection.getByLabel('团队密码',{exact:true}).inputValue(),'保留连接表单');
     await connection.getByLabel('团队密码',{exact:true}).fill('bob123');
-    await connection.getByRole('button',{name:'前往服务器管理',exact:true}).click();
+    await connection.getByRole('button',{name:'管理本机服务器',exact:true}).click();
     await manager().getByText('运行中',{exact:true}).waitFor();
     await manager().getByRole('button',{name:'使用此地址连接',exact:true}).click();
     assert.equal(await connection.getByLabel('协作服务地址',{exact:true}).inputValue(),url);
@@ -122,20 +115,21 @@ const waitUntil = async (check, message) => {
     assert.ok(await manager().getByRole('button',{name:'停止服务器',exact:true}).isDisabled());
     const stopped = await page.evaluate(async()=>{try{await window.desktopClient.collaborationHost.stop();return 'allowed';}catch(e){return e.message;}});
     assert.match(stopped,/不能停止/); assert.equal((await fetch(url+'/api/team/health')).status,200);
-    // Local user stays unprivileged even when connected as the team's administrator.
-    await page.getByRole('button',{name:'退出登录',exact:true}).click(); await login('user');
-    assert.equal(await manager().count(),0); assert.equal(await page.getByRole('navigation',{name:'管理模块',exact:true}).count(),0);
-    await assertDenied();
+    // Native ownership protection remains independent of team account roles.
+    await page.getByRole('button',{name:'返回启动页',exact:true}).click(); await login();
+    assert.equal(await manager().count(),0);
+    assert.equal(await page.getByRole('button',{name:'本机服务器',exact:true}).count(),1);
+    assert.equal(await page.getByRole('button',{name:'用户与权限',exact:true}).count(),0);
     await page.locator('.ps-trigger').click(); await page.getByRole('menuitem',{name:'连接团队服务器',exact:true}).click();
     const userConnection = page.getByRole('dialog',{name:'连接团队服务器',exact:true});
-    assert.equal(await userConnection.getByRole('button',{name:'前往服务器管理',exact:true}).count(),0);
+    assert.equal(await userConnection.getByRole('button',{name:'管理本机服务器',exact:true}).count(),1);
     await userConnection.getByLabel('协作服务地址',{exact:true}).fill(url);
     await userConnection.getByLabel('团队账号',{exact:true}).fill('admin');
     await userConnection.getByLabel('团队密码',{exact:true}).fill('admin123');
     await userConnection.getByRole('button',{name:'连接并进入项目',exact:true}).click(); await page.locator('.team-project .story-workspace').waitFor();
-    assert.equal(await page.getByRole('button',{name:'服务器管理',exact:true}).count(),0); await assertDenied();
+    assert.equal(await page.getByRole('button',{name:'用户与权限',exact:true}).count(),1); await openManager(); assert.ok(await manager().getByRole('button',{name:'停止服务器',exact:true}).isDisabled());
     assert.deepEqual(errors,[]);
-    console.log('PASS: independent admin module; hidden for local user even with team-admin identity; two administrators sync status; empty data configuration, local document and team draft survive navigation; connection form preserved; background lifecycle, restart and external-service protection.');
+    console.log('PASS: native host controls without local accounts; server permissions follow team identity; two clients sync status; empty data configuration, local document and team draft survive navigation; connection form preserved; background lifecycle, restart and external-service protection.');
   } catch(error) {
     if(page&&!page.isClosed()) console.error((await page.locator('body').innerText()).slice(0,5000));
     throw error;

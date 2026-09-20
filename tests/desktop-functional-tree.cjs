@@ -13,7 +13,7 @@ const root=path.resolve(__dirname,'..'),{createWorkspaceStorage}=require('../des
  const env={...process.env,GAMECREATOR_DATA_DIR:path.join(dir,'data'),GAMECREATOR_USER_DATA_DIR:path.join(dir,'profile')};delete env.ELECTRON_RUN_AS_NODE;
  let app,page;const errors=[],btn=name=>page.getByRole('button',{name,exact:true}),visibleCaps=()=>page.locator('.fs-tree-capability:visible').count(),tree=()=>page.locator('.fs-tree');
  const original=storage.getItem(key(ids[0],'functional-systems'));
- async function launch(){app=await _electron.launch({executablePath:require('electron'),args:[path.join(root,'desktop/main.cjs')],env});page=await app.firstWindow();page.setDefaultTimeout(10000);page.on('pageerror',e=>errors.push(e.message));await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setContentSize(1440,1000));await btn('登录').click();await btn('功能系统').click();await tree().waitFor();}
+ async function launch(){app=await _electron.launch({executablePath:require('electron'),args:[path.join(root,'desktop/main.cjs')],env});page=await app.firstWindow();page.setDefaultTimeout(10000);page.on('pageerror',e=>errors.push(e.message));await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setContentSize(1440,1000));await btn('进入本地工作区').click();await btn('功能系统').click();await tree().waitFor();}
  async function project(i){await page.locator('.ps-trigger').click();await page.getByRole('menuitemradio',{name:new RegExp('^目录测试'+i)}).click();await btn('功能系统').click();}
  try{
   await launch();assert.equal(await visibleCaps(),17);assert.equal(storage.getItem(key(ids[0],'functional-view')),null);

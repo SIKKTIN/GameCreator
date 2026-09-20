@@ -24,7 +24,7 @@ const { createWorkspaceStorage } = require('../desktop/test-workspaces.cjs');
   let app,page;const errors=[],read=()=>JSON.parse(storage.getItem(key)),button=n=>page.getByRole('button',{name:n,exact:true}).click(),field=n=>page.getByLabel(n,{exact:true}),view=n=>page.getByRole('tab',{name:n,exact:true}).click();
   const num=async(n,v)=>{await field(n).fill(String(v));await field(n).press('Tab');};
   const canvas=()=>field('空间布局画布'),cam=()=>canvas().locator('[data-camera]').getAttribute('data-camera').then(s=>s.split(',').map(Number));
-  async function launch(){app=await _electron.launch({executablePath:require('electron'),args:[path.join(root,'desktop/main.cjs')],env});page=await app.firstWindow();page.setDefaultTimeout(10000);page.on('pageerror',e=>errors.push(e.message));await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setSize(1850,1050));await button('登录');await button('玩法设计');}
+  async function launch(){app=await _electron.launch({executablePath:require('electron'),args:[path.join(root,'desktop/main.cjs')],env});page=await app.firstWindow();page.setDefaultTimeout(10000);page.on('pageerror',e=>errors.push(e.message));await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setSize(1850,1050));await button('进入本地工作区');await button('玩法设计');}
   async function choose(name){await page.locator('.ps-trigger').click();await page.getByRole('menuitemradio',{name:new RegExp('^'+name)}).click();await button('玩法设计');}
   try {
     await launch();await page.getByRole('tab',{name:/^空间布局/}).click();

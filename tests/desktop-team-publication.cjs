@@ -46,8 +46,7 @@ const waitUntil = async (check, message) => {
     const app = await _electron.launch({ executablePath: require('electron'), args: [path.join(root, 'desktop/main.cjs')], env, timeout: 30000 });
     apps.add(app); const page = await app.firstWindow(); pages.push(page); page.setDefaultTimeout(20000);
     page.on('pageerror', error => errors.push(error.message));
-    await page.getByLabel('账号', { exact: true }).fill(username); await page.getByLabel('密码', { exact: true }).fill(username + '123');
-    await page.getByRole('button', { name: '登录', exact: true }).click(); await page.locator('.ps-trigger').waitFor();
+    await page.getByRole('button', { name: '进入本地工作区', exact: true }).click(); await page.locator('.ps-trigger').waitFor();
     return { app, page };
   };
   const menu = async page => { await page.locator('.ps-trigger').click(); return page.getByRole('menu', { name: '项目列表' }); };
@@ -72,7 +71,7 @@ const waitUntil = async (check, message) => {
   let releaseResponse;
   try {
     let a = await launch('publisher', 'admin'); const b = await launch('member', 'user');
-    const normalMenu = await menu(b.page); assert.equal(await normalMenu.getByRole('menuitem', { name: '发布为协作项目', exact: true }).count(), 0);
+    const normalMenu = await menu(b.page); assert.equal(await normalMenu.getByRole('menuitem', { name: '发布为协作项目', exact: true }).count(), 1);
     await normalMenu.getByRole('menuitem', { name: '连接团队服务器', exact: true }).click(); await connect(b.page, 'bob');
     await b.page.locator('.team-project .story-workspace').waitFor();
     await openPublish(a.page); await connection(a.page).getByRole('button', { name: '取消', exact: true }).click();

@@ -238,7 +238,7 @@ test('project package IPC accepts only native-selected folders and window-owned 
     if (name === './server.cjs') return {createDesktopServer() {}};
     if (name === './project-locations.cjs') return {validateProjectLocation() {}};
     if (name === './legacy-storage.cjs') return {migrateLegacy() {}};
-    if (name === './local-auth.cjs' || name === './collaboration-host.cjs') return require(path.join(__dirname, '../desktop', name));
+    if (name === './collaboration-host.cjs') return require(path.join(__dirname, '../desktop', name));
     return require(name);
   }, __dirname: path.resolve(__dirname, '../desktop'), process, URL};
   vm.runInNewContext(fsSync.readFileSync(path.join(__dirname, '../desktop/main.cjs'), 'utf8') + '\nglobalThis.setPackageWindow = (window, server) => {mainWindow=window;localServer=server;};', context);

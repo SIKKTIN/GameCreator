@@ -49,7 +49,7 @@ function UserPermissionsContent({session,onConnect,onChanged}:{session:TeamSessi
     {!loaded&&!error&&<p>正在读取用户与权限…</p>}
     {!denied&&loaded&&<>
       <section className="overview-panel" aria-label="协作账号管理"><div className="user-manager-heading"><h2>协作账号</h2><button onClick={()=>{if(canLeaveTeam())setAction({kind:'create'});}}>创建协作账号</button></div>
-        <p>停用账号会中断其团队访问，历史内容保留；重置密码后需重新登录。账号与本机登录账号分别管理。</p>
+        <p>停用账号会中断其团队访问，历史内容保留；重置密码后需重新登录。这些账号用于团队协作，本地工作区无需账号。</p>
         <div className="user-account-table"><table><thead><tr><th>账号</th><th>服务器角色</th><th>状态</th><th>操作</th></tr></thead><tbody>{accounts.map(account=><tr key={account.id}>
           <td>{account.username}{account.id===session.user.id&&<small>当前账号</small>}</td><td>{account.serverRole==='admin'?'服务器管理员':'普通成员'}</td><td>{account.enabled?'已启用':'已停用'}</td>
           <td><div className="team-actions"><button aria-label={'管理账号：'+account.username} onClick={()=>{if(canLeaveTeam())setAction({kind:'edit',account});}}>管理账号</button>

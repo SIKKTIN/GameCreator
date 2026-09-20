@@ -6,10 +6,10 @@ export const workspaceNavigation = [
   ['数据配置', Database], ['枚举定义', Tag], ['枚举管理', Tag], ['引擎设置', Settings2], ['任务与流程', GitBranch], ['数值分析', BarChart3],
 ] as const;
 
-export function WorkspaceSidebar({ picker, active, onNavigate, team = false, empty = false, teamOverview = false, teamCore = false, teamGameplay = false, admin = false, onManageServer, onManageUsers, storyEnabled = false, mapEnabled = false, footer }: {
-  mapEnabled?: boolean; storyEnabled?: boolean; picker: ReactNode; active: string; onNavigate: (name: string) => void; team?: boolean; empty?: boolean; teamOverview?: boolean; teamCore?: boolean; teamGameplay?: boolean; admin?: boolean; onManageServer?: () => void; onManageUsers?: () => void; footer: ReactNode;
+export function WorkspaceSidebar({ picker, active, onNavigate, team = false, empty = false, teamOverview = false, teamCore = false, teamGameplay = false, onManageServer, onManageUsers, storyEnabled = false, mapEnabled = false, footer }: {
+  mapEnabled?: boolean; storyEnabled?: boolean; picker: ReactNode; active: string; onNavigate: (name: string) => void; team?: boolean; empty?: boolean; teamOverview?: boolean; teamCore?: boolean; teamGameplay?: boolean; onManageServer?: () => void; onManageUsers?: () => void; footer: ReactNode;
 }) {
-  const items = workspaceNavigation.filter(([name]) => (name !== '地图设计' || mapEnabled && !team && !empty) && (name !== '故事编排' || storyEnabled && !team && !empty) && (admin || team || !['枚举管理', '引擎设置'].includes(name)));
+  const items = workspaceNavigation.filter(([name]) => (name !== '地图设计' || mapEnabled && !team && !empty) && (name !== '故事编排' || storyEnabled && !team && !empty));
   const unavailable = (name:string) => empty || (team && name !== '故事文档' && !(teamOverview && name === '项目概览') && !(teamCore && name === '玩法核心') && !(teamGameplay && name === '玩法设计'));
   return <aside id="workspace-navigation" className="workspace-sidebar" aria-label="主导航栏">
     <div className="brand"><div className="logo">✦</div><div><b>GameCreator</b><small>CONTENT STUDIO</small></div></div>
@@ -18,8 +18,8 @@ export function WorkspaceSidebar({ picker, active, onNavigate, team = false, emp
       disabled={unavailable(name)} title={unavailable(name) ? (empty ? '请先创建或选择项目' : '此模块尚未接入团队共享') : undefined} onClick={() => onNavigate(name)}>
       <Icon size={17} />{name}{!empty && unavailable(name) && <small className="module-unavailable">未接入</small>}
     </button>)}</nav>
-    <div className="side-bottom">{admin && onManageServer && <nav className="workspace-admin-nav" aria-label="管理模块">
-      <span>管理</span><button type="button" className={active === '服务器管理' ? 'active' : ''} aria-current={active === '服务器管理' ? 'page' : undefined} onClick={onManageServer}><Server size={17} />服务器管理</button>
+    <div className="side-bottom">{(onManageServer || onManageUsers) && <nav className="workspace-admin-nav" aria-label="管理模块">
+      <span>管理</span>{onManageServer&&<button type="button" className={active === '服务器管理' ? 'active' : ''} aria-current={active === '服务器管理' ? 'page' : undefined} onClick={onManageServer}><Server size={17} />本机服务器</button>}
       {onManageUsers&&<button type="button" className={active==='用户与权限'?'active':''} aria-current={active==='用户与权限'?'page':undefined} onClick={onManageUsers}><Users size={17}/>用户与权限</button>}
     </nav>}{footer}</div>
   </aside>;
