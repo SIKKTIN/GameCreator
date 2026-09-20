@@ -7,11 +7,12 @@ import './team-overview.css';
 
 type OverviewData = { info:TeamRecord<OverviewInfo>; milestones:TeamRecord<MilestoneFields>[]; role:TeamRole; capabilities?: TeamCapabilities;
   activity:{id:number;title:string;actor:string;createdAt:string}[] };
-export function TeamOverview({ session,projectId,members,onMembers,onDenied,blocked=false }: {
-  session:TeamSession;projectId:string;members:{username:string;role:TeamRole}[];onMembers:()=>void;onDenied:(status?:number)=>void;blocked?:boolean;
+export function TeamOverview({ session,projectId,members,onMembers,onDenied,onSchedule,blocked=false }: {
+  session:TeamSession;projectId:string;members:{username:string;role:TeamRole}[];onMembers:()=>void;onDenied:(status?:number)=>void;blocked?:boolean;onSchedule?:()=>void;
 }) {
   const [data,setData] = useState<OverviewData|null>(null),[error,setError] = useState(''),[denied,setDenied] = useState(false),[refresh,setRefresh] = useState(0);
   const writable = !blocked && !denied && !!data && canEditModule(session,data.role,data.capabilities,'overview');
+  const writableMilestones = !blocked && !denied && !!data && canEditModule(session,data.role,data.capabilities,(session.apiVersion??0)>=10?'schedule':'overview');
   const prefix = `gamecreator.team-draft.v1:${session.serverId}:${session.user.id}:${projectId}:overview`, newKey=prefix+':new';
   const [initialNew] = useState(() => {
     try {
@@ -45,7 +46,7 @@ export function TeamOverview({ session,projectId,members,onMembers,onDenied,bloc
     if(pending?.id===record.id)setPending(null);setRefresh(v=>v+1);
   };
   const add=()=>{
-    if(!writable || pending || !canLeaveTeam())return;
+    if(!writableMilestones || pending || !canLeaveTeam())return;
     try {
       const raw=workspaceStorage.getItem(newKey);
       if(raw && JSON.parse(raw)!==null)throw new Error('新里程碑草稿尚未恢复，请重新进入概览或修复草稿存档。');
@@ -62,22 +63,22 @@ export function TeamOverview({ session,projectId,members,onMembers,onDenied,bloc
       <div className="overview-intro"><div><h2>项目概览</h2><p>基本信息和里程碑由团队共享，每 2 秒检查更新。</p></div>
         <div className="overview-progress"><div className="progress-label"><span>里程碑完成率</span><strong>{total?Math.round(complete/total*100):0}%</strong></div>
           <div className="progress-track"><span style={{width:`${total?complete/total*100:0}%`}} /></div><small>{total} 个里程碑 · {complete} 个已完成</small></div></div>
-      {!writable && <p className="team-overview-notice">你可以查看项目概览。修改基本信息和里程碑需要项目管理员授权。</p>}
+      {!writable && <p className="team-overview-notice">你可以查看项目概览。修改基本信息需要项目管理员授予概览编辑权限。</p>}
       {!data.info.initialized && <p className="team-overview-notice">团队概览尚未填写。具有概览编辑权限的成员可填写；管理员也可在原本地项目的发布入口补充概览。</p>}
       <div className="team-overview-grid">
         <InfoEditor record={data.info} session={session} route={route+'/overview'} draftKey={prefix+':info'} readOnly={!writable} onSaved={receiveInfo}/>
         <section className="overview-panel"><h3>项目成员</h3><div className="team-overview-members">{members.map(member=><p key={member.username}><strong>{member.username}</strong><span>{roleLabels[member.role]}</span></p>)}</div>
           {data.role==='admin' && <button onClick={()=>{if(canLeaveTeam())onMembers();}}>管理项目成员</button>}</section>
       </div>
-      <section className="overview-panel"><div className="team-overview-heading"><h3>关键里程碑</h3>{writable&&<button onClick={add} disabled={!!pending||total>=200}>添加里程碑</button>}</div>
-        {newError&&<p className="team-message" role="alert">{newError}</p>}
+      <section className="overview-panel"><div className="team-overview-heading"><h3>关键里程碑</h3>{onSchedule&&<button onClick={onSchedule}>前往项目排期</button>}{writableMilestones&&<button onClick={add} disabled={!!pending||total>=200}>添加里程碑</button>}</div>
+        {!writableMilestones&&<p className="team-overview-notice">里程碑只读，修改需要项目排期编辑权限。</p>}{newError&&<p className="team-message" role="alert">{newError}</p>}
         {!total&&!pending&&<p>暂无里程碑</p>}
         {pending&&!validPending&&<p className="team-message" role="alert">新里程碑草稿格式异常，已保留原存档。请修复后重新进入。</p>}
         <div className="team-milestone-list">{validPending&&pending&&<MilestoneEditor key={'new:'+pending.id} record={data.milestones.find(item=>item.id===pending.id)??pending} session={session}
-          route={route+'/milestones/'+pending.id} draftKey={newKey} readOnly={!writable} onSaved={receiveMilestone}
+          route={route+'/milestones/'+pending.id} draftKey={newKey} readOnly={!writableMilestones} onSaved={receiveMilestone}
           onCancel={()=>{if(!canLeaveTeam())return;try{workspaceStorage.setItem(newKey,'null');setPending(null);}catch{setNewError('无法移除本机草稿，请重试。');}}}/>}
-          {data.milestones.filter(item=>item.id!==pending?.id).map(record=><MilestoneEditor key={record.id} record={record} session={session} route={route+'/milestones/'+record.id}
-            draftKey={prefix+':milestone:'+record.id} readOnly={!writable} onSaved={receiveMilestone}/>)}</div>
+          {data.milestones.filter(item=>item.id!==pending?.id).map(record=><MilestoneEditor key={record.id} record={record} session={session} route={route+'/milestones/'+encodeURIComponent(record.id)}
+            draftKey={prefix+':milestone:'+record.id} readOnly={!writableMilestones} onSaved={receiveMilestone}/>)}</div>
       </section>
       <section className="overview-panel"><h3>最近动态</h3>{!data.activity.length?<p>暂无项目动态</p>:<ol className="team-overview-activity">{data.activity.map(item=><li key={item.id}><strong>{item.title}</strong><span>{item.actor} · {new Date(item.createdAt).toLocaleString('zh-CN')}</span></li>)}</ol>}</section>
     </>}</div>

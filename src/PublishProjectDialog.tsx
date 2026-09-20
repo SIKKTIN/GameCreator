@@ -1,3 +1,4 @@
+import {SchedulePublicationPreview,ScheduleSupplementDialog} from './ScheduleSupplementDialog';
 import {GameplayPublicationPreview,GameplaySupplementDialog} from './GameplaySupplementDialog';
 import { CorePublicationPreview, CoreSupplementDialog } from './CoreSupplementDialog';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
@@ -22,11 +23,12 @@ export function PublishProjectDialog({ session, project, onClose, onPublished }:
   const [accounts, setAccounts] = useState<{ userId: string; username: string }[]>([]), [roles, setRoles] = useState<Record<string, TeamRole | 'none'>>({});
   const [loading, setLoading] = useState(true), [busy, setBusy] = useState(false), [error, setError] = useState('');
   const [supplement,setSupplement] = useState(false), [coreSupplement,setCoreSupplement] = useState(false), [gameplaySupplement,setGameplaySupplement] = useState(false);
+  const [scheduleSupplement,setScheduleSupplement] = useState(false);
   const lookup = useCallback((origin: PublicationSource) => teamRequest<{ publication: TeamPublication | null; deletedPublication?: DeletedPublication | null }>(session.url, '/publications/lookup', session.token, 'POST', origin), [session]);
   const load = useCallback(async () => {
     const read = ++reads.current; setLoading(true); setError(''); setPreview(null); setPublished(null);setDeletedPublication(null);setConfirmRepublish(false);
     try {
-      if ((session.apiVersion ?? 0) < 9) throw new Error('请先重启并升级协作服务器，再重新连接，以启用玩法设计和完整项目发布。');
+      if ((session.apiVersion ?? 0) < 10) throw new Error('请先重启并升级协作服务器，再重新连接，以启用项目排期和完整项目发布。');
       const origin = { sourceInstanceId: localSourceIdentity(workspaceStorage), sourceProjectId: project.id };
       const result = await lookup(origin);
       if (!alive.current || read !== reads.current) return;
@@ -72,7 +74,7 @@ export function PublishProjectDialog({ session, project, onClose, onPublished }:
         ? '发布结果尚未确认，请恢复连接后重试或重新读取预览。已成功发布的项目会直接复用。' : (reason as Error).message);
     } finally { operating.current = false; if (alive.current) setBusy(false); }
   };
-  return <>{gameplaySupplement&&source&&published&&<GameplaySupplementDialog session={session} project={project} source={source} target={published.project} onClose={()=>setGameplaySupplement(false)} onDone={onPublished}/>}{coreSupplement&&source&&published&&<CoreSupplementDialog session={session} project={project} source={source} target={published.project} onClose={()=>setCoreSupplement(false)} onDone={onPublished}/>}{supplement&&source&&published&&<OverviewSupplementDialog session={session} project={project} source={source} target={published.project} onClose={()=>setSupplement(false)} onDone={onPublished}/>}
+  return <>{scheduleSupplement&&source&&published&&<ScheduleSupplementDialog session={session} project={project} source={source} target={published.project} onClose={()=>setScheduleSupplement(false)} onDone={onPublished}/>}{gameplaySupplement&&source&&published&&<GameplaySupplementDialog session={session} project={project} source={source} target={published.project} onClose={()=>setGameplaySupplement(false)} onDone={onPublished}/>}{coreSupplement&&source&&published&&<CoreSupplementDialog session={session} project={project} source={source} target={published.project} onClose={()=>setCoreSupplement(false)} onDone={onPublished}/>}{supplement&&source&&published&&<OverviewSupplementDialog session={session} project={project} source={source} target={published.project} onClose={()=>setSupplement(false)} onDone={onPublished}/>}
     <dialog ref={dialog} className="team-dialog team-project-dialog team-publish-dialog" aria-label="发布为协作项目"
     onCancel={event => { event.preventDefault(); if (!operating.current) onClose(); }}>
     <form onSubmit={event => void submit(event)}>
@@ -83,6 +85,7 @@ export function PublishProjectDialog({ session, project, onClose, onPublished }:
       {published && <div className="team-publication-result" role="status"><strong>此本地项目已发布</strong>
         <p>{published.project.name} · 首次发布 {published.storyCount} 篇故事文档</p><small>{new Date(published.publishedAt).toLocaleString('zh-CN')}</small>
         <p>可以进入已有协作项目。团队成员后续的修改会保留，本地内容不会覆盖它们。</p>
+        {published.scheduleInitialized===false&&published.project.role==='admin'&&<button type="button" onClick={()=>setScheduleSupplement(true)}>补充项目排期</button>}
         {published.gameplayInitialized===false&&published.project.role==='admin'&&<button type="button" onClick={()=>setGameplaySupplement(true)}>补充玩法设计</button>}
         {published.coreInitialized===false&&published.project.role==='admin'&&<button type="button" onClick={()=>setCoreSupplement(true)}>补充玩法核心</button>}
         {published.overviewInitialized===false&&published.project.role==='admin'&&<button type="button" onClick={()=>setSupplement(true)}>补充项目概览</button>}</div>}
@@ -91,10 +94,10 @@ export function PublishProjectDialog({ session, project, onClose, onPublished }:
         <div className="team-publication-scope"><strong>来源本地项目：{preview.name}</strong>
           <p>发布全部 {preview.stories.length} 篇故事文档，保留正文、分类、状态、摘要、标签、大纲及关联设定。</p>
           <p>同时发布项目基本信息和 {preview.overview.milestones.length} 个里程碑。</p>
-          <small>协作项目开放项目概览、玩法核心、玩法设计和故事文档。配置和美术等内容留在本地；原本地项目保留，与协作副本独立编辑。</small></div>
+          <small>协作项目开放项目概览、项目排期、玩法核心、玩法设计和故事文档。配置和美术等内容留在本地；原本地项目保留，与协作副本独立编辑。</small></div>
         <fieldset disabled={busy}>
           <label>协作项目名称<input required maxLength={100} value={name} onChange={event => setName(event.target.value)} /></label>
-          <GameplayPublicationPreview gameplay={preview.gameplay}/><CorePublicationPreview core={preview.core}/><OverviewPublicationPreview overview={{...preview.overview,info:{...preview.overview.info,name}}}/>
+          <SchedulePublicationPreview schedule={preview.schedule}/><GameplayPublicationPreview gameplay={preview.gameplay}/><CorePublicationPreview core={preview.core}/><OverviewPublicationPreview overview={{...preview.overview,info:{...preview.overview.info,name}}}/>
           <details className="team-publication-preview"><summary>查看将发布的故事文档（{preview.stories.length}）</summary>
             <div>{preview.stories.map(story => <details key={story.id}><summary>{story.title} · {story.category} · {story.status}</summary>
               <p>{story.summary}</p><pre>{story.content}</pre><p>标签：{story.tags.join('、') || '无'}</p><p>大纲：{story.outlines.join(' / ') || '无'}</p>
@@ -103,7 +106,7 @@ export function PublishProjectDialog({ session, project, onClose, onPublished }:
           </details>
           <TeamMemberFields accounts={accounts} roles={roles} currentUserId={session.user.id} onChange={(userId, role) => setRoles(previous => ({ ...previous, [userId]: role }))} />
         </fieldset>
-        <small>项目管理员可编辑并管理成员；编辑者默认概览只读、故事、玩法核心和玩法设计可编辑，发布后可在成员管理中单独授权；只读成员只能查看。单次最多 {publicationLimits.maxStories} 篇故事、200 个里程碑，提交内容不超过 10 MiB。</small>
+        <small>项目管理员可编辑并管理成员；编辑者默认概览和排期只读、故事、玩法核心和玩法设计可编辑，发布后可在成员管理中单独授权；只读成员只能查看。单次最多 {publicationLimits.maxStories} 篇故事、200 个里程碑、2000 个制作任务，提交内容不超过 10 MiB。</small>
       </>}
       {error && <p ref={errorNotice} className="team-message" role="alert">{error}</p>}
       {error && <button type="button" disabled={busy || loading} onClick={() => void load()}>重新读取预览</button>}

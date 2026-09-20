@@ -24,7 +24,7 @@ const until=async(check,message)=>{const end=Date.now()+20000;while(Date.now()<e
   const manager=page=>page.getByRole('main',{name:'用户与权限',exact:true});
   const configure=async(page,overview,stories)=>{
     await manager(page).getByRole('button',{name:'配置项目权限：多人协作验证项目',exact:true}).click();const d=dialog(page,'成员管理');
-    await d.getByLabel('bob 项目概览权限',{exact:true}).selectOption(overview);await d.getByLabel('bob 故事文档权限',{exact:true}).selectOption(stories);
+    await d.getByLabel('bob 项目概览权限',{exact:true}).selectOption(overview);await d.getByLabel('bob 项目排期权限',{exact:true}).selectOption(overview);await d.getByLabel('bob 故事文档权限',{exact:true}).selectOption(stories);
     return d;
   };
   const saveMembers=async d=>{await d.getByRole('button',{name:'保存成员配置',exact:true}).click();await d.waitFor({state:'hidden'});};

@@ -6,7 +6,7 @@ const { createCollaborationServer } = require('../server/collaboration.cjs');
 const info = {name:'协作项目',genre:'叙事冒险',platform:'PC',version:'v0.2',status:'制作中',description:'共享简介'};
 const milestone = {title:'首个原型',owner:'Alice',due:'2026/10/20',status:'planned'};
 const source = {sourceInstanceId:'overview-client',sourceProjectId:'local-project'};
-const publication = () => ({...source,name:'发布时指定名称',members:[{userId:'admin',role:'admin'},{userId:'bob',role:'editor',permissions:{overview:'edit',stories:'inherit'}}],stories:[],overview:{info,milestones:[milestone]}});
+const publication = () => ({...source,name:'发布时指定名称',members:[{userId:'admin',role:'admin'},{userId:'bob',role:'editor',permissions:{overview:'edit',stories:'inherit',schedule:'edit'}}],stories:[],overview:{info,milestones:[milestone]}});
 async function fixture(run) {
   const prefix=path.join(os.tmpdir(),'gc-overview-'),directory=fs.mkdtempSync(prefix);
   let service=await createCollaborationServer({directory,port:0});
@@ -31,7 +31,7 @@ test('overview migration is additive and preserves existing project names, membe
 }));
 test('basic info and individual milestones commit independently, reject conflicts, update directory names and record real activity',()=>fixture(async({request,login,restart})=>{
   let admin=await login('admin');const alice=await login('alice'),bob=await login('bob'),viewer=await login('viewer'),route='/projects/team-demo';
-  const grant=await request(route+'/members',admin,'PUT',{revision:1,members:[{userId:'admin',role:'admin'},{userId:'viewer',role:'viewer'},...['alice','bob'].map(userId=>({userId,role:'editor',permissions:{overview:'edit',stories:'inherit'}}))]});assert.equal(grant.status,200);
+  const grant=await request(route+'/members',admin,'PUT',{revision:1,members:[{userId:'admin',role:'admin'},{userId:'viewer',role:'viewer'},...['alice','bob'].map(userId=>({userId,role:'editor',permissions:{overview:'edit',stories:'inherit',schedule:'edit'}}))]});assert.equal(grant.status,200);
   const first=randomUUID(),second=randomUUID();
   const independent=await Promise.all([
     request(route+'/overview',alice,'PUT',{revision:0,fields:info}),
