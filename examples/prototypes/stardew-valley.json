@@ -13556,7 +13556,16 @@
           "x": 0,
           "y": 0,
           "scale": 1
-        }
+        },
+        "openings": [
+          {
+            "id": "map-sv-room-farm-opening-东侧道路",
+            "name": "东侧道路",
+            "side": "right",
+            "offset": 5.5,
+            "width": 2
+          }
+        ]
       },
       {
         "id": "map-sv-room-village",
@@ -13651,7 +13660,16 @@
           "x": 16,
           "y": 0,
           "scale": 1
-        }
+        },
+        "openings": [
+          {
+            "id": "map-sv-room-village-opening-西侧道路",
+            "name": "西侧道路",
+            "side": "left",
+            "offset": 5.5,
+            "width": 2
+          }
+        ]
       }
     ],
     "connections": [
@@ -13673,7 +13691,10 @@
           "maxRise": 16,
           "maxGap": 24,
           "maxDrop": 20
-        }
+        },
+        "fromOpeningId": "map-sv-room-farm-opening-东侧道路",
+        "toOpeningId": "map-sv-room-village-opening-西侧道路",
+        "structure": "open"
       }
     ]
   }

@@ -21,18 +21,18 @@ const {createWorkspaceStorage}=require('../desktop/test-workspaces.cjs');
  async function inspectSides(from,to){assert.equal(await route().getAttribute('data-from-side'),from);assert.equal(await route().getAttribute('data-to-side'),to);await chooseRoute();assert.equal(await select('出口所在侧面').inputValue(),from);assert.equal(await select('入口所在侧面').inputValue(),to);}
  async function blocked(reason){assert.equal(await route().getAttribute('data-route-allowed'),'false');await page.locator('.mw-route-status.warn').filter({hasText:reason}).first().waitFor();await click('通路预演');await select('预演起点').selectOption(a.id);assert.equal(await button('沿此通路前进').isDisabled(),true);await click('世界总览');await chooseRoute();}
  try{
-  await launch();await inspectSides('right','left');assert.equal(storage.getItem(key),raw);assert.equal(await route().getAttribute('data-route-allowed'),'true');
+  await launch();await inspectSides('right','left');assert.equal(storage.getItem(key),raw);assert.equal(await route().getAttribute('data-route-state'),'pending');
   await app.evaluate(({ipcMain},key)=>{globalThis.portalHandler=ipcMain.listeners('workspace-storage')[0];ipcMain.removeAllListeners('workspace-storage');ipcMain.on('workspace-storage',(e,r)=>r.operation==='set'&&r.key===key?e.returnValue={ok:false,error:'模拟朝向保存失败'}:globalThis.portalHandler(e,r));},key);
   await page.getByRole('textbox',{name:'世界单位',exact:true}).fill('格');await button('重试保存地图').waitFor();assert.equal(storage.getItem(key),raw);
   await app.evaluate(({ipcMain})=>{ipcMain.removeAllListeners('workspace-storage');ipcMain.on('workspace-storage',globalThis.portalHandler);});await click('重试保存地图');
   assert.equal(read().connections[0].fromSide,'right');assert.equal(read().connections[0].toSide,'left');assert.deepEqual(read().maps.map(m=>m.objects),[a.objects,b.objects]);
   await page.locator('.mw-shell').screenshot({path:path.join(qa,'portal-horizontal-fixed.png')});
   await select('出口所在侧面').selectOption('top');await blocked('朝向不匹配');assert.equal(await button('移动终点地图以对齐出入口').isDisabled(),true);
-  await click('按当前布局设置朝向');await inspectSides('right','left');assert.equal(await route().getAttribute('data-route-allowed'),'true');
+  await click('按当前布局设置朝向');await inspectSides('right','left');assert.equal(await route().getAttribute('data-route-state'),'pending');
   await page.locator('.md-map-card').filter({hasText:'B 试炼'}).click();await number('世界纵坐标（向下）').fill('-14');await number('世界横坐标').fill('0');await inspectSides('right','left');await blocked('固定出入口朝向冲突');
   await select('世界总览类型').selectOption('top');await inspectSides('right','left');await blocked('固定出入口朝向冲突');await select('世界总览类型').selectOption('side');
-  await click('按当前布局设置朝向');await inspectSides('top','bottom');assert.equal(await route().getAttribute('data-route-allowed'),'true');
-  await click('移动终点地图以对齐出入口');assert.equal(read().maps[1].placement.y,-10);assert.equal(await route().getAttribute('data-route-allowed'),'true');
+  await click('按当前布局设置朝向');await inspectSides('top','bottom');assert.equal(await route().getAttribute('data-route-state'),'pending');
+  await click('移动终点地图以对齐出入口');assert.equal(read().maps[1].placement.y,-10);assert.equal(await route().getAttribute('data-route-state'),'pending');
   await select('入口所在侧面').selectOption('left');await blocked('朝向不匹配');await select('连接类型').selectOption('transport');assert.equal(await route().getAttribute('data-route-allowed'),'true');
   await click('通路预演');await select('预演起点').selectOption(a.id);assert.equal(await button('沿此通路前进').isDisabled(),false);await click('沿此通路前进');assert.equal(await page.locator('.md-travel h2').innerText(),'B 试炼');
   await click('世界总览');await chooseRoute();await select('连接类型').selectOption('passage');await click('按当前布局设置朝向');await inspectSides('top','bottom');

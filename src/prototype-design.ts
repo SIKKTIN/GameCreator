@@ -1,5 +1,5 @@
 import { connectionSpatial } from './map-world.ts';
-import { emptyMapDesign, mapStage, mapIssues, type MapDesignStore } from './map-design.ts';
+import { connectionEndpoints, resolveMapConnection, emptyMapDesign, mapStage, mapIssues, type MapDesignStore } from './map-design.ts';
 import type { GameplayDesign } from './gameplay';
 import type { GameplayCoreStore } from './gameplay-core';
 import type { ArtStore } from './art-assets';
@@ -61,7 +61,7 @@ export function prototypeIssues(store: PrototypeDesignStore, designs: GameplayDe
     if (owner?.archived || source?.archived) issue('空间来源已归档');
     if (s.coreNodeId && !core.graphs.some(g => g.nodes.some(n => n.id === s.coreNodeId))) issue('玩法核心节点已失效');
     for (const e of s.elements) {
-      if(e.action.mapConnectionId&&!maps.connections.some(c=>c.id===e.action.mapConnectionId))issue(e.name+'的世界通路已失效');
+      if(e.action.mapConnectionId&&!resolveMapConnection(maps,e.action.mapConnectionId))issue(e.name+'的世界通路已失效');
       if (e.sourceObjectId && !objects.some(o => o.id === e.sourceObjectId)) issue(e.name + '的空间对象已失效');
       if (e.action.kind === 'scene' && !store.scenes.some(t => t.id === e.action.targetId)) issue(e.name + '的跳转场景未指定或已失效');
       if (['show', 'hide', 'toggle'].includes(e.action.kind) && !s.elements.some(t => t.id === e.action.targetId)) issue(e.name + '的目标元素未指定或已失效');
@@ -99,23 +99,23 @@ export function duplicatePrototypeScene(scene: PrototypeScene): PrototypeScene {
 export function prototypeFromMaps(maps: MapDesignStore, designs: GameplayDesign[]): PrototypeScene[] {
   const scenes = maps.maps.map(map => ({ ...createPrototypeScene(map.name), mapId: map.id, view: map.view, description: map.description }));
   for (const c of maps.connections) for (const forward of c.direction === 'both' ? [true, false] : [true]) {
-    const from = forward ? c.from : c.to, to = forward ? c.to : c.from;
+    const ends=connectionEndpoints(c,!forward),from=ends.from,to=ends.to;
     const scene = scenes.find(s => s.mapId === from), target = scenes.find(s => s.mapId === to);
-    const objectId = forward ? c.fromObjectId : c.toObjectId;
+    const objectId = ends.fromObjectId;
     if (!scene || !target || !prototypeSource(scene, designs, maps).objects.some(o => o.id === objectId)) continue;
-    scene.elements.push({ ...createPrototypeElement('button'), name: c.name, text: c.name + ' → ' + target.name, sourceObjectId: objectId, action: { kind: 'scene', targetId: target.id, condition: c.condition, mapConnectionId:c.id, mapReverse:!forward } });
+    scene.elements.push({ ...createPrototypeElement('button'), name: c.name, text: c.name + ' → ' + target.name, sourceObjectId: objectId, action: { kind: 'scene', targetId: target.id, condition: ends.condition, mapConnectionId:c.id, mapReverse:!forward } });
   }
   return scenes;
 }
-export type PrototypeRuntime = { sceneId: string; visibility: Record<string, boolean> };
-export function prototypeMapRoute(store:PrototypeDesignStore,scene:PrototypeScene,element:PrototypeElement,maps?:MapDesignStore,designs:GameplayDesign[]=[]) {
+export type PrototypeRuntime = { mapArrivalObjectId?:string; sceneId: string; visibility: Record<string, boolean> };
+export function prototypeMapRoute(store:PrototypeDesignStore,scene:PrototypeScene,element:PrototypeElement,maps?:MapDesignStore,designs:GameplayDesign[]=[],startObjectId?:string) {
   if(!maps||!element.action.mapConnectionId||element.action.kind!=='scene')return null;
-  const c=maps.connections.find(c=>c.id===element.action.mapConnectionId);
-  if(!c)return {reason:'关联的世界通路已删除，请调整原型动作',condition:element.action.condition};
-  const reverse=element.action.mapReverse===true,target=store.scenes.find(s=>s.id===element.action.targetId);
-  if(scene.mapId!==(reverse?c.to:c.from)||target?.mapId!==(reverse?c.from:c.to)||element.sourceObjectId!==(reverse?c.toObjectId:c.fromObjectId))return {reason:'世界通路的地图或出入口已改变，请重新关联原型动作',condition:element.action.condition};
-  const route=connectionSpatial(maps,c,designs,reverse);
-  return {reason:route.reason,condition:c.condition,description:route.description};
+  const resolved=resolveMapConnection(maps,element.action.mapConnectionId,element.action.mapReverse===true);
+  if(!resolved)return {reason:'关联的世界通路已删除，请调整原型动作',condition:element.action.condition};
+  const {connection:c,reverse}=resolved,ends=connectionEndpoints(c,reverse),target=store.scenes.find(s=>s.id===element.action.targetId);
+  if(scene.mapId!==ends.from||target?.mapId!==ends.to||element.sourceObjectId!==ends.fromObjectId)return {reason:'世界通路的地图或出入口已改变，请重新关联原型动作',condition:element.action.condition};
+  const route=connectionSpatial(maps,c,designs,reverse,startObjectId);
+  return {reason:route.reason,condition:ends.condition,description:route.description,arrivalObjectId:ends.toObjectId};
 }
 export const prototypeVisible = (runtime: PrototypeRuntime, element: PrototypeElement) => Object.prototype.hasOwnProperty.call(runtime.visibility, element.id) ? runtime.visibility[element.id] : element.visible;
 export function startPrototype(store: PrototypeDesignStore, id = store.entryId): PrototypeRuntime { if (!store.scenes.some(s => s.id === id)) throw new Error('启动场景不存在'); return { sceneId: id, visibility: {} }; }
@@ -124,10 +124,10 @@ export function applyPrototypeAction(store: PrototypeDesignStore, runtime: Proto
   if (!scene || !element || !prototypeVisible(runtime, element)) throw new Error('交互元素不可用');
   const a = element.action;
   if (a.kind === 'none') return runtime;
-  const route=prototypeMapRoute(store,scene,element,maps,designs);
+  const route=prototypeMapRoute(store,scene,element,maps,designs,runtime.mapArrivalObjectId);
   if(route?.reason)throw new Error(route.reason);
   if ((route?.condition??a.condition).trim() && !confirmed) throw new Error('请先确认通行条件');
-  if (a.kind === 'scene') return startPrototype(store, a.targetId);
+  if (a.kind === 'scene') return {...startPrototype(store, a.targetId),...(route?.arrivalObjectId?{mapArrivalObjectId:route.arrivalObjectId}:{})};
   if (a.kind === 'restart') return startPrototype(store);
   const target = scene.elements.find(e => e.id === a.targetId); if (!target) throw new Error('目标元素已失效');
   return { ...runtime, visibility: { ...runtime.visibility, [target.id]: a.kind === 'show' || a.kind === 'toggle' && !prototypeVisible(runtime, target) } };

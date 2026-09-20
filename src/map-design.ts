@@ -7,12 +7,16 @@ export type MapReference = { kind: 'gameplay' | 'task' | 'story' | 'character' |
 export type MapLayer = { id: string; name: string; visible: boolean; locked: boolean };
 export type MapObject = { id: string; name: string; kind: keyof typeof mapKinds; layerId: string; x: number; y: number; width: number; height: number; color: 'green'|'violet'|'blue'|'amber'|'red'; notes: string; references: MapReference[] };
 export type WorldPlacement = { x: number; y: number; scale: number };
-export type WorldSettings = { perspective: 'top'|'side'; unit: string; snap: number };
+export type ActorProfile = { width:number; height:number; stepHeight:number; jumpRise:number; jumpGap:number; maxDrop:number };
+export type MapOpening = { id:string; name:string; side:'left'|'right'|'top'|'bottom'; offset:number; width:number };
+export type SurfaceKind = 'solid'|'one-way'|'ladder'|'decoration';
+export type MapSurface = { objectId:string; kind:SurfaceKind };
+export type WorldSettings = { actor?:ActorProfile; perspective: 'top'|'side'; unit: string; snap: number };
 export type PortalSide = 'auto'|'left'|'right'|'top'|'bottom'|'center';
 export type TravelMode = 'auto'|'walk'|'jump'|'climb'|'drop'|'transport';
 export type TravelRule = { forward: TravelMode; reverse: TravelMode; maxRise: number; maxGap: number; maxDrop: number };
-export type DesignMap = { placement?: WorldPlacement; id: string; name: string; region: string; description: string; perspective: 'side'|'top'; view: 'grid'|'free'; x: number; y: number; rows: number; columns: number; cellSize: number; unit: string; sourceDesignId: string; roomId: string; layers: MapLayer[]; objects: MapObject[]; sourceVisible: boolean; sourceLocked: boolean };
-export type MapConnection = { fromSide?: PortalSide; toSide?: PortalSide; travel?: TravelRule; id: string; name: string; from: string; to: string; fromObjectId: string; toObjectId: string; direction: 'one'|'both'; kind: 'passage'|'shortcut'|'door'|'transport'; condition: string };
+export type DesignMap = { openings?:MapOpening[]; surfaces?:MapSurface[]; placement?: WorldPlacement; id: string; name: string; region: string; description: string; perspective: 'side'|'top'; view: 'grid'|'free'; x: number; y: number; rows: number; columns: number; cellSize: number; unit: string; sourceDesignId: string; roomId: string; layers: MapLayer[]; objects: MapObject[]; sourceVisible: boolean; sourceLocked: boolean };
+export type MapConnection = { fromOpeningId?:string; toOpeningId?:string; reverseFromObjectId?:string; reverseToObjectId?:string; reverseCondition?:string; reverseLimits?:Pick<TravelRule,'maxRise'|'maxGap'|'maxDrop'>; aliases?:{id:string;reverse:boolean}[]; structure?:'open'|'ladder'|'bridge'; fromSide?: PortalSide; toSide?: PortalSide; travel?: TravelRule; id: string; name: string; from: string; to: string; fromObjectId: string; toObjectId: string; direction: 'one'|'both'; kind: 'passage'|'shortcut'|'door'|'transport'; condition: string };
 export type MapDesignStore = { world?: WorldSettings; schema: 1; enabled: boolean; maps: DesignMap[]; connections: MapConnection[] };
 export const emptyMapDesign = (): MapDesignStore => ({ schema: 1, enabled: false, maps: [], connections: [] });
 export function createDesignMap(name = '新地图'): DesignMap {
@@ -29,10 +33,13 @@ export function validateMapDesign(value: unknown): MapDesignStore {
   const unique = (v: Record<string,unknown>) => { if(typeof v.id !== 'string' || !v.id.trim() || ids.has(v.id)) fail(); ids.add(v.id as string); };
   if (!record(value) || value.schema !== 1 || typeof value.enabled !== 'boolean' || !Array.isArray(value.maps) || value.maps.length > 100 || !Array.isArray(value.connections) || value.connections.length > 500) return fail();
   if(value.world !== undefined && (!record(value.world) || !['top','side'].includes(value.world.perspective as string) || !strings(value.world,['unit']) || !num(value.world.snap,.001,10000))) return fail();
+  if(record(value.world)&&value.world.actor!==undefined) { const a=value.world.actor;if(!record(a)||!num(a.width,.05,100)||!num(a.height,.05,100)||!num(a.stepHeight,0,100)||!num(a.jumpRise,0,1000)||!num(a.jumpGap,0,1000)||!num(a.maxDrop,0,10000))return fail(); }
   for (const m of value.maps) {
     if (!record(m) || !strings(m,['name','region','description','unit','sourceDesignId','roomId']) || !['side','top'].includes(m.perspective as string) || !['grid','free'].includes(m.view as string) || !num(m.x) || !num(m.y) || !num(m.rows,1,30) || !Number.isInteger(m.rows) || !num(m.columns,1,40) || !Number.isInteger(m.columns) || !num(m.cellSize,.001,10000) || typeof m.sourceVisible !== 'boolean' || typeof m.sourceLocked !== 'boolean' || !Array.isArray(m.layers) || m.layers.length < 1 || m.layers.length > 30 || !Array.isArray(m.objects) || m.objects.length > 300) return fail();
     if(m.placement !== undefined && (!record(m.placement) || !num(m.placement.x) || !num(m.placement.y) || !num(m.placement.scale,.001,1000))) return fail();
     unique(m);
+    if(m.openings!==undefined){if(!Array.isArray(m.openings)||m.openings.length>100)return fail();for(const o of m.openings){if(!record(o)||!strings(o,['name'])||!['left','right','top','bottom'].includes(o.side as string)||!num(o.offset,0)||!num(o.width,.05))return fail();unique(o);}}
+    if(m.surfaces!==undefined){if(!Array.isArray(m.surfaces)||m.surfaces.length>600)return fail();const seen=new Set();for(const v of m.surfaces){if(!record(v)||!strings(v,['objectId'])||seen.has(v.objectId)||!['solid','one-way','ladder','decoration'].includes(v.kind as string))return fail();seen.add(v.objectId);}}
     for(const l of m.layers) { if(!record(l) || !strings(l,['name']) || typeof l.visible !== 'boolean' || typeof l.locked !== 'boolean') return fail(); unique(l); }
     for(const o of m.objects) {
       if(!record(o) || !strings(o,['name','layerId','notes']) || !['terrain','obstacle','decoration','npc','building','resource','enemy','task','portal','note'].includes(o.kind as string) || !['green','violet','blue','amber','red'].includes(o.color as string) || !num(o.x) || !num(o.y) || !num(o.width,.001) || !num(o.height,.001) || !Array.isArray(o.references) || o.references.length > 100) return fail();
@@ -41,6 +48,12 @@ export function validateMapDesign(value: unknown): MapDesignStore {
     }
   }
   for(const c of value.connections) { if(!record(c) || !strings(c,['name','from','to','fromObjectId','toObjectId','condition']) || !['one','both'].includes(c.direction as string) || !['passage','shortcut','door','transport'].includes(c.kind as string)) return fail(); if(c.fromSide !== undefined && !['auto','left','right','top','bottom','center'].includes(c.fromSide as string)) return fail(); if(c.toSide !== undefined && !['auto','left','right','top','bottom','center'].includes(c.toSide as string)) return fail(); if(c.travel !== undefined && (!record(c.travel) || !['auto','walk','jump','climb','drop','transport'].includes(c.travel.forward as string) || !['auto','walk','jump','climb','drop','transport'].includes(c.travel.reverse as string) || !num(c.travel.maxRise,0) || !num(c.travel.maxGap,0) || !num(c.travel.maxDrop,0))) return fail(); unique(c); }
+  for(const c of value.connections as Record<string,unknown>[]) {
+    for(const k of ['fromOpeningId','toOpeningId','reverseFromObjectId','reverseToObjectId','reverseCondition'])if(c[k]!==undefined&&!strings(c,[k]))return fail();
+    if(c.structure!==undefined&&!['open','ladder','bridge'].includes(c.structure as string))return fail();
+    if(c.reverseLimits!==undefined&&(!record(c.reverseLimits)||!num(c.reverseLimits.maxRise,0)||!num(c.reverseLimits.maxGap,0)||!num(c.reverseLimits.maxDrop,0)))return fail();
+    if(c.aliases!==undefined){if(!Array.isArray(c.aliases)||c.aliases.length>500)return fail();for(const a of c.aliases){if(!record(a)||typeof a.reverse!=='boolean')return fail();unique(a);}}
+  }
   return value as MapDesignStore;
 }
 export function readMapDesign(storage: Pick<Storage,'getItem'>, key: string) { const raw=storage.getItem(key); return {raw,store:raw===null?emptyMapDesign():validateMapDesign(JSON.parse(raw))}; }
@@ -66,6 +79,7 @@ export function mapIssues(store: MapDesignStore, designs: GameplayDesign[], targ
     const {source}=mapSource(m,designs);
     if(!m.name.trim()) issues.push('有地图尚未命名');
     if(m.sourceDesignId&&!source) issues.push(m.name+'：来源空间已失效');
+    for(const v of m.surfaces??[])if(!mapStage(m,designs).objects.some(o=>o.id===v.objectId))issues.push(m.name+'：通行属性对应的对象已失效');
     if(source?.archived) issues.push(m.name+'：来源玩法已归档');
     for(const o of m.objects) { if(!m.layers.some(l=>l.id===o.layerId)) issues.push(m.name+' / '+o.name+'：所属图层已失效'); for(const r of o.references) if(targets&&!targets[r.kind].some(t=>t.id===r.targetId)) issues.push(m.name+' / '+o.name+'：关联内容已失效'); }
   }
@@ -73,6 +87,7 @@ export function mapIssues(store: MapDesignStore, designs: GameplayDesign[], targ
     const m=store.maps.find(m=>m.id===c[side]), id=c[side==='from'?'fromObjectId':'toObjectId'];
     if(!m) issues.push(c.name+'：连接地图未指定或已失效'); else if(!id||!mapStage(m,designs).objects.some(o=>o.id===id)) issues.push(c.name+'：出入口未指定或已失效');
   }
+  for(const c of store.connections){for(const [mapId,id] of [[c.from,c.fromOpeningId],[c.to,c.toOpeningId]])if(id&&!store.maps.find(m=>m.id===mapId)?.openings?.some(o=>o.id===id))issues.push(c.name+'：物理开口已失效');for(const [mapId,id] of [[c.to,c.reverseFromObjectId],[c.from,c.reverseToObjectId]])if(id){const m=store.maps.find(m=>m.id===mapId);if(!m||!mapStage(m,designs).objects.some(o=>o.id===id))issues.push(c.name+'：返程落点已失效');}}
   return issues;
 }
 export function removeDesignMap(store: MapDesignStore, id: string, prototypeRefs: string[]=[]) {
@@ -80,19 +95,32 @@ export function removeDesignMap(store: MapDesignStore, id: string, prototypeRefs
   return {...store,maps:store.maps.filter(m=>m.id!==id)};
 }
 export function removeMapObject(store: MapDesignStore, mapId:string, id:string, prototypeRefs:string[]=[]) {
-  if(store.connections.some(c=>c.from===mapId&&c.fromObjectId===id||c.to===mapId&&c.toObjectId===id)||prototypeRefs.length) throw new Error('对象仍被出入口连接或原型引用，请先解除引用');
-  return {...store,maps:store.maps.map(m=>m.id===mapId?{...m,objects:m.objects.filter(o=>o.id!==id)}:m)};
+  if(store.connections.some(c=>c.from===mapId&&(c.fromObjectId===id||c.reverseToObjectId===id)||c.to===mapId&&(c.toObjectId===id||c.reverseFromObjectId===id))||prototypeRefs.length) throw new Error('对象仍被出入口连接或原型引用，请先解除引用');
+  return {...store,maps:store.maps.map(m=>m.id===mapId?{...m,objects:m.objects.filter(o=>o.id!==id),surfaces:m.surfaces?.filter(v=>v.objectId!==id)}:m)};
 }
 export function mapObjectReferences(store:MapDesignStore, designs:GameplayDesign[], designId:string, objectId:string) {
-  return store.maps.filter(m=>mapSource(m,designs).source?.id===designId).flatMap(m=>store.connections.filter(c=>c.from===m.id&&c.fromObjectId===objectId||c.to===m.id&&c.toObjectId===objectId).map(c=>'地图设计 / '+m.name+' / '+c.name));
+  return store.maps.filter(m=>mapSource(m,designs).source?.id===designId).flatMap(m=>store.connections.filter(c=>c.from===m.id&&(c.fromObjectId===objectId||c.reverseToObjectId===objectId)||c.to===m.id&&(c.toObjectId===objectId||c.reverseFromObjectId===objectId)).map(c=>'地图设计 / '+m.name+' / '+c.name));
 }
 export function mapMarkdown(store:MapDesignStore, designs:GameplayDesign[]) {
   if(!store.enabled) return '';
   const lines=['## 地图设计',''];
   if(store.world) lines.push(`世界总览类型：${store.world.perspective==='side'?'横版高度空间（纵轴向下）':'俯视平面（纵轴向南）'}；世界单位：${store.world.unit}；吸附：${store.world.snap}`);
   for(const m of store.maps) if(m.placement) { const space=mapStage(m,designs); lines.push(`- ${m.name} 世界原点：(${m.placement.x}, ${m.placement.y})；世界尺寸：${space.columns*space.cellSize*m.placement.scale} × ${space.rows*space.cellSize*m.placement.scale}；每个局部单位 = ${m.placement.scale} 世界单位`); }
+  if(store.world?.actor)lines.push(`通行角色：宽 ${store.world.actor.width}，高 ${store.world.actor.height}；跳高 ${store.world.actor.jumpRise}，跳远 ${store.world.actor.jumpGap}，安全落差 ${store.world.actor.maxDrop}`);
+  for(const m of store.maps){for(const o of m.openings??[])lines.push(`- ${m.name} / ${o.name}：物理开口 ${o.side}，边缘位置 ${o.offset}，宽 ${o.width}`);for(const v of m.surfaces??[])lines.push(`- ${m.name} 对象 ${v.objectId} 的通行属性：${v.kind}`);}
+  for(const c of store.connections){lines.push(`- ${c.name}：物理开口 ${c.fromOpeningId||'待完善'} → ${c.toOpeningId||'待完善'}；连接结构 ${c.structure||'open'}`);if(c.direction==='both')lines.push(`  返程：${c.reverseFromObjectId??c.toObjectId} → ${c.reverseToObjectId??c.fromObjectId}；条件 ${c.reverseCondition??c.condition}`);}
   for(const c of store.connections) if(c.travel) lines.push(`- ${c.name} 出入口侧面：${c.fromSide||'auto'} → ${c.toSide||'auto'}；正向移动：${c.travel.forward}；反向移动：${c.travel.reverse}；上升 / 水平跨度 / 下落限制：${c.travel.maxRise} / ${c.travel.maxGap} / ${c.travel.maxDrop}`);
   for(const m of store.maps) { lines.push('### '+m.name,`区域：${m.region}；视角：${m.perspective==='side'?'横版':'俯视'}；来源玩法：${m.sourceDesignId||'独立地图'}；来源房间：${m.roomId||'无'}`,m.description); for(const l of m.layers) lines.push(`- 图层：${l.name}；${l.visible?'显示':'隐藏'}；${l.locked?'锁定':'可编辑'}`); for(const o of mapStage(m,designs).objects) { const g=objectGeometry(o,mapStage(m,designs)); lines.push(`- ${o.name} [${o.id}]：(${g.x}, ${g.y})，${g.width} × ${g.height}；${o.notes}`); } for(const o of m.objects) for(const r of o.references) lines.push(`- ${o.name} 关联 ${r.kind}：${r.targetId}`); }
   for(const c of store.connections) lines.push(`- ${store.maps.find(m=>m.id===c.from)?.name||c.from} ${c.direction==='both'?'↔':'→'} ${store.maps.find(m=>m.id===c.to)?.name||c.to}：${c.name}；出入口 ${c.fromObjectId} → ${c.toObjectId}；通行条件：${c.condition||'无'}`);
   return lines.join('\n');
+}
+
+export function connectionEndpoints(c:MapConnection,reverse=false) {
+  return reverse?{from:c.to,to:c.from,fromObjectId:c.reverseFromObjectId??c.toObjectId,toObjectId:c.reverseToObjectId??c.fromObjectId,fromOpeningId:c.toOpeningId,toOpeningId:c.fromOpeningId,condition:c.reverseCondition??c.condition}
+    :{from:c.from,to:c.to,fromObjectId:c.fromObjectId,toObjectId:c.toObjectId,fromOpeningId:c.fromOpeningId,toOpeningId:c.toOpeningId,condition:c.condition};
+}
+export function resolveMapConnection(store:MapDesignStore,id:string,reverse=false) {
+  const connection=store.connections.find(c=>c.id===id||c.aliases?.some(a=>a.id===id));
+  if(!connection)return null;
+  return {connection,reverse:reverse!==(connection.aliases?.find(a=>a.id===id)?.reverse??false)};
 }

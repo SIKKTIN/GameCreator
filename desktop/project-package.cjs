@@ -211,12 +211,36 @@ function validateMapArchive(value) {
         return fail();
     if (value.world !== undefined && (!record(value.world) || !['top', 'side'].includes(value.world.perspective) || !strings(value.world, ['unit']) || !num(value.world.snap, .001, 10000)))
         return fail();
+    if (record(value.world) && value.world.actor !== undefined) {
+        const a = value.world.actor;
+        if (!record(a) || !num(a.width, .05, 100) || !num(a.height, .05, 100) || !num(a.stepHeight, 0, 100) || !num(a.jumpRise, 0, 1000) || !num(a.jumpGap, 0, 1000) || !num(a.maxDrop, 0, 10000))
+            return fail();
+    }
     for (const m of value.maps) {
         if (!record(m) || !strings(m, ['name', 'region', 'description', 'unit', 'sourceDesignId', 'roomId']) || !['side', 'top'].includes(m.perspective) || !['grid', 'free'].includes(m.view) || !num(m.x) || !num(m.y) || !num(m.rows, 1, 30) || !Number.isInteger(m.rows) || !num(m.columns, 1, 40) || !Number.isInteger(m.columns) || !num(m.cellSize, .001, 10000) || typeof m.sourceVisible !== 'boolean' || typeof m.sourceLocked !== 'boolean' || !Array.isArray(m.layers) || m.layers.length < 1 || m.layers.length > 30 || !Array.isArray(m.objects) || m.objects.length > 300)
             return fail();
         if (m.placement !== undefined && (!record(m.placement) || !num(m.placement.x) || !num(m.placement.y) || !num(m.placement.scale, .001, 1000)))
             return fail();
         unique(m);
+        if (m.openings !== undefined) {
+            if (!Array.isArray(m.openings) || m.openings.length > 100)
+                return fail();
+            for (const o of m.openings) {
+                if (!record(o) || !strings(o, ['name']) || !['left', 'right', 'top', 'bottom'].includes(o.side) || !num(o.offset, 0) || !num(o.width, .05))
+                    return fail();
+                unique(o);
+            }
+        }
+        if (m.surfaces !== undefined) {
+            if (!Array.isArray(m.surfaces) || m.surfaces.length > 600)
+                return fail();
+            const seen = new Set();
+            for (const v of m.surfaces) {
+                if (!record(v) || !strings(v, ['objectId']) || seen.has(v.objectId) || !['solid', 'one-way', 'ladder', 'decoration'].includes(v.kind))
+                    return fail();
+                seen.add(v.objectId);
+            }
+        }
         for (const l of m.layers) {
             if (!record(l) || !strings(l, ['name']) || typeof l.visible !== 'boolean' || typeof l.locked !== 'boolean')
                 return fail();
@@ -241,6 +265,24 @@ function validateMapArchive(value) {
         if (c.travel !== undefined && (!record(c.travel) || !['auto', 'walk', 'jump', 'climb', 'drop', 'transport'].includes(c.travel.forward) || !['auto', 'walk', 'jump', 'climb', 'drop', 'transport'].includes(c.travel.reverse) || !num(c.travel.maxRise, 0) || !num(c.travel.maxGap, 0) || !num(c.travel.maxDrop, 0)))
             return fail();
         unique(c);
+    }
+    for (const c of value.connections) {
+        for (const k of ['fromOpeningId', 'toOpeningId', 'reverseFromObjectId', 'reverseToObjectId', 'reverseCondition'])
+            if (c[k] !== undefined && !strings(c, [k]))
+                return fail();
+        if (c.structure !== undefined && !['open', 'ladder', 'bridge'].includes(c.structure))
+            return fail();
+        if (c.reverseLimits !== undefined && (!record(c.reverseLimits) || !num(c.reverseLimits.maxRise, 0) || !num(c.reverseLimits.maxGap, 0) || !num(c.reverseLimits.maxDrop, 0)))
+            return fail();
+        if (c.aliases !== undefined) {
+            if (!Array.isArray(c.aliases) || c.aliases.length > 500)
+                return fail();
+            for (const a of c.aliases) {
+                if (!record(a) || typeof a.reverse !== 'boolean')
+                    return fail();
+                unique(a);
+            }
+        }
     }
     return value;
 }
