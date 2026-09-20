@@ -1,3 +1,4 @@
+import { withWorldLayout } from './map-world';
 import { useEffect, useRef, useState } from 'react';
 import { workspaceStorage } from './workspace-storage';
 import { emptyMapDesign, readMapDesign, validateMapDesign, writeMapDesign, type MapDesignStore } from './map-design';
@@ -9,7 +10,7 @@ export function useMapDesign(workspaceId: string) {
     try { return { ...readMapDesign(workspaceStorage, key), error: '' }; }
     catch (error) { return { raw: null, store: emptyMapDesign(), error: String(error) }; }
   });
-  const [store, setStore] = useState(initial.store);
+  const [store, setStore] = useState(()=>withWorldLayout(initial.store));
   const [loadError, setLoadError] = useState(initial.error);
   const [saveError, setSaveError] = useState(''), [operationError, setOperationError] = useState('');
   const latest = useRef(store), committed = useRef(initial.raw);
@@ -23,7 +24,7 @@ export function useMapDesign(workspaceId: string) {
   const update = (operation: (current: MapDesignStore) => MapDesignStore) => {
     if (loadError) return false;
     let next: MapDesignStore;
-    try { next = validateMapDesign(operation(structuredClone(latest.current))); }
+    try { next = validateMapDesign(withWorldLayout(operation(structuredClone(latest.current)))); }
     catch (error) { setOperationError('地图设计更改未应用：' + String(error)); return false; }
     latest.current = next; setStore(next); setOperationError('');
     return persist(next);
@@ -32,7 +33,7 @@ export function useMapDesign(workspaceId: string) {
   const reload = () => {
     try {
       const loaded = readMapDesign(workspaceStorage, key);
-      latest.current = loaded.store; committed.current = loaded.raw; setStore(loaded.store);
+      const restored=withWorldLayout(loaded.store); latest.current = restored; committed.current = loaded.raw; setStore(restored);
       setLoadError(''); setSaveError(''); setOperationError(''); return true;
     } catch (error) { setLoadError(String(error)); return false; }
   };

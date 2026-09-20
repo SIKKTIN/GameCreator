@@ -1,0 +1,65 @@
+import { useEffect, useId, useRef, useState, type PointerEvent } from 'react';
+import { Crosshair, Maximize2, Minus, Plus } from 'lucide-react';
+import type { GameplayDesign } from './gameplay';
+import type { MapDesignStore } from './map-design';
+import { stageColors } from './gameplay-stage';
+import { connectionSpatial, worldPlacement, worldRoom, worldSettings } from './map-world';
+
+type Camera = { x:number; y:number; zoom:number };
+type Props = {store:MapDesignStore;designs:GameplayDesign[];selectedId?:string;selectedConnection?:string;disabled:boolean;onSelect:(id:string)=>void;onEnter:(id:string)=>void;onConnection:(id:string)=>void;onMove:(id:string,x:number,y:number)=>void};
+export function MapWorldCanvas(p:Props) {
+  const svg=useRef<SVGSVGElement>(null),shell=useRef<HTMLDivElement>(null),uid=useId().replace(/:/g,''),[size,setSize]=useState({width:800,height:580});
+  const [camera,setCamera]=useState<Camera>({x:40,y:50,zoom:16}),[preview,setPreview]=useState<{id:string;x:number;y:number}|null>(null),[pointer,setPointer]=useState<{x:number;y:number}|null>(null);
+  const cameraRef=useRef(camera);cameraRef.current=camera;
+  const drag=useRef<{id:string;pointer:number;startX:number;startY:number;x:number;y:number;camera:Camera;moved:boolean}|null>(null);
+  const settings=worldSettings(p.store),snap=(v:number)=>Math.round(v/settings.snap)*settings.snap;
+  const visible=preview?{...p.store,maps:p.store.maps.map(m=>m.id===preview.id?{...m,placement:{...worldPlacement(p.store,m),x:preview.x,y:preview.y}}:m)}:p.store;
+  const rooms=visible.maps.map(m=>worldRoom(visible,m,p.designs));
+  const fit=(selected=false)=>{
+    const bounds=selected?rooms.filter(r=>r.id===p.selectedId):rooms;if(!bounds.length)return {x:40,y:50,zoom:16};
+    const left=Math.min(...bounds.map(r=>r.x)),top=Math.min(...bounds.map(r=>r.y)),right=Math.max(...bounds.map(r=>r.x+r.width)),bottom=Math.max(...bounds.map(r=>r.y+r.height));
+    const zoom=Math.min(50,Math.max(.00001,Math.min((size.width-110)/Math.max(1,right-left),(size.height-130)/Math.max(1,bottom-top))));
+    return {x:(size.width-(right-left)*zoom)/2-left*zoom,y:(size.height-(bottom-top)*zoom)/2-top*zoom+15,zoom};
+  };
+  const fitRef=useRef(fit);fitRef.current=fit;
+  useEffect(()=>{if(!shell.current)return;const ro=new ResizeObserver(([e])=>setSize({width:e.contentRect.width,height:580}));ro.observe(shell.current);return()=>ro.disconnect();},[]);
+  useEffect(()=>{setCamera(fitRef.current());},[size.width,p.store.maps.length]);
+  const zoomAt=(factor:number,x=size.width/2,y=size.height/2)=>setCamera(c=>{const zoom=Math.max(.00001,Math.min(180,c.zoom*factor));return {x:x-(x-c.x)*zoom/c.zoom,y:y-(y-c.y)*zoom/c.zoom,zoom};});
+  const zoomRef=useRef(zoomAt);zoomRef.current=zoomAt;
+  useEffect(()=>{const el=svg.current;if(!el)return;const wheel=(e:WheelEvent)=>{e.preventDefault();const b=el.getBoundingClientRect();zoomRef.current(Math.exp(-Math.max(-200,Math.min(200,e.deltaY))*.003),e.clientX-b.left,e.clientY-b.top);};el.addEventListener('wheel',wheel,{passive:false});return()=>el.removeEventListener('wheel',wheel);},[]);
+  const cancel=()=>{drag.current=null;setPreview(null);};
+  useEffect(()=>{const escape=(e:KeyboardEvent)=>{if(e.key==='Escape')cancel();};window.addEventListener('keydown',escape);return()=>window.removeEventListener('keydown',escape);},[]);
+  const begin=(e:PointerEvent,id='',x=0,y=0)=>{if(e.button!==0&&e.button!==2)return;if(e.button===2)id='';else if(id&&p.disabled)return;e.preventDefault();e.stopPropagation();drag.current={id,pointer:e.pointerId,startX:e.clientX,startY:e.clientY,x,y,camera:cameraRef.current,moved:false};svg.current?.setPointerCapture(e.pointerId);};
+  const move=(e:PointerEvent)=>{const b=svg.current!.getBoundingClientRect(),c=cameraRef.current;setPointer({x:(e.clientX-b.left-c.x)/c.zoom,y:(e.clientY-b.top-c.y)/c.zoom});const d=drag.current;if(!d||d.pointer!==e.pointerId)return;const dx=e.clientX-d.startX,dy=e.clientY-d.startY;if(Math.hypot(dx,dy)>3)d.moved=true;if(!d.id)setCamera({...d.camera,x:d.camera.x+dx,y:d.camera.y+dy});else if(d.moved)setPreview({id:d.id,x:snap(d.x+dx/d.camera.zoom),y:snap(d.y+dy/d.camera.zoom)});};
+  const end=(e:PointerEvent)=>{const d=drag.current;if(!d||d.pointer!==e.pointerId)return;cancel();if(d.id&&d.moved&&!p.disabled)p.onMove(d.id,snap(d.x+(e.clientX-d.startX)/d.camera.zoom),snap(d.y+(e.clientY-d.startY)/d.camera.zoom));if(svg.current?.hasPointerCapture(e.pointerId))svg.current.releasePointerCapture(e.pointerId);};
+  const grid=Math.max(settings.snap,10**Math.ceil(Math.log10(35/camera.zoom))),pixelGrid=grid*camera.zoom,side=settings.perspective==='side';
+  const n=(v:number)=>Number(v.toFixed(2));
+  return <div className={'mw-shell '+(side?'side':'top')}><div ref={shell} className="mw-canvas">
+    <svg ref={svg} aria-label="世界空间布局画布" role="group" width="100%" height={size.height} viewBox={`0 0 ${Math.max(1,size.width)} ${size.height}`} onPointerDown={e=>begin(e)} onPointerMove={move} onPointerUp={end} onPointerCancel={cancel} onLostPointerCapture={cancel} onContextMenu={e=>e.preventDefault()}>
+      <defs><pattern id={uid+'grid'} width={pixelGrid} height={pixelGrid} x={camera.x%pixelGrid} y={camera.y%pixelGrid} patternUnits="userSpaceOnUse"><path d={`M${pixelGrid} 0 H0 V${pixelGrid}`} fill="none" stroke={side?'#383044':'#283b38'} strokeWidth="1"/></pattern><marker id={uid+'arrow'} markerUnits="userSpaceOnUse" markerWidth={10/camera.zoom} markerHeight={10/camera.zoom} viewBox="0 0 8 8" refX="7" refY="4" orient="auto-start-reverse"><path d="M0 0 L8 4 L0 8 Z" fill="#d4bcf4"/></marker></defs>
+      <rect width={size.width} height={size.height} fill="#121620"/><rect width={size.width} height={size.height} fill={`url(#${uid}grid)`}/>
+      <line x1="0" y1={camera.y} x2={size.width} y2={camera.y} stroke="#806794" strokeDasharray="5 5"/><line x1={camera.x} y1="0" x2={camera.x} y2={size.height} stroke="#526777" strokeDasharray="5 5"/>
+      <g transform={`translate(${camera.x} ${camera.y}) scale(${camera.zoom})`} data-world-camera={`${camera.x},${camera.y},${camera.zoom}`}>
+        {rooms.map(room=>{const selected=room.id===p.selectedId;return <g key={room.id} role="button" tabIndex={0} aria-label={'世界地图：'+room.name} data-map-id={room.id} data-world-x={room.x} data-world-y={room.y} data-world-width={room.width} data-world-height={room.height}
+          onPointerDown={e=>{if(e.button===0)p.onSelect(room.id);begin(e,room.id,room.x,room.y);}} onDoubleClick={()=>p.onEnter(room.id)} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();p.onEnter(room.id);}else if(e.key===' '){e.preventDefault();p.onSelect(room.id);}else if(!p.disabled&&['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)){e.preventDefault();p.onMove(room.id,room.x+(e.key==='ArrowLeft'?-settings.snap:e.key==='ArrowRight'?settings.snap:0),room.y+(e.key==='ArrowUp'?-settings.snap:e.key==='ArrowDown'?settings.snap:0));}}}>
+          <rect x={room.x} y={room.y} width={room.width} height={room.height} fill={selected?'#362840':'#202a32'} fillOpacity=".88" stroke={selected?'#d1b0ff':'#7b8097'} strokeWidth={selected?2.5:1.2} vectorEffect="non-scaling-stroke"/>
+          <clipPath id={uid+room.id}><rect x={room.x} y={room.y} width={room.width} height={room.height}/></clipPath>
+          <g clipPath={`url(#${uid+room.id})`} pointerEvents="none">{room.objects.map(o=><g key={o.id} data-world-object={o.id} data-world-x={o.x} data-world-y={o.y} transform={`rotate(${o.rotation} ${o.x+o.width/2} ${o.y+o.height/2})`}>
+            {o.shape==='circle'?<ellipse cx={o.x+o.width/2} cy={o.y+o.height/2} rx={o.width/2} ry={o.height/2} fill={stageColors[o.color]+'66'} stroke={stageColors[o.color]} vectorEffect="non-scaling-stroke"/>:<rect x={o.x} y={o.y} width={o.width} height={o.height} fill={stageColors[o.color]+(o.kind==='obstacle'?'85':'45')} stroke={stageColors[o.color]} strokeWidth=".7" vectorEffect="non-scaling-stroke"/>}
+            {o.width*camera.zoom>100&&o.height*camera.zoom>20&&<text x={o.x+o.width/2} y={o.y+o.height/2} textAnchor="middle" dominantBaseline="central" fontSize={10/camera.zoom} fill="#d9e4df">{o.name.slice(0,12)}</text>}
+          </g>)}</g>
+          <text x={room.x} y={room.y-9/camera.zoom} fontSize={12/camera.zoom} fill="#eee4ff" fontWeight="600">{room.name}</text>
+          <text x={room.x+room.width} y={room.y+room.height+15/camera.zoom} textAnchor="end" fontSize={10/camera.zoom} fill="#a8a3b8">{n(room.width)} × {n(room.height)} · ({n(room.x)}, {n(room.y)})</text>
+          <title>{room.name}；{room.width} × {room.height} {settings.unit}；双击进入内部布局；方向键按吸附步长移动</title>
+        </g>;})}
+        {visible.connections.map(c=>{const route=connectionSpatial(visible,c,p.designs);if(!route.a||!route.b)return null;const {a,b}=route,allowed=route.allowed&&(c.direction!=='both'||connectionSpatial(visible,c,p.designs,true).allowed),selected=p.selectedConnection===c.id;return <g key={c.id} role="button" tabIndex={0} aria-label={'世界通路：'+c.name} onPointerDown={e=>{if(e.button===2)begin(e);else e.stopPropagation();}} onClick={()=>p.onConnection(c.id)} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();p.onConnection(c.id);}}}>
+          <path d={`M${a.x} ${a.y} L${b.x} ${b.y}`} fill="none" stroke="transparent" strokeWidth={16/camera.zoom}/><path d={`M${a.x} ${a.y} L${b.x} ${b.y}`} fill="none" stroke={selected?'#ffe09d':allowed?'#b5a4d9':'#d69972'} strokeWidth="2" vectorEffect="non-scaling-stroke" strokeDasharray={route.mode==='transport'?'5 6':allowed?undefined:'4 3'} markerEnd={`url(#${uid}arrow)`} markerStart={c.direction==='both'?`url(#${uid}arrow)`:undefined}/>
+          {[a,b].map((port,i)=><circle key={i} cx={port.x} cy={port.y} r={4.5/camera.zoom} fill={selected?'#ffe09d':'#d6baf3'} stroke="#171620" strokeWidth="1" vectorEffect="non-scaling-stroke"/>)}
+          {selected&&<g><rect x={(a.x+b.x)/2-90/camera.zoom} y={(a.y+b.y)/2-28/camera.zoom} width={180/camera.zoom} height={24/camera.zoom} rx={5/camera.zoom} fill="#302639" stroke="#9a7faf" strokeWidth="1" vectorEffect="non-scaling-stroke"/><text x={(a.x+b.x)/2} y={(a.y+b.y)/2-12/camera.zoom} textAnchor="middle" fill="#ffdf9f" fontSize={11/camera.zoom}>{c.name.slice(0,12)} · 向{route.direction}</text></g>}
+          <title>{c.name}；{route.description}；{route.reason||'空间衔接通过'}</title>
+        </g>;})}
+      </g>
+    </svg><div className="mw-axis" aria-hidden="true"><b>{side?'↑ 高度 / ↓ 下方':'↑ 北 / ↓ 南'}</b><span>← {side?'左':'西'} / {side?'右':'东'} →</span><small>网格间隔 {n(grid)} {settings.unit}</small></div>
+    </div><div className="mw-footer"><span>{pointer?`坐标 (${n(pointer.x)}, ${n(pointer.y)})`:'拖动房间改变世界位置'}<small>滚轮缩放 · 右键平移 · Esc 取消移动 · 双击进入地图</small></span><div className="gp-actions"><button className="gp-icon" aria-label="缩小世界" onClick={()=>zoomAt(.8)}><Minus size={14}/></button><button className="gp-icon" aria-label="放大世界" onClick={()=>zoomAt(1.25)}><Plus size={14}/></button><button className="gp-icon" aria-label="定位所选地图" onClick={()=>setCamera(fit(true))}><Crosshair size={14}/></button><button className="gp-icon" aria-label="适应整个世界" onClick={()=>setCamera(fit())}><Maximize2 size={14}/></button></div></div>
+  </div>;
+}

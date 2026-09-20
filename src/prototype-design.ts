@@ -1,3 +1,4 @@
+import { connectionSpatial } from './map-world.ts';
 import { emptyMapDesign, mapStage, mapIssues, type MapDesignStore } from './map-design.ts';
 import type { GameplayDesign } from './gameplay';
 import type { GameplayCoreStore } from './gameplay-core';
@@ -6,7 +7,7 @@ import { objectGeometry, spatialLayout, roomSource } from './spatial-layout.ts';
 
 export const prototypeKinds = { text: '文字', button: '按钮', shape: '色块', image: '图片', hotspot: '交互热点' } as const;
 export const prototypeActions = { none: '无动作', scene: '切换场景', show: '显示元素', hide: '隐藏元素', toggle: '切换元素显隐', restart: '重新开始' } as const;
-export type PrototypeAction = { kind: keyof typeof prototypeActions; targetId: string; condition: string };
+export type PrototypeAction = { mapConnectionId?: string; mapReverse?: boolean; kind: keyof typeof prototypeActions; targetId: string; condition: string };
 export type PrototypeElement = { id: string; kind: keyof typeof prototypeKinds; name: string; text: string; x: number; y: number; width: number; height: number; color: string; fontSize: number; visible: boolean; sourceObjectId: string; assetId: string; versionId: string; fileId: string; action: PrototypeAction };
 export type PrototypeScene = { mapId?: string; id: string; name: string; description: string; width: number; height: number; background: string; view: 'grid' | 'free'; sourceDesignId: string; roomId: string; coreNodeId: string; elements: PrototypeElement[] };
 export type PrototypeDesignStore = { schema: 1; entryId: string; scenes: PrototypeScene[] };
@@ -28,7 +29,7 @@ export function validatePrototypeDesign(value: unknown): PrototypeDesignStore {
     if (!record(s) || (s.mapId !== undefined && typeof s.mapId !== 'string') || !strings(s, ['name', 'description', 'sourceDesignId', 'roomId', 'coreNodeId']) || !number(s.width, 320, 3840) || !number(s.height, 240, 2160) || !color(s.background) || !['grid', 'free'].includes(s.view as string) || !Array.isArray(s.elements) || s.elements.length > 300) return fail();
     unique(s);
     for (const e of s.elements) {
-      if (!record(e) || !strings(e, ['name', 'text', 'sourceObjectId', 'assetId', 'versionId', 'fileId']) || !has(prototypeKinds, e.kind) || !number(e.x, -10000, 10000) || !number(e.y, -10000, 10000) || !number(e.width, 1, 10000) || !number(e.height, 1, 10000) || !number(e.fontSize, 8, 150) || !color(e.color) || typeof e.visible !== 'boolean' || !record(e.action) || !has(prototypeActions, e.action.kind) || !strings(e.action, ['targetId', 'condition'])) return fail();
+      if (!record(e) || !strings(e, ['name', 'text', 'sourceObjectId', 'assetId', 'versionId', 'fileId']) || !has(prototypeKinds, e.kind) || !number(e.x, -10000, 10000) || !number(e.y, -10000, 10000) || !number(e.width, 1, 10000) || !number(e.height, 1, 10000) || !number(e.fontSize, 8, 150) || !color(e.color) || typeof e.visible !== 'boolean' || !record(e.action) || !has(prototypeActions, e.action.kind) || !strings(e.action, ['targetId', 'condition']) || (e.action.mapConnectionId !== undefined && typeof e.action.mapConnectionId !== 'string') || (e.action.mapReverse !== undefined && typeof e.action.mapReverse !== 'boolean')) return fail();
       unique(e);
     }
   }
@@ -60,6 +61,7 @@ export function prototypeIssues(store: PrototypeDesignStore, designs: GameplayDe
     if (owner?.archived || source?.archived) issue('空间来源已归档');
     if (s.coreNodeId && !core.graphs.some(g => g.nodes.some(n => n.id === s.coreNodeId))) issue('玩法核心节点已失效');
     for (const e of s.elements) {
+      if(e.action.mapConnectionId&&!maps.connections.some(c=>c.id===e.action.mapConnectionId))issue(e.name+'的世界通路已失效');
       if (e.sourceObjectId && !objects.some(o => o.id === e.sourceObjectId)) issue(e.name + '的空间对象已失效');
       if (e.action.kind === 'scene' && !store.scenes.some(t => t.id === e.action.targetId)) issue(e.name + '的跳转场景未指定或已失效');
       if (['show', 'hide', 'toggle'].includes(e.action.kind) && !s.elements.some(t => t.id === e.action.targetId)) issue(e.name + '的目标元素未指定或已失效');
@@ -101,19 +103,30 @@ export function prototypeFromMaps(maps: MapDesignStore, designs: GameplayDesign[
     const scene = scenes.find(s => s.mapId === from), target = scenes.find(s => s.mapId === to);
     const objectId = forward ? c.fromObjectId : c.toObjectId;
     if (!scene || !target || !prototypeSource(scene, designs, maps).objects.some(o => o.id === objectId)) continue;
-    scene.elements.push({ ...createPrototypeElement('button'), name: c.name, text: c.name + ' → ' + target.name, sourceObjectId: objectId, action: { kind: 'scene', targetId: target.id, condition: c.condition } });
+    scene.elements.push({ ...createPrototypeElement('button'), name: c.name, text: c.name + ' → ' + target.name, sourceObjectId: objectId, action: { kind: 'scene', targetId: target.id, condition: c.condition, mapConnectionId:c.id, mapReverse:!forward } });
   }
   return scenes;
 }
 export type PrototypeRuntime = { sceneId: string; visibility: Record<string, boolean> };
+export function prototypeMapRoute(store:PrototypeDesignStore,scene:PrototypeScene,element:PrototypeElement,maps?:MapDesignStore,designs:GameplayDesign[]=[]) {
+  if(!maps||!element.action.mapConnectionId||element.action.kind!=='scene')return null;
+  const c=maps.connections.find(c=>c.id===element.action.mapConnectionId);
+  if(!c)return {reason:'关联的世界通路已删除，请调整原型动作',condition:element.action.condition};
+  const reverse=element.action.mapReverse===true,target=store.scenes.find(s=>s.id===element.action.targetId);
+  if(scene.mapId!==(reverse?c.to:c.from)||target?.mapId!==(reverse?c.from:c.to)||element.sourceObjectId!==(reverse?c.toObjectId:c.fromObjectId))return {reason:'世界通路的地图或出入口已改变，请重新关联原型动作',condition:element.action.condition};
+  const route=connectionSpatial(maps,c,designs,reverse);
+  return {reason:route.reason,condition:c.condition,description:route.description};
+}
 export const prototypeVisible = (runtime: PrototypeRuntime, element: PrototypeElement) => Object.prototype.hasOwnProperty.call(runtime.visibility, element.id) ? runtime.visibility[element.id] : element.visible;
 export function startPrototype(store: PrototypeDesignStore, id = store.entryId): PrototypeRuntime { if (!store.scenes.some(s => s.id === id)) throw new Error('启动场景不存在'); return { sceneId: id, visibility: {} }; }
-export function applyPrototypeAction(store: PrototypeDesignStore, runtime: PrototypeRuntime, elementId: string, confirmed = false): PrototypeRuntime {
+export function applyPrototypeAction(store: PrototypeDesignStore, runtime: PrototypeRuntime, elementId: string, confirmed = false, maps?:MapDesignStore, designs:GameplayDesign[]=[]): PrototypeRuntime {
   const scene = store.scenes.find(s => s.id === runtime.sceneId), element = scene?.elements.find(e => e.id === elementId);
   if (!scene || !element || !prototypeVisible(runtime, element)) throw new Error('交互元素不可用');
   const a = element.action;
   if (a.kind === 'none') return runtime;
-  if (a.condition.trim() && !confirmed) throw new Error('请先确认通行条件');
+  const route=prototypeMapRoute(store,scene,element,maps,designs);
+  if(route?.reason)throw new Error(route.reason);
+  if ((route?.condition??a.condition).trim() && !confirmed) throw new Error('请先确认通行条件');
   if (a.kind === 'scene') return startPrototype(store, a.targetId);
   if (a.kind === 'restart') return startPrototype(store);
   const target = scene.elements.find(e => e.id === a.targetId); if (!target) throw new Error('目标元素已失效');

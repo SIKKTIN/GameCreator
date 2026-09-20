@@ -2,6 +2,7 @@
 // seeds only the optional module and never changes gameplay or prototype scenes.
 import fs from 'node:fs';
 import { validateMapDesign, mapIssues } from '../src/map-design.ts';
+import { alignWorldConnection, connectionSpatial, defaultTravel } from '../src/map-world.ts';
 for (const file of ['hollow-knight','stardew-valley']) {
   const path=new URL('../examples/prototypes/'+file+'.json',import.meta.url),e=JSON.parse(fs.readFileSync(path,'utf8'));
   const hk=file==='hollow-knight',owner=e.gameplay.designs.find(d=>d.space.spatial?.rooms.length),a=owner.space.spatial;
@@ -33,7 +34,16 @@ for (const file of ['hollow-knight','stardew-valley']) {
     return {id,name:r.name,region:hk?'裂隙遗迹':'春日河谷',description:descriptions[i],perspective:hk?'side':'top',view:r.view,x:r.x,y:r.y,rows:source.space.rows,columns:source.space.columns,cellSize:source.space.cellSize,unit:source.space.unit,sourceDesignId:source.id,roomId:'',sourceVisible:true,sourceLocked:true,layers,objects};
   });
   const connections=a.connections.map(c=>({id:'map-'+c.id,name:c.name,from:'map-'+c.from,to:'map-'+c.to,fromObjectId:c.fromObjectId,toObjectId:c.toObjectId,direction:c.direction,kind:c.name.includes('近路')?'shortcut':'passage',condition:c.condition==='shortcutOpen'?'已从远岸打开永久近路':c.condition==='trial门未封闭'?'试炼门未封闭':c.condition}));
-  e.mapDesign={schema:1,enabled:true,maps,connections};validateMapDesign(e.mapDesign);
+  for(const [i,m] of maps.entries())m.placement={x:hk?(i%2)*24:i*16,y:hk?Math.floor(i/2)*16:0,scale:1};
+  e.mapDesign={schema:1,enabled:true,world:{perspective:hk?'side':'top',unit:hk?'格':'地块',snap:1},maps,connections};
+  for(const c of connections){
+    const from=maps.findIndex(m=>m.id===c.from),to=maps.findIndex(m=>m.id===c.to),vertical=hk&&Math.floor(from/2)!==Math.floor(to/2);
+    c.fromSide=vertical?(from<to?'bottom':'top'):(from<to?'right':'left');c.toSide=vertical?(from<to?'top':'bottom'):(from<to?'left':'right');
+    c.travel={...defaultTravel(),forward:vertical?(from<to?'drop':'climb'):hk?'jump':'walk',reverse:vertical?(from<to?'climb':'drop'):hk?'jump':'walk',maxRise:16,maxGap:24,maxDrop:20};
+  }
+  if(!hk)e.mapDesign=alignWorldConnection(e.mapDesign,connections[0],e.gameplay.designs);
+  validateMapDesign(e.mapDesign);
+  for(const c of connections)for(const reverse of c.direction==='both'?[false,true]:[false]){const r=connectionSpatial(e.mapDesign,c,e.gameplay.designs,reverse);if(r.reason)throw new Error(c.name+': '+r.reason);}
   const issues=mapIssues(e.mapDesign,e.gameplay.designs);if(issues.length)throw new Error(issues.join('\n'));
   fs.writeFileSync(path,JSON.stringify(e,null,2)+'\n');console.log(file+': '+maps.length+' maps, '+connections.length+' connections');
 }
