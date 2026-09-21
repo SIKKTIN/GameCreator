@@ -1,3 +1,4 @@
+import {useSearchRequest} from './GlobalSearch';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Activity, Plus, Download, Copy, Trash2, ArrowUpRight, BarChart3, LineChart, Bookmark } from 'lucide-react';
 import type { NumericalAnalysisController } from './useNumericalAnalysis';
@@ -35,6 +36,8 @@ function Plot({rows,metric,unit,baseline,line,axisLabel,onSelect}:{rows:Analysis
   </svg></div>;
 }
 export function NumericalAnalysis({controller:c,sources,definitions,designs,onOpenDataset,onOpenGameplay}:{controller:NumericalAnalysisController;sources:AnalysisSources;definitions:DatasetDef[];designs:{id:string;title:string}[];onOpenDataset:(table:string)=>void;onOpenGameplay:(id:string)=>void}) {
+  const searchRequest=useSearchRequest('数值分析',t=>c.store.plans.some(p=>p.id===t.id));
+  useEffect(()=>{if(searchRequest){setSelected(searchRequest.id);setQuery('');}},[searchRequest]);
   const [selected,setSelected]=useState(''),[query,setQuery]=useState(''),[tab,setTab]=useState('分析结果'),[variantId,setVariantId]=useState(''),[metricId,setMetricId]=useState(''),[rowKey,setRowKey]=useState(''),[snapshotId,setSnapshotId]=useState('latest'),[line,setLine]=useState<boolean|null>(null),[error,setError]=useState(''),[examplesOpen,setExamplesOpen]=useState(false),[exampleId,setExampleId]=useState(''),[checkSelection,setCheckSelection]=useState('');
   const plan=c.store.plans.find(p=>p.id===selected)??c.store.plans[0];
   const lineMode=line??!!plan?.sweep;

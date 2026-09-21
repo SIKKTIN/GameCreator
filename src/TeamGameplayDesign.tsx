@@ -1,3 +1,4 @@
+import {useSearchRequest} from './GlobalSearch';
 import {useEffect,useRef,useState} from 'react';
 import {beforeLogoutEvent} from './auth';
 import {GameplayDesigns} from './GameplayDesigns';
@@ -85,6 +86,7 @@ export function useTeamGameplay(session:TeamSession,projectId:string,blocked:boo
 }
 
 export function TeamGameplayDesign({state,session,projectId,stories,selectedId,onSelect,onOpenStory}:{state:ReturnType<typeof useTeamGameplay>;session:TeamSession;projectId:string;stories:TeamStory[];selectedId:string;onSelect:(id:string)=>void;onOpenStory:(id:string)=>void}){
+  const searchRequest=useSearchRequest('玩法设计');
   const [history,setHistory]=useState<{id:string;items:HistoryItem[]}|null>(null),[historyError,setHistoryError]=useState(''),[busy,setBusy]=useState(false);
   const alive=useRef(true);useEffect(()=>{alive.current=true;return()=>{alive.current=false;};},[]);
   const {controller,draft,remote,readOnly,saving,dirty,patch,conflict}=state,selected=controller.store.designs.find(d=>d.id===selectedId);
@@ -108,7 +110,7 @@ export function TeamGameplayDesign({state,session,projectId,stories,selectedId,o
       {conflict.ids.map(id=>id==='$categories'?<details open key={id}><summary>分类列表</summary><div className="team-core-diff"><pre>{controller.store.categories?.map(c=>c.name+'：'+c.description).join('\n')}</pre><pre>{conflict.remote.store.categories?.map(c=>c.name+'：'+c.description).join('\n')}</pre></div></details>:
         <GameplayComparison key={id} mine={controller.store.designs.find(d=>d.id===id)} latest={conflict.remote.store.designs.find(d=>d.id===id)} mineStore={controller.store} latestStore={conflict.remote.store}/>)}
       <div className="team-actions"><button disabled={readOnly||saving} onClick={()=>state.resolve(true)}>已对照合并玩法，准备提交</button><button disabled={saving||controller.blocked} onClick={()=>state.resolve(false)}>采用团队版本并丢弃玩法设计草稿</button></div></section>}
-    {(state.loaded||dirty)&&<GameplayDesigns controller={controller} readOnly={readOnly||saving} team selectedId={selectedId} onSelect={onSelect} sources={sources} onRoomMove={state.moveRoom}
+    {(state.loaded||dirty)&&<GameplayDesigns initialSource={searchRequest?{kind:searchRequest.kind||'design',id:searchRequest.parent?searchRequest.id:''}:undefined} controller={controller} readOnly={readOnly||saving} team selectedId={selectedId} onSelect={onSelect} sources={sources} onRoomMove={state.moveRoom}
       onOpenLink={l=>{if(l.kind==='story'&&stories.some(s=>s.id===l.targetId))onOpenStory(l.targetId);}}
       renderImplementation={d=><div className="team-gameplay-references">{d.links.filter(l=>l.kind==='story'&&stories.some(s=>s.id===l.targetId)).map(l=><button className="gp-secondary" key={l.targetId} onClick={()=>onOpenStory(l.targetId)}>打开团队故事：{stories.find(s=>s.id===l.targetId)?.title}</button>)}
         {references.filter(r=>r.designId===d.id&&(r.kind==='function'||r.kind==='art'||(r.kind==='story'&&!stories.some(s=>s.id===r.targetId)))).map((r,i)=><p key={i}>来源{r.kind==='function'?'功能':r.kind==='art'?'素材':'故事'}：{r.title} · {r.targetId} · 尚未接入当前团队内容</p>)}</div>}/>}

@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
-import { CalendarDays, Map, Layers, Gamepad2, ListTree, Palette, BookOpen, Database, Tag, Settings2, GitBranch, BarChart3, Server, Workflow, Users, PanelsTopLeft } from 'lucide-react';
+import { Search, CalendarDays, Map, Layers, Gamepad2, ListTree, Palette, BookOpen, Database, Tag, Settings2, GitBranch, BarChart3, Server, Workflow, Users, PanelsTopLeft } from 'lucide-react';
 
 export const workspaceNavigation = [
+  ['全局搜索', Search],
   ['项目概览', Layers], ['项目排期', CalendarDays], ['玩法核心', Workflow], ['玩法设计', Gamepad2], ['原型设计', PanelsTopLeft], ['地图设计', Map], ['功能系统', ListTree], ['素材资产', Palette], ['故事文档', BookOpen], ['故事编排', BookOpen],
   ['数据配置', Database], ['枚举定义', Tag], ['枚举管理', Tag], ['引擎设置', Settings2], ['任务与流程', GitBranch], ['数值分析', BarChart3],
 ] as const;
@@ -10,7 +11,7 @@ export function WorkspaceSidebar({ picker, active, onNavigate, team = false, emp
   mapEnabled?: boolean; storyEnabled?: boolean; picker: ReactNode; active: string; onNavigate: (name: string) => void; team?: boolean; empty?: boolean; teamOverview?: boolean; teamCore?: boolean; teamGameplay?: boolean; teamSchedule?: boolean; onManageServer?: () => void; onManageUsers?: () => void; footer: ReactNode;
 }) {
   const items = workspaceNavigation.filter(([name]) => (name !== '地图设计' || mapEnabled && !team && !empty) && (name !== '故事编排' || storyEnabled && !team && !empty));
-  const unavailable = (name:string) => empty || (team && name !== '故事文档' && !(teamOverview && name === '项目概览') && !(teamCore && name === '玩法核心') && !(teamSchedule && name === '项目排期') && !(teamGameplay && name === '玩法设计'));
+  const unavailable = (name:string) => empty || (team && name !== '全局搜索' && name !== '故事文档' && !(teamOverview && name === '项目概览') && !(teamCore && name === '玩法核心') && !(teamSchedule && name === '项目排期') && !(teamGameplay && name === '玩法设计'));
   return <aside id="workspace-navigation" className="workspace-sidebar" aria-label="主导航栏">
     <div className="brand"><div className="logo">✦</div><div><b>GameCreator</b><small>CONTENT STUDIO</small></div></div>
     {picker}

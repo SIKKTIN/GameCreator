@@ -1,3 +1,4 @@
+import {useSearchRequest} from './GlobalSearch';
 import type { MapDesignStore } from './map-design';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
@@ -34,8 +35,10 @@ function StarterFlow() {
 }
 export function PrototypeDesign({ controller: c, onOpenGameplay, onOpenMap, requestedId, ...sources }: Sources & { onOpenMap?:(id:string)=>void; requestedId?: string; controller: PrototypeDesignController; onOpenGameplay: (id: string, kind?: string) => void }) {
   const { designs, maps, core, art, workspaceId } = sources;
+  const searchRequest=useSearchRequest('原型设计');
   const [sceneId, setSceneId] = useState(c.store.entryId || c.store.scenes[0]?.id || ''), [selected, setSelected] = useState('');
   useEffect(()=>{if(requestedId){setSceneId(requestedId);setSelected('');}},[requestedId]);
+  useEffect(()=>{if(searchRequest){setSceneId(searchRequest.parent||searchRequest.id);setSelected(searchRequest.kind==='element'?searchRequest.id:'');setSearch('');}},[searchRequest]);
   const [templateId, setTemplateId] = useState(''), [search, setSearch] = useState(''), [previewId, setPreviewId] = useState('');
   const scene = c.store.scenes.find(s => s.id === sceneId) || c.store.scenes[0];
   const element = scene?.elements.find(e => e.id === selected), source = scene ? prototypeSource(scene, designs, maps) : undefined;

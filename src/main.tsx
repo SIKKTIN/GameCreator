@@ -1,3 +1,5 @@
+import {GlobalSearchProvider,GlobalSearchInput,GlobalSearchPanel,SearchReturn} from './GlobalSearch';
+import type {SearchTarget} from './global-search';
 import { NumericalAnalysis } from './NumericalAnalysis';
 import { useNumericalAnalysis } from './useNumericalAnalysis';
 import { ProjectSchedule } from './ProjectSchedule';
@@ -480,8 +482,24 @@ function WorkspaceApp({ username, testSession, onLoadTest, onExitTest, preparing
   const toggleMilestone = (index: number) => { setRequestedSchedule({ kind: 'milestone', id: schedule.store.milestones[index]?.id || '' }); setActive('项目排期'); };
   const addMilestone = () => { setRequestedSchedule({ kind: 'milestone', id: '' }); setActive('项目排期'); };
 
+  const openSearchTarget = (t: SearchTarget) => {
+    if(!canLeaveTeam())return false;
+    onLeaveServer();
+    if(t.module==='玩法设计')openGameplay(t.parent||t.id,t.kind||'design',t.parent?t.id:'');
+    else if(t.module==='功能系统'){setFunctionalSelection({kind:t.kind==='system'?'system':'capability',id:t.id});setActive(t.module);}
+    else if(t.module==='素材资产'){setArtSelection({kind:t.kind==='asset'?'asset':'requirement',id:t.id});setActive(t.module);}
+    else if(t.module==='原型设计'){setRequestedPrototype(t.parent||t.id);setActive(t.module);}
+    else if(t.module==='地图设计'){setRequestedMap(t.parent||t.id);setActive(t.module);}
+    else if(t.module==='故事文档'){setActiveStoryId(t.id);setActive(t.module);}
+    else if(t.module==='故事编排'){setRequestedCharacter(t.kind==='character'?t.id:'');setNarrativeId(t.kind==='character'?(narrative.store.stories.find(s=>s.actors.some(a=>a.characterId===t.id))?.id||narrative.store.stories[0]?.id||''):t.parent||t.id);setActive(t.module);}
+    else if(t.module==='项目排期'){setRequestedSchedule({kind:t.kind==='milestone'?'milestone':'task',id:t.id});setActive(t.module);}
+    else if(t.module==='任务与流程'){setRequestedTask({id:t.id});setActive(t.module);}
+    else if(t.module==='数据配置'){setActiveDataset(t.parent||t.id);setActive(t.module);}
+    else setActive(t.module);
+  };
+  const searchSources = useMemo(()=>({analysis:analysis.blocked?undefined:analysis.store,project:projectError?undefined:project,gameplay:gameplay.blocked?undefined:gameplay.store,core:core.blocked?undefined:core.store,functional:functional.blocked?undefined:functional.store,art:art.blocked?undefined:art.store,prototype:prototype.blocked?undefined:prototype.store,maps:maps.blocked?undefined:maps.store,narrative:narrative.blocked?undefined:narrative.store,schedule:schedule.blocked?undefined:schedule.store,tasks:tasks.blocked?undefined:tasks.store,stories:storyError?undefined:storyDocs,data:registry.data,definitions,enums:registry.active?.scan}),[analysis.store,analysis.blocked,project,projectError,gameplay.store,gameplay.blocked,core.store,core.blocked,functional.store,functional.blocked,art.store,art.blocked,prototype.store,prototype.blocked,maps.store,maps.blocked,narrative.store,narrative.blocked,schedule.store,schedule.blocked,tasks.store,tasks.blocked,storyDocs,storyError,registry.data,definitions,registry.active]);
   return (
-    <div className="app local-workspace">
+    <GlobalSearchProvider activeModule={active} key={dataKey} sources={searchSources} warning={storageError ? "部分内容读取或保存异常，请检查各模块状态。" : ""} onNavigate={()=>{if(canLeaveTeam()){onLeaveServer();setActive('全局搜索');}}} onOpen={openSearchTarget}><div className="app local-workspace">
       <WorkspaceSidebar picker={<ProjectSwitcher projects={projectOptions} teamNotice={teamNotice} currentId={testSession ? null : formalProject.id} currentName={project.name}
           testName={testSession ? testScenarios.find(item=>item.id===testSession.scenario)?.name : undefined}
           canAdd busy={preparingTest || registry.busy || registry.loading || gameplay.pending || functional.pending || functional.blocked || art.pending || art.blocked || core.pending || prototype.pending || tasks.pending || narrative.pending || maps.pending || schedule.pending || analysis.pending} onSelect={onSelectProject} onAdd={onAddProject} onDelete={onDeleteProject} onConnectTeam={onConnectTeam} onCreateTeam={onCreateTeam} onPublishProject={!testSession && !storageError ? onPublishProject : undefined} onImportPrototype={onImportPrototype} onImportProject={onImportProject} onExportProject={!testSession && !storageError ? onExportProject : undefined} />} active={serverPage ? adminPageName??'服务器管理' : active}
@@ -496,12 +514,13 @@ function WorkspaceApp({ username, testSession, onLoadTest, onExitTest, preparing
           <div className="header-actions">
             {<TestPanel page={active} username={username} config={engineConfig} registry={registry} testSession={testSession}
               busy={preparingTest || gameplay.pending || functional.pending || functional.blocked || art.pending || art.blocked || core.pending || prototype.pending || tasks.pending || narrative.pending || maps.pending || schedule.pending || analysis.pending} error={testError || storageError} onLoad={onLoadTest} onExit={onExitTest} onNavigate={setActive} />}
-            <div className="search"><Search size={16} /><input placeholder="搜索内容..." /></div>
+            <GlobalSearchInput/>
             <button className="save" disabled={!!testSession || gameplay.blocked || gameplay.pending || functional.blocked || functional.pending || art.blocked || art.pending || core.blocked || prototype.blocked || tasks.blocked || narrative.blocked || maps.blocked || schedule.blocked || analysis.blocked || core.pending || prototype.pending || tasks.pending || narrative.pending || maps.pending || schedule.pending || analysis.pending} title={testSession ? "测试工作区可在面板复制诊断信息" : undefined} onClick={exportAiContext}><FileText size={16} />生成 AI 文档</button>
             <span className="save" role="status">{storageError ? <AlertTriangle size={16} /> : <Check size={16} />}{storageError ? '请检查保存状态' : registry.busy ? '正在保存…' : '已自动保存'}</span>
           </div>
         </header>
 
+        <SearchReturn active={active==='全局搜索'}/><GlobalSearchPanel active={active==='全局搜索'}/>
         {testSession && <div className="test-workspace-banner" role="status"><span><b>测试工作区</b> · {testScenarios.find(item=>item.id===testSession.scenario)?.name} · 数据独立保存</span>
           <button disabled={preparingTest || registry.busy || registry.loading || gameplay.pending || functional.pending || functional.blocked || art.pending || art.blocked || core.pending || prototype.pending || tasks.pending || narrative.pending || maps.pending || schedule.pending || analysis.pending} onClick={onExitTest}>返回原工作区</button></div>}
         {testError && <p className="field-error" role="alert">{testError}</p>}
@@ -577,7 +596,7 @@ function WorkspaceApp({ username, testSession, onLoadTest, onExitTest, preparing
         {active === '枚举定义' && <EnumDefinitions registry={registry} />}
         {active === '枚举管理' && <EnumManager config={engineConfig} registry={registry} />}
         {active === '引擎设置' && <fieldset disabled={!!testSession} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>{testSession && <p>测试场景使用固定来源，请通过测试面板加载或重置场景。</p>}<EngineSettings config={engineConfig} registry={registry} onPickDirectory={window.desktopClient?.pickProjectDirectory} setConfig={(next) => testSession ? Promise.resolve(false) : onConfigChange(next)} /></fieldset>}
-        {active !== '数值分析' && active !== '项目排期' && active !== '地图设计' && active !== '工作区设置' && active !== '故事编排' && active !== '原型设计' && active !== '任务与流程' && active !== '项目概览' && active !== '玩法核心' && active !== '玩法设计' && active !== '功能系统' && active !== '素材资产' && active !== '故事文档' && active !== '数据配置' && active !== '枚举定义' && active !== '枚举管理' && active !== '引擎设置' && (
+        {active !== '全局搜索' && active !== '数值分析' && active !== '项目排期' && active !== '地图设计' && active !== '工作区设置' && active !== '故事编排' && active !== '原型设计' && active !== '任务与流程' && active !== '项目概览' && active !== '玩法核心' && active !== '玩法设计' && active !== '功能系统' && active !== '素材资产' && active !== '故事文档' && active !== '数据配置' && active !== '枚举定义' && active !== '枚举管理' && active !== '引擎设置' && (
           <section className="empty">
             <div className="empty-icon"><Layers size={34} /></div>
             <h2>{active}</h2>
@@ -586,7 +605,7 @@ function WorkspaceApp({ username, testSession, onLoadTest, onExitTest, preparing
           </section>
         )}
       </main>
-    </div>
+    </div></GlobalSearchProvider>
   );
 }
 

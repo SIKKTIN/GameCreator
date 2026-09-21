@@ -1,3 +1,4 @@
+import {usePublishSearch} from './GlobalSearch';
 import { useEffect, useRef, useState } from 'react';
 import { normalizeInfo, normalizeMilestone, overviewLabels, overviewLimits, milestoneLabels, type OverviewInfo, type MilestoneFields, type TeamRecord } from './overview-model';
 import { canLeaveTeam, canEditModule, roleLabels, teamRequest, TeamError, type TeamCapabilities, type TeamRole, type TeamSession } from './team-api';
@@ -11,6 +12,7 @@ export function TeamOverview({ session,projectId,members,onMembers,onDenied,onSc
   session:TeamSession;projectId:string;members:{username:string;role:TeamRole}[];onMembers:()=>void;onDenied:(status?:number)=>void;blocked?:boolean;onSchedule?:()=>void;
 }) {
   const [data,setData] = useState<OverviewData|null>(null),[error,setError] = useState(''),[denied,setDenied] = useState(false),[refresh,setRefresh] = useState(0);
+  usePublishSearch('overview',data?.info.fields,'project',error||(!data?'项目概览正在加载':''),!blocked&&!denied&&!!data);
   const writable = !blocked && !denied && !!data && canEditModule(session,data.role,data.capabilities,'overview');
   const writableMilestones = !blocked && !denied && !!data && canEditModule(session,data.role,data.capabilities,(session.apiVersion??0)>=10?'schedule':'overview');
   const prefix = `gamecreator.team-draft.v1:${session.serverId}:${session.user.id}:${projectId}:overview`, newKey=prefix+':new';

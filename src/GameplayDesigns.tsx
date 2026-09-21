@@ -1,3 +1,4 @@
+import {useSearchRequest} from './GlobalSearch';
 import type { SpatialView } from './spatial-layout';
 import { useEffect, useRef, useState, type ReactNode, type FormEvent } from 'react';
 import { Archive, ArrowDown, ArrowRight, ArrowUp, CheckCircle2, Copy, FileText, FlaskConical, Folder, Settings2, ChevronRight, Gamepad2, Link2, Plus, RotateCcw, Search, Trash2, X } from 'lucide-react';
@@ -39,6 +40,8 @@ export function GameplayDesigns({ controller, selectedId, onSelect: setSelectedI
     setCategoryId(categoryOf(selected, categories)); setArchived(selected.archived); setQuery(''); setStatus('all'); setChosen([]);
     if (initialSource) setEditorTab(sourceTab(initialSource.kind));
   }, [selectedId, initialSource, selected?.categoryId]);
+  const searchRequest=useSearchRequest('玩法设计',t=>store.designs.some(d=>d.id===(t.parent||t.id)));
+  useEffect(()=>{if(searchRequest){const id=searchRequest.parent||searchRequest.id;openDocument(id);setEditorTab(sourceTab(searchRequest.kind||'design'));}},[searchRequest]);
   const goHome = () => { setCategoryId(null); setSelectedId(''); setQuery(''); setStatus('all'); setArchived(false); setChosen([]); };
   const openCategory = (id: string) => { setCategoryId(id); setSelectedId(''); setQuery(''); setStatus('all'); setScope('category'); setChosen([]); };
   const addDesign = (design: GameplayDesign) => { if (!update(current => ({ ...current, designs: [...current.designs, design] }))) return; setCategoryId(categoryOf(design, categories)); setArchived(false); setStatus('all'); setQuery(''); setSelectedId(design.id); setEditorTab('design'); };
