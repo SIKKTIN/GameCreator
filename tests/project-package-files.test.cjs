@@ -33,6 +33,7 @@ async function fixture(t) {
   archives['gameplay-core'] = {schema: 1, rootId: 'root', graphs: [{id: 'root', title: '核心', summary: '', nodes: [{id: 'entry', kind: 'entry', title: '开始', description: '', x: 12.5, y: 87, childGraphId: '', gameplayIds: ['gameplay-1']}], edges: []}]};
   archives['story-orchestration'] = {schema:1,enabled:false,stories:[]};
   archives['map-design'] = {schema:1,enabled:false,maps:[],connections:[]};
+  archives['numerical-analysis'] = {schema:1,plans:[]};
   archives['project-schedule'] = {schema:1,tasks:[],milestones:[]};
   archives['task-flows'] = {schema: 1, tasks: []};
   archives['data-view'] = {schema: 1, activeTable: 'crops'};

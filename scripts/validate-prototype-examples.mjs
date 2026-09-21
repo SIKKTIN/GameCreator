@@ -1,3 +1,5 @@
+import { runAnalysis } from '../src/numerical-analysis.ts';
+import { emptyStoryOrchestration } from '../src/story-orchestration.ts';
 import { validatePrototypeExample } from '../src/prototype-import.ts';
 import { validatePrototypeDesign, prototypeIssues } from '../src/prototype-design.ts';
 import assert from 'node:assert/strict';
@@ -12,7 +14,7 @@ import { validateArtAssets, validateArtMutation, emptyArtAssets, artIssues } fro
 const examples = [
   { file: 'hollow-knight.json', requirements: 26, assets: 39 },
   { file: 'stardew-valley.json', requirements: 23, assets: 34 },
-  { file: 'plants-vs-zombies.json', requirements: 20, assets: 32 },
+  { file: 'plants-vs-zombies.json', requirements: 20, assets: 37 },
   { file: 'disco-elysium.json', requirements: 22, assets: 40 },
   { file: 'vampire-survivors.json', requirements: 26, assets: 42 },
 ];
@@ -62,12 +64,16 @@ async function validateExample(expected) {
   const url = new URL(`../examples/prototypes/${expected.file}`, import.meta.url);
   const example = JSON.parse(await readFile(url, 'utf8'));
   assert.ok(record(example), 'example must be an object');
-  assert.deepEqual(Object.keys(example).filter(k=>k !== 'storyOrchestration' && k !== 'mapDesign' && k !== 'projectSchedule').sort(), ['schema', 'name', 'description', 'gameplay', 'gameplayCore', 'prototypeDesign', 'taskFlows', 'functionalSystems', 'artAssets', 'data', 'definitions', 'stories'].sort(), 'example contains missing or nonportable top-level fields');
+  assert.deepEqual(Object.keys(example).filter(k=>k !== 'storyOrchestration' && k !== 'mapDesign' && k !== 'projectSchedule' && k !== 'numericalAnalysis').sort(), ['schema', 'name', 'description', 'gameplay', 'gameplayCore', 'prototypeDesign', 'taskFlows', 'functionalSystems', 'artAssets', 'data', 'definitions', 'stories'].sort(), 'example contains missing or nonportable top-level fields');
   assert.equal(example.schema, 1, 'example schema');
   assert.ok(nonempty(example.name) && nonempty(example.description), 'example needs a name and description');
   validateDocuments(example);
   assert.equal(example.gameplay?.schema, 3, 'gameplay must use the current portable schema');
   validatePrototypeExample(example);
+  for(const plan of example.numericalAnalysis?.plans??[]) for(const variant of ['',...plan.variants.map(v=>v.id)]) {
+    const result=runAnalysis(plan,{data:example.data,narrative:example.storyOrchestration??emptyStoryOrchestration()},variant);
+    assert.deepEqual(result.errors,[],plan.name);assert.ok(result.rows.length);assert.deepEqual(result.rows.flatMap(r=>r.errors),[],plan.name);
+  }
   const gameplay = validateGameplay(example.gameplay);
   const core = validateGameplayCore(example.gameplayCore);
   assert.deepEqual(coreIssues(core, gameplay.designs), [], 'gameplay core references');

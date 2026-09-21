@@ -1,7 +1,7 @@
 /** A rebuildable, project-scoped index. Never reads disk, credentials or file contents. */
 export type SearchTarget = { module: string; id: string; parent?: string; kind?: string; scope?: string };
 export type SearchEntry = { key: string; title: string; path: string; body: string; archived: boolean; status: string; target: SearchTarget; refs: string[]; unavailable?: string };
-export type SearchSources = Partial<Record<'project'|'gameplay'|'core'|'functional'|'art'|'prototype'|'maps'|'stories'|'narrative'|'schedule'|'tasks'|'data'|'definitions'|'enums', unknown>>;
+export type SearchSources = Partial<Record<'project'|'gameplay'|'core'|'functional'|'art'|'prototype'|'maps'|'stories'|'narrative'|'schedule'|'tasks'|'data'|'definitions'|'enums'|'analysis', unknown>>;
 type Row = Record<string, unknown>;
 const row = (v: unknown): Row => v && typeof v === 'object' && !Array.isArray(v) ? v as Row : {};
 const list = (v: unknown): Row[] => Array.isArray(v) ? v.map(row) : [];
@@ -71,6 +71,7 @@ export function buildSearchIndex(s: SearchSources): SearchEntry[] {
   for(const v of list(narrative.characters)) add('故事编排',v,{kind:'character',unavailable:storyDisabled});
   for(const [field,kind] of [['tasks','task'],['milestones','milestone']] as const) for(const v of list(row(s.schedule)[field])) add('项目排期',v,{kind});
   for(const v of list(row(s.tasks).tasks)) add('任务与流程',v,{kind:'task'});
+  for(const v of list(row(s.analysis).plans)) add('数值分析',v,{kind:'plan',omit:['snapshots']});
   const data=row(s.data), columns=row(data.columns), defs=list(s.definitions);
   for(const [key,rows] of Object.entries(row(data.datasets))) {
     const def=defs.find(d=>d.key===key), title=name(def||{})||key;

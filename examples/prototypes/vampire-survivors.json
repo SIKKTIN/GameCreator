@@ -19578,5 +19578,185 @@
         "status": "计划中"
       }
     ]
+  },
+  "numericalAnalysis": {
+    "schema": 1,
+    "plans": [
+      {
+        "id": "analysis-vampire-survivors-1",
+        "name": "武器等级与输出预算",
+        "notes": "以每次发射数量 × 单次伤害 / 冷却计算理想输出预算；各投射物按一次有效命中计。持续区域、穿透、重复命中与实际覆盖率需另建公式。",
+        "gameplayId": "",
+        "parameters": [
+          {
+            "id": "damage",
+            "name": "单次伤害",
+            "value": 0,
+            "unit": "HP",
+            "minimum": 0,
+            "maximum": null,
+            "type": "number",
+            "binding": {
+              "kind": "cell",
+              "table": "vs_weapon_levels",
+              "rowId": "$row",
+              "field": "damage"
+            }
+          },
+          {
+            "id": "amount",
+            "name": "每次数量",
+            "value": 0,
+            "unit": "个",
+            "minimum": 0,
+            "maximum": null,
+            "type": "number",
+            "binding": {
+              "kind": "cell",
+              "table": "vs_weapon_levels",
+              "rowId": "$row",
+              "field": "amount"
+            }
+          },
+          {
+            "id": "period",
+            "name": "攻击间隔",
+            "value": 0,
+            "unit": "秒",
+            "minimum": 0.001,
+            "maximum": null,
+            "type": "number",
+            "binding": {
+              "kind": "cell",
+              "table": "vs_weapon_levels",
+              "rowId": "$row",
+              "field": "cooldown"
+            }
+          },
+          {
+            "id": "bonus",
+            "name": "冷却每级增量",
+            "value": 0,
+            "unit": "",
+            "minimum": null,
+            "maximum": null,
+            "type": "number",
+            "binding": {
+              "kind": "cell",
+              "table": "vs_passives",
+              "rowId": "tome",
+              "field": "perLevel"
+            }
+          },
+          {
+            "id": "rank",
+            "name": "空白之书等级",
+            "value": 0,
+            "unit": "级",
+            "minimum": 0,
+            "maximum": 5,
+            "type": "number",
+            "binding": {
+              "kind": "constant"
+            }
+          }
+        ],
+        "metrics": [
+          {
+            "id": "cooldown",
+            "name": "修正后冷却",
+            "formula": "period * (1 + bonus * rank)",
+            "unit": "秒",
+            "minimum": null,
+            "maximum": null
+          },
+          {
+            "id": "dps",
+            "name": "理想输出预算",
+            "formula": "damage * amount / cooldown",
+            "unit": "HP/秒",
+            "minimum": null,
+            "maximum": null
+          }
+        ],
+        "variants": [
+          {
+            "id": "tome5",
+            "name": "空白之书 5 级",
+            "overrides": {
+              "rank": 5
+            }
+          }
+        ],
+        "snapshots": [],
+        "batch": {
+          "table": "vs_weapon_levels",
+          "rowIds": []
+        },
+        "sweep": null,
+        "check": null
+      },
+      {
+        "id": "analysis-vampire-survivors-2",
+        "name": "升级经验需求",
+        "notes": "每条记录表示从当前等级到下一级的经验需求；不包含击杀效率、拾取与暂停时间。",
+        "gameplayId": "",
+        "parameters": [
+          {
+            "id": "xp",
+            "name": "下级经验",
+            "value": 0,
+            "unit": "经验",
+            "minimum": 0,
+            "maximum": null,
+            "type": "number",
+            "binding": {
+              "kind": "cell",
+              "table": "vs_experience",
+              "rowId": "$row",
+              "field": "nextXp"
+            }
+          },
+          {
+            "id": "rate",
+            "name": "假设经验获取速度",
+            "value": 5,
+            "unit": "经验/秒",
+            "minimum": 0.001,
+            "maximum": null,
+            "type": "number",
+            "binding": {
+              "kind": "constant"
+            }
+          }
+        ],
+        "metrics": [
+          {
+            "id": "need",
+            "name": "升级所需经验",
+            "formula": "xp",
+            "unit": "经验",
+            "minimum": null,
+            "maximum": null
+          },
+          {
+            "id": "time",
+            "name": "假设升级耗时",
+            "formula": "xp / rate",
+            "unit": "秒",
+            "minimum": null,
+            "maximum": null
+          }
+        ],
+        "variants": [],
+        "snapshots": [],
+        "batch": {
+          "table": "vs_experience",
+          "rowIds": []
+        },
+        "sweep": null,
+        "check": null
+      }
+    ]
   }
 }

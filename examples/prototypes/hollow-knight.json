@@ -15061,5 +15061,204 @@
         "status": "计划中"
       }
     ]
+  },
+  "numericalAnalysis": {
+    "schema": 1,
+    "plans": [
+      {
+        "id": "analysis-hollow-knight-1",
+        "name": "敌人承伤与击杀时间",
+        "notes": "持续命中、无护甲、无无敌阶段。第一次命中发生在 t=0；击杀时间不含接近敌人与首领阶段等待。",
+        "gameplayId": "",
+        "parameters": [
+          {
+            "id": "hp",
+            "name": "敌人生命",
+            "value": 0,
+            "unit": "HP",
+            "minimum": 0,
+            "maximum": null,
+            "type": "number",
+            "binding": {
+              "kind": "cell",
+              "table": "hk_enemies",
+              "rowId": "$row",
+              "field": "hp"
+            }
+          },
+          {
+            "id": "damage",
+            "name": "单次伤害",
+            "value": 0,
+            "unit": "HP",
+            "minimum": 0.001,
+            "maximum": null,
+            "type": "number",
+            "binding": {
+              "kind": "cell",
+              "table": "hk_params",
+              "rowId": "nail_damage",
+              "field": "value"
+            }
+          },
+          {
+            "id": "period",
+            "name": "攻击周期",
+            "value": 0,
+            "unit": "秒",
+            "minimum": 0.001,
+            "maximum": null,
+            "type": "number",
+            "binding": {
+              "kind": "cell",
+              "table": "hk_params",
+              "rowId": "nail_period",
+              "field": "value"
+            }
+          }
+        ],
+        "metrics": [
+          {
+            "id": "hits",
+            "name": "击杀次数",
+            "formula": "ceil(hp / damage)",
+            "unit": "次",
+            "minimum": null,
+            "maximum": null
+          },
+          {
+            "id": "dps",
+            "name": "理论每秒伤害",
+            "formula": "damage / period",
+            "unit": "HP/秒",
+            "minimum": null,
+            "maximum": null
+          },
+          {
+            "id": "time",
+            "name": "理想击杀时间",
+            "formula": "max(0, hits - 1) * period",
+            "unit": "秒",
+            "minimum": null,
+            "maximum": null
+          }
+        ],
+        "variants": [
+          {
+            "id": "stronger",
+            "name": "骨钉伤害 6",
+            "overrides": {
+              "damage": 6
+            }
+          }
+        ],
+        "snapshots": [],
+        "batch": {
+          "table": "hk_enemies",
+          "rowIds": []
+        },
+        "sweep": null,
+        "check": null
+      },
+      {
+        "id": "analysis-hollow-knight-2",
+        "name": "聚焦治疗资源",
+        "notes": "从 0 灵魂开始，按普通敌/首领每次有效命中计算；不含残影、受击与治疗打断。",
+        "gameplayId": "",
+        "parameters": [
+          {
+            "id": "gain",
+            "name": "命中获得灵魂",
+            "value": 0,
+            "unit": "灵魂",
+            "minimum": 0.001,
+            "maximum": null,
+            "type": "number",
+            "binding": {
+              "kind": "cell",
+              "table": "hk_params",
+              "rowId": "soul_hit",
+              "field": "value"
+            }
+          },
+          {
+            "id": "cost",
+            "name": "聚焦消耗",
+            "value": 0,
+            "unit": "灵魂",
+            "minimum": 0,
+            "maximum": null,
+            "type": "number",
+            "binding": {
+              "kind": "cell",
+              "table": "hk_params",
+              "rowId": "focus_cost",
+              "field": "value"
+            }
+          },
+          {
+            "id": "cap",
+            "name": "正常上限",
+            "value": 0,
+            "unit": "灵魂",
+            "minimum": 0,
+            "maximum": null,
+            "type": "number",
+            "binding": {
+              "kind": "cell",
+              "table": "hk_params",
+              "rowId": "soul_cap",
+              "field": "value"
+            }
+          },
+          {
+            "id": "duration",
+            "name": "聚焦时长",
+            "value": 0,
+            "unit": "秒",
+            "minimum": 0,
+            "maximum": null,
+            "type": "number",
+            "binding": {
+              "kind": "cell",
+              "table": "hk_params",
+              "rowId": "focus_duration",
+              "field": "value"
+            }
+          }
+        ],
+        "metrics": [
+          {
+            "id": "hits",
+            "name": "一次治疗所需命中",
+            "formula": "ceil(cost / gain)",
+            "unit": "次",
+            "minimum": null,
+            "maximum": null
+          },
+          {
+            "id": "heals",
+            "name": "满灵魂可治疗次数",
+            "formula": "floor(cap / cost)",
+            "unit": "次",
+            "minimum": null,
+            "maximum": null
+          },
+          {
+            "id": "time",
+            "name": "连续治疗耗时",
+            "formula": "heals * duration",
+            "unit": "秒",
+            "minimum": null,
+            "maximum": null
+          }
+        ],
+        "variants": [],
+        "snapshots": [],
+        "batch": null,
+        "sweep": null,
+        "check": null
+      }
+    ]
   }
 }

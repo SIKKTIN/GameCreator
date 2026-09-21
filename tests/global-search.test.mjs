@@ -2,11 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import {buildSearchIndex,searchEntries,relatedEntries} from '../src/global-search.ts';
-const sources=e=>({gameplay:e.gameplay,core:e.gameplayCore,functional:e.functionalSystems,art:e.artAssets,prototype:e.prototypeDesign,maps:e.mapDesign,stories:e.stories,narrative:e.storyOrchestration,schedule:e.projectSchedule,tasks:e.taskFlows,data:e.data,definitions:e.definitions});
+const sources=e=>({analysis:e.numericalAnalysis,gameplay:e.gameplay,core:e.gameplayCore,functional:e.functionalSystems,art:e.artAssets,prototype:e.prototypeDesign,maps:e.mapDesign,stories:e.stories,narrative:e.storyOrchestration,schedule:e.projectSchedule,tasks:e.taskFlows,data:e.data,definitions:e.definitions});
 for(const slug of ['plants-vs-zombies','stardew-valley','hollow-knight','disco-elysium','vampire-survivors'])test(slug+' indexes searchable content without mutation',async()=>{
  const e=JSON.parse(await fs.readFile(new URL('../examples/prototypes/'+slug+'.json',import.meta.url))),raw=JSON.stringify(e),entries=buildSearchIndex(sources(e));
  assert.ok(entries.length>50);assert.equal(new Set(entries.map(x=>x.key)).size,entries.length);
- for(const [key,module,field] of [['gameplay','玩法设计','designs'],['artAssets','素材资产','requirements'],['functionalSystems','功能系统','capabilities'],['projectSchedule','项目排期','tasks'],['prototypeDesign','原型设计','scenes']])for(const v of e[key]?.[field]||[]){const hits=searchEntries(entries,v.title||v.name,module,true);assert.ok(hits.some(h=>h.entry.target.id===v.id),module+': '+v.id);}
+ for(const [key,module,field] of [['gameplay','玩法设计','designs'],['artAssets','素材资产','requirements'],['functionalSystems','功能系统','capabilities'],['projectSchedule','项目排期','tasks'],['prototypeDesign','原型设计','scenes'],['numericalAnalysis','数值分析','plans']])for(const v of e[key]?.[field]||[]){const hits=searchEntries(entries,v.title||v.name,module,true);assert.ok(hits.some(h=>h.entry.target.id===v.id),module+': '+v.id);}
  for(const r of e.artAssets.requirements){const token=r.generationPrompt.prompt.slice(-60);assert.ok(searchEntries(entries,token,'素材资产').some(h=>h.entry.target.id===r.id),'prompt body');}
  for(const d of e.gameplay.designs)for(const state of d.stateFlow.states)assert.ok(entries.some(x=>x.target.kind==='state'&&x.target.id===state.id&&x.target.parent===d.id));
  assert.equal(JSON.stringify(e),raw);

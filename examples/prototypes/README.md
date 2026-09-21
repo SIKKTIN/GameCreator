@@ -6,7 +6,7 @@
 | --- | ---: | ---: | ---: |
 | [hollow-knight.json](hollow-knight.json) | 8 | 9 / 17 | 26 / 39 |
 | [stardew-valley.json](stardew-valley.json) | 6 | 8 / 19 | 23 / 34 |
-| [plants-vs-zombies.json](plants-vs-zombies.json) | 5 | 7 / 17 | 20 / 32 |
+| [plants-vs-zombies.json](plants-vs-zombies.json) | 5 | 7 / 17 | 20 / 37 |
 | [disco-elysium.json](disco-elysium.json) | 8 | 9 / 21 | 22 / 40 |
 | [vampire-survivors.json](vampire-survivors.json) | 9 | 9 / 24 | 26 / 42 |
 
@@ -70,3 +70,9 @@ node scripts/validate-prototype-examples.mjs
 
 
 五套 `prototypeDesign` 已包含完整入口和可返回的场景分支：植物大战僵尸 17 场景、星露谷物语 19 场景、空洞骑士 15 场景、极乐迪斯科 31 场景、吸血鬼幸存者 24 场景。查看 [可点击原型说明](../../docs/prototype-examples.md#可点击原型场景)。这是点击式设计预览，不包含游戏战斗、物理或经济运行时。
+
+## 数值分析示例
+
+`numericalAnalysis` 保存 schema 1 分析方案，五份示例共 13 个：空洞骑士 2、星露谷 1、植物大战僵尸 3、极乐迪斯科 5、吸血鬼幸存者 2。数据实时绑定当前项目配置，包含公式、单位、适用假设及部分备选方案。已有副本可在数值分析中选择“添加分析示例”；不会自动覆盖已有项目。详见 [数值分析](../../docs/numerical-analysis.md)。
+
+植物大战僵尸的素材范围已按本版三植物、两僵尸复核，角色目录含三种植物，敌人与首领含两种僵尸。保留 20 条需求，交付台账由 32 项补全为 37 项（新增五份单位定型基准），详情见 [PVZ 素材范围](../../docs/pvz-material-scope.md)。

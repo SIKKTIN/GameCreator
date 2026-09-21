@@ -1,0 +1,125 @@
+import {useSearchRequest} from './GlobalSearch';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Activity, Plus, Download, Copy, Trash2, ArrowUpRight, BarChart3, LineChart, Bookmark } from 'lucide-react';
+import type { NumericalAnalysisController } from './useNumericalAnalysis';
+import { analysisCsv, newAnalysisPlan, planFromStoryCheck, runAnalysis, snapshotAnalysis, type AnalysisPlan, type AnalysisSources, type AnalysisParameter, type AnalysisRow } from './numerical-analysis';
+import { analysisExampleGroups, analysisExamples } from './analysis-examples';
+import type { DatasetDef } from './data-model';
+import './numerical-analysis.css';
+
+const fmt=(v:number|undefined)=>v===undefined?'—':!Number.isFinite(v)?'超出范围':v!==0&&(Math.abs(v)>=1e9||Math.abs(v)<.0001)?v.toExponential(3):new Intl.NumberFormat('zh-CN',{maximumFractionDigits:4}).format(v);
+function NumberField({label,value,onChange,optional=false,minimum,maximum,integer=false}:{label:string;value:number|null;onChange:(v:number|null)=>void;optional?:boolean;minimum?:number|null;maximum?:number|null;integer?:boolean}) {
+  const [text,setText]=useState(String(value??''));useEffect(()=>setText(String(value??'')),[value]);
+  return <label>{label}<input type="number" step="any" aria-label={label} value={text} onChange={e=>{
+    const raw=e.currentTarget.value;setText(raw);if(!raw.trim()){if(optional)onChange(null);return;}const n=Number(raw);if(Number.isFinite(n))onChange(n);
+  }} onBlur={()=>{if(!text.trim()&&!optional)setText(String(value??0));}}/>{minimum!=null&&maximum!=null&&maximum>minimum&&<input type="range" aria-label={label+' 滑块'} min={minimum} max={maximum} step={integer?1:(maximum-minimum)/100} value={value??minimum} onChange={e=>onChange(Number(e.target.value))}/>}</label>;
+}
+function Choice({label,value,onChange,items,empty='请选择'}:{label:string;value:string;onChange:(v:string)=>void;items:{id:string;name:string}[];empty?:string}) {
+  return <label>{label}<select aria-label={label} value={value} onChange={e=>onChange(e.target.value)}><option value="">{empty}</option>{value&&!items.some(i=>i.id===value)&&<option value={value}>失效引用：{value}</option>}{items.map(i=><option key={i.id} value={i.id}>{i.name}</option>)}</select></label>;
+}
+function Plot({rows,metric,unit,baseline,line,axisLabel,onSelect}:{rows:AnalysisRow[];metric:string;unit:string;baseline:AnalysisRow[];line:boolean;axisLabel:string;onSelect:(key:string)=>void}) {
+  const valid=rows.filter(r=>Number.isFinite(r.values[metric]));
+  if(!valid.length)return <div className="na-empty">配置参数和公式后，这里显示计算图表。</div>;
+  const min=Math.min(0,...valid.map(r=>r.values[metric]),...baseline.map(r=>r.values[metric]).filter(Number.isFinite)),max=Math.max(0,...valid.map(r=>r.values[metric]),...baseline.map(r=>r.values[metric]).filter(Number.isFinite));
+  const scale=Math.max(Math.abs(min),Math.abs(max),1),span=max/scale-min/scale||1,y=(v:number)=>250-(v/scale-min/scale)/span*205,zero=y(0),x=(i:number)=>70+(i+.5)*760/rows.length;
+  const base=new Map(baseline.map(r=>[r.key,r]));
+  const path=rows.map((r,i)=>Number.isFinite(r.values[metric])?`${i===0||!Number.isFinite(rows[i-1].values[metric])||JSON.parse(r.key)[0]!==JSON.parse(rows[i-1].key)[0]?'M':'L'}${x(i)},${y(r.values[metric])}`:'').join(' ');
+  return <div className="na-chart"><svg viewBox="0 0 900 315" role="img" aria-label={'分析图表，单位 '+unit}>
+    {[0,1,2,3,4].map(i=>{const v=min*(1-i/4)+(max===min?1:max)*i/4;return <g key={i}><line x1="70" x2="840" y1={y(v)} y2={y(v)} className="na-gridline"/><text x="60" y={y(v)+4} textAnchor="end">{fmt(v)}</text></g>;})}
+    <text x="70" y="22">{unit||'数值'} · 紫色：当前结果{baseline.length?' · 青色：已存基准':''}</text><text x="450" y="304" textAnchor="middle">{axisLabel}</text>
+    {line&&<path d={path} fill="none" stroke="#a78bfa" strokeWidth="2.5"/>}
+    {rows.map((r,i)=>{const value=r.values[metric],old=base.get(r.key)?.values[metric],w=Math.min(38,560/rows.length);return <g key={r.key} role="button" tabIndex={0} aria-label={r.label+' '+fmt(value)} onClick={()=>onSelect(r.key)} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();onSelect(r.key);}}}>
+      {Number.isFinite(old)&&<line x1={x(i)-w/2} x2={x(i)+w/2} y1={y(old!)} y2={y(old!)} stroke="#56d5ba" strokeWidth="3"/>}
+      {Number.isFinite(value)&&(line?<circle cx={x(i)} cy={y(value)} r="4" fill={r.outside.includes(metric)?'#efb665':'#b9a2ff'}/>:<rect x={x(i)-w/2} y={Math.min(zero,y(value))} width={w} height={Math.max(2,Math.abs(y(value)-zero))} rx="3" fill={r.outside.includes(metric)?'#efb665':'#9471ed'}/>)}
+      {(rows.length<12||i%Math.ceil(rows.length/10)===0)&&<text x={x(i)} y="277" textAnchor="middle">{r.label.length>10?r.label.slice(0,9)+'…':r.label}</text>}<title>{r.label+'：'+fmt(value)+' '+unit}</title>
+    </g>;})}
+  </svg></div>;
+}
+export function NumericalAnalysis({controller:c,sources,definitions,designs,onOpenDataset,onOpenGameplay}:{controller:NumericalAnalysisController;sources:AnalysisSources;definitions:DatasetDef[];designs:{id:string;title:string}[];onOpenDataset:(table:string)=>void;onOpenGameplay:(id:string)=>void}) {
+  const searchRequest=useSearchRequest('数值分析',t=>c.store.plans.some(p=>p.id===t.id));
+  useEffect(()=>{if(searchRequest){setSelected(searchRequest.id);setQuery('');}},[searchRequest]);
+  const [selected,setSelected]=useState(''),[query,setQuery]=useState(''),[tab,setTab]=useState('分析结果'),[variantId,setVariantId]=useState(''),[metricId,setMetricId]=useState(''),[rowKey,setRowKey]=useState(''),[snapshotId,setSnapshotId]=useState('latest'),[line,setLine]=useState<boolean|null>(null),[error,setError]=useState(''),[examplesOpen,setExamplesOpen]=useState(false),[exampleId,setExampleId]=useState(''),[checkSelection,setCheckSelection]=useState('');
+  const plan=c.store.plans.find(p=>p.id===selected)??c.store.plans[0];
+  const lineMode=line??!!plan?.sweep;
+  const variant=plan?.variants.some(v=>v.id===variantId)?variantId:'';
+  const result=useMemo(()=>plan?runAnalysis(plan,sources,variant):{rows:[],signature:'',errors:[]},[plan,sources.data,sources.narrative,variant]);
+  const metric=plan?.metrics.find(m=>m.id===metricId)??plan?.metrics[0];
+  const row=result.rows.find(r=>r.key===rowKey)??result.rows[0];
+  const snapshot=snapshotId==='latest'?plan?.snapshots[0]:plan?.snapshots.find(s=>s.id===snapshotId);
+  const comparisons=useMemo(()=>plan?plan.variants.map(v=>({variant:v,run:runAnalysis(plan,sources,v.id)})):[],[plan,sources.data,sources.narrative]);
+  const change=(f:(p:AnalysisPlan)=>AnalysisPlan)=>{if(plan)c.update(s=>({...s,plans:s.plans.map(p=>p.id===plan.id?f(p):p)}));};
+  const patch=(v:Partial<AnalysisPlan>)=>change(p=>({...p,...v}));
+  const select=(id:string)=>{setSelected(id);setVariantId('');setMetricId('');setRowKey('');setSnapshotId('latest');setLine(null);setError('');};
+  const add=(plans:AnalysisPlan[])=>{if(c.update(s=>({...s,plans:[...s.plans,...plans]}))){select(plans[0].id);setExamplesOpen(false);}};
+  const attempt=(action:()=>void)=>{try{setError('');action();}catch(e){setError((e as Error).message);}};
+  const parameter=(id:string,patch:Partial<AnalysisParameter>)=>change(p=>({...p,parameters:p.parameters.map(v=>v.id===id?{...v,...patch}:v)}));
+  const nextSymbol=(prefix:string)=>{let n=1;while(plan&&[...plan.parameters,...plan.metrics].some(v=>v.id===prefix+n))n++;return prefix+n;};
+  const download=()=>{if(!plan)return;const url=URL.createObjectURL(new Blob([analysisCsv(plan,result.rows)],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download=plan.name.replace(/[<>:"/\\|?*]/g,'_')+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+  const field=(label:string,child:ReactNode)=><label>{label}{child}</label>;
+  return <section className="na-workspace">
+    <div className="na-intro"><div><span className="na-kicker">NUMERICAL LAB</span><h2>让每次调参都有依据。</h2><p>连接配置、建立公式，在曲线和方案对比中检验设计目标。</p></div><button onClick={()=>setExamplesOpen(!examplesOpen)} disabled={c.blocked}>添加分析示例</button></div>
+    {error&&<p role="alert" className="field-error">{error}</p>}
+    {examplesOpen&&<div className="na-panel na-example-panel"><h3>为当前项目添加分析方案</h3><p>使用当前项目配置，只新增分析方案。添加后可在“参数与公式”核对、调整绑定；缺失字段会明确显示。</p>
+      <Choice label="分析示例" value={exampleId} onChange={setExampleId} items={analysisExampleGroups.map(g=>({id:g.id,name:g.name}))}/>
+      {exampleId&&<p>需要配置表：{analysisExampleGroups.find(g=>g.id===exampleId)?.tables.join('、')}</p>}
+      <button className="primary" disabled={!exampleId||c.blocked} onClick={()=>attempt(()=>add(analysisExamples(exampleId,sources)))}>添加所选示例</button>
+      {sources.narrative.enabled&&<><hr/><Choice label="故事检定" value={checkSelection} onChange={setCheckSelection} items={sources.narrative.stories.flatMap(s=>s.checks.map(check=>({id:JSON.stringify([s.id,check.id]),name:s.title+' / '+check.name})))}/><button disabled={!checkSelection||c.blocked} onClick={()=>attempt(()=>{const [id,check]=JSON.parse(checkSelection);add([planFromStoryCheck(sources.narrative.stories.find(s=>s.id===id)!,check)]);})}>从故事检定创建分析</button></>}
+    </div>}
+    <div className="na-layout"><aside className="na-directory na-panel"><div className="na-title"><Activity size={20}/><h3>分析方案</h3><span>{c.store.plans.length}</span></div><button className="primary" disabled={c.blocked} onClick={()=>{add([newAnalysisPlan()]);setTab('参数与公式');}}><Plus size={15}/>新建分析</button><input aria-label="搜索分析方案" placeholder="搜索分析方案…" value={query} onChange={e=>setQuery(e.target.value)}/>
+      <div className="na-plan-list">{c.store.plans.filter(p=>(p.name+' '+p.notes).includes(query)).map(p=><button key={p.id} className={'na-plan '+(p.id===plan?.id?'selected':'')} onClick={()=>select(p.id)}><strong>{p.name||'未命名分析'}</strong><span>{p.metrics.length} 个指标 · {p.variants.length} 个试算方案</span><small>{p.notes.slice(0,76)||'设置数据来源与计算假设'}</small></button>)}</div>
+    </aside><div className="na-main">{!plan?<div className="na-panel na-empty"><BarChart3 size={36}/><h3>从一个需要验证的问题开始</h3><p>新建分析，或为当前原型添加数值示例。</p><p>例如：伤害提升 1 点，击败不同敌人需要少攻击几次？</p></div>:<>
+      <div className="na-title"><div><span className="na-kicker">{plan.batch?'批量分析':plan.sweep?'参数曲线':'指标试算'}</span><h2>{plan.name||'未命名分析'}</h2></div><div className="na-actions"><button title="复制分析方案" disabled={c.blocked} onClick={()=>{const p=structuredClone(plan);p.id=crypto.randomUUID();p.name+=' · 副本';p.snapshots=[];add([p]);}}><Copy size={15}/>复制</button><button title="删除分析方案" disabled={c.blocked} onClick={()=>{if(window.confirm('删除分析“'+plan.name+'”及其保存结果？'))c.update(s=>({...s,plans:s.plans.filter(p=>p.id!==plan.id)}));}}><Trash2 size={15}/>删除</button></div></div>
+      <nav className="na-tabs">{['参数与公式','分析结果','方案对比'].map(t=><button key={t} className={tab===t?'active':''} onClick={()=>setTab(t)}>{t}</button>)}</nav>
+      {tab==='参数与公式'&&<fieldset className="na-editor" disabled={c.blocked}>
+        <div className="na-panel"><h3>分析设置</h3><div className="na-form-grid">{field('分析名称',<input value={plan.name} onChange={e=>patch({name:e.target.value})}/>)}<Choice label="关联玩法" value={plan.gameplayId} onChange={gameplayId=>patch({gameplayId})} items={designs.map(d=>({id:d.id,name:d.title}))} empty="不关联"/></div>{plan.gameplayId&&<button onClick={()=>onOpenGameplay(plan.gameplayId)}><ArrowUpRight size={14}/>查看关联玩法</button>}{field('计算假设与适用范围',<textarea value={plan.notes} placeholder="例如：全部攻击命中，第一次命中在 t=0，不计护甲。" onChange={e=>patch({notes:e.target.value})}/>)}
+          <Choice label="批量来源表" value={plan.batch?.table??''} onChange={table=>patch({batch:table?{table,rowIds:[]}:null})} items={definitions.map(d=>({id:d.key,name:d.label}))} empty="单组参数"/>
+          {plan.batch&&<details><summary>参与对比的记录（未勾选时使用全表，最多 100 条）</summary><div className="na-records">{(sources.data.datasets[plan.batch.table]??[]).map((r,i)=><label key={r.id+':'+i}><input type="checkbox" checked={plan.batch!.rowIds.includes(r.id)} onChange={e=>patch({batch:{...plan.batch!,rowIds:e.target.checked?[...plan.batch!.rowIds,r.id]:plan.batch!.rowIds.filter(id=>id!==r.id)}})}/>{r.name||r.id}</label>)}</div></details>}
+          <Choice label="曲线变化参数" value={plan.sweep?.parameterId??''} onChange={parameterId=>patch({sweep:parameterId?{parameterId,start:0,end:10,step:1}:null})} items={plan.parameters.map(p=>({id:p.id,name:p.name}))} empty="不扫描参数"/>
+          {plan.sweep&&<div className="na-form-grid">{(['start','end','step'] as const).map((k,i)=><NumberField key={k} label={['曲线起点','曲线终点','采样步长'][i]} value={plan.sweep![k]} onChange={v=>patch({sweep:{...plan.sweep!,[k]:v??0}})}/>)}</div>}
+          {plan.check&&<p className="na-note">概率规则实时引用故事检定；状态参数默认使用初始值，可在试算方案中覆盖。</p>}
+        </div>
+        <div className="na-panel"><div className="na-title"><h3>参数与来源</h3><button onClick={()=>patch({parameters:[...plan.parameters,{id:nextSymbol('p'),name:'新参数',unit:'',value:1,type:'number',minimum:null,maximum:null,binding:{kind:'constant'}}]})}><Plus size={15}/>添加参数</button></div>
+          <p className="na-note">公式使用参数标识。百分比按 0～1 的比例计算（如 25% = 0.25）；常量和试算值也填写比例。</p>
+          {plan.parameters.map(p=><details key={p.id} className="na-item"><summary><code>{p.id}</code> {p.name} <span>{p.binding.kind==='constant'?'常量':p.binding.kind==='cell'?'配置引用':'故事状态'} · {p.unit||'无单位'}</span></summary><div className="na-form-grid">
+            {field('参数名称 '+p.id,<input value={p.name} onChange={e=>parameter(p.id,{name:e.target.value})}/>)}{field('参数单位 '+p.id,<input value={p.unit} placeholder="如 HP、秒、金币" onChange={e=>parameter(p.id,{unit:e.target.value})}/>)}
+            <Choice label={'数值类型 '+p.id} value={p.type} onChange={v=>{if(v)parameter(p.id,{type:v as AnalysisParameter['type']});}} items={[{id:'number',name:'小数'},{id:'integer',name:'整数'},{id:'percent',name:'百分比（比例值）'}]}/>
+            <Choice label={'来源类型 '+p.id} value={p.binding.kind} onChange={v=>{if(v)parameter(p.id,{binding:v==='cell'?{kind:'cell',table:'',rowId:'',field:''}:v==='variable'?{kind:'variable',storyId:'',variableId:''}:{kind:'constant'}});}} items={[{id:'constant',name:'试算常量'},{id:'cell',name:'配置表字段'},...(sources.narrative.enabled?[{id:'variable',name:'故事状态'}]:[])]}/>
+            <NumberField label={'最小值 '+p.id} optional value={p.minimum} onChange={minimum=>parameter(p.id,{minimum})}/><NumberField label={'最大值 '+p.id} optional value={p.maximum} onChange={maximum=>parameter(p.id,{maximum})}/>
+          </div>
+          {p.binding.kind==='constant'&&<NumberField label={'参数值 '+p.id} value={p.value} minimum={p.minimum} maximum={p.maximum} integer={p.type==='integer'} onChange={v=>parameter(p.id,{value:v??0})}/>}
+          {p.binding.kind==='cell'&&(()=>{const b=p.binding;return <div className="na-form-grid"><Choice label={'来源表 '+p.id} value={b.table} onChange={table=>parameter(p.id,{binding:{...b,table,rowId:'',field:''}})} items={definitions.map(d=>({id:d.key,name:d.label}))}/>
+            <Choice label={'来源记录 '+p.id} value={b.rowId} onChange={rowId=>parameter(p.id,{binding:{...b,rowId}})} items={[...(plan.batch?[{id:'$row',name:'当前批量记录 ID'},...(sources.data.columns[plan.batch.table]??[]).filter(col=>col.key!=='id').map(col=>({id:'$row.'+col.key,name:'当前记录的 '+col.label+' 作为目标 ID'}))]:[]),...(sources.data.datasets[b.table]??[]).map(r=>({id:r.id,name:r.name?r.name+' ('+r.id+')':r.id}))]}/>
+            <Choice label={'来源字段 '+p.id} value={b.field} onChange={v=>parameter(p.id,{binding:{...b,field:v}})} items={(sources.data.columns[b.table]??[]).map(col=>({id:col.key,name:col.label}))}/><button disabled={!b.table} onClick={()=>onOpenDataset(b.table)}><ArrowUpRight size={14}/>查看来源配置表</button></div>;})()}
+          {p.binding.kind==='variable'&&(()=>{const b=p.binding;return <div className="na-form-grid"><Choice label={'来源故事 '+p.id} value={b.storyId} onChange={storyId=>parameter(p.id,{binding:{...b,storyId,variableId:''}})} items={sources.narrative.stories.map(s=>({id:s.id,name:s.title}))}/><Choice label={'来源状态 '+p.id} value={b.variableId} onChange={variableId=>parameter(p.id,{binding:{...b,variableId}})} items={(sources.narrative.stories.find(s=>s.id===b.storyId)?.variables??[]).map(v=>({id:v.id,name:v.name}))}/></div>;})()}
+          <button className="na-danger" onClick={()=>{if(window.confirm('删除参数 '+p.name+'？引用它的公式会提示失效。'))patch({parameters:plan.parameters.filter(v=>v.id!==p.id)});}}>删除参数 {p.id}</button></details>)}
+        </div>
+        <div className="na-panel"><div className="na-title"><h3>计算指标与目标</h3><button onClick={()=>patch({metrics:[...plan.metrics,{id:nextSymbol('m'),name:'新指标',unit:'',formula:plan.parameters[0]?.id||'0',minimum:null,maximum:null}]})}><Plus size={15}/>添加指标</button></div>
+          <details className="na-help"><summary>公式语法与示例</summary><p>支持 + − * / ^、比较符、min / max / abs / floor / ceil / round / sqrt / pow / clamp / if。指标可引用其他指标。</p><code>ceil(hp / damage)</code><p>diceChance(技能, 难度, 骰子数, 面数, 极值规则) 返回 0～1；storyChance() 使用关联故事检定。单位由参数和指标声明，公式需使用统一单位。</p></details>
+          {plan.metrics.map(m=><div className="na-item" key={m.id}><div className="na-title"><code>{m.id}</code><button title={'删除指标 '+m.id} onClick={()=>patch({metrics:plan.metrics.filter(v=>v.id!==m.id)})}><Trash2 size={14}/></button></div><div className="na-form-grid">{field('指标名称 '+m.id,<input value={m.name} onChange={e=>patch({metrics:plan.metrics.map(v=>v.id===m.id?{...v,name:e.target.value}:v)})}/>)}{field('结果单位 '+m.id,<input value={m.unit} onChange={e=>patch({metrics:plan.metrics.map(v=>v.id===m.id?{...v,unit:e.target.value}:v)})}/>)}</div>
+            {field('公式 '+m.id,<input className="na-formula" value={m.formula} onChange={e=>patch({metrics:plan.metrics.map(v=>v.id===m.id?{...v,formula:e.target.value}:v)})}/>)}
+            <div className="na-form-grid"><NumberField label={'目标下限 '+m.id} optional value={m.minimum} onChange={minimum=>patch({metrics:plan.metrics.map(v=>v.id===m.id?{...v,minimum}:v)})}/><NumberField label={'目标上限 '+m.id} optional value={m.maximum} onChange={maximum=>patch({metrics:plan.metrics.map(v=>v.id===m.id?{...v,maximum}:v)})}/></div>
+          </div>)}
+        </div>
+      </fieldset>}
+      {tab==='分析结果'&&<>
+        <div className="na-panel"><div className="na-form-grid na-result-controls"><Choice label="显示指标" value={metric?.id??''} onChange={setMetricId} items={plan.metrics.map(m=>({id:m.id,name:m.name}))}/><Choice label="当前试算方案" value={variant} onChange={setVariantId} items={plan.variants.map(v=>({id:v.id,name:v.name}))} empty="当前配置"/><Choice label="对照基准" value={snapshot?.id??''} onChange={setSnapshotId} items={plan.snapshots.map(s=>({id:s.id,name:s.name}))} empty={plan.snapshots.length?'不显示基准':'未保存基准'}/></div>
+          <p className="na-assumption">{plan.notes||'尚未填写计算假设，请在参数与公式中补充。'}</p>
+          <div className="na-stats"><div><span>计算组数</span><strong>{result.rows.length}</strong></div><div><span>需要修正</span><strong>{result.errors.length+result.rows.filter(r=>r.errors.length).length}</strong></div><div><span>超出目标</span><strong>{result.rows.filter(r=>r.outside.length).length}</strong></div></div>
+          {result.errors.map(e=><p key={e} role="alert" className="field-error">{e}</p>)}
+          {snapshot&&<p className="na-note">基准保存于 {new Date(snapshot.createdAt).toLocaleString()} · {runAnalysis(plan,sources,snapshot.variantId).signature===snapshot.signature?'输入与规则未变化':'输入或规则已变化，请核对差异后保存新基准'}</p>}
+          <div className="na-actions"><button onClick={()=>setLine(!lineMode)}>{lineMode?<BarChart3 size={15}/>:<LineChart size={15}/>}切换{lineMode?'柱状图':'折线图'}</button><button disabled={c.blocked||c.pending||!!result.errors.length||!result.rows.length||result.rows.some(r=>r.errors.length)} onClick={()=>attempt(()=>{const s=snapshotAnalysis(plan,sources,variant,(variant?plan.variants.find(v=>v.id===variant)?.name:'当前配置')+' · '+new Date().toLocaleTimeString());patch({snapshots:[s,...plan.snapshots].slice(0,10)});setSnapshotId(s.id);})}><Bookmark size={15}/>保存为基准</button><button disabled={c.pending||c.blocked||!result.rows.length} onClick={download}><Download size={15}/>导出 CSV</button></div>
+          {metric&&<Plot rows={result.rows} metric={metric.id} unit={metric.unit} baseline={snapshot?.rows??[]} line={lineMode} axisLabel={plan.sweep?(plan.parameters.find(p=>p.id===plan.sweep?.parameterId)?.name||'采样值'):'配置记录'} onSelect={setRowKey}/>}
+        </div>
+        <div className="na-panel"><h3>计算明细 <small>点击记录查看来源与公式</small></h3><div className="na-table"><table><thead><tr><th>记录</th>{plan.metrics.map(m=><th key={m.id}>{m.name}<small>{m.unit}</small></th>)}<th>检查</th></tr></thead><tbody>{result.rows.map(r=><tr key={r.key} className={r.key===row?.key?'selected':''}><td><button onClick={()=>setRowKey(r.key)}>{r.label}</button></td>{plan.metrics.map(m=><td key={m.id} className={r.outside.includes(m.id)?'na-warn':''}>{fmt(r.values[m.id])}</td>)}<td>{r.errors.join('；')||(r.outside.length?'超出设计目标':'通过')}</td></tr>)}</tbody></table></div></div>
+        {row&&<div className="na-panel"><h3>{row.label} · 计算依据</h3><div className="na-table"><table><thead><tr><th>参数</th><th>本次输入</th><th>来源</th></tr></thead><tbody>{plan.parameters.map(p=><tr key={p.id}><td>{p.name} <code>{p.id}</code></td><td>{fmt(row.inputs[p.id])} {p.unit}</td><td>{row.origins[p.id]||'输入异常'}</td></tr>)}</tbody></table></div>{plan.metrics.map(m=><p key={m.id}><b>{m.name}</b>：<code>{m.formula}</code> = {fmt(row.values[m.id])} {m.unit}</p>)}{row.errors.map(e=><p className="field-error" key={e}>{e}</p>)}</div>}
+      </>}
+      {tab==='方案对比'&&<>
+        <div className="na-panel"><div className="na-title"><h3>试算方案</h3><button disabled={c.blocked||plan.variants.length>=20} onClick={()=>patch({variants:[...plan.variants,{id:crypto.randomUUID(),name:'方案 '+(plan.variants.length+1),overrides:{}}]})}><Plus size={15}/>添加试算方案</button></div><p>勾选要覆盖的参数。未覆盖的参数继续引用当前配置；曲线采样优先于方案覆盖。</p>
+          {plan.variants.map(v=><fieldset key={v.id} disabled={c.blocked} className="na-item">{field('方案名称 '+v.id,<input value={v.name} onChange={e=>patch({variants:plan.variants.map(x=>x.id===v.id?{...x,name:e.target.value}:x)})}/>)}<div className="na-form-grid">{plan.parameters.map(p=><div key={p.id}><label className="na-checkbox"><input type="checkbox" checked={Object.prototype.hasOwnProperty.call(v.overrides,p.id)} onChange={e=>{const overrides={...v.overrides};if(e.target.checked)overrides[p.id]=result.rows[0]?.inputs[p.id]??p.value;else delete overrides[p.id];patch({variants:plan.variants.map(x=>x.id===v.id?{...x,overrides}:x)});}}/>覆盖 {p.name}</label>{Object.prototype.hasOwnProperty.call(v.overrides,p.id)&&<NumberField label={v.name+' / '+p.name} value={v.overrides[p.id]} minimum={p.minimum} maximum={p.maximum} integer={p.type==='integer'} onChange={value=>patch({variants:plan.variants.map(x=>x.id===v.id?{...x,overrides:{...x.overrides,[p.id]:value??0}}:x)})}/>}</div>)}</div><button className="na-danger" onClick={()=>patch({variants:plan.variants.filter(x=>x.id!==v.id)})}>删除试算方案</button></fieldset>)}
+        </div>
+        <div className="na-panel"><Choice label="对比指标" value={metric?.id??''} onChange={setMetricId} items={plan.metrics.map(m=>({id:m.id,name:m.name}))}/><p>以下以当前配置为参照，显示各方案差值与变化比例。参照为 0 时不计算百分比。</p><div className="na-table"><table><thead><tr><th>记录</th><th>当前配置 {metric?.unit}</th>{comparisons.map(v=><th key={v.variant.id}>{v.variant.name}</th>)}{snapshot&&<th>已存基准</th>}</tr></thead><tbody>{runAnalysis(plan,sources).rows.map(r=><tr key={r.key}><td>{r.label}</td><td>{fmt(r.values[metric?.id??''])}</td>{comparisons.map(v=>{const next=v.run.rows.find(x=>x.key===r.key),a=r.values[metric?.id??''],b=next?.values[metric?.id??''];return <td key={v.variant.id}>{v.run.errors.length||next?.errors.length?<span className="na-warn">{[...v.run.errors,...(next?.errors??[])].join('；')}</span>:<>{fmt(b)}<small>差值 {a!==undefined&&b!==undefined?fmt(b-a):'—'} · {a&&b!==undefined?fmt((b-a)/Math.abs(a)*100)+'%':'—'}</small></>}</td>;})}{snapshot&&(()=>{const old=snapshot.rows.find(x=>x.key===r.key)?.values[metric?.id??''],current=r.values[metric?.id??''];return <td>{fmt(old)}<small>当前差值 {old!==undefined&&current!==undefined?fmt(current-old):'—'} · {old&&current!==undefined?fmt((current-old)/Math.abs(old)*100)+'%':'—'}</small></td>;})()}</tr>)}</tbody></table></div></div>
+        <div className="na-panel"><h3>已保存结果 · 最多保留 10 份</h3>{!plan.snapshots.length&&<p>在分析结果页保存基准，保留当时的输入和结果。</p>}{plan.snapshots.map(s=><details key={s.id} className="na-item"><summary>{s.name} · {new Date(s.createdAt).toLocaleString()}</summary><p>{runAnalysis(plan,sources,s.variantId).signature===s.signature?'输入与规则未变化':'输入或规则已变化'}</p><div className="na-table"><table><thead><tr><th>记录</th>{s.metrics.map(m=><th key={m.id}>{m.name} {m.unit}</th>)}<th>保存的输入</th></tr></thead><tbody>{s.rows.map(r=><tr key={r.key}><td>{r.label}</td>{s.metrics.map(m=><td key={m.id}>{fmt(r.values[m.id])}</td>)}<td><code>{JSON.stringify(r.inputs)}</code></td></tr>)}</tbody></table></div><button disabled={c.blocked} onClick={()=>patch({snapshots:plan.snapshots.filter(x=>x.id!==s.id)})}>删除此保存结果</button></details>)}</div>
+      </>}
+    </>}</div></div>
+  </section>;
+}

@@ -23654,5 +23654,333 @@
         "status": "计划中"
       }
     ]
+  },
+  "numericalAnalysis": {
+    "schema": 1,
+    "plans": [
+      {
+        "id": "analysis-disco-elysium-1",
+        "name": "承受气味检查断绳 · 成功率",
+        "notes": "按所选状态计算单次检定成功率；重试次数与剧情路径不在此概率中。",
+        "gameplayId": "",
+        "parameters": [
+          {
+            "id": "state_0",
+            "name": "耐力等级",
+            "unit": "",
+            "type": "number",
+            "value": 2,
+            "minimum": 0,
+            "maximum": null,
+            "binding": {
+              "kind": "variable",
+              "storyId": "de-story-main",
+              "variableId": "skill:endurance"
+            }
+          },
+          {
+            "id": "state_1",
+            "name": "围巾已装备",
+            "unit": "",
+            "type": "number",
+            "value": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "binding": {
+              "kind": "variable",
+              "storyId": "de-story-main",
+              "variableId": "scarf_equipped"
+            }
+          }
+        ],
+        "metrics": [
+          {
+            "id": "chance",
+            "name": "单次成功率",
+            "unit": "%",
+            "formula": "storyChance() * 100",
+            "minimum": 0,
+            "maximum": 100
+          }
+        ],
+        "variants": [],
+        "snapshots": [],
+        "batch": null,
+        "sweep": {
+          "parameterId": "state_0",
+          "start": 0,
+          "end": 10,
+          "step": 1
+        },
+        "check": {
+          "storyId": "de-story-main",
+          "checkId": "rope"
+        }
+      },
+      {
+        "id": "analysis-disco-elysium-2",
+        "name": "安抚埃达取得证词 · 成功率",
+        "notes": "按所选状态计算单次检定成功率；重试次数与剧情路径不在此概率中。",
+        "gameplayId": "",
+        "parameters": [
+          {
+            "id": "state_0",
+            "name": "账册已获得",
+            "unit": "",
+            "type": "number",
+            "value": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "binding": {
+              "kind": "variable",
+              "storyId": "de-story-main",
+              "variableId": "ledger_found"
+            }
+          },
+          {
+            "id": "state_1",
+            "name": "复写件已获得",
+            "unit": "",
+            "type": "number",
+            "value": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "binding": {
+              "kind": "variable",
+              "storyId": "de-story-main",
+              "variableId": "copy_found"
+            }
+          },
+          {
+            "id": "state_2",
+            "name": "证人被威压",
+            "unit": "",
+            "type": "number",
+            "value": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "binding": {
+              "kind": "variable",
+              "storyId": "de-story-main",
+              "variableId": "witness_scared"
+            }
+          },
+          {
+            "id": "state_3",
+            "name": "劳动思想已内化",
+            "unit": "",
+            "type": "number",
+            "value": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "binding": {
+              "kind": "variable",
+              "storyId": "de-story-main",
+              "variableId": "thought_worker_done"
+            }
+          },
+          {
+            "id": "state_4",
+            "name": "共情等级",
+            "unit": "",
+            "type": "number",
+            "value": 3,
+            "minimum": 0,
+            "maximum": null,
+            "binding": {
+              "kind": "variable",
+              "storyId": "de-story-main",
+              "variableId": "skill:empathy"
+            }
+          }
+        ],
+        "metrics": [
+          {
+            "id": "chance",
+            "name": "单次成功率",
+            "unit": "%",
+            "formula": "storyChance() * 100",
+            "minimum": 0,
+            "maximum": 100
+          }
+        ],
+        "variants": [],
+        "snapshots": [],
+        "batch": null,
+        "sweep": {
+          "parameterId": "state_4",
+          "start": 0,
+          "end": 10,
+          "step": 1
+        },
+        "check": {
+          "storyId": "de-story-main",
+          "checkId": "testimony"
+        }
+      },
+      {
+        "id": "analysis-disco-elysium-3",
+        "name": "威压工头承认维修 · 成功率",
+        "notes": "按所选状态计算单次检定成功率；重试次数与剧情路径不在此概率中。",
+        "gameplayId": "",
+        "parameters": [
+          {
+            "id": "state_0",
+            "name": "怀疑思想已内化",
+            "unit": "",
+            "type": "number",
+            "value": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "binding": {
+              "kind": "variable",
+              "storyId": "de-story-main",
+              "variableId": "thought_doubt_done"
+            }
+          },
+          {
+            "id": "state_1",
+            "name": "权威等级",
+            "unit": "",
+            "type": "number",
+            "value": 2,
+            "minimum": 0,
+            "maximum": null,
+            "binding": {
+              "kind": "variable",
+              "storyId": "de-story-main",
+              "variableId": "skill:authority"
+            }
+          }
+        ],
+        "metrics": [
+          {
+            "id": "chance",
+            "name": "单次成功率",
+            "unit": "%",
+            "formula": "storyChance() * 100",
+            "minimum": 0,
+            "maximum": 100
+          }
+        ],
+        "variants": [],
+        "snapshots": [],
+        "batch": null,
+        "sweep": {
+          "parameterId": "state_1",
+          "start": 0,
+          "end": 10,
+          "step": 1
+        },
+        "check": {
+          "storyId": "de-story-main",
+          "checkId": "pressure"
+        }
+      },
+      {
+        "id": "analysis-disco-elysium-4",
+        "name": "核对账册时间 · 成功率",
+        "notes": "按所选状态计算单次检定成功率；重试次数与剧情路径不在此概率中。",
+        "gameplayId": "",
+        "parameters": [
+          {
+            "id": "state_0",
+            "name": "时间旁证已获得",
+            "unit": "",
+            "type": "number",
+            "value": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "binding": {
+              "kind": "variable",
+              "storyId": "de-story-main",
+              "variableId": "timeline_found"
+            }
+          },
+          {
+            "id": "state_1",
+            "name": "逻辑等级",
+            "unit": "",
+            "type": "number",
+            "value": 3,
+            "minimum": 0,
+            "maximum": null,
+            "binding": {
+              "kind": "variable",
+              "storyId": "de-story-main",
+              "variableId": "skill:logic"
+            }
+          }
+        ],
+        "metrics": [
+          {
+            "id": "chance",
+            "name": "单次成功率",
+            "unit": "%",
+            "formula": "storyChance() * 100",
+            "minimum": 0,
+            "maximum": 100
+          }
+        ],
+        "variants": [],
+        "snapshots": [],
+        "batch": null,
+        "sweep": {
+          "parameterId": "state_1",
+          "start": 0,
+          "end": 10,
+          "step": 1
+        },
+        "check": {
+          "storyId": "de-story-main",
+          "checkId": "ledger"
+        }
+      },
+      {
+        "id": "analysis-disco-elysium-5",
+        "name": "坦诚请求帮助 · 成功率",
+        "notes": "按所选状态计算单次检定成功率；重试次数与剧情路径不在此概率中。",
+        "gameplayId": "",
+        "parameters": [
+          {
+            "id": "state_0",
+            "name": "镇定等级",
+            "unit": "",
+            "type": "number",
+            "value": 2,
+            "minimum": 0,
+            "maximum": null,
+            "binding": {
+              "kind": "variable",
+              "storyId": "de-story-main",
+              "variableId": "skill:composure"
+            }
+          }
+        ],
+        "metrics": [
+          {
+            "id": "chance",
+            "name": "单次成功率",
+            "unit": "%",
+            "formula": "storyChance() * 100",
+            "minimum": 0,
+            "maximum": 100
+          }
+        ],
+        "variants": [],
+        "snapshots": [],
+        "batch": null,
+        "sweep": {
+          "parameterId": "state_0",
+          "start": 0,
+          "end": 10,
+          "step": 1
+        },
+        "check": {
+          "storyId": "de-story-main",
+          "checkId": "care"
+        }
+      }
+    ]
   }
 }
