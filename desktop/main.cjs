@@ -57,7 +57,7 @@ else {
   });
   ipcMain.handle('validate-project-location', async (event, input) => {
     if (!trusted(event)) throw new Error('不允许检查工程目录');
-    return validateProjectLocation(input?.projectPath, input?.enumPath);
+    return validateProjectLocation(input?.projectPath, input?.enumPath, input?.engine);
   });
   ipcMain.handle('prepare-test-workspace', async (event, scenario) => {
     if (!trusted(event)) throw new Error('不允许创建测试工程');

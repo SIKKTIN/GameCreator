@@ -1,4 +1,5 @@
 import type { EngineConfig } from './engine';
+import {validateEngineConfig} from '../shared/engine-config.mjs';
 import { projectIdentity } from './data-model.ts';
 
 // Keep the existing storage key so upgrades can discover the previous catalog.
@@ -23,6 +24,7 @@ function validateCatalogVersion(value: ProjectCatalog | LegacyProjectCatalog, sc
         typeof project.config.autoSync !== 'boolean' || typeof project.config.backupBeforeSync !== 'boolean') {
       throw new Error('项目列表含无效或重复工程，已停止写入');
     }
+    validateEngineConfig(project.config);
     ids.add(project.id);
   }
   if (value.projects.length ? !ids.has(value.activeId) : value.activeId !== '' || value.mode !== 'project') throw new Error('项目列表中的当前工程不存在');

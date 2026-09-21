@@ -553,6 +553,8 @@ function createProjectPackages({dataDirectory, storage}) {
     if (typeof directory !== 'string' || !path.isAbsolute(directory)) throw new Error('请选择绝对路径项目文件夹');
     // Detach caller data before the first asynchronous operation.
     const document = validateDocument(JSON.parse(JSON.stringify(input))), snapshot = JSON.parse(JSON.stringify(expectedEntries));
+    const engineValidation=await import('../shared/engine-config.mjs');engineValidation.validateEngineConfig(document.project.config);
+    for(const snapshot of document.archives['enum-versions']?.snapshots||[])engineValidation.validateEngineScanMetadata(snapshot.scan);
     checkSnapshot(projectId, document, snapshot);
     const assets = referencedFiles(document), destination = path.resolve(directory), parent = path.dirname(destination);
     if (destination === path.parse(destination).root || activeExports.has(comparable(destination))) throw new Error('目标文件夹已存在或正在导出');
@@ -636,6 +638,8 @@ function createProjectPackages({dataDirectory, storage}) {
     const archives = {};
     for (const section of [...SECTIONS, ...OPTIONAL_SECTIONS]) if (data.has(sectionPath(section))) archives[section] = data.get(sectionPath(section));
     const document = validateDocument({schema: 1, project: data.get('data/project.json'), archives});
+    const engineValidation=await import('../shared/engine-config.mjs');engineValidation.validateEngineConfig(document.project.config);
+    for(const snapshot of document.archives['enum-versions']?.snapshots||[])engineValidation.validateEngineScanMetadata(snapshot.scan);
     if (document.project.name !== manifest.projectName) throw new Error('项目名称与清单不一致');
     const assets = referencedFiles(document);
     for (const [token, file] of assets) if (entries.get('assets/' + token)?.size !== file.size) throw new Error('素材资产引用文件缺失或大小不一致：' + (file.name || token));

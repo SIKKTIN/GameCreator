@@ -1,3 +1,4 @@
+import {engineInfo} from './engine';
 import { useState } from 'react';
 import { CheckCircle2, History, Search } from 'lucide-react';
 import { changeLabels, impacts, type Change } from './enum-versions';
@@ -81,12 +82,13 @@ export function EnumReviewPanel({ registry, onImport }: { registry: EnumRegistry
   const counts = (tone: string) => changes.filter(change => changeTone(change) === tone).length;
   const sync = async () => { setMessage(''); if (await registry.publish()) setMessage('已同步同意的变更，枚举定义已更新。'); };
 
-  return <div className="enum-update-panel">
+  return <div className="enum-update-panel">{candidate?.scan.incomplete&&<p role="alert" className="field-error">扫描未完成，暂不可同步：{candidate.scan.dynamic.map(d=>d.source+':'+d.line+' '+d.detail).join('；')}</p>}
     <div className="enum-catalog-heading"><div><h2>枚举更新检测</h2>
       <p>对比已发布定义与导入内容，决定是否同步。所有变更内容均为只读。</p></div>
       <button type="button" className="primary" disabled={!registry.sourceConfigured || registry.busy || registry.loading}
         onClick={() => { setMessage(''); void registry.refresh(); }}>{registry.loading ? '检测中…' : '检测更新'}</button>
     </div>
+    {registry.canConfirmSource&&<div className="engine-config-neutral"><p>新来源的枚举内容与当前定义一致，可以确认切换来源，保留配置数据。</p><button disabled={registry.loading||registry.busy} onClick={()=>void registry.confirmSource()}>确认使用此枚举来源</button></div>}
     <div className="enum-update-summary">
       {(['added', 'removed', 'modified'] as const).map(tone => <span key={tone} className={'enum-change-badge ' + tone}>{toneLabel[tone]} {counts(tone)}</span>)}
       <span>{active ? '当前已有发布版本' : '首次导入，尚未发布'}{candidate ? ' · ' + new Date(candidate.createdAt).toLocaleString() : ''}</span>
@@ -139,11 +141,11 @@ function EnumHistory({ registry }: { registry: EnumRegistry }) {
     {!registry.store.releases.length && <p>同步变更后生成版本记录。</p>}
     {[...registry.store.releases].reverse().map(release => <details key={release.id} className="release-history">
       <summary>{release.kind === 'publish' ? '同步' : '回退'} {short(release.toId)} · {new Date(release.createdAt).toLocaleString()} · {release.reviewer}</summary>
-      <p>{release.note}</p>{release.accepted.map(change => <p key={change.id}>{changeLabels[change.kind]}：{change.name}{change.member ? '.' + change.member : ''}</p>)}
+      <p>{release.note}</p><p>{(()=>{const scan=registry.store.snapshots.find(s=>s.id===release.toId)?.scan;return scan?engineInfo(scan.engine).name+' · '+scan.projectPath+'/'+scan.enumPath:'';})()}</p>{release.accepted.map(change => <p key={change.id}>{changeLabels[change.kind]}：{change.name}{change.member ? '.' + change.member : ''}</p>)}
     </details>)}
     <details><summary>检测与审核记录</summary>{[...registry.store.snapshots].reverse().filter(snapshot => snapshot.kind === 'source').map(snapshot => {
       const review = registry.store.reviews[snapshot.id];
-      return <p key={snapshot.id}>{new Date(snapshot.createdAt).toLocaleString()} · 同意 {review?.selected.length ?? 0} / 不同意 {review?.declined?.length ?? 0}
+      return <p key={snapshot.id}>{new Date(snapshot.createdAt).toLocaleString()} · {engineInfo(snapshot.scan.engine).name} · {snapshot.scan.projectPath}/{snapshot.scan.enumPath} · 同意 {review?.selected.length ?? 0} / 不同意 {review?.declined?.length ?? 0}
         · {({ draft: '审核中', approved: '已同步', rejected: '已驳回', archived: '已归档' } as const)[review?.status ?? 'archived']}</p>;
     })}</details>
     <p>{window.desktopClient?.storage ? '审核决定与版本记录自动保存到本地磁盘。' : '审核决定与版本记录保存于当前浏览器。'}</p>

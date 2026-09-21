@@ -20,7 +20,7 @@ interface Window {
       release: (token: string) => Promise<void>;
     };
     pickProjectDirectory?: () => Promise<string | null>;
-    validateProjectLocation?: (input: { projectPath: string; enumPath: string }) => Promise<{ projectPath: string; enumPath: string }>;
+    validateProjectLocation?: (input: { projectPath: string; enumPath: string; engine?:string }) => Promise<{ projectPath: string; enumPath: string }>;
     prepareTestWorkspace?: (scenario: import('./test-scenarios').TestScenarioId) => Promise<import('./test-scenarios').PreparedTest>;
     aiDocuments?: {
       options: () => Promise<{defaultDirectory:string}>;

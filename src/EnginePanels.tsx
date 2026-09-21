@@ -3,7 +3,7 @@ import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import './enum-definitions.css';
 import './project-switcher.css';
 import { AlertTriangle, CheckCircle2, Database, FolderOpen, Save, Search, Settings2 } from 'lucide-react';
-import type { EngineConfig } from './engine';
+import {engines,engineInfo,selectEngine,savedEngineConfig,type EngineConfig} from './engine';
 import { enumId, formatLuaValue } from './data-model';
 import type { EnumRegistry } from './useEnumRegistry';
 import { EnumReviewPanel } from './EnumReviewPanel';
@@ -22,7 +22,8 @@ export function EngineSettings({ config, setConfig, registry, onPickDirectory }:
   const [notice, setNotice] = useState('');
   const operation = useRef(false);
   useEffect(() => { setDraft({ ...config }); setError(''); setNotice(''); }, [config]);
-  const dirty = (Object.keys(config) as (keyof EngineConfig)[]).some(key => draft[key] !== config[key]);
+  const adapter=engineInfo(draft.engine);
+  const dirty = JSON.stringify(config)!==JSON.stringify(draft);
   const locked = saving || picking || registry.busy || registry.loading;
   const update = (key: keyof EngineConfig, value: string | boolean) => {
     setDraft(previous => ({ ...previous, [key]: value }));
@@ -42,32 +43,32 @@ export function EngineSettings({ config, setConfig, registry, onPickDirectory }:
     if (!dirty || locked || operation.current) return;
     operation.current = true; setSaving(true); setError(''); setNotice('');
     try {
-      const next = { ...draft, projectPath: draft.projectPath.trim(), enumPath: draft.enumPath.trim(), dataPath: draft.dataPath.trim() };
+      const next = savedEngineConfig({ ...draft, projectPath: draft.projectPath.trim(), enumPath: draft.enumPath.trim(), dataPath: draft.dataPath.trim() });
       if (!await setConfig(next)) { setError('设置未保存，请检查保存状态后重试。'); return; }
       setNotice('设置已保存。');
     } catch (reason) { setError(reason instanceof Error ? reason.message : String(reason)); }
     finally { operation.current = false; setSaving(false); }
   };
   return <form className="engine-settings" onSubmit={event => void save(event)} aria-label="引擎设置" aria-busy={saving || picking}>
-    <div className="settings-intro"><div><span>ENGINE ADAPTER</span><h2>绿洲启元 · Lua</h2>
-      <p>配置游戏工程目录后，可读取 Lua 枚举并审核同步。</p></div>
+    <div className="settings-intro"><div><span>ENGINE ADAPTER</span><h2>{adapter.name}</h2>
+      <p>配置游戏工程目录后，可读取 {adapter.language} 枚举并审核同步。</p></div>
       <div className={`engine-badge${registry.sourceConfigured ? '' : ' engine-badge-neutral'}`}>
         {registry.sourceConfigured && registry.latestScan && <CheckCircle2 size={16} />}
-        {!registry.sourceConfigured ? '尚未配置引擎' : registry.latestScan ? '已有扫描记录' : '工程待连接'}
+        {dirty?'设置待保存':!registry.sourceConfigured ? '尚未配置引擎' : registry.latestScan?.incomplete?'扫描需处理':registry.latestScan ? '已有扫描记录' : '工程待连接'}
       </div></div>
     {!registry.sourceConfigured && <p className="engine-config-neutral" role="status">尚未配置引擎，可先编写项目内容。需要导入枚举时，再配置游戏工程目录并保存。</p>}
     <div className="settings-card"><h3>项目路径</h3>
-      <label>引擎类型<select value={draft.engine} onChange={(event) => update('engine', event.target.value)} disabled={saving || picking}><option value="oasis-lua">绿洲启元 Lua</option></select></label>
+      <label>引擎类型<select aria-label="引擎类型" value={draft.engine} onChange={(event) => {setDraft(previous=>selectEngine(previous,event.target.value));setError('');setNotice('');}} disabled={locked}>{Object.entries(engines).map(([id,e])=><option key={id} value={id}>{e.name}</option>)}</select></label>
       <div className="engine-directory-group"><label htmlFor={`${id}-project-path`}>项目目录</label><div className="engine-directory-field">
         <input id={`${id}-project-path`} value={draft.projectPath} onChange={(event) => update('projectPath', event.target.value)} placeholder="可暂留空，稍后配置游戏工程目录" disabled={saving || picking} spellCheck={false} aria-describedby={`${id}-project-hint`} />
         {onPickDirectory && <button type="button" className="engine-directory-button" disabled={locked} onClick={() => void pickDirectory()}><FolderOpen size={15} aria-hidden="true" />{picking ? '正在选择…' : '选择目录'}</button>}
-      </div><small id={`${id}-project-hint`}>游戏工程根目录。留空并保存可暂不绑定引擎，项目内容仍独立保留。</small></div>
-      <div className="settings-grid"><label>枚举定义目录<input required={!!draft.projectPath.trim()} value={draft.enumPath} onChange={(event) => update('enumPath', event.target.value)} disabled={saving || picking} /><small>相对于项目目录</small></label>
-        <label>数据输出目录<input value={draft.dataPath} onChange={(event) => update('dataPath', event.target.value)} disabled={saving || picking} /><small>生成 Lua 配置的位置</small></label></div>
+      </div><small id={`${id}-project-hint`}>{draft.engine==='godot-gdscript'?'选择包含 project.godot 的 Godot 4 工程根目录。':'选择绿洲启元游戏工程根目录。'}留空并保存可暂不绑定引擎，项目内容仍独立保留。</small></div>
+      <div className="settings-grid"><label>枚举定义目录<input aria-label="枚举定义目录" required={!!draft.projectPath.trim()} value={draft.enumPath} onChange={(event) => update('enumPath', event.target.value)} disabled={saving || picking} /><small>{draft.engine==='godot-gdscript'?'支持相对路径或 res://，默认扫描整个工程，跳过 .godot 缓存。':'相对于项目目录'}</small></label>
+        <label>数据输出目录<input aria-label="数据输出目录" value={draft.dataPath} onChange={(event) => update('dataPath', event.target.value)} disabled={saving || picking} /><small>配置文件的预留输出位置（文件生成待接入）</small></label></div>
     </div>
     <div className="settings-card"><h3>同步行为</h3>
-      <div className="setting-option"><div><b>输出格式</b><small>绿洲 Lua 配置模块</small></div><select aria-label="输出格式" value={draft.outputFormat} onChange={(event) => update('outputFormat', event.target.value)} disabled={saving || picking}><option value="lua">Lua</option></select></div>
-      <div className="setting-option"><div><b>自动同步</b><small>保存数据配置后自动生成 Lua 文件（待接入）</small></div>
+      <div className="setting-option"><div><b>输出格式</b><small>{draft.engine==='godot-gdscript'?'JSON 配置（导出待接入）':'Lua 配置（导出待接入）'}</small></div><select aria-label="输出格式" value={draft.outputFormat} onChange={(event) => update('outputFormat', event.target.value)} disabled={saving || picking}><option value={adapter.outputFormat}>{adapter.outputFormat.toUpperCase()}</option>{draft.outputFormat!==adapter.outputFormat&&<option value={draft.outputFormat}>旧配置：{draft.outputFormat}</option>}</select></div>
+      <div className="setting-option"><div><b>自动同步</b><small>保存数据配置后自动生成引擎配置文件（待接入）</small></div>
         <button type="button" className={draft.autoSync ? 'toggle on' : 'toggle'} aria-label="自动同步" disabled><span /></button></div>
       <div className="setting-option"><div><b>同步前备份</b><small>覆盖文件前保留上一版配置</small></div>
         <button type="button" className={draft.backupBeforeSync ? 'toggle on' : 'toggle'} aria-label="同步前备份" aria-pressed={draft.backupBeforeSync} disabled={saving || picking} onClick={() => update('backupBeforeSync', !draft.backupBeforeSync)}><span /></button></div>
@@ -79,8 +80,10 @@ export function EngineSettings({ config, setConfig, registry, onPickDirectory }:
     </div>
     {error && <p className="field-error" role="alert">{error}</p>}
     {notice && <p className="connection-ok" role="status">{notice}</p>}
+    {registry.sourceWarning&&<p className="engine-config-neutral" role="status">{registry.sourceWarning}</p>}
+    {registry.latestScan?.incomplete&&<p className="field-error">扫描未完成：{registry.latestScan.dynamic.map(d=>d.source+':'+d.line+' '+d.detail).join('；')}。修复后再审核同步。</p>}
     {registry.sourceConfigured && <p role="status" className={registry.error ? 'field-error' : 'connection-ok'}>
-      {registry.error || (registry.loading ? '正在读取工程…' : registry.latestScan ? '上次扫描 · ' + registry.latestScan.files.length + ' 个 Lua 文件 · 候选更新请到枚举管理审核' : '尚无扫描结果')}
+      {registry.error || (registry.loading ? '正在读取工程…' : registry.latestScan ? '上次扫描 · ' + registry.latestScan.files.length + ' 个 '+engineInfo(config.engine).language+' 文件 · 候选更新请到枚举管理审核' : '尚无扫描结果')}
     </p>}
     {registry.sourceConfigured && registry.latestScan && <div className="scan-result"><b>上次扫描文件</b>
       {registry.latestScan.files.map((file) => <code key={file}>{file}</code>)}</div>}
@@ -103,7 +106,7 @@ export function EnumDefinitions({ registry }: { registry: EnumRegistry }) {
   });
   const memberCount = groups.reduce((total, { members }) => total + members.length, 0);
 
-  return <section className="enum-catalog" aria-label="枚举定义目录">
+  return <section className="enum-catalog" aria-label="枚举定义目录">{registry.sourceWarning&&<p className="engine-config-neutral" role="status">{registry.sourceWarning}</p>}
     <div className="enum-catalog-heading">
       <div><h2>枚举目录</h2><p>查看已发布的枚举和成员，用于配置数据。</p></div>
       <span className={`enum-catalog-status${scan ? ' is-published' : ''}`}>
@@ -148,7 +151,7 @@ export function EnumManager({ config, registry }: {
 }) {
   const [tab, setTab] = useState<'updates' | 'import'>('updates');
   const source = registry.latestScan;
-  return <section className="enum-management">
+  return <section className="enum-management">{registry.sourceWarning&&<p className="engine-config-neutral" role="status">{registry.sourceWarning}</p>}
     <div role="tablist" aria-label="枚举管理分页" className="enum-management-tabs">
       <button role="tab" id="enum-updates-tab" aria-selected={tab === 'updates'} aria-controls="enum-updates-panel"
         onClick={() => setTab('updates')}>枚举更新检测{registry.changes.length > 0 && <span>{registry.changes.length}</span>}</button>
@@ -161,7 +164,7 @@ export function EnumManager({ config, registry }: {
         ? <div className="enum-catalog-empty" role="status"><Settings2 size={24} /><h3>尚未配置引擎</h3><p>可先编写项目内容。需要检测枚举更新时，请在“引擎设置”中配置游戏工程目录并保存。</p></div>
         : <>{!registry.sourceConfigured && <p className="engine-config-neutral" role="status">尚未配置引擎，当前显示已有枚举存档。配置游戏工程目录后可检测新变化。</p>}<EnumReviewPanel key={registry.key} registry={registry} onImport={() => setTab('import')} /></>}
     </div> : <div id="enum-import-panel" role="tabpanel" aria-labelledby="enum-import-tab" className="enum-import-panel">
-      <div className="enum-catalog-heading"><div><h2>外部导入</h2><p>读取工程中的 Lua 枚举，导入后前往更新检测决定是否同步。</p></div>
+      <div className="enum-catalog-heading"><div><h2>外部导入</h2><p>读取工程中的 {engineInfo(config.engine).language} 枚举，导入后前往更新检测决定是否同步。</p></div>
         <button className="primary" disabled={!registry.sourceConfigured || registry.loading || registry.busy} onClick={() => { if (registry.sourceConfigured) void registry.refresh(); }}>
           <Database size={16} />{registry.loading ? '正在读取…' : '从工程导入'}</button></div>
       <div className="enum-import-source"><b>当前来源</b>{registry.sourceConfigured ? <code>{config.projectPath}/{config.enumPath}</code> : <p>尚未配置引擎，可先编写项目内容。</p>}
@@ -169,7 +172,7 @@ export function EnumManager({ config, registry }: {
       {source ? <>
         <div className="enum-import-result"><div><b>{source.groups.length} 组枚举 · {source.counts.members} 个成员</b>
           <p>{registry.changes.length} 项待审核差异</p></div><button className="primary" onClick={() => setTab('updates')}>前往更新检测</button></div>
-        {!!source.dynamic.length && <div className="enum-import-warning">未导入的动态定义：{source.dynamic.map(item => item.name + ' · ' + item.detail).join('；')}</div>}
+        {!!source.dynamic.length && <div className="enum-import-warning">暂未导入的定义：{source.dynamic.map(item => item.name + ' · ' + item.detail).join('；')}</div>}
         <details className="enum-import-files"><summary>来源文件 · {source.files.length} 个</summary>{source.files.map(file => <code key={file}>{file}</code>)}</details>
         <div className="enum-catalog-grid">{source.groups.map(group => <article className="enum-catalog-group" key={enumId(group)}>
           <div className="enum-catalog-group-heading"><h3>{group.name}</h3><span>{group.members.length} 个成员</span></div>

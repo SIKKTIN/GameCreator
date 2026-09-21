@@ -1,3 +1,4 @@
+import {sameEngineSource} from '../shared/engine-config.mjs';
 import type { EnumGroup, EnumScan } from './engine';
 import { enumId, formatLuaValue, validateRow, type ProjectData, type DatasetKey } from './data-model.ts';
 
@@ -115,7 +116,7 @@ export function stageSnapshot(store: VersionStore, source: Snapshot): VersionSto
   const sameBase = priorReview?.baseId === store.activeId;
   const publishedBase = priorSource && store.releases.some(release =>
     release.sourceId === priorSource.id && release.toId === store.activeId && release.fromId === priorReview?.baseId);
-  if (priorSource && priorReview?.approvalOnly && (sameBase || publishedBase)) {
+  if (priorSource && !priorSource.scan.incomplete && !source.scan.incomplete && sameEngineSource(priorSource.scan,source.scan) && priorReview?.approvalOnly && (sameBase || publishedBase)) {
     const before = snapshotById(store, priorReview.baseId)?.scan ?? null;
     const oldChanges = diffEnums(before, priorSource.scan);
     for (const change of changes) {
@@ -233,6 +234,7 @@ export function planRelease(store: VersionStore) {
   const data = copy(store.data);
   const errors: string[] = [];
   const patches: CellPatch[] = [];
+  if(source.scan.incomplete)errors.push('工程扫描存在未能解析的枚举，请修复来源后重新检测，避免误删已有定义');
   if (review.status !== 'draft') errors.push('该候选版本已经结束审核');
   if (review.baseId !== store.activeId) errors.push('稳定版本已变化，请重新扫描后审核');
   if (!selected.length) errors.push('请至少选择一项变更');
@@ -270,7 +272,7 @@ export function planRelease(store: VersionStore) {
       if (typeof member.value !== group.valueType) errors.push(group.name + ' 存在混合值类型，请统一选择相关改值');
       if (typeof member.value === 'number' && !Number.isFinite(member.value)) errors.push(group.name + ' 包含无效数字');
       const value = typeof member.value + ':' + member.value;
-      if (values.has(value)) errors.push(group.name + ' 存在重复值：' + formatLuaValue(member.value));
+      if (group.engine!=='godot-gdscript' && values.has(value)) errors.push(group.name + ' 存在重复值：' + formatLuaValue(member.value));
       values.add(value);
     }
   }
@@ -346,4 +348,12 @@ export function rollback(store: VersionStore): VersionStore {
       reviewer: '本地用户', note: '回退上一稳定版本', accepted: [], patches: plan.patches, kind: 'rollback',
     }],
   };
+}
+
+// Content-identical roots still need an explicit decision to replace provenance.
+export async function confirmEnumSource(store:VersionStore,reviewer:string):Promise<VersionStore> {
+  const source=snapshotById(store,store.candidateId),active=snapshotById(store,store.activeId),review=source?store.reviews[source.id]:undefined;
+  if(!source||!active||!review||review.status!=='draft'||review.baseId!==store.activeId||source.scan.incomplete||sameEngineSource(source.scan,active.scan)||diffEnums(active.scan,source.scan).length)throw new Error('来源确认条件已变化，请重新检测');
+  const snapshot=await makeSnapshot(source.scan,'release');
+  return {...store,activeId:snapshot.id,candidateId:null,snapshots:[...store.snapshots,snapshot],reviews:{...store.reviews,[source.id]:{...review,status:'approved',reviewer,note:'确认使用新的枚举来源'}},releases:[...store.releases,{id:crypto.randomUUID(),fromId:store.activeId,toId:snapshot.id,sourceId:source.id,createdAt:snapshot.createdAt,reviewer,note:'确认使用新的枚举来源，定义内容一致',accepted:[],patches:[],kind:'publish'}]};
 }
