@@ -56,8 +56,8 @@ const { createWorkspaceStorage } = require('../desktop/test-workspaces.cjs');
     await click('导出任务草稿');
     const until = Date.now() + 10000; while (true) { try { assert.equal(JSON.parse(await fs.readFile(draftPath, 'utf8')).tasks[0].summary, '冲突草稿'); break; } catch (error) { if (Date.now() > until) throw error; await new Promise(r => setTimeout(r, 50)); } }
     await click('重新读取任务存档'); assert.equal(await field('任务说明').inputValue(), '其他窗口的更新');
-    await app.evaluate(({ ipcMain }) => { ipcMain.removeHandler('write-markdown'); ipcMain.handle('write-markdown', (_event, payload) => { globalThis.taskMarkdown = payload.content; return '测试导出'; }); });
-    await click('生成 AI 文档'); assert.ok((await app.evaluate(() => globalThis.taskMarkdown)).includes('扣除三枚晶石'));
+    await app.evaluate(({ ipcMain }) => { ipcMain.removeHandler('ai-documents-export'); ipcMain.handle('ai-documents-export',(_event,payload)=>{payload={...payload,content:payload.files[0].content}; globalThis.taskMarkdown = payload.content; return {directory:'隔离测试导出',fileCount:payload.files.length,token:'test'}; }); });
+    await click('生成 AI 文档');await require('./ai-export-test-helper.cjs').finishAiExport(page); assert.ok((await app.evaluate(() => globalThis.taskMarkdown)).includes('扣除三枚晶石'));
     const beforeSwitch = storage.getItem(key(a)); await choose('任务项目B'); assert.equal(read(b), null); await create('B独立目标'); assert.equal(storage.getItem(key(a)), beforeSwitch);
     await choose('任务项目A'); await click('选择任务：提交三枚晶石'); assert.equal(await field('任务说明').inputValue(), '其他窗口的更新');
     await app.close(); app = null; await launch(); await click('选择任务：提交三枚晶石'); assert.equal(await field('任务说明').inputValue(), '其他窗口的更新'); assert.equal(storage.getItem(key(a)), beforeSwitch);

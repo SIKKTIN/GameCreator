@@ -1,6 +1,5 @@
 const path = require('node:path');
 const { app, BrowserWindow, shell, ipcMain, session, dialog } = require('electron');
-const fs = require('node:fs/promises');
 const { createDesktopServer } = require('./server.cjs');
 const { createWorkspaceStorage, prepareTestWorkspace } = require('./test-workspaces.cjs');
 const { validateProjectLocation } = require('./project-locations.cjs');
@@ -8,6 +7,7 @@ const { migrateLegacy } = require('./legacy-storage.cjs');
 const { createArtFiles, validateWorkspaceId } = require('./art-files.cjs');
 const { createProjectPackages, safeProjectDirectoryName } = require('./project-package.cjs');
 const { createCollaborationHost } = require('./collaboration-host.cjs');
+const { createAiDocuments } = require('./ai-documents.cjs');
 
 const root = path.resolve(__dirname, '..');
 const dataDirectory = process.env.GAMECREATOR_DATA_DIR || path.join(root, '.gamecreator');
@@ -15,6 +15,7 @@ if (process.env.GAMECREATOR_USER_DATA_DIR) app.setPath('userData', process.env.G
 const storage = createWorkspaceStorage(dataDirectory);
 const artFiles = createArtFiles(dataDirectory);
 const projectPackages = createProjectPackages({dataDirectory, storage});
+const aiDocuments = createAiDocuments({defaultDirectory:path.join(root,'generate')});
 const packageTokens = new Map();
 let localServer, mainWindow;
 let initializing = true;
@@ -113,14 +114,26 @@ else {
     if (!trusted(event) || packageTokens.get(token) !== event.sender) throw new Error('不允许释放此项目文件夹');
     projectPackages.release(token); packageTokens.delete(token);
   });
-  ipcMain.handle('write-markdown', async (event, payload) => {
-    if (!trusted(event)) throw new Error('不允许写入文件');
-    const filename = String(payload?.filename ?? 'context.md').replace(/[^a-zA-Z0-9._-]/g, '_');
-    const outputDir = path.join(root, 'generate');
-    await fs.mkdir(outputDir, { recursive: true });
-    const output = path.join(outputDir, filename);
-    await fs.writeFile(output, String(payload?.content ?? ''), 'utf8');
-    return output;
+  ipcMain.handle('ai-documents-options', event => {
+    if(!trusted(event))throw new Error('不允许读取导出设置');
+    return {defaultDirectory:path.join(root,'generate')};
+  });
+  ipcMain.handle('ai-documents-choose-directory', async (event, initial) => {
+    if(!trusted(event))throw new Error('不允许选择保存位置');
+    const requestingWindow=mainWindow;
+    const result=await dialog.showOpenDialog(requestingWindow,{title:'选择 AI 文档保存位置',defaultPath:typeof initial==='string'&&path.isAbsolute(initial)?initial:undefined,properties:['openDirectory','createDirectory']});
+    if(mainWindow!==requestingWindow||!trusted(event))throw new Error('原工作区窗口已关闭，请重新选择');
+    return result.canceled?null:result.filePaths[0]??null;
+  });
+  ipcMain.handle('ai-documents-export', (event,payload) => {
+    if(!trusted(event))throw new Error('不允许生成文档');
+    return aiDocuments.exportFolder(payload);
+  });
+  ipcMain.handle('ai-documents-reveal', async (event,token) => {
+    if(!trusted(event))throw new Error('不允许打开文件夹');
+    const requestingWindow=mainWindow,directory=await aiDocuments.resolveDirectory(token);
+    if(mainWindow!==requestingWindow||!trusted(event))throw new Error('原工作区窗口已关闭');
+    const error=await shell.openPath(directory);if(error)throw new Error(error);
   });
   async function createWindow() {
     if (!localServer) localServer = await createDesktopServer({ root });
