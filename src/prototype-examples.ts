@@ -24,7 +24,7 @@ export const prototypeExamples: readonly PrototypeExampleSummary[] = [
   {
     id: 'plants-vs-zombies', title: '植物大战僵尸', name: '植物大战僵尸 · 最小原型',
     description: '在五行九列草坪上收集阳光、种植三类植物并抵挡三波僵尸。素材需求覆盖单位、同路战斗、资源与对局状态。',
-    counts: { gameplay: 5, systems: 7, requirements: 20, assets: 32, tables: 4, records: 17, stories: 1 },
+    counts: { gameplay: 5, systems: 7, requirements: 20, assets: 37, tables: 4, records: 17, stories: 1 },
   },
   {
     id: 'disco-elysium', title: '极乐迪斯科', name: '极乐迪斯科 · 港区疑案原型',

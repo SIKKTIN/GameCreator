@@ -14,7 +14,7 @@ import { validateArtAssets, validateArtMutation, emptyArtAssets, artIssues } fro
 const examples = [
   { file: 'hollow-knight.json', requirements: 26, assets: 39 },
   { file: 'stardew-valley.json', requirements: 23, assets: 34 },
-  { file: 'plants-vs-zombies.json', requirements: 20, assets: 32 },
+  { file: 'plants-vs-zombies.json', requirements: 20, assets: 37 },
   { file: 'disco-elysium.json', requirements: 22, assets: 40 },
   { file: 'vampire-survivors.json', requirements: 26, assets: 42 },
 ];
