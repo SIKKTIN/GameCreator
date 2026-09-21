@@ -7,7 +7,7 @@ const { workspaceHash } = require('./art-files.cjs');
 
 const CATALOG_KEY = 'gamecreator.projects.v1';
 const SECTIONS = ['gameplay', 'functional-systems', 'art-assets', 'definitions', 'stories', 'project', 'milestones', 'enum-versions'];
-const OPTIONAL_SECTIONS = ['project-schedule', 'data-view', 'gameplay-core', 'prototype-design', 'task-flows', 'story-orchestration', 'map-design'];
+const OPTIONAL_SECTIONS = ['numerical-analysis', 'project-schedule', 'data-view', 'gameplay-core', 'prototype-design', 'task-flows', 'story-orchestration', 'map-design'];
 const FILE_TOKEN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.[a-z0-9]{1,12}$/;
 const NEW_PROJECT = /^project-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_METADATA_BYTES = 20 * 1024 * 1024;
@@ -199,6 +199,69 @@ function validateTaskArchive(value) {
     return value;
 }
 
+function validateNumericalAnalysisArchive(value) {
+    const fail = () => { throw new Error('数值分析存档格式异常，已停止写入'); };
+    const rec = (x) => !!x && typeof x === 'object' && !Array.isArray(x);
+    const str = (x) => typeof x === 'string' && x.length <= 10000;
+    const num = (x) => typeof x === 'number' && Number.isFinite(x);
+    const safe = (x) => !['__proto__', 'constructor', 'prototype'].includes(x);
+    const numericMap = (x) => rec(x) && Object.keys(x).length <= 300 && Object.entries(x).every(([k, v]) => safe(k) && num(v));
+    const list = (x, max) => { if (!Array.isArray(x) || x.length > max)
+        return fail(); return x; };
+    const ids = (x, max) => { const a = list(x, max); const used = new Set(); for (const v of a) {
+        if (!rec(v) || !str(v.id) || !v.id || !safe(v.id) || used.has(v.id))
+            fail();
+        used.add(v.id);
+    } return a; };
+    const range = (x) => (x.minimum === null || num(x.minimum)) && (x.maximum === null || num(x.maximum)) && (x.minimum === null || x.maximum === null || x.minimum <= x.maximum);
+    const metric = (m) => str(m.name) && str(m.unit) && str(m.formula) && m.formula.length <= 1000 && range(m);
+    if (!rec(value) || value.schema !== 1)
+        return fail();
+    for (const p of ids(value.plans, 100)) {
+        if (!str(p.name) || !str(p.notes) || !str(p.gameplayId))
+            fail();
+        const symbols = new Set();
+        for (const item of [...ids(p.parameters, 100), ...ids(p.metrics, 50)]) {
+            if (!/^[A-Za-z_][A-Za-z_0-9]*$/.test(item.id) || symbols.has(item.id))
+                fail();
+            symbols.add(item.id);
+        }
+        for (const param of p.parameters) {
+            if (!str(param.name) || !str(param.unit) || !num(param.value) || !['number', 'integer', 'percent'].includes(param.type) || !range(param) || !rec(param.binding))
+                fail();
+            const b = param.binding;
+            if (b.kind === 'cell') {
+                if (!str(b.table) || !str(b.rowId) || !str(b.field) || !safe(b.table) || !safe(b.field))
+                    fail();
+            }
+            else if (b.kind === 'variable') {
+                if (!str(b.storyId) || !str(b.variableId) || !safe(b.variableId))
+                    fail();
+            }
+            else if (b.kind !== 'constant')
+                fail();
+        }
+        if (!p.metrics.every(metric))
+            fail();
+        for (const v of ids(p.variants, 20))
+            if (!str(v.name) || !numericMap(v.overrides))
+                fail();
+        if (p.batch !== null && (!rec(p.batch) || !str(p.batch.table) || !safe(p.batch.table) || !list(p.batch.rowIds, 100).every(str) || new Set(p.batch.rowIds).size !== p.batch.rowIds.length))
+            fail();
+        if (p.sweep !== null && (!rec(p.sweep) || !str(p.sweep.parameterId) || !num(p.sweep.start) || !num(p.sweep.end) || !num(p.sweep.step)))
+            fail();
+        if (p.check !== null && (!rec(p.check) || !str(p.check.storyId) || !str(p.check.checkId)))
+            fail();
+        for (const s of ids(p.snapshots, 10)) {
+            if (!str(s.name) || !str(s.createdAt) || !Number.isFinite(Date.parse(s.createdAt)) || typeof s.signature !== 'string' || s.signature.length > 2000000 || !str(s.variantId) || !ids(s.metrics, 50).every(metric))
+                fail();
+            for (const r of list(s.rows, 1000))
+                if (!rec(r) || !str(r.key) || !str(r.label) || !num(r.x) || !numericMap(r.inputs) || !numericMap(r.values) || !rec(r.origins) || !Object.entries(r.origins).every(([k, v]) => safe(k) && str(v)) || !list(r.errors, 200).every(str) || !list(r.outside, 50).every(str))
+                    fail();
+        }
+    }
+    return value;
+}
 function validateMapArchive(value) {
     const fail = () => { throw new Error('地图设计存档格式无效'); };
     const record = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -401,6 +464,7 @@ function validateDocument(value) {
   if (Object.hasOwn(value.archives, 'prototype-design')) validatePrototypeArchive(value.archives['prototype-design']);
   if (Object.hasOwn(value.archives, 'project-schedule')) validateProjectScheduleArchive(value.archives['project-schedule']);
   if (Object.hasOwn(value.archives, 'task-flows')) validateTaskArchive(value.archives['task-flows']);
+  if (Object.hasOwn(value.archives, 'numerical-analysis')) validateNumericalAnalysisArchive(value.archives['numerical-analysis']);
   if (Object.hasOwn(value.archives, 'map-design')) validateMapArchive(value.archives['map-design']);
   if (Object.hasOwn(value.archives, 'story-orchestration')) validateStoryArchive(value.archives['story-orchestration']);
   validateGameplayLibraryArchive(value.archives.gameplay);

@@ -11431,5 +11431,237 @@
         "status": "计划中"
       }
     ]
+  },
+  "numericalAnalysis": {
+    "schema": 1,
+    "plans": [
+      {
+        "id": "analysis-plants-vs-zombies-1",
+        "name": "豌豆输出与僵尸承伤",
+        "notes": "单株豌豆射手持续命中一个目标；第一次命中为 t=0，不含弹道飞行、换目标与阻挡。",
+        "gameplayId": "",
+        "parameters": [
+          {
+            "id": "hp",
+            "name": "僵尸生命",
+            "value": 0,
+            "unit": "HP",
+            "minimum": 0,
+            "maximum": null,
+            "type": "number",
+            "binding": {
+              "kind": "cell",
+              "table": "pvz_zombies",
+              "rowId": "$row",
+              "field": "hp"
+            }
+          },
+          {
+            "id": "damage",
+            "name": "豌豆伤害",
+            "value": 0,
+            "unit": "HP",
+            "minimum": 0.001,
+            "maximum": null,
+            "type": "number",
+            "binding": {
+              "kind": "cell",
+              "table": "pvz_plants",
+              "rowId": "peashooter",
+              "field": "power"
+            }
+          },
+          {
+            "id": "period",
+            "name": "射击间隔",
+            "value": 0,
+            "unit": "秒",
+            "minimum": 0.001,
+            "maximum": null,
+            "type": "number",
+            "binding": {
+              "kind": "cell",
+              "table": "pvz_plants",
+              "rowId": "peashooter",
+              "field": "interval_s"
+            }
+          }
+        ],
+        "metrics": [
+          {
+            "id": "dps",
+            "name": "每秒伤害",
+            "formula": "damage / period",
+            "unit": "HP/秒",
+            "minimum": null,
+            "maximum": null
+          },
+          {
+            "id": "hits",
+            "name": "所需命中",
+            "formula": "ceil(hp / damage)",
+            "unit": "次",
+            "minimum": null,
+            "maximum": null
+          },
+          {
+            "id": "time",
+            "name": "理想击杀时间",
+            "formula": "max(0,hits - 1) * period",
+            "unit": "秒",
+            "minimum": null,
+            "maximum": null
+          }
+        ],
+        "variants": [],
+        "snapshots": [],
+        "batch": {
+          "table": "pvz_zombies",
+          "rowIds": []
+        },
+        "sweep": null,
+        "check": null
+      },
+      {
+        "id": "analysis-plants-vs-zombies-2",
+        "name": "向日葵回本时间",
+        "notes": "种植后首次产出在一个周期后，所有阳光都及时拾取；不含天降阳光、冷却与被摧毁风险。",
+        "gameplayId": "",
+        "parameters": [
+          {
+            "id": "cost",
+            "name": "种植成本",
+            "value": 0,
+            "unit": "阳光",
+            "minimum": 0,
+            "maximum": null,
+            "type": "number",
+            "binding": {
+              "kind": "cell",
+              "table": "pvz_plants",
+              "rowId": "sunflower",
+              "field": "cost"
+            }
+          },
+          {
+            "id": "gain",
+            "name": "每次产量",
+            "value": 0,
+            "unit": "阳光",
+            "minimum": 0.001,
+            "maximum": null,
+            "type": "number",
+            "binding": {
+              "kind": "cell",
+              "table": "pvz_plants",
+              "rowId": "sunflower",
+              "field": "power"
+            }
+          },
+          {
+            "id": "period",
+            "name": "生产间隔",
+            "value": 0,
+            "unit": "秒",
+            "minimum": 0.001,
+            "maximum": null,
+            "type": "number",
+            "binding": {
+              "kind": "cell",
+              "table": "pvz_plants",
+              "rowId": "sunflower",
+              "field": "interval_s"
+            }
+          }
+        ],
+        "metrics": [
+          {
+            "id": "cycles",
+            "name": "回本所需产出次数",
+            "formula": "ceil(cost / gain)",
+            "unit": "次",
+            "minimum": null,
+            "maximum": null
+          },
+          {
+            "id": "time",
+            "name": "回本时间",
+            "formula": "cycles * period",
+            "unit": "秒",
+            "minimum": null,
+            "maximum": null
+          },
+          {
+            "id": "rate",
+            "name": "长期产出速度",
+            "formula": "gain / period",
+            "unit": "阳光/秒",
+            "minimum": null,
+            "maximum": null
+          }
+        ],
+        "variants": [],
+        "snapshots": [],
+        "batch": null,
+        "sweep": null,
+        "check": null
+      },
+      {
+        "id": "analysis-plants-vs-zombies-3",
+        "name": "波次事件生命负担",
+        "notes": "每行是一组生成事件，统计请求生成的总生命量；不是在场怪物数量或通关难度评分。",
+        "gameplayId": "",
+        "parameters": [
+          {
+            "id": "count",
+            "name": "生成数量",
+            "value": 0,
+            "unit": "只",
+            "minimum": 0,
+            "maximum": null,
+            "type": "number",
+            "binding": {
+              "kind": "cell",
+              "table": "pvz_waves",
+              "rowId": "$row",
+              "field": "count"
+            }
+          },
+          {
+            "id": "hp",
+            "name": "对应僵尸生命",
+            "value": 0,
+            "unit": "HP",
+            "minimum": 0,
+            "maximum": null,
+            "type": "number",
+            "binding": {
+              "kind": "cell",
+              "table": "pvz_zombies",
+              "rowId": "$row.zombie_id",
+              "field": "hp"
+            }
+          }
+        ],
+        "metrics": [
+          {
+            "id": "total",
+            "name": "事件总生命量",
+            "formula": "count * hp",
+            "unit": "HP",
+            "minimum": null,
+            "maximum": null
+          }
+        ],
+        "variants": [],
+        "snapshots": [],
+        "batch": {
+          "table": "pvz_waves",
+          "rowIds": []
+        },
+        "sweep": null,
+        "check": null
+      }
+    ]
   }
 }

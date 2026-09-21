@@ -1,3 +1,4 @@
+import { resolveNarrativeCheck } from './story-check.ts';
 import { predicateMet, predicateText, type Narrative, type StoryChoice, type StoryEffect } from './story-orchestration.ts';
 import { isStoryFlag } from './story-characters.ts';
 export type CheckRecord = { result: 'success' | 'failure'; sources: Record<string, number> };
@@ -73,12 +74,10 @@ export function chooseStoryOption(story: Narrative, preview: StoryPlaythrough, c
     if (replay) result = old.result;
     else if (typeof resolution === 'string') result = resolution;
     else {
-      const threshold = check.mode === 'threshold', count = check.diceCount ?? 2, sides = check.diceSides ?? 6;
-      if (!threshold && (resolution.length !== count || !resolution.every(d => Number.isInteger(d) && d >= 1 && d <= sides))) throw new Error(`需要${count}颗骰子，骰点须在1至${sides}之间`);
-      const score = next.state[check.variableId] + (threshold ? 0 : resolution.reduce((sum,d) => sum+d, 0)) + check.modifiers.filter(m => predicateMet(m.condition, next.state)).reduce((a,m) => a + m.value, 0);
-      if (!Number.isFinite(score)) throw new Error('检定引用了失效变量');
-      const criticals = !threshold && (check.criticals ?? true);
-      result = criticals && resolution.every(d => d === sides) || !(criticals && resolution.every(d => d === 1)) && score >= check.difficulty ? 'success' : 'failure';
+      const threshold = check.mode === 'threshold';
+      const resolved = resolveNarrativeCheck(check, next.state, resolution);
+      const score = resolved.score;
+      result = resolved.success ? 'success' : 'failure';
       description += `（${threshold ? '数值比较' : '骰点 '+resolution.join('+')}，合计 ${score} / ${check.difficulty}）`;
     }
     target = result === 'success' ? check.successId : check.failureId;

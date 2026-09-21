@@ -1,3 +1,4 @@
+import { emptyNumericalAnalysis, validateNumericalAnalysis, type NumericalAnalysisStore } from './numerical-analysis.ts';
 import { scheduleFromMilestones, validateProjectSchedule, type ProjectScheduleStore } from './project-schedule.ts';
 import { emptyMapDesign, validateMapDesign, type MapDesignStore } from './map-design.ts';
 import { emptyStoryOrchestration, validateStoryOrchestration, type StoryOrchestrationStore } from './story-orchestration.ts';
@@ -21,7 +22,7 @@ export type ProjectPackageDocument = {
   schema: 1;
   project: { name: string; config: EngineConfig; defaultTablesVersion?: 1 };
   archives: {
-    'project-schedule': ProjectScheduleStore; 'map-design': MapDesignStore; 'story-orchestration': StoryOrchestrationStore; 'task-flows': TaskFlowStore; gameplay: GameplayStore; 'gameplay-core': GameplayCoreStore; 'prototype-design': PrototypeDesignStore; 'functional-systems': FunctionalStore; 'art-assets': ArtStore;
+    'numerical-analysis': NumericalAnalysisStore; 'project-schedule': ProjectScheduleStore; 'map-design': MapDesignStore; 'story-orchestration': StoryOrchestrationStore; 'task-flows': TaskFlowStore; gameplay: GameplayStore; 'gameplay-core': GameplayCoreStore; 'prototype-design': PrototypeDesignStore; 'functional-systems': FunctionalStore; 'art-assets': ArtStore;
     definitions: DatasetDef[]; stories: StoryDoc[]; project: typeof initialProject;
     milestones: Milestone[]; 'enum-versions': VersionStore; 'data-view'?: DataViewState;
   };
@@ -34,7 +35,7 @@ export type PreparedProjectPackageImport = {
   catalog: ProjectCatalog; project: SavedProject; entries: { key: string; value: string }[]; defaultTablesVersion?: 1;
 };
 type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
-export const projectPackageSections = ['project-schedule', 'map-design', 'story-orchestration', 'task-flows', 'gameplay', 'gameplay-core', 'prototype-design', 'functional-systems', 'art-assets', 'definitions', 'stories', 'project', 'milestones', 'enum-versions'] as const;
+export const projectPackageSections = ['numerical-analysis', 'project-schedule', 'map-design', 'story-orchestration', 'task-flows', 'gameplay', 'gameplay-core', 'prototype-design', 'functional-systems', 'art-assets', 'definitions', 'stories', 'project', 'milestones', 'enum-versions'] as const;
 const workspaceKey = (id: string, section: string) => section === 'enum-versions' ? 'gamecreator.enum-versions.v1:' + id : 'gamecreator.workspace.v1:' + id + ':' + section;
 const completedDefaultTableMigration = JSON.stringify({ schema: 1, state: 'done', removed: [] });
 const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
@@ -105,7 +106,7 @@ export function validateProjectPackage(value: unknown): ProjectPackageDocument {
   requireValid(project.defaultTablesVersion === undefined || project.defaultTablesVersion === 1, '不支持的配置表版本');
   requireValid(typeof project.name === 'string' && !!project.name.trim() && record(project.config), '项目名称或引擎配置无效');
   requireValid(fields(project.config, ['engine', 'projectPath', 'enumPath', 'dataPath', 'outputFormat']) && typeof project.config.autoSync === 'boolean' && typeof project.config.backupBeforeSync === 'boolean', '引擎配置不完整');
-  requireValid(projectPackageSections.filter(section => section !== 'project-schedule' && section !== 'gameplay-core' && section !== 'prototype-design' && section !== 'task-flows' && section !== 'story-orchestration' && section !== 'map-design').every(section => Object.prototype.hasOwnProperty.call(archives, section)) && Object.keys(archives).every(key => [...projectPackageSections, 'data-view'].includes(key as typeof projectPackageSections[number])), '项目模块缺失或版本不受支持');
+  requireValid(projectPackageSections.filter(section => section !== 'numerical-analysis' && section !== 'project-schedule' && section !== 'gameplay-core' && section !== 'prototype-design' && section !== 'task-flows' && section !== 'story-orchestration' && section !== 'map-design').every(section => Object.prototype.hasOwnProperty.call(archives, section)) && Object.keys(archives).every(key => [...projectPackageSections, 'data-view'].includes(key as typeof projectPackageSections[number])), '项目模块缺失或版本不受支持');
   const gameplay = validateGameplay(archives.gameplay);
   validateFunctionalSystems(archives['functional-systems']);
   const art = validateArtAssets(archives['art-assets']);
@@ -129,6 +130,7 @@ export function validateProjectPackage(value: unknown): ProjectPackageDocument {
   const normalized = structuredClone(value) as unknown as ProjectPackageDocument;
   normalized.archives['project-schedule'] = Object.prototype.hasOwnProperty.call(archives, 'project-schedule') ? structuredClone(validateProjectSchedule(archives['project-schedule'])) : scheduleFromMilestones(archives.milestones);
   normalized.archives['task-flows'] = Object.prototype.hasOwnProperty.call(archives, 'task-flows') ? structuredClone(validateTaskFlows(archives['task-flows'])) : emptyTaskFlows();
+  normalized.archives['numerical-analysis'] = Object.prototype.hasOwnProperty.call(archives, 'numerical-analysis') ? structuredClone(validateNumericalAnalysis(archives['numerical-analysis'])) : emptyNumericalAnalysis();
   normalized.archives['map-design'] = Object.prototype.hasOwnProperty.call(archives, 'map-design') ? structuredClone(validateMapDesign(archives['map-design'])) : emptyMapDesign();
   normalized.archives['story-orchestration'] = Object.prototype.hasOwnProperty.call(archives, 'story-orchestration') ? structuredClone(validateStoryOrchestration(archives['story-orchestration'])) : emptyStoryOrchestration();
   normalized.archives.gameplay = structuredClone(gameplay);
@@ -168,6 +170,7 @@ export function captureProjectPackage(storage: Pick<Storage, 'getItem'>, project
   const legacyMilestones = read('milestones', empty ? [] : initialMilestones);
   const archives = {
     'project-schedule': read('project-schedule', scheduleFromMilestones(legacyMilestones)),
+    'numerical-analysis': read('numerical-analysis', emptyNumericalAnalysis()),
     'map-design': read('map-design', emptyMapDesign()),
     'story-orchestration': read('story-orchestration', emptyStoryOrchestration()), 'task-flows': read('task-flows', emptyTaskFlows()), gameplay: read('gameplay', emptyGameplay()), 'gameplay-core': read('gameplay-core', emptyGameplayCore()), 'prototype-design': read('prototype-design', emptyPrototypeDesign()), 'functional-systems': read('functional-systems', emptyFunctionalSystems()),
     'art-assets': read('art-assets', emptyArtAssets()), definitions: read('definitions', empty ? emptyDatasetDefinitions : datasetDefinitions),

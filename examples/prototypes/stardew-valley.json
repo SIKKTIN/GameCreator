@@ -14402,5 +14402,140 @@
         "status": "计划中"
       }
     ]
+  },
+  "numericalAnalysis": {
+    "schema": 1,
+    "plans": [
+      {
+        "id": "analysis-stardew-valley-1",
+        "name": "作物单轮收益",
+        "notes": "每格种 1 株，每晚已浇水，成熟即收获并出货；不含工具体力、天气、委托、土地闲置和现金到账延迟。种子与收获物通过作物表引用读取。",
+        "gameplayId": "",
+        "parameters": [
+          {
+            "id": "cost",
+            "name": "种子成本",
+            "value": 0,
+            "unit": "金币",
+            "minimum": 0,
+            "maximum": null,
+            "type": "number",
+            "binding": {
+              "kind": "cell",
+              "table": "farm_items",
+              "rowId": "$row.seed",
+              "field": "buy"
+            }
+          },
+          {
+            "id": "price",
+            "name": "收获物售价",
+            "value": 0,
+            "unit": "金币",
+            "minimum": 0,
+            "maximum": null,
+            "type": "number",
+            "binding": {
+              "kind": "cell",
+              "table": "farm_items",
+              "rowId": "$row.harvest",
+              "field": "sell"
+            }
+          },
+          {
+            "id": "yield",
+            "name": "单次产量",
+            "value": 0,
+            "unit": "个",
+            "minimum": 0,
+            "maximum": null,
+            "type": "number",
+            "binding": {
+              "kind": "cell",
+              "table": "farm_crops",
+              "rowId": "$row",
+              "field": "yield"
+            }
+          },
+          {
+            "id": "days",
+            "name": "成长夜数",
+            "value": 0,
+            "unit": "夜",
+            "minimum": 1,
+            "maximum": null,
+            "type": "number",
+            "binding": {
+              "kind": "cell",
+              "table": "farm_crops",
+              "rowId": "$row",
+              "field": "nights"
+            }
+          },
+          {
+            "id": "plots",
+            "name": "种植格数",
+            "value": 16,
+            "unit": "格",
+            "minimum": 1,
+            "maximum": null,
+            "type": "number",
+            "binding": {
+              "kind": "constant"
+            }
+          }
+        ],
+        "metrics": [
+          {
+            "id": "profit",
+            "name": "单格利润",
+            "formula": "price * yield - cost",
+            "unit": "金币",
+            "minimum": null,
+            "maximum": null
+          },
+          {
+            "id": "daily",
+            "name": "每格每夜平均利润",
+            "formula": "profit / days",
+            "unit": "金币/格/夜",
+            "minimum": null,
+            "maximum": null
+          },
+          {
+            "id": "total",
+            "name": "整轮利润",
+            "formula": "profit * plots",
+            "unit": "金币",
+            "minimum": null,
+            "maximum": null
+          },
+          {
+            "id": "roi",
+            "name": "单轮投入回报率",
+            "formula": "profit / cost * 100",
+            "unit": "%",
+            "minimum": null,
+            "maximum": null
+          }
+        ],
+        "variants": [
+          {
+            "id": "price",
+            "name": "售价统一试算为 24",
+            "overrides": {
+              "price": 24
+            }
+          }
+        ],
+        "snapshots": [],
+        "batch": {
+          "table": "farm_crops",
+          "rowIds": []
+        },
+        "sweep": null,
+        "check": null
+      }
+    ]
   }
 }

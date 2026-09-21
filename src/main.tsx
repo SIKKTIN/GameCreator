@@ -1,3 +1,5 @@
+import { NumericalAnalysis } from './NumericalAnalysis';
+import { useNumericalAnalysis } from './useNumericalAnalysis';
 import { ProjectSchedule } from './ProjectSchedule';
 import { useProjectSchedule } from './useProjectSchedule';
 import { buildScheduleSources } from './project-schedule';
@@ -374,6 +376,7 @@ function WorkspaceApp({ username, testSession, onLoadTest, onExitTest, preparing
   const core = useGameplayCore(dataKey);
   const prototype = usePrototypeDesign(dataKey);
   const tasks = useTaskFlows(dataKey);
+  const analysis = useNumericalAnalysis(dataKey);
   const schedule = useProjectSchedule(dataKey, isNewProject ? emptyMilestones : initialMilestones);
   const [requestedSchedule, setRequestedSchedule] = useState<{ kind: 'task' | 'milestone'; id: string }>();
   const narrative = useStoryOrchestration(dataKey);
@@ -386,10 +389,10 @@ function WorkspaceApp({ username, testSession, onLoadTest, onExitTest, preparing
   const functional = useFunctionalSystems(dataKey);
   const art = useArtAssets(dataKey, testSession ? 'test:' + testSession.id : 'project:' + formalProject.id);
   useEffect(() => {
-    const guard = (event: Event) => { if (gameplay.pending || functional.pending || art.pending || core.pending || prototype.pending || tasks.pending || narrative.pending || maps.pending || schedule.pending) event.preventDefault(); };
+    const guard = (event: Event) => { if (gameplay.pending || functional.pending || art.pending || core.pending || prototype.pending || tasks.pending || narrative.pending || maps.pending || schedule.pending || analysis.pending) event.preventDefault(); };
     window.addEventListener(beforeLogoutEvent, guard);
     return () => window.removeEventListener(beforeLogoutEvent, guard);
-  }, [gameplay.pending, functional.pending, art.pending, core.pending, prototype.pending, tasks.pending, narrative.pending, maps.pending, schedule.pending]);
+  }, [gameplay.pending, functional.pending, art.pending, core.pending, prototype.pending, tasks.pending, narrative.pending, maps.pending, schedule.pending, analysis.pending]);
   const currentData = registry.data;
   const [allDefinitions, setDefinitions, definitionsError] = useStoredState<DatasetDef[]>('gamecreator.workspace.v1:' + dataKey + ':definitions', isNewProject ? emptyDatasetDefinitions : datasetDefinitions);
   const definitions = Object.keys(currentData.datasets).map(key =>
@@ -414,11 +417,11 @@ function WorkspaceApp({ username, testSession, onLoadTest, onExitTest, preparing
   const openGameplay = (id: string, kind = 'design', sourceId = '') => { setActiveGameplayId(id); setGameplaySource({ kind, id: sourceId }); setActive('玩法设计'); };
   const completedMilestones = milestones.filter((milestone) => milestone.status === 'done').length;
   const progress = milestones.length ? Math.round((completedMilestones / milestones.length) * 100) : 0;
-  const storageError = [definitionsError, storyError, projectError, registry.error, gameplay.error, functional.error, art.error, core.error, prototype.error, tasks.error, narrative.error, maps.error, schedule.error].filter(Boolean).join('；');
+  const storageError = [definitionsError, storyError, projectError, registry.error, gameplay.error, functional.error, art.error, core.error, prototype.error, tasks.error, narrative.error, maps.error, schedule.error, analysis.error].filter(Boolean).join('；');
 
   const exportAiContext = async () => {
-    if (testSession || gameplay.blocked || gameplay.pending || functional.blocked || functional.pending || art.blocked || art.pending || core.blocked || prototype.blocked || tasks.blocked || narrative.blocked || maps.blocked || schedule.blocked || core.pending || prototype.pending || tasks.pending || narrative.pending || maps.pending || schedule.pending) return;
-    const markdown = buildAiMarkdown(project, storyDocs, currentData, definitions, engineConfig, registry, gameplay.store.designs, functional.store, art.store, core.store, prototype.store, tasks.store, narrative.store, maps.store, gameplay.store.categories || [], schedule.store);
+    if (testSession || gameplay.blocked || gameplay.pending || functional.blocked || functional.pending || art.blocked || art.pending || core.blocked || prototype.blocked || tasks.blocked || narrative.blocked || maps.blocked || schedule.blocked || analysis.blocked || core.pending || prototype.pending || tasks.pending || narrative.pending || maps.pending || schedule.pending || analysis.pending) return;
+    const markdown = buildAiMarkdown(project, storyDocs, currentData, definitions, engineConfig, registry, gameplay.store.designs, functional.store, art.store, core.store, prototype.store, tasks.store, narrative.store, maps.store, gameplay.store.categories || [], schedule.store, analysis.store);
     const location = await saveAiMarkdown(markdown, formalProject.id);
 
     window.alert(`AI 文档已生成：${location}`);
@@ -481,7 +484,7 @@ function WorkspaceApp({ username, testSession, onLoadTest, onExitTest, preparing
     <div className="app local-workspace">
       <WorkspaceSidebar picker={<ProjectSwitcher projects={projectOptions} teamNotice={teamNotice} currentId={testSession ? null : formalProject.id} currentName={project.name}
           testName={testSession ? testScenarios.find(item=>item.id===testSession.scenario)?.name : undefined}
-          canAdd busy={preparingTest || registry.busy || registry.loading || gameplay.pending || functional.pending || functional.blocked || art.pending || art.blocked || core.pending || prototype.pending || tasks.pending || narrative.pending || maps.pending || schedule.pending} onSelect={onSelectProject} onAdd={onAddProject} onDelete={onDeleteProject} onConnectTeam={onConnectTeam} onCreateTeam={onCreateTeam} onPublishProject={!testSession && !storageError ? onPublishProject : undefined} onImportPrototype={onImportPrototype} onImportProject={onImportProject} onExportProject={!testSession && !storageError ? onExportProject : undefined} />} active={serverPage ? adminPageName??'服务器管理' : active}
+          canAdd busy={preparingTest || registry.busy || registry.loading || gameplay.pending || functional.pending || functional.blocked || art.pending || art.blocked || core.pending || prototype.pending || tasks.pending || narrative.pending || maps.pending || schedule.pending || analysis.pending} onSelect={onSelectProject} onAdd={onAddProject} onDelete={onDeleteProject} onConnectTeam={onConnectTeam} onCreateTeam={onCreateTeam} onPublishProject={!testSession && !storageError ? onPublishProject : undefined} onImportPrototype={onImportPrototype} onImportProject={onImportProject} onExportProject={!testSession && !storageError ? onExportProject : undefined} />} active={serverPage ? adminPageName??'服务器管理' : active}
         mapEnabled={maps.store.enabled} storyEnabled={narrative.store.enabled} onNavigate={name => { if(canLeaveTeam()){onLeaveServer(); setRequestedSchedule(undefined); setActive(name);} }} onManageServer={onManageServer} onManageUsers={onManageUsers} footer={<>
         <button onClick={()=>{if(canLeaveTeam()){onLeaveServer();setActive('工作区设置');}}}><Settings2 size={17} />工作区设置</button><div className="user"><div className="avatar">G</div><span>{username}<small>本地项目</small></span></div>
       </>} />
@@ -492,17 +495,17 @@ function WorkspaceApp({ username, testSession, onLoadTest, onExitTest, preparing
           <div><div className="crumb">{project.name.toUpperCase()} <span>/</span> {active.toUpperCase()}</div><h1>{active}</h1></div>
           <div className="header-actions">
             {<TestPanel page={active} username={username} config={engineConfig} registry={registry} testSession={testSession}
-              busy={preparingTest || gameplay.pending || functional.pending || functional.blocked || art.pending || art.blocked || core.pending || prototype.pending || tasks.pending || narrative.pending || maps.pending || schedule.pending} error={testError || storageError} onLoad={onLoadTest} onExit={onExitTest} onNavigate={setActive} />}
+              busy={preparingTest || gameplay.pending || functional.pending || functional.blocked || art.pending || art.blocked || core.pending || prototype.pending || tasks.pending || narrative.pending || maps.pending || schedule.pending || analysis.pending} error={testError || storageError} onLoad={onLoadTest} onExit={onExitTest} onNavigate={setActive} />}
             <div className="search"><Search size={16} /><input placeholder="搜索内容..." /></div>
-            <button className="save" disabled={!!testSession || gameplay.blocked || gameplay.pending || functional.blocked || functional.pending || art.blocked || art.pending || core.blocked || prototype.blocked || tasks.blocked || narrative.blocked || maps.blocked || schedule.blocked || core.pending || prototype.pending || tasks.pending || narrative.pending || maps.pending || schedule.pending} title={testSession ? "测试工作区可在面板复制诊断信息" : undefined} onClick={exportAiContext}><FileText size={16} />生成 AI 文档</button>
+            <button className="save" disabled={!!testSession || gameplay.blocked || gameplay.pending || functional.blocked || functional.pending || art.blocked || art.pending || core.blocked || prototype.blocked || tasks.blocked || narrative.blocked || maps.blocked || schedule.blocked || analysis.blocked || core.pending || prototype.pending || tasks.pending || narrative.pending || maps.pending || schedule.pending || analysis.pending} title={testSession ? "测试工作区可在面板复制诊断信息" : undefined} onClick={exportAiContext}><FileText size={16} />生成 AI 文档</button>
             <span className="save" role="status">{storageError ? <AlertTriangle size={16} /> : <Check size={16} />}{storageError ? '请检查保存状态' : registry.busy ? '正在保存…' : '已自动保存'}</span>
           </div>
         </header>
 
         {testSession && <div className="test-workspace-banner" role="status"><span><b>测试工作区</b> · {testScenarios.find(item=>item.id===testSession.scenario)?.name} · 数据独立保存</span>
-          <button disabled={preparingTest || registry.busy || registry.loading || gameplay.pending || functional.pending || functional.blocked || art.pending || art.blocked || core.pending || prototype.pending || tasks.pending || narrative.pending || maps.pending || schedule.pending} onClick={onExitTest}>返回原工作区</button></div>}
+          <button disabled={preparingTest || registry.busy || registry.loading || gameplay.pending || functional.pending || functional.blocked || art.pending || art.blocked || core.pending || prototype.pending || tasks.pending || narrative.pending || maps.pending || schedule.pending || analysis.pending} onClick={onExitTest}>返回原工作区</button></div>}
         {testError && <p className="field-error" role="alert">{testError}</p>}
-        {storageError && !gameplay.error && !functional.error && !art.error && !core.error && !prototype.error && !tasks.error && !narrative.error && !maps.error && !schedule.error && <p className="field-error" role="alert">{storageError}</p>}
+        {storageError && !gameplay.error && !functional.error && !art.error && !core.error && !prototype.error && !tasks.error && !narrative.error && !maps.error && !schedule.error && !analysis.error && <p className="field-error" role="alert">{storageError}</p>}
         {gameplay.error && <div className="gp-save-error" role="alert"><span>{gameplay.error}{gameplay.pending && "。草稿保留在当前窗口，请重试保存后再切换项目。"}</span>{gameplay.pending && <button className="gp-secondary" onClick={gameplay.retry}>重试保存玩法</button>}</div>}
         {functional.error && <div className="gp-save-error" role="alert"><span>{functional.error}{functional.pending && '。草稿保留在当前窗口，请重试保存后再切换项目。'}</span>{functional.pending && <button className="gp-secondary" onClick={functional.retry}>重试保存功能系统</button>}</div>}
         {art.error && <div className="gp-save-error" role="alert"><span>{art.error}{art.pending && '。草稿保留在当前窗口，请重试保存后再切换项目。'}</span>{art.pending && <button className="gp-secondary" onClick={art.retry}>重试保存素材资产</button>}</div>}
@@ -566,13 +569,15 @@ function WorkspaceApp({ username, testSession, onLoadTest, onExitTest, preparing
             readOnly={false}
           />
         )}
+        {analysis.error && <div className="gp-save-error" role="alert"><span>{analysis.error}</span>{analysis.pending && <button onClick={analysis.retry}>重试保存数值分析</button>}<button onClick={()=>{const url=URL.createObjectURL(new Blob([JSON.stringify(analysis.store,null,2)],{type:'application/json'}));const link=document.createElement('a');link.href=url;link.download='numerical-analysis-draft.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}}>下载数值分析草稿</button><button onClick={()=>{if(window.confirm('重新读取会放弃当前未保存修改。可先下载草稿备份，是否继续？'))analysis.reload();}}>重新读取数值分析存档</button></div>}
+        {active === '数值分析' && (registry.loading || registry.busy || registry.error || narrative.blocked || narrative.pending ? <p role="alert">来源数据尚未就绪，请先处理配置或故事存档：{registry.error || narrative.error}</p> : <NumericalAnalysis controller={analysis} sources={{data:currentData,narrative:narrative.store}} definitions={definitions} designs={gameplay.store.designs} onOpenDataset={key=>{setActiveDataset(key);setActive('数据配置');}} onOpenGameplay={id=>openGameplay(id)}/>)}
         {active === '数据配置' && <DataConfiguration key={dataKey} workspaceKey={dataKey} data={currentData}
           onChange={(next) => registry.updateData(next)}
           definitions={definitions} activeDataset={currentDataset} setActiveDataset={setActiveDataset} registry={registry} onCreateTable={createDataset} />}
         {active === '枚举定义' && <EnumDefinitions registry={registry} />}
         {active === '枚举管理' && <EnumManager config={engineConfig} registry={registry} />}
         {active === '引擎设置' && <fieldset disabled={!!testSession} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>{testSession && <p>测试场景使用固定来源，请通过测试面板加载或重置场景。</p>}<EngineSettings config={engineConfig} registry={registry} onPickDirectory={window.desktopClient?.pickProjectDirectory} setConfig={(next) => testSession ? Promise.resolve(false) : onConfigChange(next)} /></fieldset>}
-        {active !== '项目排期' && active !== '地图设计' && active !== '工作区设置' && active !== '故事编排' && active !== '原型设计' && active !== '任务与流程' && active !== '项目概览' && active !== '玩法核心' && active !== '玩法设计' && active !== '功能系统' && active !== '素材资产' && active !== '故事文档' && active !== '数据配置' && active !== '枚举定义' && active !== '枚举管理' && active !== '引擎设置' && (
+        {active !== '数值分析' && active !== '项目排期' && active !== '地图设计' && active !== '工作区设置' && active !== '故事编排' && active !== '原型设计' && active !== '任务与流程' && active !== '项目概览' && active !== '玩法核心' && active !== '玩法设计' && active !== '功能系统' && active !== '素材资产' && active !== '故事文档' && active !== '数据配置' && active !== '枚举定义' && active !== '枚举管理' && active !== '引擎设置' && (
           <section className="empty">
             <div className="empty-icon"><Layers size={34} /></div>
             <h2>{active}</h2>
