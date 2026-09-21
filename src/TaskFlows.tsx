@@ -1,3 +1,4 @@
+import {useLeaveSearch} from './GlobalSearch';
 import { useEffect, useId, useRef, useState } from 'react';
 import { Plus, GitBranch, Target, Copy, Archive, Play, RotateCcw } from 'lucide-react';
 import { advanceTaskPreview, copyTask, createTask, createTaskStage, referenceKinds, referenceLabels, removeTaskStage, startTaskPreview, taskFlowIssues, taskKinds, taskReferenceLabel, taskScopes, taskStageReady, type TaskDefinition, type TaskPreview, type TaskReference, type TaskSources, type TaskStage } from './task-flow';
@@ -17,7 +18,8 @@ export function TaskFlows({ controller, sources, onOpenReference, requestedTask,
   const task = store.tasks.find(t => t.id === selected), disabled = blocked || !!task?.archived;
   const stage = task?.stages.find(s => s.id === stageId) ?? task?.stages[0];
   const issues = taskFlowIssues(store, sources), taskIssues = issues.filter(i => i.taskId === selected);
-  const choose = (id: string) => { setSelected(id); setStageId(''); setError(''); };
+  const leaveSearch=useLeaveSearch('任务与流程');
+  const choose = (id: string) => { if(id!==selected)leaveSearch(); setSelected(id); setStageId(''); setError(''); };
   const change = (operation: (task: TaskDefinition) => TaskDefinition) => {
     if (!task || disabled) return;
     try { const next = operation(structuredClone(task)); update(s => ({ ...s, tasks: s.tasks.map(t => t.id === task.id ? next : t) })); setError(''); }

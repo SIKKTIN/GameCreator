@@ -1,4 +1,4 @@
-import {useSearchRequest} from './GlobalSearch';
+import {useSearchRequest,useLeaveSearch} from './GlobalSearch';
 import type { SpatialView } from './spatial-layout';
 import { useEffect, useRef, useState, type ReactNode, type FormEvent } from 'react';
 import { Archive, ArrowDown, ArrowRight, ArrowUp, CheckCircle2, Copy, FileText, FlaskConical, Folder, Settings2, ChevronRight, Gamepad2, Link2, Plus, RotateCcw, Search, Trash2, X } from 'lucide-react';
@@ -14,8 +14,9 @@ type EditorTab = 'design' | 'relations' | 'rules' | 'flow' | 'space' | 'time';
 
 type ImplementationProps = { readOnly?: boolean; team?: boolean; onRoomMove?: (designId:string,roomId:string,x:number,y:number)=>void; initialSpatialView?: SpatialView; objectReferences?: (designId: string, objectId: string) => string[]; renderImplementation?: (design: GameplayDesign) => ReactNode; initialSource?: { kind: string; id: string } };
 const sourceTab = (kind?: string): EditorTab => kind === 'rule' ? 'rules' : kind === 'state' ? 'flow' : kind === 'event' ? 'time' : kind === 'object' ? 'space' : 'design';
-type Props = ImplementationProps & { selectedId: string; onSelect: (id: string) => void; controller: GameplayController; sources: GameplaySources; onOpenLink: (link: GameplayLink) => void };
+type Props = ImplementationProps & { selectedId: string; onSelect: (id: string) => boolean | void; controller: GameplayController; sources: GameplaySources; onOpenLink: (link: GameplayLink) => void };
 export function GameplayDesigns({ controller, selectedId, onSelect: setSelectedId, sources, onOpenLink, renderImplementation, initialSource, objectReferences, readOnly = false, team = false, onRoomMove }: Props) {
+  const leaveSearch=useLeaveSearch('玩法设计');
   const { store, blocked } = controller, editingBlocked = blocked || readOnly, update: GameplayController['update'] = operation => !editingBlocked && controller.update(operation), categories = store.categories || [];
   const selected = store.designs.find(d => d.id === selectedId);
   const [categoryId, setCategoryId] = useState<string | null>(() => selected ? categoryOf(selected, categories) : null);
@@ -31,9 +32,10 @@ export function GameplayDesigns({ controller, selectedId, onSelect: setSelectedI
   const visible = filtered.filter(d => globalSearch || categoryOf(d, categories) === effectiveCategoryId);
   const overview = categoryId === null && !query.trim() && status === 'all' && !archived;
   const showEditor = !!selected && !globalSearch;
-  const openDocument = (id: string, view?: SpatialView) => {
-    const next = store.designs.find(d => d.id === id); if (!next) return;
-    setSpatialNavigation(view ? { id, view } : undefined); setCategoryId(categoryOf(next, categories)); setArchived(next.archived); setStatus('all'); setQuery(''); setScope('category'); setChosen([]); setSelectedId(id); if (view) setEditorTab('space');
+  const openDocument = (id: string, view?: SpatialView, fromSearch = false) => {
+    const next = store.designs.find(d => d.id === id); if (!next || setSelectedId(id) === false) return;
+    if (!fromSearch) leaveSearch();
+    setSpatialNavigation(view ? { id, view } : undefined); setCategoryId(categoryOf(next, categories)); setArchived(next.archived); setStatus('all'); setQuery(''); setScope('category'); setChosen([]); if (view) setEditorTab('space');
   };
   useEffect(() => {
     if (!selected) return;
@@ -41,10 +43,10 @@ export function GameplayDesigns({ controller, selectedId, onSelect: setSelectedI
     if (initialSource) setEditorTab(sourceTab(initialSource.kind));
   }, [selectedId, initialSource, selected?.categoryId]);
   const searchRequest=useSearchRequest('玩法设计',t=>store.designs.some(d=>d.id===(t.parent||t.id)));
-  useEffect(()=>{if(searchRequest){const id=searchRequest.parent||searchRequest.id;openDocument(id);setEditorTab(sourceTab(searchRequest.kind||'design'));}},[searchRequest]);
-  const goHome = () => { setCategoryId(null); setSelectedId(''); setQuery(''); setStatus('all'); setArchived(false); setChosen([]); };
-  const openCategory = (id: string) => { setCategoryId(id); setSelectedId(''); setQuery(''); setStatus('all'); setScope('category'); setChosen([]); };
-  const addDesign = (design: GameplayDesign) => { if (!update(current => ({ ...current, designs: [...current.designs, design] }))) return; setCategoryId(categoryOf(design, categories)); setArchived(false); setStatus('all'); setQuery(''); setSelectedId(design.id); setEditorTab('design'); };
+  useEffect(()=>{if(searchRequest){const id=searchRequest.parent||searchRequest.id;openDocument(id,undefined,true);setEditorTab(sourceTab(searchRequest.kind||'design'));}},[searchRequest]);
+  const goHome = () => { if(setSelectedId('')===false)return;leaveSearch();setCategoryId(null); setQuery(''); setStatus('all'); setArchived(false); setChosen([]); };
+  const openCategory = (id: string) => { if(setSelectedId('')===false)return;leaveSearch();setCategoryId(id); setQuery(''); setStatus('all'); setScope('category'); setChosen([]); };
+  const addDesign = (design: GameplayDesign) => { if (!update(current => ({ ...current, designs: [...current.designs, design] }))) return; setCategoryId(categoryOf(design, categories)); setArchived(false); setStatus('all'); setQuery(''); setSelectedId(design.id); leaveSearch(); setEditorTab('design'); };
   const create = (event: FormEvent) => { event.preventDefault(); if (editingBlocked) return; try { addDesign({ ...createGameplay(title), categoryId: categoryId === null ? '' : effectiveCategoryId }); dialog.current?.close(); } catch (e) { setFormError(String(e)); } };
   const patch = (id: string, changes: Partial<GameplayDesign>) => update(current => ({ ...current, designs: current.designs.map(d => d.id === id ? { ...d, ...changes, updatedAt: new Date().toISOString() } : d) }));
   const openManager = () => { if (editingBlocked) return; setManagerOpen(true); setFormError(''); };

@@ -1,3 +1,4 @@
+import {useSearchSelection} from './GlobalSearch';
 import { StageBoard } from './SpatialEditor';
 import { spatialObjectLocation, type SpatialView } from './spatial-layout';
 export { GameplaySpace } from './SpatialEditor';
@@ -34,7 +35,7 @@ function TimelineBoard({ timeline: t, cursor, selected, onSelect, onCursor }: { 
   </svg></div></div>;
 }
 export function GameplayTime({ design: d, designs, disabled, onChange, onNavigate, initialEventId }: Common & { initialEventId?: string }) {
-  const t = d.timeline, owner = spaceOwner(d, designs); const [trackId, setTrackId] = useState(t.events.find(e => e.id === initialEventId)?.trackId ?? ''), [eventId, setEventId] = useState(initialEventId ?? ''), [error, setError] = useState(''), [cursor, setCursor] = useState(0), [playing, setPlaying] = useState(false), [speed, setSpeed] = useState(10);
+  const t = d.timeline, owner = spaceOwner(d, designs); const [trackId, setTrackId] = useState(t.events.find(e => e.id === initialEventId)?.trackId ?? ''), [eventId, locateEvent] = useState(initialEventId ?? ''), [error, setError] = useState(''), [cursor, setCursor] = useState(0), [playing, setPlaying] = useState(false), [speed, setSpeed] = useState(10);
   const track = t.tracks.find(x => x.id === trackId) ?? t.tracks[0], event = t.events.find(e => e.id === eventId), frame = useRef(0);
   useEffect(() => { if (!playing) return; let before = performance.now(); const step = (now: number) => { const elapsed = (now - before) / 1000 * speed; before = now; setCursor(v => Math.min(t.duration, v + elapsed)); frame.current = requestAnimationFrame(step); }; frame.current = requestAnimationFrame(step); return () => cancelAnimationFrame(frame.current); }, [playing, speed, t.duration]);
   useEffect(() => { if (cursor >= t.duration) { setPlaying(false); if (cursor > t.duration) setCursor(t.duration); } }, [cursor, t.duration]);
@@ -43,6 +44,7 @@ export function GameplayTime({ design: d, designs, disabled, onChange, onNavigat
   const seek = (n: number) => { setPlaying(false); setCursor(n); };
   const stats = timelineStats(t, cursor), buckets = timelineBuckets(t, Math.max(1, Math.ceil(Math.max(t.duration, stats.last) / 18 / 5) * 5)), maxBucket = Math.max(1, ...buckets.map(b => b.quantity));
   const counts = new Map<string, number>(); for (const e of t.events) if (e.objectId) counts.set(e.objectId, (counts.get(e.objectId) ?? 0) + dueOccurrences(e, cursor) * e.quantity);
+  const setEventId=useSearchSelection('玩法设计',eventId,locateEvent);
   const selectEvent = (id: string) => { const found = t.events.find(e => e.id === id); setEventId(id); if (found) setTrackId(found.trackId); };
   return <div className="gs-page st-page"><div className="gs-intro"><div><span className="gp-kicker">TIME & SEQUENCE</span><h3>时间轴</h3><p>把波次、资源、阶段和提示放在同一个时钟下，检查发生时间与空间位置。</p></div><button className="gp-secondary" disabled={disabled || t.tracks.length >= 30} onClick={() => { const next = createTrack(); next.name = '轨道 ' + (t.tracks.length + 1); patch({ tracks: [...t.tracks, next] }); setTrackId(next.id); }}><Plus size={14} />添加时间轨道</button></div>
     <fieldset className="gs-fieldset" disabled={disabled}><div className="st-time-settings"><NumberField label="计划时长（秒）" value={t.duration} min={1} max={86400} step={.1} onChange={duration => patch({ duration })} /><label className="gp-field">计时基准<input aria-label="计时基准" value={t.clock} onChange={e => patch({ clock: e.target.value })} /></label><label className="gp-field">时间轴空间来源<select aria-label="时间轴空间来源" value={t.spaceOwnerId} onChange={e => { const oldOwner = owner?.id, nextId = e.target.value || d.id; if (oldOwner !== nextId && t.events.some(e => e.objectId)) { setError('已有事件关联空间对象，请先清除或调整这些位置关联，再更换空间来源'); return; } patch({ spaceOwnerId: e.target.value }); }}><option value="">本玩法空间布局</option>{t.spaceOwnerId && !designs.some(x => x.id === t.spaceOwnerId) && <option value={t.spaceOwnerId}>已失效的玩法</option>}{designs.filter(x => x.id !== d.id || x.id === t.spaceOwnerId).map(x => <option key={x.id} value={x.id}>{x.title || '未命名'}{x.archived ? '（已归档）' : ''}</option>)}</select></label></div></fieldset>

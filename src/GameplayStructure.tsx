@@ -1,3 +1,4 @@
+import {useSearchSelection} from './GlobalSearch';
 import { useState } from 'react';
 import { ArrowRight, Plus, Trash2, ArrowUp, ArrowDown, Play, RotateCcw } from 'lucide-react';
 import { moveGameplayItem, type GameplayDesign } from './gameplay';
@@ -34,7 +35,8 @@ export function GameplayDependencies({ design, designs, disabled, onChange, onNa
   </div>;
 }
 export function GameplayRules({ design, disabled, onChange, initialRuleId }: { initialRuleId?: string; design: GameplayDesign; disabled: boolean; onChange: (changes: Partial<GameplayDesign>) => void }) {
-  const [selectedId, setSelectedId] = useState(initialRuleId ?? ''); const rule = design.conditionRules.find(r => r.id === selectedId) ?? design.conditionRules[0];
+  const [selectedId, locateSelected] = useState(initialRuleId ?? '');
+  const setSelectedId=useSearchSelection('玩法设计',selectedId,locateSelected); const rule = design.conditionRules.find(r => r.id === selectedId) ?? design.conditionRules[0];
   const patch = (changes: Partial<GameplayRule>) => { if (rule) onChange({ conditionRules: design.conditionRules.map(r => r.id === rule.id ? { ...r, ...changes } : r) }); };
   return <div className="gs-page"><div className="gs-intro"><div><span className="gp-kicker">CONDITIONAL RULES</span><h3>条件规则</h3><p>将规则拆成触发事件、判断条件和两条结果分支。这里只描述设计，不运行游戏代码。</p></div><button className="gp-secondary" disabled={disabled} onClick={() => { const next = createRule(); onChange({ conditionRules: [...design.conditionRules, next] }); setSelectedId(next.id); }}><Plus size={15} />新建条件规则</button></div>
     <div className="gs-rule-list">{design.conditionRules.map((r, i) => <button key={r.id} className={'gs-rule-tab' + (r.id === rule?.id ? ' selected' : '')} aria-label={'打开规则：' + (r.name || '未命名规则 ' + (i + 1))} aria-pressed={r.id === rule?.id} onClick={() => setSelectedId(r.id)}><small>规则 {i + 1}</small><strong>{r.name || '未命名规则'}</strong><span>{r.conditions.length} 条条件 · {r.actions.length} 个满足动作</span></button>)}</div>
@@ -60,7 +62,8 @@ export function GameplayRules({ design, disabled, onChange, initialRuleId }: { i
 }
 export function GameplayStateFlow({ design, disabled, onChange, initialStateId }: { initialStateId?: string; design: GameplayDesign; disabled: boolean; onChange: (changes: Partial<GameplayDesign>) => void }) {
   const flow = design.stateFlow;
-  const [nodeId, setNodeId] = useState(initialStateId ?? ''), [edgeId, setEdgeId] = useState(''), [error, setError] = useState('');
+  const [nodeId, locateNode] = useState(initialStateId ?? ''), [edgeId, locateEdge] = useState(''), [error, setError] = useState('');
+  const setNodeId=useSearchSelection('玩法设计',nodeId,locateNode),setEdgeId=useSearchSelection('玩法设计',edgeId,locateEdge);
   const [preview, setPreview] = useState(false), [currentId, setCurrentId] = useState(''), [trace, setTrace] = useState<string[]>([]);
   const node = flow.states.find(s => s.id === nodeId) ?? flow.states[0], edge = flow.transitions.find(t => t.id === edgeId) ?? flow.transitions[0];
   const patch = (changes: Partial<GameplayFlow>) => { onChange({ stateFlow: { ...flow, ...changes } }); setError(''); setPreview(false); };

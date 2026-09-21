@@ -1,4 +1,4 @@
-import {useSearchRequest} from './GlobalSearch';
+import {useSearchRequest,useLeaveSearch} from './GlobalSearch';
 import { cloneElement, isValidElement, useEffect, useId, useRef, useState, type ReactElement, type ReactNode } from 'react';
 import { CalendarDays, Plus, Flag, CheckCircle2, Clock3, AlertTriangle, X, ExternalLink, Trash2, ChevronLeft, ChevronRight, Search, List, GanttChart } from 'lucide-react';
 import { ScheduleTimeline } from './ScheduleTimeline';
@@ -19,7 +19,8 @@ export function ProjectSchedule({ controller: c, sources, onOpenReference, reque
   const store = c.store, issues = projectScheduleIssues(store, today, sources), completed = store.tasks.filter(t => t.status === '已完成').length;
   const filtered = store.tasks.filter(t => (status === 'all' || t.status === status) && (t.title + t.description + t.owner + t.kind).toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
   const task = selection?.kind === 'task' ? store.tasks.find(t => t.id === selection.id) : undefined, milestone = selection?.kind === 'milestone' ? store.milestones.find(m => m.id === selection.id) : undefined;
-  const openTask = (id: string) => { setSelection({ kind: 'task', id }); }, openMilestone = (id: string) => { setSelection({ kind: 'milestone', id }); };
+  const leaveSearch=useLeaveSearch('项目排期');
+  const openTask = (id: string) => { if(selection?.kind!=='task'||selection.id!==id)leaveSearch(); setSelection({ kind: 'task', id }); }, openMilestone = (id: string) => { if(selection?.kind!=='milestone'||selection.id!==id)leaveSearch(); setSelection({ kind: 'milestone', id }); };
   const create = (kind: Selection['kind']) => { setNewName(''); setCreating(kind); };
   const patchTask = (fields: Partial<ProductionTask>) => { if (task) c.update(s => ({ ...s, tasks: s.tasks.map(t => t.id === task.id ? { ...t, ...fields } : t) })); };
   const patchMilestone = (fields: Partial<ProductionMilestone>) => { if (milestone) c.update(s => ({ ...s, milestones: s.milestones.map(m => m.id === milestone.id ? { ...m, ...fields } : m) })); };

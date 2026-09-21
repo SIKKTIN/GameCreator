@@ -1,3 +1,4 @@
+import {useSearchSelection} from './GlobalSearch';
 import { useEffect, useState } from 'react';
 import { ArrowLeft, Copy, Link2, PanelLeftClose, PanelRightClose, Plus, Trash2 } from 'lucide-react';
 import type { GameplayDesign } from './gameplay';
@@ -15,7 +16,7 @@ function NumberInput({ label, value, min = -1e6, max = 1e6, step = .1, disabled,
 }
 export function GameplaySpace({ design: d, designs, disabled, onChange, onNavigate, initialObjectId, objectReferences, initialView, personalView = false, onRoomMove }: Props) {
   const s = d.space, a = spatialLayout(s), initialObject = s.objects.find(o => o.id === initialObjectId);
-  const [roomId, setRoomId] = useState(initialObject?.roomId || ''), [selected, setSelected] = useState(initialObjectId || '');
+  const [roomId, setRoomId] = useState(initialObject?.roomId || ''), [selected, locateSelected] = useState(initialObjectId || '');
   const [view, setView] = useState<SpatialView>(initialObject ? a.rooms.find(r => r.id === initialObject.roomId)?.view || (a.view === 'rooms' ? 'free' : a.view) : initialView || a.view);
   const [roomViews,setRoomViews] = useState<Record<string,'grid'|'free'>>({});
   const roomView = (room: SpatialRoom) => personalView ? roomViews[room.id] ?? room.view : room.view;
@@ -32,9 +33,10 @@ export function GameplaySpace({ design: d, designs, disabled, onChange, onNaviga
   const patchRoom = (changes: Partial<SpatialRoom>) => { if (r) patch({ spatial: { ...a, rooms: a.rooms.map(x => x.id === r.id ? { ...x, ...changes } : x) } }); };
   const patchConnection = (changes: Partial<SpatialConnection>) => { if (c) patch({ spatial: { ...a, connections: a.connections.map(x => x.id === c.id ? { ...x, ...changes } : x) } }); };
   const switchView = (next: SpatialView) => { setView(next); setMode('select'); if (next === 'rooms') setRoomId(''); if (!disabled && !personalView) patch({ spatial: { ...a, ...(room && next !== 'rooms' ? { rooms: a.rooms.map(x => x.id === room.id ? { ...x, view: next } : x) } : { view: next }) } }); };
+  const setSelected=useSearchSelection('玩法设计',selected,locateSelected);
   const enter = (id: string) => { const next = a.rooms.find(x => x.id === id); if (!next) return; if (next.sourceDesignId) { if (!designs.some(x => x.id === next.sourceDesignId)) { setError('房间来源玩法已失效，请重新关联'); return; } onNavigate(next.sourceDesignId, roomView(next)); return; } setRoomId(id); setSelected(''); setSelectedRoom(id); setSelectedConnection(''); setView(roomView(next)); setMode('select'); };
-  const select = (id: string, reveal = false) => { const item = s.objects.find(x => x.id === id); if (!item) return; setSelected(id); setSelectedConnection(''); setSelectedRoom(''); if (reveal) setRightOpen(true); setRoomId(item.roomId || ''); if (view === 'rooms' || (item.roomId || '') !== roomId) setView(a.rooms.find(x => x.id === item.roomId)?.view || 'free'); setMode('select'); };
-  useEffect(() => { if (initialObjectId) { select(initialObjectId, true); setFocusToken(x => x + 1); } }, [initialObjectId]);
+  const select = (id: string, reveal = false, fromSearch = false) => { const item = s.objects.find(x => x.id === id); if (!item) return; if(fromSearch)locateSelected(id);else setSelected(id); setSelectedConnection(''); setSelectedRoom(''); if (reveal) setRightOpen(true); setRoomId(item.roomId || ''); if (view === 'rooms' || (item.roomId || '') !== roomId) setView(a.rooms.find(x => x.id === item.roomId)?.view || 'free'); setMode('select'); };
+  useEffect(() => { if (initialObjectId) { select(initialObjectId, true, true); setFocusToken(x => x + 1); } }, [initialObjectId]);
   const move = (id: string, x: number, y: number) => { if (disabled) return; attempt(() => { const item = s.objects.find(x => x.id === id); if (!item) return; const next = moveSpatialObject(item, s, x, y, view === 'grid' && snap); patch({ objects: s.objects.map(o => o.id === id ? next : o) }); setMode('select'); }); };
   const place = (x: number, y: number) => { if (disabled) return;
     if (mode === 'move' && o) { move(o.id, x, y); return; }
