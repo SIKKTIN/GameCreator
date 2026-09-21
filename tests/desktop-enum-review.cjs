@@ -97,7 +97,7 @@ const root = path.resolve(__dirname, '..');
     assert.ok(active.scan.groups.some(group=>group.name==='Const_Test.Old'));
     assert.ok(!active.scan.groups.some(group=>group.name==='Const_Test.New'));
     assert.equal(synced.data.datasets.items[0].mode,'B');
-    assert.equal(synced.releases.at(-1).reviewer,'admin');
+    assert.equal(synced.releases.at(-1).reviewer,'本地');
     await page.getByRole('button',{name:'检测更新',exact:true}).click();
     await page.waitForFunction(()=>!document.querySelector('.enum-update-panel > .enum-catalog-heading button')?.disabled);
     assert.equal(await page.getByRole('button',{name:'不同意 Const_Test.Mode.B · 删除成员',exact:true}).getAttribute('aria-pressed'),'true');

@@ -129,7 +129,7 @@ export function DataConfiguration({ workspaceKey, ...props }: Props) {
           <p>{registry.active ? '稳定版本 ' + registry.active.id.slice(0, 10) + ' · ' + registry.scan?.groups.length + ' 组枚举' : '尚无稳定枚举版本'}</p>
           <p>{registry.candidate ? '请到「枚举管理」审核更新；当前配置继续使用稳定版本。' : registry.ready ? '字段和记录自动保存到当前项目。' : !registry.sourceConfigured ? '可以先编写配置，后续在引擎设置中连接工程。' : '请到「枚举管理」审核首次导入。'}</p>
           {registry.blockingIssues.length > 0 && <ul>{registry.blockingIssues.map((issue, index) => <li key={index}>{issue}</li>)}</ul>}
-          <small>Lua 文件生成尚未接入。候选版本不参与当前数据解析。</small>
+          <small>{registry.sourceWarning}引擎配置文件生成尚未接入。候选版本不参与当前数据解析。</small>
         </div>}
         {definition ? <DatasetEditor key={activeDataset} {...props} workspaceKey={workspaceKey} definition={definition} docked={width >= 1320} />
           : <div className="data-table-empty"><h3>还没有配置表</h3><p>新建一张配置表，开始整理原型数据。</p><button className="primary" onClick={() => setShowCreateTable(true)}><Plus size={15} />新建配置表</button></div>}
@@ -218,7 +218,7 @@ function DatasetEditor({ workspaceKey, data, onChange, definitions, activeDatase
         <div ref={inspector} className="data-inspector" role="region" aria-label="记录详情"><div className="inspector-heading data-inspector-heading"><div><span>记录详情</span><h3>{selected.name || selected.itemID || selected.id}</h3></div><button type="button" className="data-inspector-close" aria-label="关闭记录详情" onClick={closeDetail}><X size={18} /></button></div>
           <div className="inspector-fields">{columns.map(column => {
             const value = resolveEnumValue(column, selected[column.key], registry), problem = validateCell(column, selected[column.key], data, registry), group = findEnum(column, registry);
-            return <label key={column.key}>{column.label}{cell(selected, column, true)}{column.enumId && <small className="enum-resolution">{group?.name ?? column.enumName ?? column.enumId}{value !== undefined && <><br />Lua 值：<code>{formatLuaValue(value)}</code> · {typeof value}</>}{group && <><br />{group.source}:{group.line}</>}</small>}{problem && <small className="field-error">{problem}</small>}</label>;
+            return <label key={column.key}>{column.label}{cell(selected, column, true)}{column.enumId && <small className="enum-resolution">{group?.name ?? column.enumName ?? column.enumId}{value !== undefined && <><br />引擎值：<code>{formatLuaValue(value)}</code> · {typeof value}</>}{group && <><br />{group.source}:{group.line}</>}</small>}{problem && <small className="field-error">{problem}</small>}</label>;
           })}</div><div className="validation">{issues(selected).length ? <AlertTriangle size={16} /> : <CheckCircle2 size={16} />}<div><b>记录检查</b><p>{issues(selected).length ? '请修正上方标记的字段，未知值会保留，直到你重新选择。' : '当前记录通过字段、枚举与引用检查。'}</p></div></div>
         </div></>}
     </div>
@@ -287,7 +287,7 @@ function FieldManager({ columns, definitions, registry, onApply, onClose, onBusy
           const group = registry.scan?.groups.find((item) => enumId(item) === event.target.value);
           update(index, { enumId: group ? enumId(group) : undefined, enumName: group?.name, options: undefined });
         }}>
-          <option value="" disabled>{column.options?.length ? '现有选项（未绑定 Lua）' : '请选择 Lua 枚举'}</option>
+          <option value="" disabled>{column.options?.length ? '现有选项（未绑定枚举）' : '请选择引擎枚举'}</option>
           {column.enumId && !findEnum(column, registry) && <option value={column.enumId}>定义缺失：{column.enumName ?? column.enumId}</option>}
           {registry.scan?.groups.map((group) => <option key={enumId(group)} value={enumId(group)}>
             {group.name} · {group.valueType} · {group.members.length} 项

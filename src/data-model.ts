@@ -1,7 +1,7 @@
 import type { EnumGroup, EnumScan } from './engine';
 
 export type DatasetKey = string;
-// Bound enum cells store member keys; resolveEnumValue returns the original Lua type.
+// Bound enum cells store member keys; resolveEnumValue returns the original engine value type.
 export type DataRecord = Record<string, string> & { id: string };
 export type ColumnDef = {
   key: string; label: string; type?: 'text' | 'enum' | 'reference';
@@ -19,6 +19,7 @@ export function projectIdentity(projectPath: string) {
 }
 
 export function enumId(group: EnumGroup) {
+  if(group.engine==='godot-gdscript')return 'godot:'+group.source.replace(/\\/g,'/')+'#'+group.name;
   return group.source.replace(/\\/g, '/').replace(/\.lua$/i, '').replace(/\//g, '.') +
     '#' + group.name.split('.').slice(1).join('.');
 }
@@ -47,7 +48,7 @@ export function validateCell(column: ColumnDef, value: string, data: ProjectData
   if (column.type === 'enum') {
     if (column.enumId && !registry.ready) return '枚举定义待同步，暂时无法校验';
     if (column.enumId && !findEnum(column, registry)) return '绑定的枚举已不存在，请重新绑定';
-    if (!column.enumId && !column.options?.length) return '请先为字段绑定 Lua 枚举';
+    if (!column.enumId && !column.options?.length) return '请先为字段绑定引擎枚举';
   }
   if (!value?.trim() || value === '待配置') return '请填写字段值';
   if (column.type === 'enum' && !enumOptions(column, registry).some((option) => option.key === value)) {

@@ -1,3 +1,4 @@
+import {validateEngineScanMetadata} from '../shared/engine-config.mjs';
 import { emptyStore, type VersionStore } from './enum-versions.ts';
 import type { ProjectData } from './data-model';
 
@@ -42,6 +43,7 @@ export function readVersions(storage: StorageLike, key: string, initial: Project
       release.patches.some(patch => !record(patch) || ['table', 'rowId', 'field', 'before', 'after'].some(key => typeof patch[key as keyof typeof patch] !== 'string')))) {
     throw new Error('版本快照或审核记录异常，已停止加载');
   }
+  value.snapshots.forEach(snapshot=>validateEngineScanMetadata(snapshot.scan));
   return value;
 }
 

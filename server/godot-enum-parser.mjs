@@ -1,0 +1,25 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
+// Mask strings and comments without changing offsets or line numbers. This avoids
+// interpreting examples, annotations or multiline descriptions as declarations.
+function mask(source) {const chars=[...source];let out='',i=0;while(i<chars.length){const c=chars[i];if(c==='#'){while(i<chars.length&&chars[i]!=='\n'){out+=' ';i++;}continue;}if(c==='"'||c==="'"){const q=c,triple=chars.slice(i,i+3).join('')===c.repeat(3),width=triple?3:1;out+=' '.repeat(width);i+=width;while(i<chars.length){if(chars[i]==='\\'){out+=' ';i++;if(i<chars.length)out+=chars[i++]==='\n'?'\n':' ';continue;}if(chars.slice(i,i+width).join('')===q.repeat(width)){out+=' '.repeat(width);i+=width;break;}out+=chars[i++]==='\n'?'\n':' ';}continue;}out+=c;i++;}return out;}
+const identifier='[\\p{L}_][\\p{L}\\p{N}_]*';
+function comments(lines,index){const inline=lines[index]?.match(/#(.*)$/)?.[1]?.replace(/^#+\s*/,'').trim();if(inline)return inline;const result=[];for(let n=index-1;n>=0&&/^\s*#/.test(lines[n]);n--)result.unshift(lines[n].replace(/^\s*#+\s?/,''));return result.join('\n');}
+function integer(text){if(!/^[+-]?(?:0[xX][\da-fA-F](?:_?[\da-fA-F])*|0[bB][01](?:_?[01])*|\d(?:_?\d)*)$/.test(text))throw new Error('仅支持整数常量与自动编号，表达式需先改为明确整数');const sign=text[0]==='-'?-1n:1n;const n=sign*BigInt(text.replace(/^[+-]/,'').replaceAll('_',''));if(n>BigInt(Number.MAX_SAFE_INTEGER)||n<BigInt(Number.MIN_SAFE_INTEGER))throw new Error('整数超出当前配置可精确表示的范围');return Number(n);}
+export function parseGodotFile(source,relativePath){
+ const code=mask(source),lines=source.split('\n'),codeLines=code.split('\n'),groups=[],dynamic=[];const root=new RegExp('^\\s*class_name\\s+('+identifier+')','mu').exec(code)?.[1]||path.basename(relativePath,'.gd');
+ const re=new RegExp('\\benum\\b\\s*('+identifier+')?\\s*\\{','gu');let match;
+ while((match=re.exec(code))){const start=match.index,line=code.slice(0,start).split('\n').length;const scope=[];for(let i=0;i<line;i++){const text=codeLines[i];if(!text.trim())continue;const indent=text.match(/^\s*/)[0].replaceAll('\t','    ').length;while(scope.length&&indent<=scope.at(-1).indent)scope.pop();const c=new RegExp('^\\s*class\\s+('+identifier+')\\b.*:','u').exec(text);if(c)scope.push({name:c[1],indent});}
+ const opening=re.lastIndex-1;let end=opening+1,depth=1;for(;end<code.length;end++){if(code[end]==='{')depth++;if(code[end]==='}'&&!--depth)break;}
+ const base=[root,...scope.map(c=>c.name)].join('.');let name=base+'.'+(match[1]||'(匿名)');
+ try{if(depth)throw new Error('枚举缺少结束大括号');const body=code.slice(opening+1,end),pieces=body.split(','),members=[];let offset=opening+1,next=0;const names=new Set();
+ for(let i=0;i<pieces.length;i++){const part=pieces[i],entry=part.trim();if(!entry){if(i!==pieces.length-1)throw new Error('枚举包含空成员');offset+=part.length+1;continue;}const member=new RegExp('^('+identifier+')(?:\\s*=\\s*([\\s\\S]+))?$','u').exec(entry);if(!member)throw new Error('成员语法无法静态识别');const key=member[1];if(names.has(key))throw new Error('成员名称重复：'+key);names.add(key);const value=member[2]===undefined?next:integer(member[2].trim());if(!Number.isSafeInteger(value))throw new Error('自动编号超出精确整数范围');const memberLine=code.slice(0,offset+part.search(/\S/)).split('\n').length;members.push({key,value,line:memberLine,comment:comments(lines,memberLine-1)});next=value+1;offset+=part.length+1;}
+ if(!members.length)throw new Error('空枚举尚无可导入成员');if(!match[1])name=base+'.(匿名:'+members[0].key+')';groups.push({engine:'godot-gdscript',name,source:relativePath,line,valueType:'number',comment:comments(lines,line-1),members});
+ }catch(e){dynamic.push({name,source:relativePath,line,detail:e.message});}
+ re.lastIndex=Math.min(end+1,code.length);
+ }
+ // Declarations with missing opening braces are diagnostic, never silent removals.
+ for(let i=0;i<codeLines.length;i++)if(/^\s*enum\b/.test(codeLines[i])&&!groups.some(g=>g.line===i+1)&&!dynamic.some(g=>g.line===i+1))dynamic.push({name:root,source:relativePath,line:i+1,detail:'枚举声明不完整或语法暂不支持'});
+ return {groups,dynamic};
+}
+export async function scanGodotEnums(projectPath,enumPath){const root=path.resolve(projectPath,enumPath);if(!(await fs.stat(root)).isDirectory())throw new Error('枚举路径不是目录');const files=[];async function walk(dir){for(const entry of await fs.readdir(dir,{withFileTypes:true})){if(entry.name==='.godot'||entry.name==='.git')continue;const full=path.join(dir,entry.name);if(entry.isDirectory())await walk(full);else if(entry.isFile()&&entry.name.endsWith('.gd'))files.push(full);}}await walk(root);const groups=[],dynamic=[];for(const file of files.sort()){if((await fs.stat(file)).size>2*1024*1024)throw new Error('脚本过大，未完成扫描：'+file);const parsed=parseGodotFile(await fs.readFile(file,'utf8'),path.relative(projectPath,file).replaceAll('\\','/'));groups.push(...parsed.groups);dynamic.push(...parsed.dynamic);}return {engine:'godot-gdscript',projectPath,enumPath,files:files.map(f=>path.relative(projectPath,f).replaceAll('\\','/')),groups,dynamic,orderTables:[],incomplete:dynamic.length>0,counts:{files:files.length,groups:groups.length,members:groups.reduce((n,g)=>n+g.members.length,0)}};}

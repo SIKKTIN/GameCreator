@@ -233,10 +233,9 @@ function WorkspaceController() {
     try {
       let location = { projectPath: config.projectPath.trim(), enumPath: config.enumPath.trim() };
       if (location.projectPath) {
-        if (window.desktopClient?.validateProjectLocation) location = await window.desktopClient.validateProjectLocation(location);
+        if (window.desktopClient?.validateProjectLocation) location = await window.desktopClient.validateProjectLocation({...location,engine:config.engine});
         else {
-          if (!/^(?:[A-Za-z]:[\\/]|\/)/.test(location.projectPath)) throw new Error('请输入完整的工程目录');
-          if (!location.enumPath || /^(?:[A-Za-z]:|[\\/])/.test(location.enumPath) || location.enumPath.split(/[\\/]/).includes('..')) throw new Error('枚举目录必须是工程内的相对路径');
+          const response=await fetch('/api/engine/validate?'+new URLSearchParams({...location,engine:config.engine}));const payload=await response.json();if(!response.ok)throw new Error(payload.error||'工程校验失败');location=payload;
         }
       }
       return projects.commit(catalog => updateSavedConfig(catalog, formalProject.id, { ...config, ...location }));

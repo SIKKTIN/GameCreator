@@ -1,3 +1,4 @@
+import {validateEngineConfig,portableEngineConfig,validateEngineScanMetadata} from '../shared/engine-config.mjs';
 import {validateStoryExtras} from './story-library.ts';
 import { emptyNumericalAnalysis, validateNumericalAnalysis, type NumericalAnalysisStore } from './numerical-analysis.ts';
 import { scheduleFromMilestones, validateProjectSchedule, type ProjectScheduleStore } from './project-schedule.ts';
@@ -74,7 +75,7 @@ function validateVersions(value: unknown): VersionStore {
   unique(value.snapshots, 'id', '枚举快照');
   for (const snapshot of value.snapshots) {
     requireValid(fields(snapshot, ['id', 'createdAt', 'checksum']) && ['source', 'release'].includes(snapshot.kind as string) && record(snapshot.scan), '枚举快照结构无效');
-    const scan = snapshot.scan;
+    const scan = snapshot.scan;validateEngineScanMetadata(scan);
     requireValid(fields(scan, ['projectPath', 'enumPath']) && strings(scan.files) && Array.isArray(scan.groups) && Array.isArray(scan.orderTables) && Array.isArray(scan.dynamic) && record(scan.counts), '枚举扫描结构无效');
     requireValid(['files', 'groups', 'members'].every(key => Number.isSafeInteger((scan.counts as Record<string, unknown>)[key]) && ((scan.counts as Record<string, unknown>)[key] as number) >= 0), '枚举数量无效');
     for (const group of scan.groups) {
@@ -107,6 +108,7 @@ export function validateProjectPackage(value: unknown): ProjectPackageDocument {
   requireValid(project.defaultTablesVersion === undefined || project.defaultTablesVersion === 1, '不支持的配置表版本');
   requireValid(typeof project.name === 'string' && !!project.name.trim() && record(project.config), '项目名称或引擎配置无效');
   requireValid(fields(project.config, ['engine', 'projectPath', 'enumPath', 'dataPath', 'outputFormat']) && typeof project.config.autoSync === 'boolean' && typeof project.config.backupBeforeSync === 'boolean', '引擎配置不完整');
+  validateEngineConfig(project.config as EngineConfig);
   requireValid(projectPackageSections.filter(section => section !== 'numerical-analysis' && section !== 'project-schedule' && section !== 'gameplay-core' && section !== 'prototype-design' && section !== 'task-flows' && section !== 'story-orchestration' && section !== 'map-design').every(section => Object.prototype.hasOwnProperty.call(archives, section)) && Object.keys(archives).every(key => [...projectPackageSections, 'data-view'].includes(key as typeof projectPackageSections[number])), '项目模块缺失或版本不受支持');
   const gameplay = validateGameplay(archives.gameplay);
   validateFunctionalSystems(archives['functional-systems']);
@@ -183,7 +185,7 @@ export function captureProjectPackage(storage: Pick<Storage, 'getItem'>, project
   expectedEntries.push({ key: viewKey, value: viewRaw });
   let view: DataViewState | undefined;
   if (viewRaw !== null) { try { view = normalizeDataViewState(JSON.parse(viewRaw)); } catch { view = normalizeDataViewState(null); } }
-  const document = validateProjectPackage({ schema: 1, project: { name: project.name, config: { ...project.config, projectPath: '', autoSync: false }, ...(defaultTablesVersion ? { defaultTablesVersion } : {}) }, archives: { ...archives, ...(view ? { 'data-view': view } : {}) } });
+  const document = validateProjectPackage({ schema: 1, project: { name: project.name, config: portableEngineConfig(project.config), ...(defaultTablesVersion ? { defaultTablesVersion } : {}) }, archives: { ...archives, ...(view ? { 'data-view': view } : {}) } });
   return { document, expectedEntries };
 }
 
@@ -193,7 +195,7 @@ export function prepareProjectPackageImport(catalog: ProjectCatalog, value: unkn
   const document = validateProjectPackage(value);
   const next = addSavedProject(catalog, name);
   const project = next.projects.find(item => item.id === next.activeId)!;
-  project.config = { ...document.project.config, projectPath: '', autoSync: false };
+  project.config = portableEngineConfig(document.project.config);
   const archives = { ...document.archives, project: { ...document.archives.project, name: project.name } };
   const entries = Object.entries(archives).map(([section, content]) => ({ key: workspaceKey(project.id, section), value: JSON.stringify(content) }));
   if (document.project.defaultTablesVersion === 1) entries.push({ key: defaultTableMigrationKey(project.id), value: completedDefaultTableMigration });
