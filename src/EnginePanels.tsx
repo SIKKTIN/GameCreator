@@ -8,11 +8,12 @@ import { enumId, formatLuaValue } from './data-model';
 import type { EnumRegistry } from './useEnumRegistry';
 import { EnumReviewPanel } from './EnumReviewPanel';
 
-export function EngineSettings({ config, setConfig, registry, onPickDirectory }: {
+export function EngineSettings({ config, setConfig, registry, onPickDirectory, onDirtyChange }: {
   config: EngineConfig;
   setConfig: (config: EngineConfig) => Promise<boolean> | boolean;
   registry: EnumRegistry;
   onPickDirectory?: () => Promise<string | null>;
+  onDirtyChange?: (dirty:boolean) => void;
 }) {
   const id = useId();
   const [draft, setDraft] = useState<EngineConfig>({ ...config });
@@ -24,6 +25,7 @@ export function EngineSettings({ config, setConfig, registry, onPickDirectory }:
   useEffect(() => { setDraft({ ...config }); setError(''); setNotice(''); }, [config]);
   const adapter=engineInfo(draft.engine);
   const dirty = JSON.stringify(config)!==JSON.stringify(draft);
+  useEffect(()=>{onDirtyChange?.(dirty);},[dirty,onDirtyChange]);
   const locked = saving || picking || registry.busy || registry.loading;
   const update = (key: keyof EngineConfig, value: string | boolean) => {
     setDraft(previous => ({ ...previous, [key]: value }));
