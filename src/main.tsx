@@ -160,14 +160,15 @@ function WorkspaceController() {
     let creationError: unknown;
     try {
       const example = await loadPrototypeExample(input.exampleId);
-      // The catalog entry is the publication point: every archive must be durable
-      // first, so a failed import never exposes a half-populated project.
-      const saved = projects.commit(catalog => {
+      const prepared=preparePrototypeProject(projects.catalog,example,input.name);
+      const folderProject=window.desktopClient?.folderProjects?await window.desktopClient.folderProjects.create({project:prepared.project,entries:prepared.entries}):null;
+      if(window.desktopClient?.folderProjects&&!folderProject)return false;
+      const saved=projects.commit(catalog=>{
         try {
-          const prepared = preparePrototypeProject(catalog, example, input.name);
-          writePrototypeProject(workspaceStorage, prepared);
-          return prepared.catalog;
-        } catch (reason) { creationError = reason; throw reason; }
+          if(!folderProject)writePrototypeProject(workspaceStorage,prepared);
+          const item=folderProject||prepared.project;
+          return {...catalog,mode:'project',activeId:item.id,projects:[...catalog.projects,item]};
+        }catch(reason){creationError=reason;throw reason;}
       });
       if (!saved) {
         // Errors crossing Electron's context bridge need not share Error.prototype.
@@ -196,7 +197,7 @@ function WorkspaceController() {
     if (team.session?.user.serverRole === 'admin' && !team.session.invalid) setPublishingProject(source);
     else { setPublishAfterConnection(source); team.show(null, true); }
   };
-  const selectProject = (id: string) => {
+  const selectProject = async (id: string) => {
     if (lock.current || !allowSwitch()) return false;
     const remote = team.saved?.projects.find(item => teamProjectKey(team.saved!.serverId, item.id) === id);
     if (remote) {
@@ -204,7 +205,8 @@ function WorkspaceController() {
       else team.show(id);
       return true;
     }
-    if (!projects.commit(catalog => selectSavedProject(catalog, id))) return false;
+    const selected=window.desktopClient?.folderProjects?await window.desktopClient.folderProjects.verify(id):projects.catalog.projects.find(p=>p.id===id)!;
+    if (!projects.commit(catalog => ({...selectSavedProject(catalog,id),projects:catalog.projects.map(p=>p.id===id?selected:p)}))) return false;
     teamOrigin.current='local';
     setMode('local');setActiveTeamId(null);
     if (storedTest) setStoredTest(null);
@@ -214,7 +216,10 @@ function WorkspaceController() {
   const addProject = async (input: { name: string }) => {
     if (lock.current || projects.blocked || !allowSwitch()) return false;
     if (!input.name.trim()) throw new Error('请输入项目名称');
-    if (!projects.commit(catalog => addSavedProject(catalog, input.name))) return false;
+    const next=addSavedProject(projects.catalog,input.name);
+    let created=next.projects.find(p=>p.id===next.activeId)!;
+    if(window.desktopClient?.folderProjects){const saved=await window.desktopClient.folderProjects.create({project:created,entries:[]});if(!saved)return false;created=saved;}
+    if(!projects.commit(catalog=>({...catalog,mode:'project',activeId:created.id,projects:[...catalog.projects,created]})))return false;
     teamOrigin.current='local';setMode('local');setActiveTeamId(null);
     if (storedTest) setStoredTest(null);
     setError(''); logDebug('新建项目', 'success', input.name);
@@ -259,14 +264,14 @@ function WorkspaceController() {
       setError(String(reason)); logDebug('加载测试场景','error',String(reason));
     } finally { lock.current = false; setPreparing(false); }
   };
-  const exit = () => { selectProject(projects.catalog.activeId); };
+  const exit = () => { void selectProject(projects.catalog.activeId).catch(reason=>setError(String(reason))); };
   const options: SwitchableProject[] = (projects.blocked?[]:projects.catalog.projects).map(item => {
     let name = item.name;
     try {
       const raw = workspaceStorage.getItem('gamecreator.workspace.v1:' + item.id + ':project');
       if (raw && typeof JSON.parse(raw)?.name === 'string' && JSON.parse(raw).name.trim()) name = JSON.parse(raw).name;
     } catch { /* The project itself displays its archive error when selected. */ }
-    return { id: item.id, name, projectPath: item.config.projectPath, kind: 'local' };
+    return { id: item.id, name, projectPath: item.folderPath || '', detail: item.folderPath ? undefined : '尚未保存到项目文件夹', kind: 'local' };
   });
   for (const item of team.saved?.projects ?? []) options.push({ id: teamProjectKey(team.saved!.serverId, item.id), name: item.name,
     projectPath: '', kind: 'team', detail: `${team.saved!.url} · ${team.session ? team.session.user.username : '未连接'}` });
@@ -297,8 +302,7 @@ function WorkspaceController() {
       onCreated={project => { team.addProject(project); setCreatingTeam(false); leaveServer();setMode('team'); setActiveTeamId(project.id); }} />}
     {publishingProject && canManageTeam && team.session && <PublishProjectDialog session={team.session} project={publishingProject} onClose={() => setPublishingProject(null)}
       onPublished={project => { team.addProject(project); setPublishingProject(null); leaveServer();setMode('team'); setActiveTeamId(project.id); }} />}
-    <ProjectPackageDialog state={transfer.state} names={options.filter(item => item.kind === 'local').map(item => item.name)}
-      onClose={transfer.close} onChoose={transfer.reselect} onImport={transfer.importProject} />
+    <ProjectPackageDialog state={transfer.state} onClose={transfer.close} />
     <PrototypeImportDialog open={prototypeOpen} busy={prototypeBusy} projects={options.filter(item => item.kind === 'local')}
       onClose={() => { if (!importingPrototype.current) setPrototypeOpen(false); }} onImport={importPrototype} />
     {mode==='team'&&!selectedTeam&&team.session?<div className="app team-project"><WorkspaceSidebar team empty picker={<ProjectSwitcher projects={options} currentId={null} currentName="选择协作项目" busy={preparing||prototypeBusy||transfer.busy} canAdd={!projects.blocked} onSelect={selectProject} onAdd={addProject} onDelete={deleteProject} onConnectTeam={connectTeam} onCreateTeam={canManageTeam?createTeam:undefined}/>} active={serverNavigation.serverPage?serverNavigation.adminPageName??'服务器管理':''} onNavigate={()=>{}} onManageServer={serverNavigation.onManageServer} onManageUsers={serverNavigation.onManageUsers} footer={<div className="user"><div className="avatar">{team.session.user.username[0]}</div><span>{team.session.user.username}<small>团队协作</small></span></div>}/>{serverNavigation.serverPage}<div hidden={!!serverNavigation.serverPage} className="team-selection-content"><TeamProjectSelection session={team.session} projects={team.saved?.projects??[]} error={team.error} onSelect={openTeamProject} onRefresh={refreshDirectory} onConnect={connectTeam} onCreate={canManageTeam?createTeam:undefined}/></div></div>
@@ -308,12 +312,13 @@ function WorkspaceController() {
       picker={<ProjectSwitcher projects={options} teamNotice={teamNotice} currentId={teamProjectKey(team.session.serverId, selectedTeam.id)} currentName={selectedTeam.name} canAdd={!projects.blocked} busy={preparing || prototypeBusy || transfer.busy || projects.blocked}
         onSelect={selectProject} onAdd={addProject} onDelete={deleteProject} onConnectTeam={connectTeam} onCreateTeam={canManageTeam||!team.session?createTeam:undefined} onImportPrototype={openPrototypeImport} onImportProject={transfer.enabled ? transfer.openImport : undefined} />}
       onConnection={connectTeam} onDisconnect={disconnectTeam} />
-    : formalProject ? <ProjectDataUpgrade key={testSession?.id ?? 'project:' + formalProject.id} username={username}
+    : formalProject ? <ProjectDataUpgrade key={testSession?.id ?? 'project:' + formalProject.id + ':' + (formalProject.folderPath||'legacy')} username={username}
     {...serverNavigation}
     formalProject={formalProject} projectOptions={options} onSelectProject={selectProject} onAddProject={addProject} onDeleteProject={deleteProject}
     onConnectTeam={connectTeam} onCreateTeam={canManageTeam||!team.session?createTeam:undefined} onPublishProject={publishProject} teamNotice={teamNotice} onImportPrototype={openPrototypeImport}
     onImportProject={transfer.enabled ? transfer.openImport : undefined}
     onExportProject={transfer.enabled ? () => transfer.openExport(formalProject) : undefined}
+    onSaveAsProject={transfer.enabled ? () => transfer.saveAs(formalProject) : undefined}
     onConfigChange={configureProject}
     onRenameProject={name => projects.commit(catalog => ({ ...catalog, projects: catalog.projects.map(item => item.id === formalProject.id ? { ...item, name } : item) }))}
     testSession={testSession} onLoadTest={load} onExitTest={exit} preparingTest={preparing || prototypeBusy || transfer.busy || projects.blocked}
@@ -342,26 +347,27 @@ function ProjectDataUpgrade(props: ComponentProps<typeof WorkspaceApp>) {
   const [error, setError] = useState(upgrade);
   if (error) return <main className="enum-catalog-empty" role="alert">
     <AlertTriangle size={32} /><h1>项目数据更新未完成</h1>
-    <p>默认空表清理未完成，请重试或切换到其他项目。</p><p>{error}</p>
+    <p>{props.formalProject.folderPath ? '项目文件夹暂时无法读取。如果已移动，请通过“打开项目”选择新的位置。' : '默认空表清理未完成，请重试或切换到其他项目。'}</p><p>{error}</p>
     <button className="primary" onClick={() => setError(upgrade())}>重试更新</button>
     <ProjectSwitcher projects={props.projectOptions} currentId={props.formalProject.id} currentName={props.formalProject.name}
-      canAdd busy={props.preparingTest} onSelect={props.onSelectProject} onAdd={props.onAddProject} onDelete={props.onDeleteProject} />
+      canAdd busy={props.preparingTest} onSelect={props.onSelectProject} onAdd={props.onAddProject} onDelete={props.onDeleteProject} onImportProject={props.onImportProject} onImportPrototype={props.onImportPrototype} />
   </main>;
   return <WorkspaceApp {...props} />;
 }
 
 const initialTestProject = { ...initialProject, name: '枚举测试工作区' };
-function WorkspaceApp({ username, testSession, onLoadTest, onExitTest, preparingTest, testError, formalProject, projectOptions, onSelectProject, onAddProject, onDeleteProject, onConfigChange, onRenameProject, onConnectTeam, onCreateTeam, onPublishProject, teamNotice, onImportPrototype, onImportProject, onExportProject, serverPage, onManageServer, onLeaveServer, adminPageName, onManageUsers }: {
-  onImportProject?: () => void; onExportProject?: () => void;
+function WorkspaceApp({ username, testSession, onLoadTest, onExitTest, preparingTest, testError, formalProject, projectOptions, onSelectProject, onAddProject, onDeleteProject, onConfigChange, onRenameProject, onConnectTeam, onCreateTeam, onPublishProject, teamNotice, onImportPrototype, onImportProject, onExportProject, onSaveAsProject, serverPage, onManageServer, onLeaveServer, adminPageName, onManageUsers }: {
+  onImportProject?: () => void; onExportProject?: () => void; onSaveAsProject?: () => void;
   teamNotice?: string;
   onPublishProject: () => void;
   formalProject: SavedProject; projectOptions: SwitchableProject[]; onConnectTeam: () => void; onCreateTeam?: () => void; onImportPrototype: () => void;
   onDeleteProject: (id: string) => Promise<boolean>;
-  onSelectProject: (id: string) => boolean; onAddProject: (input: { name: string }) => Promise<boolean>;
+  onSelectProject: (id: string) => boolean | Promise<boolean>; onAddProject: (input: { name: string }) => Promise<boolean>;
   onConfigChange: (config: EngineConfig) => Promise<boolean>; onRenameProject: (name: string) => boolean;
   username: string; testSession: TestSession | null; onLoadTest: (scenario: TestScenarioId) => Promise<void>;
   onExitTest: () => void; preparingTest: boolean; testError: string;
 } & ServerModuleNavigation) {
+  useEffect(()=>{const save=(event:KeyboardEvent)=>{if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='s'){event.preventDefault();if(!testSession&&!preparingTest)onExportProject?.();}};window.addEventListener('keydown',save);return()=>window.removeEventListener('keydown',save);},[onExportProject,testSession,preparingTest]);
   const [active, setActiveModule] = useState(testSession ? '枚举管理' : '项目概览');
   const [searchNavigation, setSearchNavigation] = useState(0);
   const leaveSearch = () => setSearchNavigation(n => n + 1);
@@ -508,7 +514,7 @@ function WorkspaceApp({ username, testSession, onLoadTest, onExitTest, preparing
       {aiExportOpen&&<AiExportDialog projectId={formalProject.id} projectName={project.name} modules={aiModules.filter(m=>(m.id!=='maps'||maps.store.enabled)&&(m.id!=='narrative'||narrative.store.enabled)).map(m=>m.id)} build={exportAiContext} blockedReason={aiExportBlocked} onClose={()=>setAiExportOpen(false)}/>}
       <WorkspaceSidebar picker={<ProjectSwitcher projects={projectOptions} teamNotice={teamNotice} currentId={testSession ? null : formalProject.id} currentName={project.name}
           testName={testSession ? testScenarios.find(item=>item.id===testSession.scenario)?.name : undefined}
-          canAdd busy={preparingTest || registry.busy || registry.loading || gameplay.pending || functional.pending || functional.blocked || art.pending || art.blocked || core.pending || prototype.pending || tasks.pending || narrative.pending || maps.pending || schedule.pending || analysis.pending || framework.pending || storyState.pending} onSelect={onSelectProject} onAdd={onAddProject} onDelete={onDeleteProject} onConnectTeam={onConnectTeam} onCreateTeam={onCreateTeam} onPublishProject={!testSession && !storageError ? onPublishProject : undefined} onImportPrototype={onImportPrototype} onImportProject={onImportProject} onExportProject={!testSession && !storageError ? onExportProject : undefined} />} active={serverPage ? adminPageName??'服务器管理' : active}
+          canAdd busy={preparingTest || registry.busy || registry.loading || gameplay.pending || functional.pending || functional.blocked || art.pending || art.blocked || core.pending || prototype.pending || tasks.pending || narrative.pending || maps.pending || schedule.pending || analysis.pending || framework.pending || storyState.pending} onSelect={onSelectProject} onAdd={onAddProject} onDelete={onDeleteProject} onConnectTeam={onConnectTeam} onCreateTeam={onCreateTeam} onPublishProject={!testSession && !storageError ? onPublishProject : undefined} onImportPrototype={onImportPrototype} onImportProject={onImportProject} onExportProject={!testSession && !storageError ? onExportProject : undefined} onSaveAsProject={!testSession && !storageError ? onSaveAsProject : undefined} />} active={serverPage ? adminPageName??'服务器管理' : active}
         mapEnabled={maps.store.enabled} storyEnabled={narrative.store.enabled} onNavigate={name => { if(canLeaveTeam()){onLeaveServer(); setRequestedSchedule(undefined); setActive(name);} }} onManageServer={onManageServer} onManageUsers={onManageUsers} footer={<>
         <button onClick={()=>{if(canLeaveTeam()){onLeaveServer();setActive('工作区设置');}}}><Settings2 size={17} />工作区设置</button><div className="user"><div className="avatar">G</div><span>{username}<small>本地项目</small></span></div>
       </>} />
@@ -522,7 +528,7 @@ function WorkspaceApp({ username, testSession, onLoadTest, onExitTest, preparing
               busy={preparingTest || gameplay.pending || functional.pending || functional.blocked || art.pending || art.blocked || core.pending || prototype.pending || tasks.pending || narrative.pending || maps.pending || schedule.pending || analysis.pending || framework.pending || storyState.pending} error={testError || storageError} onLoad={onLoadTest} onExit={onExitTest} onNavigate={setActive} />}
             <GlobalSearchInput/>
             <button className="save" disabled={!!aiExportBlocked} title={aiExportBlocked||undefined} onClick={()=>setAiExportOpen(true)}><FileText size={16} />生成 AI 文档</button>
-            <span className="save" role="status">{storageError ? <AlertTriangle size={16} /> : <Check size={16} />}{storageError ? '请检查保存状态' : registry.busy ? '正在保存…' : '已自动保存'}</span>
+            <button className="save" disabled={!onExportProject||!!storageError||preparingTest||registry.busy||!!testSession} onClick={onExportProject} title={formalProject.folderPath || '保存为独立的项目文件夹 · Ctrl+S'}>{storageError ? <AlertTriangle size={16} /> : <Check size={16} />}{storageError ? '请检查保存状态' : registry.busy ? '正在保存…' : !onExportProject || formalProject.folderPath ? '已自动保存' : '保存到文件夹'}</button>
           </div>
         </header>
 

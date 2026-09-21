@@ -177,6 +177,7 @@ test('art IPC accepts only the trusted main frame and imports only native-dialog
     if (name === './engine-sync.cjs') return {createEngineSync: () => ({})};
     if (name === './legacy-storage.cjs') return {migrateLegacy: () => {}};
     if (name === './collaboration-host.cjs') return require(path.join(__dirname, '../desktop', name));
+    if (name === './folder-projects.cjs') return {createFolderProjects: ({legacyStorage}) => ({storage:legacyStorage,assetDirectory:()=>null,folder:()=>null,close:()=>{}})};
     return require(name);
   }, __dirname: path.resolve(__dirname,'../desktop'), process, URL};
   vm.runInNewContext(fsSync.readFileSync(path.join(__dirname,'../desktop/main.cjs'),'utf8') + '\nglobalThis.setArtTestWindow = (window, server) => {mainWindow=window;localServer=server;};', context);

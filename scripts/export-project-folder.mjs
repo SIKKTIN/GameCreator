@@ -5,6 +5,7 @@ import { createRequire } from 'node:module';
 import { captureProjectPackage } from '../src/project-package.ts';
 import { PROJECT_CATALOG_KEY, validateCatalog } from '../src/project-catalog.ts';
 const require = createRequire(import.meta.url);
+const { createFolderProjects } = require('../desktop/folder-projects.cjs');
 const { createWorkspaceStorage } = require('../desktop/test-workspaces.cjs');
 const { createProjectPackages } = require('../desktop/project-package.cjs');
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -15,10 +16,14 @@ for (let index = 0; index < args.length; index += 2) {
 }
 if (!flags['--project'] || !flags['--output']) throw new Error('请指定 --project 和 --output；输出文件夹必须尚不存在。');
 const dataDirectory = path.resolve(flags['--data-dir'] || path.join(root, '.gamecreator'));
-const storage = createWorkspaceStorage(dataDirectory);
+const folders=createFolderProjects({dataDirectory,legacyStorage:createWorkspaceStorage(dataDirectory)});
+const storage=folders.storage;
+try {
 const catalog = validateCatalog(JSON.parse(storage.getItem(PROJECT_CATALOG_KEY)));
 const candidates = catalog.projects.filter(project => project.id === flags['--project'] || project.name === flags['--project']);
 if (candidates.length !== 1) throw new Error('项目名称不存在或重复，请指定准确的项目 ID。');
 const project = candidates[0], snapshot = captureProjectPackage(storage, project);
-const result = await createProjectPackages({ dataDirectory, storage }).exportFolder({ directory: path.resolve(flags['--output']), projectId: project.id, ...snapshot });
+const result = await createProjectPackages({ dataDirectory, storage, resolveAssetDirectory:folders.assetDirectory }).exportFolder({ directory: path.resolve(flags['--output']), projectId: project.id, ...snapshot });
 console.log(JSON.stringify({ project: project.name, ...result }, null, 2));
+
+} finally {folders.close();}

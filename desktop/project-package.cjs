@@ -530,7 +530,7 @@ async function cleanupOwned(directory, identity) {
   } catch (error) { if (error.code !== 'ENOENT') return; }
 }
 
-function createProjectPackages({dataDirectory, storage}) {
+function createProjectPackages({dataDirectory, storage, resolveAssetDirectory}) {
   if (typeof dataDirectory !== 'string' || !storage || typeof storage.getItem !== 'function') throw new Error('项目文件夹服务配置无效');
   const base = path.resolve(dataDirectory), imports = new Map(), activeExports = new Set();
   const sourceProject = projectId => {
@@ -575,7 +575,7 @@ function createProjectPackages({dataDirectory, storage}) {
       }
       for (const [token, file] of assets) {
         const relative = 'assets/' + token;
-        const source = path.join(base, 'art-files', workspaceHash('project:' + projectId), token);
+        const source = path.join(resolveAssetDirectory?.('project:' + projectId) || path.join(base, 'art-files', workspaceHash('project:' + projectId)), token);
         try { add(relative, await copyChecked(source, path.join(temporary, 'assets', token), file)); }
         catch (error) { if (error.code === 'ENOENT') throw new Error('项目素材文件已丢失，导出已停止：' + (file.name || token)); throw error; }
       }
@@ -585,7 +585,7 @@ function createProjectPackages({dataDirectory, storage}) {
       await writeBytes(path.join(temporary, 'manifest.json'), jsonBytes(manifest));
       // Recheck source files as well as archive revisions immediately before publishing.
       for (const [token, file] of assets) {
-        const current = await readChecked(path.join(base, 'art-files', workspaceHash('project:' + projectId), token), MAX_ASSET_BYTES);
+        const current = await readChecked(path.join(resolveAssetDirectory?.('project:' + projectId) || path.join(base, 'art-files', workspaceHash('project:' + projectId)), token), MAX_ASSET_BYTES);
         const saved = files.find(entry => entry.path === 'assets/' + token);
         if (current.size !== file.size || current.sha256 !== saved.sha256) throw new Error('素材文件在导出期间发生变化，请重试');
       }

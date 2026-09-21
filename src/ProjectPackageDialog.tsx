@@ -1,70 +1,17 @@
-import { useEffect, useId, useRef, useState } from 'react';
-import { CheckCircle2, FolderInput, FolderOutput, LoaderCircle, X } from 'lucide-react';
-import type { ProjectPackageDocument } from './project-package';
+import {useEffect,useRef} from 'react';
+import {CheckCircle2,FolderOpen,LoaderCircle,X} from 'lucide-react';
+import type {FolderTransferState} from './useProjectTransfer';
 import './prototype-import.css';
 import './project-package.css';
-
-export type ProjectTransferState = {
-  mode: 'import' | 'export'; busy: boolean; document?: ProjectPackageDocument;
-  token?: string; directory?: string; fileCount?: number; error?: string;
-};
-
-export function ProjectPackageDialog({ state, names, onClose, onChoose, onImport }: {
-  state: ProjectTransferState | null; names: string[]; onClose: () => void;
-  onChoose: () => void; onImport: (name: string) => Promise<void>;
-}) {
-  const ref = useRef<HTMLDialogElement>(null);
-  const [name, setName] = useState('');
-  const id = useId();
-  useEffect(() => {
-    if (state && !ref.current?.open) ref.current?.showModal();
-    if (!state && ref.current?.open) ref.current.close();
-  }, [!!state]);
-  useEffect(() => {
-    if (!state?.token || !state.document) return;
-    const base = state.document.project.name;
-    let result = base, index = 1;
-    while (names.includes(result)) result = base + (index++ === 1 ? '（副本）' : `（副本 ${index - 1}）`);
-    setName(result);
-  }, [state?.token]);
-  const importing = state?.mode === 'import';
-  const title = importing ? '从文件夹导入项目' : '导出项目到文件夹';
-  const archives = state?.document?.archives;
-  const files = archives?.['art-assets'].assets.flatMap(asset => asset.versions.flatMap(version => version.files)) ?? [];
-  const fileCount = new Set(files.map(file => file.storagePath)).size;
-  return <dialog ref={ref} className="pi-dialog pp-dialog" aria-labelledby={id + '-title'}
-    onCancel={event => { event.preventDefault(); if (!state?.busy) onClose(); }}>
-    <form aria-busy={state?.busy} onSubmit={event => { event.preventDefault(); if (state?.token && !state.busy && name.trim()) void onImport(name.trim()); }}>
-      <div className="pi-heading"><div><span className="pi-kicker">PORTABLE PROJECT</span><h2 id={id + '-title'}>{title}</h2></div>
-        <button className="pi-close" type="button" aria-label="关闭项目迁移" disabled={state?.busy} onClick={onClose}><X size={19} /></button></div>
-      <p className="pi-description">{importing ? '选择导出的项目文件夹，恢复为独立的本地项目。玩法核心、玩法设计、系统、配置、枚举版本和素材文件会一起导入。' : '保存当前项目的完整副本。将整个文件夹复制到其他电脑，即可在客户端中导入。'}</p>
-      {state?.busy && <div className="pp-progress" role="status"><LoaderCircle className="pi-spinner" size={20} />{state.token ? '正在校验并恢复项目…' : importing ? '正在选择并检查项目文件夹…' : '正在保存项目数据和素材文件…'}</div>}
-      {state?.directory && <div className="pp-success" role="status"><CheckCircle2 size={22} /><div><strong>项目已导出</strong><p>{state.directory}</p><small>{state.fileCount} 个素材文件已包含在项目文件夹中。</small></div></div>}
-      {importing && archives && <>
-        <div className="pp-summary"><strong>{state?.document?.project.name}</strong><dl>
-          <div><dt>制作任务</dt><dd>{archives['project-schedule'].tasks.length}</dd></div>
-          <div><dt>排期里程碑</dt><dd>{archives['project-schedule'].milestones.length}</dd></div>
-          <div><dt>原型场景</dt><dd>{archives['prototype-design'].scenes.length}</dd></div>
-          <div><dt>玩法核心节点</dt><dd>{archives['gameplay-core'].graphs.reduce((sum, graph) => sum + graph.nodes.length, 0)}</dd></div>
-          <div><dt>玩法设计</dt><dd>{archives.gameplay.designs.length}</dd></div>
-          <div><dt>功能系统</dt><dd>{archives['functional-systems'].systems.length}</dd></div>
-          <div><dt>程序框架</dt><dd>{archives['program-framework'].enabled ? '已采用通用框架' : '未采用'} · v{archives['program-framework'].templateVersion}</dd></div>
-          <div><dt>素材需求</dt><dd>{archives['art-assets'].requirements.length}</dd></div>
-          <div><dt>素材文件</dt><dd>{fileCount}</dd></div>
-          <div><dt>故事文档</dt><dd>{archives.stories.length}</dd></div>
-          <div><dt>地图设计</dt><dd>{archives['map-design'].maps.length} · {archives['map-design'].enabled ? '已启用' : '未启用'}</dd></div><div><dt>故事编排</dt><dd>{archives['story-orchestration'].stories.length} · {archives['story-orchestration'].enabled ? '已启用' : '未启用'}</dd></div>
-          <div><dt>数据记录</dt><dd>{Object.values(archives['enum-versions'].data.datasets).reduce((sum, rows) => sum + rows.length, 0)}</dd></div>
-        </dl></div>
-        <label className="pi-name-field" htmlFor={id + '-name'}>项目名称<input id={id + '-name'} required maxLength={100} disabled={state?.busy} value={name} onChange={event => setName(event.target.value)} /></label>
-        <p className="pi-note">导入后自动打开。游戏工程目录需在“引擎设置”中重新连接，已保存的枚举版本可继续查看。</p>
-      </>}
-      {state?.error && <p className="pi-error" role="alert">{state.error}</p>}
-      <div className="pi-actions"><span>{importing ? '创建独立副本 · 保留完整版本记录' : '普通文件夹 · 可直接复制'}</span><div>
-        <button className="pi-secondary" type="button" disabled={state?.busy} onClick={onClose}>{state?.directory ? '完成' : '取消'}</button>
-        {!state?.directory && <button className="pi-secondary" type="button" disabled={state?.busy} onClick={onChoose}>{importing ? '重新选择文件夹' : '重新选择导出位置'}</button>}
-        {importing && state?.token && <button className="pi-submit" type="submit" disabled={state.busy || !name.trim()}><FolderInput size={16} />导入并打开</button>}
-        {!importing && state?.busy && <FolderOutput size={18} />}
-      </div></div>
-    </form>
+export function ProjectPackageDialog({state,onClose}:{state:FolderTransferState|null;onClose:()=>void}) {
+  const ref=useRef<HTMLDialogElement>(null);
+  useEffect(()=>{if(state&&!ref.current?.open)ref.current?.showModal();if(!state&&ref.current?.open)ref.current.close();},[!!state]);
+  return <dialog ref={ref} className="pi-dialog pp-dialog" aria-label={state?.title} onCancel={event=>{event.preventDefault();if(!state?.busy)onClose();}}>
+    <div className="pi-heading"><div><span className="pi-kicker">GAMECREATOR PROJECT</span><h2>{state?.title}</h2></div><button className="pi-close" aria-label="关闭" disabled={state?.busy} onClick={onClose}><X size={19}/></button></div>
+    {state?.busy?<p className="pi-description"><LoaderCircle size={18}/> 正在处理项目文件夹…</p>:state?.error?<p role="alert" className="pi-error">{state.error}</p>:<>
+      <p className="pi-description"><CheckCircle2 size={18}/> 项目已保存。后续编辑会自动写回此文件夹。</p><p className="pp-path"><FolderOpen size={18}/> {state?.directory}</p>
+      <p className="pi-description">转移项目时复制整个文件夹，包含文档、配置与所有素材版本。引擎工程在“引擎设置”中单独连接。</p>
+    </>}
+    <div className="pi-actions"><button type="button" disabled={state?.busy} onClick={onClose}>关闭</button></div>
   </dialog>;
 }

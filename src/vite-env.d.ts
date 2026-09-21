@@ -14,6 +14,11 @@ interface Window {
       readPreview: (workspaceId: string, storagePath: string) => Promise<{ dataUrl: string } | null>;
       reveal: (workspaceId: string, storagePath: string) => Promise<void>;
     };
+    folderProjects?: {
+      open: () => Promise<import('./project-catalog').SavedProject | null>;
+      create: (input: {project:import('./project-catalog').SavedProject;entries:{key:string;value:string}[];sourceId?:string;expectedEntries?:{key:string;value:string|null}[]}) => Promise<import('./project-catalog').SavedProject | null>;
+      verify: (id:string) => Promise<import('./project-catalog').SavedProject>;
+    };
     projectPackages?: {
       exportFolder: (input: { projectId: string; document: import('./project-package').ProjectPackageDocument; expectedEntries: { key: string; value: string | null }[] }) => Promise<{ directory: string; fileCount: number } | null>;
       chooseImport: () => Promise<{ token: string; document: unknown } | null>;

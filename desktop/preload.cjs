@@ -17,6 +17,11 @@ contextBridge.exposeInMainWorld('desktopClient', {
     readPreview: (workspaceId, storagePath) => ipcRenderer.invoke('art-files-preview', { workspaceId, storagePath }),
     reveal: (workspaceId, storagePath) => ipcRenderer.invoke('art-files-reveal', { workspaceId, storagePath }),
   },
+  folderProjects: {
+    open: () => ipcRenderer.invoke('folder-project','open'),
+    create: input => ipcRenderer.invoke('folder-project','create',input),
+    verify: id => ipcRenderer.invoke('folder-project','verify',{id}),
+  },
   projectPackages: {
     exportFolder: input => ipcRenderer.invoke('project-package-export', input),
     chooseImport: () => ipcRenderer.invoke('project-package-choose-import'),

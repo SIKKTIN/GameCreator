@@ -22,13 +22,14 @@ export type ProjectSwitcherProps = {
   onImportPrototype?: () => void;
   onImportProject?: () => void;
   onExportProject?: () => void;
+  onSaveAsProject?: () => void;
 };
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : '操作未完成，请稍后重试。';
 }
 
-export function ProjectSwitcher({ projects, currentId, currentName, testName, teamNotice, canAdd, busy, onSelect, onAdd, onDelete, onConnectTeam, onCreateTeam, onPublishProject, onImportPrototype, onImportProject, onExportProject }: ProjectSwitcherProps) {
+export function ProjectSwitcher({ projects, currentId, currentName, testName, teamNotice, canAdd, busy, onSelect, onAdd, onDelete, onConnectTeam, onCreateTeam, onPublishProject, onImportPrototype, onImportProject, onExportProject, onSaveAsProject }: ProjectSwitcherProps) {
   const [open, setOpen] = useState(false);
   const [context, setContext] = useState<{ id: string; x: number; y: number } | null>(null);
   const [deleting, setDeleting] = useState<SwitchableProject | null>(null);
@@ -109,7 +110,7 @@ export function ProjectSwitcher({ projects, currentId, currentName, testName, te
     operationRef.current = true; setPending(true); setDeleteError('');
     try {
       if (await onDelete(deleting.id)) deleteDialog.current?.close();
-      else setDeleteError('项目尚未删除，请检查保存状态后重试。');
+      else setDeleteError('项目尚未移除，请检查保存状态后重试。');
     } catch (error) { setDeleteError(errorMessage(error)); }
     finally { operationRef.current = false; setPending(false); }
   }
@@ -222,7 +223,7 @@ export function ProjectSwitcher({ projects, currentId, currentName, testName, te
           aria-checked={project.id === currentId}
           key={project.id}
           disabled={locked}
-          title={`${project.name}\n${project.kind === 'team' ? '团队项目' : '本地项目'} · ${project.detail || project.projectPath || '尚未配置引擎'}`}
+          title={`${project.name}\n${project.kind === 'team' ? '团队项目' : '本地项目'} · ${project.detail || project.projectPath || '尚未保存到项目文件夹'}`}
           onClick={() => void selectProject(project.id)}
           onContextMenu={event => {
             if (!canOpenContext(project)) return;
@@ -239,7 +240,7 @@ export function ProjectSwitcher({ projects, currentId, currentName, testName, te
           }}
         >
           <FolderOpen size={16} aria-hidden="true" />
-          <span className="ps-project-copy"><strong>{project.name}</strong><small>{project.kind === 'team' ? '团队项目' : '本地项目'} · {project.detail || project.projectPath || '尚未配置引擎'}</small></span>
+          <span className="ps-project-copy"><strong>{project.name}</strong><small>{project.kind === 'team' ? '团队项目' : '本地项目'} · {project.detail || project.projectPath || '尚未保存到项目文件夹'}</small></span>
           {project.id === currentId && <Check className="ps-project-check" size={15} aria-hidden="true" />}
         </button>)}
         {projects.length === 0 && <p className="ps-no-projects">暂无已创建的项目</p>}
@@ -247,8 +248,9 @@ export function ProjectSwitcher({ projects, currentId, currentName, testName, te
         {canAdd && onCreateTeam && <button type="button" role="menuitem" className="ps-add-button" disabled={locked} onClick={() => { closeMenu(); onCreateTeam(); }}><Plus size={16} />新建协作项目</button>}
         {canAdd && onPublishProject && <button type="button" role="menuitem" className="ps-add-button" disabled={locked} onClick={() => { closeMenu(); onPublishProject(); }}><CloudUpload size={16} />发布为协作项目</button>}
         {canAdd && onImportPrototype && <button type="button" role="menuitem" className="ps-add-button" disabled={locked} onClick={() => { closeMenu(); triggerRef.current?.focus(); onImportPrototype(); }}><CopyPlus size={16} aria-hidden="true" />从原型示例创建项目</button>}
-        {canAdd && onImportProject && <button type="button" role="menuitem" className="ps-add-button" disabled={locked} onClick={() => { closeMenu(); triggerRef.current?.focus(); onImportProject(); }}><FolderInput size={16} aria-hidden="true" />从文件夹导入项目</button>}
-        {canAdd && onExportProject && <button type="button" role="menuitem" className="ps-add-button" disabled={locked} onClick={() => { closeMenu(); triggerRef.current?.focus(); onExportProject(); }}><FolderOutput size={16} aria-hidden="true" />导出项目到文件夹</button>}
+        {canAdd && onImportProject && <button type="button" role="menuitem" className="ps-add-button" disabled={locked} onClick={() => { closeMenu(); triggerRef.current?.focus(); onImportProject(); }}><FolderInput size={16} aria-hidden="true" />打开项目</button>}
+        {canAdd && onExportProject && <button type="button" role="menuitem" className="ps-add-button" disabled={locked} onClick={() => { closeMenu(); triggerRef.current?.focus(); onExportProject(); }}><FolderOutput size={16} aria-hidden="true" />保存项目</button>}
+        {canAdd && onSaveAsProject && <button type="button" role="menuitem" className="ps-add-button" disabled={locked} onClick={()=>{closeMenu();onSaveAsProject();}}><FolderOutput size={16}/>项目另存为…</button>}
         {onConnectTeam && <button type="button" role="menuitem" className="ps-add-button" disabled={locked} onClick={() => { closeMenu(); onConnectTeam(); }}><FolderOpen size={16} />连接团队服务器</button>}
       </div>
       {menuError && <p className="ps-error" role="alert">{menuError}</p>}
@@ -265,24 +267,24 @@ export function ProjectSwitcher({ projects, currentId, currentName, testName, te
         }
       }}>
       <div className="ps-context-name" title={contextProject.name}>{contextProject.name}</div>
-      <button type="button" role="menuitem" className="ps-open-data-action" disabled={locked||!window.desktopClient?.revealProjectData} title={window.desktopClient?.revealProjectData?'打开本地数据目录并定位该项目存档':'仅桌面客户端可打开本地数据目录'} onClick={()=>void openDataFolder(contextProject.id)}><FolderOpen size={15} aria-hidden="true"/>打开数据文件夹</button>
-      <div className="ps-context-hint">GameCreator 本地存档位置</div>
+      <button type="button" role="menuitem" className="ps-open-data-action" disabled={locked||!window.desktopClient?.revealProjectData} title={window.desktopClient?.revealProjectData?'打开保存此项目数据的文件夹':'仅桌面客户端可打开本地数据目录'} onClick={()=>void openDataFolder(contextProject.id)}><FolderOpen size={15} aria-hidden="true"/>打开项目文件夹</button>
+      <div className="ps-context-hint">GameCreator 项目保存位置</div>
       {canAdd&&onDelete&&<button type="button" role="menuitem" className="ps-delete-action" disabled={locked} onClick={() => {
         setDeleting(contextProject); setDeleteError(''); closeMenu();
-      }}><Trash2 size={15} aria-hidden="true" />删除项目</button>}
+      }}><Trash2 size={15} aria-hidden="true" />移除项目</button>}
     </div>, document.body)}
     <dialog ref={deleteDialog} className="ps-dialog ps-delete-dialog" aria-labelledby={`${id}-delete-title`} aria-describedby={`${id}-delete-description`}
       onCancel={event => { if (pending) event.preventDefault(); }}
       onClose={() => { setDeleting(null); setDeleteError(''); requestAnimationFrame(() => triggerRef.current?.focus()); }}>
       <form onSubmit={event => void confirmDelete(event)} aria-busy={pending}>
-        <div className="ps-dialog-heading"><div><span className="ps-dialog-kicker">LOCAL PROJECT</span><h2 id={`${id}-delete-title`}>删除本地项目</h2></div>
-          <button type="button" className="ps-close-button" aria-label="关闭删除项目" disabled={pending} onClick={() => deleteDialog.current?.close()}><X size={19} /></button></div>
+        <div className="ps-dialog-heading"><div><span className="ps-dialog-kicker">LOCAL PROJECT</span><h2 id={`${id}-delete-title`}>从最近项目移除</h2></div>
+          <button type="button" className="ps-close-button" aria-label="关闭移除项目" disabled={pending} onClick={() => deleteDialog.current?.close()}><X size={19} /></button></div>
         <p className="ps-delete-name">{deleting?.name}</p>
-        <p id={`${id}-delete-description`} className="ps-dialog-description">将此项目从本机项目列表删除。项目存档、外部游戏工程和已导出的文件夹会保留。</p>
-        {deleting?.id === currentId && <p className="ps-dialog-description">删除后将切换到其他本地项目；没有其他项目时显示空工作区。</p>}
+        <p id={`${id}-delete-description`} className="ps-dialog-description">仅从最近项目列表移除，项目文件夹及全部内容都会保留。以后可以通过“打开项目”再次打开。</p>
+        {deleting?.id === currentId && <p className="ps-dialog-description">移除后将切换到其他本地项目；没有其他项目时显示空工作区。</p>}
         {deleteError && <p role="alert" className="ps-error ps-form-error">{deleteError}</p>}
         <div className="ps-dialog-actions"><button ref={deleteCancel} type="button" className="ps-secondary-button" disabled={pending} onClick={() => deleteDialog.current?.close()}>取消</button>
-          <button type="submit" className="ps-submit-button ps-delete-submit" disabled={locked}>{pending ? <LoaderCircle className="ps-spinner" size={16} /> : <Trash2 size={16} />}{pending ? '正在删除…' : '删除项目'}</button></div>
+          <button type="submit" className="ps-submit-button ps-delete-submit" disabled={locked}>{pending ? <LoaderCircle className="ps-spinner" size={16} /> : <Trash2 size={16} />}{pending ? '正在移除…' : '移除项目'}</button></div>
       </form>
     </dialog>
     <dialog
@@ -298,7 +300,7 @@ export function ProjectSwitcher({ projects, currentId, currentName, testName, te
           <div><span className="ps-dialog-kicker">PROJECT</span><h2 id={`${id}-title`}>新建项目</h2></div>
           <button type="button" className="ps-close-button" aria-label="关闭新建项目" disabled={pending} onClick={closeDialog}><X size={19} aria-hidden="true" /></button>
         </div>
-        <p id={`${id}-description`} className="ps-dialog-description">输入名称即可开始编写项目内容。需要连接游戏工程时，再到“引擎设置”配置目录。</p>
+        <p id={`${id}-description`} className="ps-dialog-description">填写名称后选择保存位置，创建独立的项目文件夹。需要连接游戏工程时，再到“引擎设置”配置。</p>
         <label htmlFor={`${id}-name`} className="ps-field">项目名称
           <input id={`${id}-name`} ref={nameRef} required autoComplete="off" value={name} onChange={event => setName(event.target.value)} placeholder="例如：我的游戏" disabled={locked} />
         </label>
@@ -307,7 +309,7 @@ export function ProjectSwitcher({ projects, currentId, currentName, testName, te
           <button type="button" className="ps-secondary-button" disabled={pending} onClick={closeDialog}>取消</button>
           <button type="submit" className="ps-submit-button" disabled={locked}>
             {pending ? <LoaderCircle className="ps-spinner" size={16} aria-hidden="true" /> : <Plus size={16} aria-hidden="true" />}
-            {pending ? '正在创建…' : '创建并切换'}
+            {pending ? '正在创建…' : '选择位置并创建'}
           </button>
         </div>
       </form>

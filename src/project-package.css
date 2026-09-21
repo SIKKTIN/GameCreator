@@ -11,3 +11,6 @@
 .pp-success small { color:#a8c2b7; }
 .pp-dialog .pi-actions { flex-wrap:wrap; }
 .pp-dialog .pi-actions > div { flex-wrap:wrap; }
+
+.pp-path { padding:16px; border:1px solid #494052; border-radius:8px; background:#17141f; overflow-wrap:anywhere; user-select:text; line-height:1.6; }
+.pp-dialog > .pi-description > svg, .pp-path > svg { vertical-align:middle; margin-right:8px; }
