@@ -1,4 +1,4 @@
-import {useSearchRequest} from './GlobalSearch';
+import {useSearchRequest,useLeaveSearch} from './GlobalSearch';
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import './enum-definitions.css';
 import './project-switcher.css';
@@ -87,7 +87,7 @@ export function EngineSettings({ config, setConfig, registry, onPickDirectory }:
   </form>;
 }
 export function EnumDefinitions({ registry }: { registry: EnumRegistry }) {
-  const searchRequest=useSearchRequest('枚举定义');
+  const searchRequest=useSearchRequest('枚举定义'),leaveSearch=useLeaveSearch('枚举定义');
   useEffect(()=>{if(searchRequest)setQuery(searchRequest.parent||searchRequest.id);},[searchRequest]);
   const scan = registry.active?.scan;
   const [query, setQuery] = useState('');
@@ -119,7 +119,7 @@ export function EnumDefinitions({ registry }: { registry: EnumRegistry }) {
           : `${scan.groups.length} 组枚举 · ${memberCount} 个成员`}</p>
         <label className="enum-catalog-search"><Search size={16} aria-hidden="true" />
           <input type="search" aria-label="搜索枚举、成员或说明" placeholder="搜索枚举、成员或说明…"
-            value={query} onChange={(event) => setQuery(event.target.value)} />
+            value={query} onChange={(event) => {leaveSearch();setQuery(event.target.value);}} />
         </label>
       </div>
       {groups.length ? <div className="enum-catalog-grid">{groups.map(({ group, members }) =>

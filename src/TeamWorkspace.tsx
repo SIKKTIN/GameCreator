@@ -32,7 +32,10 @@ export function TeamProjectWorkspace({ project, session, picker, localProjects, 
   const [capabilities,setCapabilities] = useState<TeamCapabilities>();
   const accessBlocked = accessDenied || !!session.invalid;
   const writableStories = !accessBlocked && loaded && canEditModule(session,role,capabilities,'stories');
-  const [active,setActive] = useState('故事文档');
+  const [active,setActiveModule] = useState('故事文档');
+  const [searchNavigation,setSearchNavigation] = useState(0);
+  const leaveSearch = () => setSearchNavigation(n => n + 1);
+  const setActive = (name:string) => {leaveSearch();setActiveModule(name);};
   const [selectedGameplayId,setSelectedGameplayId] = useState('');
   const scheduleEnabled = (session.apiVersion ?? 0) >= 10;
   const gameplayEnabled = (session.apiVersion ?? 0) >= 9;
@@ -87,14 +90,14 @@ export function TeamProjectWorkspace({ project, session, picker, localProjects, 
       const result = await teamRequest<{ story: TeamStory }>(session.url, route, session.token, 'POST', {
         title: '新的故事文档', category: '世界观', status: '草稿', summary: '', content: '', tags: [], outlines: [], relations: { characters: [], locations: [], systems: [] },
       });
-      if (alive.current) { receive(result.story); setSelectedId(result.story.id); }
+      if (alive.current) { receive(result.story); leaveSearch(); setSelectedId(result.story.id); }
     } catch (reason) { if (alive.current) setCreateError((reason as Error).message); }
     finally { creating.current = false; if (alive.current) setCreateBusy(false); }
   };
   const selected = stories.find(item => item.id === selectedId);
-  const openSearchTarget=(t:SearchTarget)=>{if(accessBlocked||!canLeaveTeam())return false;onLeaveServer();if(t.module==='故事文档')setSelectedId(t.id);if(t.module==='玩法设计')setSelectedGameplayId(t.parent||t.id);setActive(t.module);};
+  const openSearchTarget=(t:SearchTarget)=>{if(accessBlocked||!canLeaveTeam())return false;onLeaveServer();if(t.module==='故事文档')setSelectedId(t.id);if(t.module==='玩法设计')setSelectedGameplayId(t.parent||t.id);setActiveModule(t.module);};
 
-  return <GlobalSearchProvider activeModule={active} blocked={accessBlocked} sources={{stories:loaded&&!accessBlocked?stories:undefined,gameplay:gameplayEnabled&&!accessBlocked&&gameplay.remote?gameplay.remote.store:undefined}} warning={[!loaded?'故事文档正在加载':syncError,gameplayEnabled?gameplay.syncError||(!gameplay.loaded?'玩法设计正在加载':''):'', '仅搜索当前团队已共享且可访问的模块；未提交草稿不计入搜索。'].filter(Boolean).join('；')} onNavigate={()=>{if(canLeaveTeam()){onLeaveServer();setActive('全局搜索');}}} onOpen={openSearchTarget}><div className="app team-project">
+  return <GlobalSearchProvider navigationRevision={searchNavigation} activeModule={serverPage ? '服务器管理' : active} blocked={accessBlocked} sources={{stories:loaded&&!accessBlocked?stories:undefined,gameplay:gameplayEnabled&&!accessBlocked&&gameplay.remote?gameplay.remote.store:undefined}} warning={[!loaded?'故事文档正在加载':syncError,gameplayEnabled?gameplay.syncError||(!gameplay.loaded?'玩法设计正在加载':''):'', '仅搜索当前团队已共享且可访问的模块；未提交草稿不计入搜索。'].filter(Boolean).join('；')} onNavigate={()=>{if(!canLeaveTeam())return false;onLeaveServer();setActiveModule('全局搜索');}} onOpen={openSearchTarget}><div className="app team-project">
     {manageMembers && !accessBlocked && role === 'admin' && <TeamProjectDialog session={session} project={project} onClose={() => setManageMembers(false)} onSaved={() => setRefresh(value => value + 1)} />}
     <WorkspaceSidebar picker={picker} team teamSchedule={scheduleEnabled} teamGameplay={gameplayEnabled} teamOverview={overviewEnabled} teamCore={(session.apiVersion ?? 0) >= 7} active={serverPage ? adminPageName??'服务器管理' : active} onManageServer={onManageServer} onManageUsers={onManageUsers}
       onNavigate={name=>{if(canLeaveTeam()){onLeaveServer();setActive(name);}}} footer={<>
@@ -113,15 +116,15 @@ export function TeamProjectWorkspace({ project, session, picker, localProjects, 
       {overviewEnabled&&<div hidden={accessBlocked||active!=='项目概览'}><TeamOverview onSchedule={scheduleEnabled?()=>{if(canLeaveTeam())setActive('项目排期');}:undefined} blocked={accessBlocked} session={session} projectId={project.id} members={members} onMembers={()=>setManageMembers(true)} onDenied={status=>{setAccessDenied(true);if(status===410)setProjectDeleted(true);}}/></div>}
       {(session.apiVersion ?? 0) >= 7 && <div hidden={accessBlocked || active !== '玩法核心'}><TeamGameplayCore session={session} projectId={project.id} blocked={accessBlocked} designs={gameplay.remote?.store.designs} designsReady={!!gameplay.remote?.initialized} onOpenGameplay={id=>{if(canLeaveTeam()){setSelectedGameplayId(id);setActive('玩法设计');}}} onDenied={status=>{setAccessDenied(true);if(status===410)setProjectDeleted(true);}}/></div>}
       {scheduleEnabled&&<div hidden={accessBlocked||active!=='项目排期'}><TeamProjectSchedule session={session} projectId={project.id} blocked={accessBlocked} designs={gameplay.remote?.store.designs} onOpenGameplay={id=>{if(canLeaveTeam()){setSelectedGameplayId(id);setActive('玩法设计');}}} onDenied={status=>{setAccessDenied(true);if(status===410)setProjectDeleted(true);}}/></div>}
-      {gameplayEnabled&&<div hidden={accessBlocked||active!=='玩法设计'}><TeamGameplayDesign state={gameplay} session={session} projectId={project.id} stories={stories} selectedId={selectedGameplayId} onSelect={id=>{if(canLeaveTeam())setSelectedGameplayId(id);}} onOpenStory={id=>{if(canLeaveTeam()){setSelectedId(id);setActive('故事文档');}}}/></div>}
+      {gameplayEnabled&&<div hidden={accessBlocked||active!=='玩法设计'}><TeamGameplayDesign state={gameplay} session={session} projectId={project.id} stories={stories} selectedId={selectedGameplayId} onSelect={id=>{if(!canLeaveTeam())return false;setSelectedGameplayId(id);}} onOpenStory={id=>{if(canLeaveTeam()){setSelectedId(id);setActive('故事文档');}}}/></div>}
       <div hidden={active!=='故事文档'}>
       {writableStories && <div className="team-import-toolbar"><StoryImportDialog projects={localProjects} session={session} projectId={project.id} onImported={imported => {
-        imported.forEach(receive); if (imported.length) setSelectedId(imported[0].id);
+        imported.forEach(receive); if (imported.length) {leaveSearch();setSelectedId(imported[0].id);}
       }} /></div>}
       {createError && <p className="team-message" role="alert">{createError}</p>}
       <div hidden={accessBlocked}>
       {selected ? <TeamStoryEditor key={selected.id} story={selected} documents={stories} session={session} role={writableStories ? role : 'viewer'} onSaved={receive} busy={createBusy}
-        onSelect={id => { if (canLeaveTeam()) setSelectedId(id); }} onCreate={() => void create()} />
+        onSelect={id => { if (canLeaveTeam()) {leaveSearch();setSelectedId(id);} }} onCreate={() => void create()} />
         : loaded ? <StoryDocuments documents={[]} activeStoryId="" setActiveStoryId={() => {}} updateStory={() => {}} addStoryDoc={() => void create()} readOnly={!writableStories} busy={createBusy} />
           : <p className="team-empty">等待团队内容…</p>}
       </div>

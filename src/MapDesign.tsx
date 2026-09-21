@@ -1,4 +1,4 @@
-import {useSearchRequest} from './GlobalSearch';
+import {useSearchRequest,useLeaveSearch,useSearchSelection} from './GlobalSearch';
 import { ActorFields, OpeningFields, PassageFields, TerrainFields } from './MapPassageFields';
 import { splitTerrainAtOpening } from './map-passages';
 import { MapWorldCanvas } from './MapWorldCanvas';
@@ -30,8 +30,8 @@ export function MapDesign({controller:c,gameplay,targets,prototype,prototypeBloc
   const searchRequest=useSearchRequest('地图设计');
   const [searchFocus,setSearchFocus]=useState(0);
   useEffect(()=>{if(searchRequest?.kind==='object')setSearchFocus(n=>n+1);},[searchRequest]);
-  useEffect(()=>{if(!searchRequest)return;setSearch('');setTool('');if(searchRequest.kind==='connection'){setConnectionId(searchRequest.id);setTab('world');}else{setId(searchRequest.parent||searchRequest.id);setSelected(searchRequest.kind==='object'?searchRequest.id:'');setTab('map');}},[searchRequest]);
-  const [id,setId]=useState(requestedId||c.store.maps[0]?.id||''),[tab,setTab]=useState('world'),[selected,setSelected]=useState(''),[connectionId,setConnectionId]=useState(''),[layerId,setLayerId]=useState(''),[tool,setTool]=useState(''),[search,setSearch]=useState(''),[error,setError]=useState(''),[refKind,setRefKind]=useState<MapReference['kind']>('gameplay');
+  useEffect(()=>{if(!searchRequest)return;setSearch('');setTool('');if(searchRequest.kind==='connection'){locateConnection(searchRequest.id);setTab('world');}else{setId(searchRequest.parent||searchRequest.id);locateSelected(searchRequest.kind==='object'?searchRequest.id:'');setTab('map');}},[searchRequest]);
+  const [id,setId]=useState(requestedId||c.store.maps[0]?.id||''),[tab,setTab]=useState('world'),[selected,locateSelected]=useState(''),[connectionId,locateConnection]=useState(''),[layerId,setLayerId]=useState(''),[tool,setTool]=useState(''),[search,setSearch]=useState(''),[error,setError]=useState(''),[refKind,setRefKind]=useState<MapReference['kind']>('gameplay');
   const [routeReverse,setRouteReverse]=useState(false),[travelObject,setTravelObject]=useState('');
   const [travel,setTravel]=useState(''),[confirmed,setConfirmed]=useState<string[]>([]),[trail,setTrail]=useState<string[]>([]);
   const designs=gameplay.store.designs,m=c.store.maps.find(x=>x.id===id)??c.store.maps[0],connection=c.store.connections.find(x=>x.id===connectionId),layer=m?.layers.find(l=>l.id===layerId)??m?.layers[0];
@@ -44,7 +44,9 @@ export function MapDesign({controller:c,gameplay,targets,prototype,prototypeBloc
   const patch=(p:Partial<DesignMap>)=>m&&c.update(s=>({...s,maps:s.maps.map(x=>x.id===m.id?{...x,...p}:x)}));
   const patchObject=(p:Partial<MapObject>)=>{if(local&&!locked)patch({objects:m.objects.map(o=>o.id===selected?{...o,...p}:o)});};
   const patchConnection=(p:Partial<MapConnection>)=>connection&&c.update(s=>({...s,connections:s.connections.map(x=>x.id===connection.id?{...x,...p}:x)}));
-  const chooseMap=(next:string)=>{setId(next);setSelected('');setLayerId('');setTool('');setConnectionId('');};
+  const setConnectionId=useSearchSelection('地图设计',connectionId,locateConnection);
+  const setSelected=useSearchSelection('地图设计',selected,locateSelected),leaveSearch=useLeaveSearch('地图设计');
+  const chooseMap=(next:string)=>{if(next!==id)leaveSearch();setId(next);setSelected('');setLayerId('');setTool('');setConnectionId('');};
   const add=()=>{const n=createDesignMap();n.perspective=settings.perspective;n.view=settings.perspective==='side'?'free':'grid';n.placement={x:Math.max(0,...c.store.maps.map(m=>{const r=worldRoom(c.store,m,designs);return r.x+r.width+4;})),y:0,scale:1};c.update(s=>({...s,maps:[...s.maps,n]}));chooseMap(n.id);setTab('map');};
   const place=(x:number,y:number)=>{if(!m||!layer||!tool||disabled||layer.locked||!layer.visible)return;const cell=space!.cellSize,round=(n:number)=>m.view==='grid'?Math.round(n/cell)*cell:n;const o:MapObject={id:crypto.randomUUID(),name:mapKinds[tool as keyof typeof mapKinds],kind:tool as MapObject['kind'],layerId:layer.id,x:round(x),y:round(y),width:cell,height:cell,color:tool==='portal'?'blue':tool==='enemy'?'red':tool==='terrain'?'green':'amber',notes:'',references:[]};patch({objects:[...m.objects,o]});setSelected(o.id);};
   const move=(objectId:string,x:number,y:number)=>act(()=>{if(!m||disabled)return;const cell=space!.cellSize,round=(n:number)=>m.view==='grid'?Math.round(n/cell)*cell:Math.round(n*1000)/1000;const opening=m.openings?.find(o=>o.id===objectId);if(opening){const vertical=opening.side==='top'||opening.side==='bottom',extent=(vertical?space!.columns:space!.rows)*cell,offset=Math.max(opening.width/2,Math.min(extent-opening.width/2,(vertical?x:y)+opening.width/2));patch({openings:m.openings!.map(o=>o.id===objectId?{...o,offset:round(offset)}:o)});return;}const own=m.objects.find(o=>o.id===objectId);if(own){if(m.layers.find(l=>l.id===own.layerId)?.locked)return;patch({objects:m.objects.map(o=>o.id===objectId?{...o,x:round(x),y:round(y)}:o)});}else if(source?.source&&!m.sourceLocked&&!gameplay.blocked&&!gameplay.pending&&!source.source.archived){gameplay.update(s=>({...s,designs:s.designs.map(d=>d.id===source.source!.id?{...d,space:{...d.space,objects:d.space.objects.map(o=>o.id===objectId?{...o,geometry:{...objectGeometry(o,d.space),x:round(x),y:round(y)}}:o)}}:d)}));}});

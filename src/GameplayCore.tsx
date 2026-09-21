@@ -1,4 +1,4 @@
-import {useSearchRequest} from './GlobalSearch';
+import {useSearchRequest,useLeaveSearch,useSearchSelection} from './GlobalSearch';
 import { CORE_NODE_WIDTH as NODE_WIDTH, CORE_NODE_HEIGHT as NODE_HEIGHT, selectionRectangle, nodesInRectangle, moveCoreGroup, type CorePosition, type CanvasPoint, type SelectionRectangle } from './core-selection';
 import { useCallback, useEffect, useId, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { ArrowDownRight, ArrowLeft, ArrowRight, ChevronRight, Circle, CircleStop, CornerDownRight, GitBranch, Layers, Link2, Maximize2, Minus, MousePointer2, Play, Plus, RotateCcw, Trash2, Unlink, X } from 'lucide-react';
@@ -91,8 +91,9 @@ export function GameplayCore({ controller, designs, onOpenGameplay, team = false
   team?: boolean; teamDesignsReady?: boolean; onMoveNodes?: (positions: CorePosition[]) => void; onGraphChange?: (id: string) => void; statusLabel?: string }) {
   const { store, update, blocked } = controller;
   const searchRequest=useSearchRequest('玩法核心',t=>{const g=store.graphs.find(g=>g.id===(t.parent||t.id));return !!g&&(t.kind==='node'?g.nodes.some(n=>n.id===t.id):t.kind==='edge'?g.edges.some(e=>e.id===t.id):true);});
-  useEffect(()=>{if(!searchRequest)return;setGraphId(searchRequest.parent||searchRequest.id);setSelected(searchRequest.kind==='node'||searchRequest.kind==='edge'?{kind:searchRequest.kind,id:searchRequest.id}:null);setLinking(false);setLinkFromId(null);},[searchRequest]);
-  const [graphId, setGraphId] = useState(store.rootId), [selected, setSelected] = useState<Selection>(null);
+  useEffect(()=>{if(!searchRequest)return;setGraphId(searchRequest.parent||searchRequest.id);locateSelected(searchRequest.kind==='node'||searchRequest.kind==='edge'?{kind:searchRequest.kind,id:searchRequest.id}:null);setLinking(false);setLinkFromId(null);},[searchRequest]);
+  const leaveSearch=useLeaveSearch('玩法核心');
+  const [graphId, setGraphId] = useState(store.rootId), [selected, locateSelected] = useState<Selection>(null);
   const [linking, setLinking] = useState(false), [linkFromId, setLinkFromId] = useState<string | null>(null);
   const [dragPositions, setDragPositions] = useState<CorePosition[] | null>(null), [marquee, setMarquee] = useState<SelectionRectangle | null>(null);
   const [deleteId, setDeleteId] = useState('');
@@ -174,9 +175,10 @@ export function GameplayCore({ controller, designs, onOpenGameplay, team = false
     controller.reload();
   };
 
+  const setSelected=useSearchSelection('玩法核心',selected,locateSelected);
   const navigate = (id: string) => {
     cancelGesture();
-    setGraphId(id); setSelected(null); setLinking(false); setLinkFromId(null); setDragPositions(null); setMarquee(null); drag.current = null; resetView(zoom);
+    if(id!==graphId)leaveSearch();setGraphId(id); setSelected(null); setLinking(false); setLinkFromId(null); setDragPositions(null); setMarquee(null); drag.current = null; resetView(zoom);
     if (scroll.current) { scroll.current.scrollLeft = 0; scroll.current.scrollTop = 0; }
   };
   const editGraph = (transform: (current: CoreGraph) => CoreGraph) => {

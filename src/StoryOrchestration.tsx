@@ -1,4 +1,4 @@
-import {useSearchRequest} from './GlobalSearch';
+import {useSearchRequest,useLeaveSearch,useSearchSelection} from './GlobalSearch';
 import { useEffect, useRef, useState } from 'react';
 import { BookOpen, GitBranch, Plus, Play, Archive, Copy } from 'lucide-react';
 import { always, conditionOperators, copyNarrative, createNarrative, effectsText, narrativeIssues, nodeKindNames, predicateText, removeNarrativeNode, type Narrative, type NarrativeNode, type StoryChoice, type StoryEffect, type StoryPredicate } from './story-orchestration';
@@ -39,12 +39,14 @@ function StoryRecovery({controller}:{controller:StoryOrchestrationController}) {
 export function StoryOrchestration({controller,data,tasks,selectedId,onSelect,onOpenTask,art,workspaceId,requestedCharacterId}:{requestedCharacterId?:string;controller:StoryOrchestrationController;data:ProjectData;tasks:Task[];art:ArtStore;workspaceId:string;selectedId:string;onSelect:(id:string)=>void;onOpenTask:(id:string)=>void}) {
   const {store,update,blocked}=controller;
   const searchRequest=useSearchRequest('故事编排');
-  useEffect(()=>{if(!searchRequest)return;setQuery('');setRange('all');if(searchRequest.kind==='node'){const n=store.stories.find(s=>s.id===searchRequest.parent)?.nodes.find(n=>n.id===searchRequest.id);if(n){setScene(n.sceneId);setNode(n.id);setView('script');}}else setView(searchRequest.kind==='character'?'people':'script');},[searchRequest]);
-  const [query,setQuery]=useState(''),[range,setRange]=useState('active'),[sceneId,setScene]=useState(''),[nodeId,setNode]=useState(''),[view,setView]=useState(requestedCharacterId?'people':'script'),[name,setName]=useState(''),[error,setError]=useState(''),[selectedState,setSelectedState]=useState('');
+  useEffect(()=>{if(!searchRequest)return;setQuery('');setRange('all');if(searchRequest.kind==='node'){const n=store.stories.find(s=>s.id===searchRequest.parent)?.nodes.find(n=>n.id===searchRequest.id);if(n){setScene(n.sceneId);locateNode(n.id);setView('script');}}else setView(searchRequest.kind==='character'?'people':'script');},[searchRequest]);
+  const [query,setQuery]=useState(''),[range,setRange]=useState('active'),[sceneId,setScene]=useState(''),[nodeId,locateNode]=useState(''),[view,setView]=useState(requestedCharacterId?'people':'script'),[name,setName]=useState(''),[error,setError]=useState(''),[selectedState,setSelectedState]=useState('');
+  const setNode=useSearchSelection('故事编排',nodeId,locateNode);
   const dialog=useRef<HTMLDialogElement>(null);
   const storedStory=store.stories.find(s=>s.id===selectedId), story=storedStory?resolveStoryActors(store,storedStory):undefined, scene=story?.scenes.find(s=>s.id===sceneId)??story?.scenes[0], node=story?.nodes.find(n=>n.id===nodeId && n.sceneId===scene?.id)??story?.nodes.find(n=>n.sceneId===scene?.id);
   const disabled=blocked||!!story?.archived;
-  const select=(id:string)=>{onSelect(id);setScene('');setNode('');setError('');setView('script');};
+  const leaveSearch=useLeaveSearch('故事编排');
+  const select=(id:string)=>{if(id!==selectedId)leaveSearch();onSelect(id);setScene('');setNode('');setError('');setView('script');};
   const change=(fn:(s:Narrative)=>Narrative)=>{if(!story||disabled)return;try{const next=fn(structuredClone(story));update(s=>({...s,stories:s.stories.map(v=>v.id===story.id?next:v)}));setError('');}catch(e){setError(String(e));}};
   const patch=(p:Partial<Narrative>)=>change(s=>({...s,...p}));
   const patchNode=(p:Partial<NarrativeNode>)=>change(s=>({...s,nodes:s.nodes.map(n=>n.id===node?.id?{...n,...p}:n)}));

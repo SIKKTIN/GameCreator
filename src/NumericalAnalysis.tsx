@@ -1,4 +1,4 @@
-import {useSearchRequest} from './GlobalSearch';
+import {useSearchRequest,useLeaveSearch} from './GlobalSearch';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Activity, Plus, Download, Copy, Trash2, ArrowUpRight, BarChart3, LineChart, Bookmark } from 'lucide-react';
 import type { NumericalAnalysisController } from './useNumericalAnalysis';
@@ -49,7 +49,8 @@ export function NumericalAnalysis({controller:c,sources,definitions,designs,onOp
   const comparisons=useMemo(()=>plan?plan.variants.map(v=>({variant:v,run:runAnalysis(plan,sources,v.id)})):[],[plan,sources.data,sources.narrative]);
   const change=(f:(p:AnalysisPlan)=>AnalysisPlan)=>{if(plan)c.update(s=>({...s,plans:s.plans.map(p=>p.id===plan.id?f(p):p)}));};
   const patch=(v:Partial<AnalysisPlan>)=>change(p=>({...p,...v}));
-  const select=(id:string)=>{setSelected(id);setVariantId('');setMetricId('');setRowKey('');setSnapshotId('latest');setLine(null);setError('');};
+  const leaveSearch=useLeaveSearch('数值分析');
+  const select=(id:string)=>{if(id!==selected)leaveSearch();setSelected(id);setVariantId('');setMetricId('');setRowKey('');setSnapshotId('latest');setLine(null);setError('');};
   const add=(plans:AnalysisPlan[])=>{if(c.update(s=>({...s,plans:[...s.plans,...plans]}))){select(plans[0].id);setExamplesOpen(false);}};
   const attempt=(action:()=>void)=>{try{setError('');action();}catch(e){setError((e as Error).message);}};
   const parameter=(id:string,patch:Partial<AnalysisParameter>)=>change(p=>({...p,parameters:p.parameters.map(v=>v.id===id?{...v,...patch}:v)}));

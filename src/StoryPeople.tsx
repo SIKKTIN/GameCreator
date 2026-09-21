@@ -1,3 +1,4 @@
+import {useSearchSelection} from './GlobalSearch';
 import { useEffect, useId, useRef, useState } from 'react';
 import { Users, Network, Plus, UserRound, MessageCircle, ArrowRight, LayoutGrid } from 'lucide-react';
 import type { ArtStore } from './art-assets';
@@ -20,7 +21,8 @@ function Portrait({character,art,workspaceId}:{character:StoryCharacter;art:ArtS
 type Props={requestedCharacterId?:string;controller:StoryOrchestrationController;story:Narrative;art:ArtStore;workspaceId:string;disabled:boolean;onOpenNode:(id:string)=>void;onOpenStory:(id:string)=>void;onOpenState:(id:string)=>void};
 export function StoryPeople({controller,story,art,workspaceId,disabled,onOpenNode,onOpenStory,onOpenState,requestedCharacterId}:Props) {
   const {store,update}=controller,characters=store.characters||[],relations=store.relationships||[];
-  const [view,setView]=useState('cards'),[scope,setScope]=useState(requestedCharacterId?'all':'cast'),[query,setQuery]=useState(''),[selected,setSelected]=useState(requestedCharacterId||''),[selectedRelation,setRelation]=useState(''),[name,setName]=useState(''),[error,setError]=useState('');
+  const [view,setView]=useState('cards'),[scope,setScope]=useState(requestedCharacterId?'all':'cast'),[query,setQuery]=useState(''),[selected,locateSelected]=useState(requestedCharacterId||''),[selectedRelation,setRelation]=useState(''),[name,setName]=useState(''),[error,setError]=useState('');
+  const setSelected=useSearchSelection('故事编排',selected,locateSelected);
   const dialog=useRef<HTMLDialogElement>(null);
   const cast=new Set(story.actors.map(a=>a.characterId).filter(Boolean)),current=characters.find(c=>c.id===selected);
   const visible=characters.filter(c=>(scope==='all'||cast.has(c.id))&&(c.name+c.role+c.faction+c.description).toLowerCase().includes(query.toLowerCase()));

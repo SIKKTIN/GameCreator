@@ -355,7 +355,10 @@ function WorkspaceApp({ username, testSession, onLoadTest, onExitTest, preparing
   username: string; testSession: TestSession | null; onLoadTest: (scenario: TestScenarioId) => Promise<void>;
   onExitTest: () => void; preparingTest: boolean; testError: string;
 } & ServerModuleNavigation) {
-  const [active, setActive] = useState(testSession ? '枚举管理' : '项目概览');
+  const [active, setActiveModule] = useState(testSession ? '枚举管理' : '项目概览');
+  const [searchNavigation, setSearchNavigation] = useState(0);
+  const leaveSearch = () => setSearchNavigation(n => n + 1);
+  const setActive = (name: string) => { leaveSearch(); setActiveModule(name); };
 
   const [activeGameplayId, setActiveGameplayId] = useState('');
   const [gameplaySource, setGameplaySource] = useState<{ kind: string; id: string } | undefined>();
@@ -485,21 +488,21 @@ function WorkspaceApp({ username, testSession, onLoadTest, onExitTest, preparing
   const openSearchTarget = (t: SearchTarget) => {
     if(!canLeaveTeam())return false;
     onLeaveServer();
-    if(t.module==='玩法设计')openGameplay(t.parent||t.id,t.kind||'design',t.parent?t.id:'');
-    else if(t.module==='功能系统'){setFunctionalSelection({kind:t.kind==='system'?'system':'capability',id:t.id});setActive(t.module);}
-    else if(t.module==='素材资产'){setArtSelection({kind:t.kind==='asset'?'asset':'requirement',id:t.id});setActive(t.module);}
-    else if(t.module==='原型设计'){setRequestedPrototype(t.parent||t.id);setActive(t.module);}
-    else if(t.module==='地图设计'){setRequestedMap(t.parent||t.id);setActive(t.module);}
-    else if(t.module==='故事文档'){setActiveStoryId(t.id);setActive(t.module);}
-    else if(t.module==='故事编排'){setRequestedCharacter(t.kind==='character'?t.id:'');setNarrativeId(t.kind==='character'?(narrative.store.stories.find(s=>s.actors.some(a=>a.characterId===t.id))?.id||narrative.store.stories[0]?.id||''):t.parent||t.id);setActive(t.module);}
-    else if(t.module==='项目排期'){setRequestedSchedule({kind:t.kind==='milestone'?'milestone':'task',id:t.id});setActive(t.module);}
-    else if(t.module==='任务与流程'){setRequestedTask({id:t.id});setActive(t.module);}
-    else if(t.module==='数据配置'){setActiveDataset(t.parent||t.id);setActive(t.module);}
-    else setActive(t.module);
+    if(t.module==='玩法设计'){setActiveGameplayId(t.parent||t.id);setGameplaySource({kind:t.kind||'design',id:t.parent?t.id:''});setActiveModule(t.module);}
+    else if(t.module==='功能系统'){setFunctionalSelection({kind:t.kind==='system'?'system':'capability',id:t.id});setActiveModule(t.module);}
+    else if(t.module==='素材资产'){setArtSelection({kind:t.kind==='asset'?'asset':'requirement',id:t.id});setActiveModule(t.module);}
+    else if(t.module==='原型设计'){setRequestedPrototype(t.parent||t.id);setActiveModule(t.module);}
+    else if(t.module==='地图设计'){setRequestedMap(t.parent||t.id);setActiveModule(t.module);}
+    else if(t.module==='故事文档'){setActiveStoryId(t.id);setActiveModule(t.module);}
+    else if(t.module==='故事编排'){setRequestedCharacter(t.kind==='character'?t.id:'');setNarrativeId(t.kind==='character'?(narrative.store.stories.find(s=>s.actors.some(a=>a.characterId===t.id))?.id||narrative.store.stories[0]?.id||''):t.parent||t.id);setActiveModule(t.module);}
+    else if(t.module==='项目排期'){setRequestedSchedule({kind:t.kind==='milestone'?'milestone':'task',id:t.id});setActiveModule(t.module);}
+    else if(t.module==='任务与流程'){setRequestedTask({id:t.id});setActiveModule(t.module);}
+    else if(t.module==='数据配置'){setActiveDataset(t.parent||t.id);setActiveModule(t.module);}
+    else setActiveModule(t.module);
   };
   const searchSources = useMemo(()=>({analysis:analysis.blocked?undefined:analysis.store,project:projectError?undefined:project,gameplay:gameplay.blocked?undefined:gameplay.store,core:core.blocked?undefined:core.store,functional:functional.blocked?undefined:functional.store,art:art.blocked?undefined:art.store,prototype:prototype.blocked?undefined:prototype.store,maps:maps.blocked?undefined:maps.store,narrative:narrative.blocked?undefined:narrative.store,schedule:schedule.blocked?undefined:schedule.store,tasks:tasks.blocked?undefined:tasks.store,stories:storyError?undefined:storyDocs,data:registry.data,definitions,enums:registry.active?.scan}),[analysis.store,analysis.blocked,project,projectError,gameplay.store,gameplay.blocked,core.store,core.blocked,functional.store,functional.blocked,art.store,art.blocked,prototype.store,prototype.blocked,maps.store,maps.blocked,narrative.store,narrative.blocked,schedule.store,schedule.blocked,tasks.store,tasks.blocked,storyDocs,storyError,registry.data,definitions,registry.active]);
   return (
-    <GlobalSearchProvider activeModule={active} key={dataKey} sources={searchSources} warning={storageError ? "部分内容读取或保存异常，请检查各模块状态。" : ""} onNavigate={()=>{if(canLeaveTeam()){onLeaveServer();setActive('全局搜索');}}} onOpen={openSearchTarget}><div className="app local-workspace">
+    <GlobalSearchProvider navigationRevision={searchNavigation} activeModule={serverPage ? '服务器管理' : active} key={dataKey} sources={searchSources} warning={storageError ? "部分内容读取或保存异常，请检查各模块状态。" : ""} onNavigate={()=>{if(!canLeaveTeam())return false;onLeaveServer();setActiveModule('全局搜索');}} onOpen={openSearchTarget}><div className="app local-workspace">
       <WorkspaceSidebar picker={<ProjectSwitcher projects={projectOptions} teamNotice={teamNotice} currentId={testSession ? null : formalProject.id} currentName={project.name}
           testName={testSession ? testScenarios.find(item=>item.id===testSession.scenario)?.name : undefined}
           canAdd busy={preparingTest || registry.busy || registry.loading || gameplay.pending || functional.pending || functional.blocked || art.pending || art.blocked || core.pending || prototype.pending || tasks.pending || narrative.pending || maps.pending || schedule.pending || analysis.pending} onSelect={onSelectProject} onAdd={onAddProject} onDelete={onDeleteProject} onConnectTeam={onConnectTeam} onCreateTeam={onCreateTeam} onPublishProject={!testSession && !storageError ? onPublishProject : undefined} onImportPrototype={onImportPrototype} onImportProject={onImportProject} onExportProject={!testSession && !storageError ? onExportProject : undefined} />} active={serverPage ? adminPageName??'服务器管理' : active}
@@ -576,15 +579,15 @@ function WorkspaceApp({ username, testSession, onLoadTest, onExitTest, preparing
           if (link.kind === 'story') { setActiveStoryId(link.targetId); setActive('故事文档'); }
           else { setActiveDataset(link.targetId); setActive('数据配置'); }
         }} />}
-        {active === '素材资产' && <ArtAssets controller={art} sources={artSources} selected={artSelection} onSelect={setArtSelection} onOpenGameplay={openGameplay} onOpenCapability={openCapability} />}
-        {active === '功能系统' && <FunctionalSystems workspaceId={dataKey} renderArtReferences={c => <ArtReferences controller={art} sources={artSources} kind="capability" targetId={c.id} onOpenRequirement={openArtRequirement} />} controller={functional} sources={functionalSources} selected={functionalSelection} onSelect={setFunctionalSelection} onOpenGameplay={openGameplay} onOpenDataset={key => { setActiveDataset(key); setActive('数据配置'); }} />}
+        {active === '素材资产' && <ArtAssets controller={art} sources={artSources} selected={artSelection} onSelect={value=>{leaveSearch();setArtSelection(value);}} onOpenGameplay={openGameplay} onOpenCapability={openCapability} />}
+        {active === '功能系统' && <FunctionalSystems workspaceId={dataKey} renderArtReferences={c => <ArtReferences controller={art} sources={artSources} kind="capability" targetId={c.id} onOpenRequirement={openArtRequirement} />} controller={functional} sources={functionalSources} selected={functionalSelection} onSelect={value=>{leaveSearch();setFunctionalSelection(value);}} onOpenGameplay={openGameplay} onOpenDataset={key => { setActiveDataset(key); setActive('数据配置'); }} />}
         {active === '故事文档' && (
           <StoryDocuments
             documents={storyDocs}
             activeStoryId={activeStoryId}
-            setActiveStoryId={setActiveStoryId}
+            setActiveStoryId={id=>{leaveSearch();setActiveStoryId(id);}}
             updateStory={updateStory}
-            addStoryDoc={addStoryDoc}
+            addStoryDoc={()=>{addStoryDoc();leaveSearch();}}
             readOnly={false}
           />
         )}
@@ -592,7 +595,7 @@ function WorkspaceApp({ username, testSession, onLoadTest, onExitTest, preparing
         {active === '数值分析' && (registry.loading || registry.busy || registry.error || narrative.blocked || narrative.pending ? <p role="alert">来源数据尚未就绪，请先处理配置或故事存档：{registry.error || narrative.error}</p> : <NumericalAnalysis controller={analysis} sources={{data:currentData,narrative:narrative.store}} definitions={definitions} designs={gameplay.store.designs} onOpenDataset={key=>{setActiveDataset(key);setActive('数据配置');}} onOpenGameplay={id=>openGameplay(id)}/>)}
         {active === '数据配置' && <DataConfiguration key={dataKey} workspaceKey={dataKey} data={currentData}
           onChange={(next) => registry.updateData(next)}
-          definitions={definitions} activeDataset={currentDataset} setActiveDataset={setActiveDataset} registry={registry} onCreateTable={createDataset} />}
+          definitions={definitions} activeDataset={currentDataset} setActiveDataset={id=>{leaveSearch();setActiveDataset(id);}} registry={registry} onCreateTable={createDataset} />}
         {active === '枚举定义' && <EnumDefinitions registry={registry} />}
         {active === '枚举管理' && <EnumManager config={engineConfig} registry={registry} />}
         {active === '引擎设置' && <fieldset disabled={!!testSession} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>{testSession && <p>测试场景使用固定来源，请通过测试面板加载或重置场景。</p>}<EngineSettings config={engineConfig} registry={registry} onPickDirectory={window.desktopClient?.pickProjectDirectory} setConfig={(next) => testSession ? Promise.resolve(false) : onConfigChange(next)} /></fieldset>}

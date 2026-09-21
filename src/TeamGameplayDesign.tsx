@@ -85,7 +85,7 @@ export function useTeamGameplay(session:TeamSession,projectId:string,blocked:boo
     retryLayout:()=>{const d=Object.entries(positions.current)[0],r=d&&Object.entries(d[1])[0];if(d&&r)moveRoom(d[0],r[0],r[1].x,r[1].y);}};
 }
 
-export function TeamGameplayDesign({state,session,projectId,stories,selectedId,onSelect,onOpenStory}:{state:ReturnType<typeof useTeamGameplay>;session:TeamSession;projectId:string;stories:TeamStory[];selectedId:string;onSelect:(id:string)=>void;onOpenStory:(id:string)=>void}){
+export function TeamGameplayDesign({state,session,projectId,stories,selectedId,onSelect,onOpenStory}:{state:ReturnType<typeof useTeamGameplay>;session:TeamSession;projectId:string;stories:TeamStory[];selectedId:string;onSelect:(id:string)=>boolean|void;onOpenStory:(id:string)=>void}){
   const searchRequest=useSearchRequest('玩法设计');
   const [history,setHistory]=useState<{id:string;items:HistoryItem[]}|null>(null),[historyError,setHistoryError]=useState(''),[busy,setBusy]=useState(false);
   const alive=useRef(true);useEffect(()=>{alive.current=true;return()=>{alive.current=false;};},[]);

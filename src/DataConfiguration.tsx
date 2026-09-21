@@ -1,4 +1,4 @@
-import {useSearchRequest} from './GlobalSearch';
+import {useSearchRequest,useLeaveSearch} from './GlobalSearch';
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, ChevronsUpDown, Database, PanelLeftClose, PanelLeftOpen, PanelRight, Plus, RefreshCw, Search, SlidersHorizontal, Table2, Trash2, X } from 'lucide-react';
 import {
@@ -163,17 +163,19 @@ function DatasetEditor({ workspaceKey, data, onChange, definitions, activeDatase
   useLayoutEffect(() => { if (scroll.current) { scroll.current.scrollTop = view.scrollTop; scroll.current.scrollLeft = view.scrollLeft; } }, []);
   useEffect(() => { if (view.selectedId && !selected) patchView({ selectedId: '', detailOpen: false }); }, [view.selectedId, selected]);
   useEffect(() => { if (detailOpen && !docked) inspector.current?.querySelector<HTMLButtonElement>('.data-inspector-close')?.focus(); }, [detailOpen, docked]);
+  const leaveSearch=useLeaveSearch('数据配置');
+  const selectRecord=(id:string,detail?:boolean)=>{if(id!==view.selectedId)leaveSearch();patchView({selectedId:id,...(detail===undefined?{}:{detailOpen:detail})});};
   const closeDetail = () => { patchView({ detailOpen: false }); detailTrigger.current?.focus(); };
   const changeRows = (next: DataRecord[]) => onChange({ ...data, datasets: { ...data.datasets, [activeDataset]: next } });
   const updateCell = async (row: DataRecord, column: ColumnDef, value: string) => {
     const saved = await changeRows(rows.map(current => current === row ? { ...current, [column.key]: value } : current));
     if (saved && column.key === 'id') patchView({ selectedId: value });
   };
-  const resetFilter = (next: Partial<DatasetViewState>) => { patchView({ ...next, selectedId: '', detailOpen: false, scrollTop: 0, scrollLeft: 0 }); scroll.current?.scrollTo(0, 0); };
+  const resetFilter = (next: Partial<DatasetViewState>) => { leaveSearch(); patchView({ ...next, selectedId: '', detailOpen: false, scrollTop: 0, scrollLeft: 0 }); scroll.current?.scrollTo(0, 0); };
   const addRow = async () => {
     const id = activeDataset + '_' + crypto.randomUUID().slice(0, 8);
     const row = Object.fromEntries(columns.map(column => [column.key, column.key === 'id' ? id : ''])) as DataRecord;
-    if (await changeRows([...rows, row])) patchView({ query: '', filter: 'all', selectedId: id, detailOpen: true });
+    if (await changeRows([...rows, row])) {leaveSearch();patchView({ query: '', filter: 'all', selectedId: id, detailOpen: true });}
   };
   function cell(row: DataRecord, column: ColumnDef, detail = false) {
     const value = row[column.key] ?? '';
@@ -197,17 +199,17 @@ function DatasetEditor({ workspaceKey, data, onChange, definitions, activeDatase
     <div className="data-table-heading"><div className="view-title"><Database size={20} /><h2>{definition.label}</h2></div><div className="data-table-meta"><code>{definition.key}</code><span>{rows.length} 条记录 · {columns.length} 个字段</span></div></div>
     <div className="data-toolbar"><div className="data-tools"><label className="data-search"><Search size={15} /><input aria-label="搜索记录" value={view.query} onChange={event => resetFilter({ query: event.target.value })} placeholder="搜索当前表记录…" /></label>
       <select aria-label="记录状态筛选" value={view.filter} onChange={event => resetFilter({ filter: event.target.value as DatasetViewState['filter'] })}><option value="all">全部状态</option><option value="warning">仅看问题</option></select></div>
-      <div className="data-tools"><button type="button" ref={detailTrigger} aria-pressed={detailOpen} disabled={!visible.length} onClick={() => { if (detailOpen) closeDetail(); else patchView({ selectedId: selected?.id ?? visible[0].id, detailOpen: true }); }}><PanelRight size={15} />记录详情</button>
+      <div className="data-tools"><button type="button" ref={detailTrigger} aria-pressed={detailOpen} disabled={!visible.length} onClick={() => { if (detailOpen) closeDetail(); else selectRecord(selected?.id ?? visible[0].id,true); }}><PanelRight size={15} />记录详情</button>
         <button type="button" onClick={() => setShowFields(true)}><SlidersHorizontal size={15} />字段</button><button type="button" className="primary" onClick={addRow}><Plus size={15} />新增记录</button></div></div>
     {viewError && <p className="data-view-warning" role="status">浏览位置未能保存，本次筛选和编辑仍可继续。</p>}
     <div className="data-layout"><div className="data-grid" inert={detailOpen && !docked}>
       <div className="data-table-wrap" ref={scroll} onScroll={event => patchView({ scrollTop: event.currentTarget.scrollTop, scrollLeft: event.currentTarget.scrollLeft })}>
         <table className="data-table" aria-label={definition.label + ' 配置记录'}><thead><tr><th className="data-status-column" scope="col">状态</th>
           {columns.map(column => <th scope="col" key={column.key} className={column.key === 'id' ? 'data-id-column' : undefined}>{column.label}{column.enumId && <small className="column-binding" title={column.enumId}>{findEnum(column, registry)?.name ?? column.enumName ?? '枚举失效'}</small>}</th>)}<th scope="col" className="data-row-actions">操作</th></tr></thead>
-          <tbody>{visible.map(row => <tr key={row.id} className={row.id === selected?.id ? 'selected' : ''} onClick={() => patchView({ selectedId: row.id })}>
+          <tbody>{visible.map(row => <tr key={row.id} className={row.id === selected?.id ? 'selected' : ''} onClick={() => selectRecord(row.id)}>
             <td className="data-status-column" title={issues(row).map(issue => issue.column.label + '：' + issue.message).join('\n')}>{issues(row).length ? <AlertTriangle size={16} aria-label="需要修正" /> : <CheckCircle2 size={16} aria-label="检查通过" />}</td>
             {columns.map(column => <td key={column.key} className={column.key === 'id' ? 'data-id-column' : undefined}>{cell(row, column)}</td>)}
-            <td className="data-row-actions"><div><button type="button" aria-label={'查看 ' + row.id + ' 的详情'} title="记录详情" onClick={event => { event.stopPropagation(); patchView({ selectedId: row.id, detailOpen: true }); }}><PanelRight size={15} /></button>
+            <td className="data-row-actions"><div><button type="button" aria-label={'查看 ' + row.id + ' 的详情'} title="记录详情" onClick={event => { event.stopPropagation(); selectRecord(row.id,true); }}><PanelRight size={15} /></button>
               <button type="button" aria-label={'删除记录 ' + row.id} title="删除记录" onClick={event => { event.stopPropagation(); if (selected?.id === row.id) patchView({ selectedId: '', detailOpen: false }); changeRows(rows.filter(current => current !== row)); }}><Trash2 size={15} /></button></div></td></tr>)}</tbody></table>
         {!visible.length && <div className="data-table-empty"><h3>{rows.length ? '没有匹配的记录' : '这张表还没有记录'}</h3><p>{rows.length ? '调整搜索内容或状态筛选，查看其他记录。' : '先定义字段，再添加这个原型需要的数据。'}</p>{rows.length > 0 && <button type="button" onClick={() => resetFilter({ query: '', filter: 'all' })}>清除筛选</button>}</div>}
       </div><div className="table-foot"><span>显示 {visible.length} / {rows.length} 条记录</span><button type="button" className={warnings ? 'data-status-problem' : ''} onClick={() => resetFilter({ filter: warnings ? 'warning' : 'all' })}>{warnings ? warnings + ' 条记录需要修正' : '字段与引用检查通过'}</button></div>
