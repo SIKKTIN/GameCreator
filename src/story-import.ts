@@ -1,3 +1,4 @@
+import {validateStoryExtras} from './story-library.ts';
 import { initialStoryDocs, type StoryDoc } from './story-model.ts';
 import type { SavedProject } from './project-catalog.ts';
 
@@ -10,7 +11,7 @@ export function readLocalStories(storage: Pick<StorageLike, 'getItem'>, project:
   if (!Array.isArray(stories) || stories.some(story => {
     if (!story || ['id','title','category','status','updated','summary','content'].some(key => typeof story[key] !== 'string') || !story.id || ids.has(story.id) ||
       !list(story.tags) || !list(story.outlines) || !story.relations || !['characters','locations','systems'].every(key => list(story.relations[key]))) return true;
-    ids.add(story.id); return false;
+    validateStoryExtras(story); ids.add(story.id); return false;
   })) throw new Error('本地故事存档格式异常，已停止导入，原存档保持不变。');
   return structuredClone(stories);
 }

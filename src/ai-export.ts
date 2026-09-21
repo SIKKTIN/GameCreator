@@ -14,7 +14,7 @@ import type { EnumRegistry } from './useEnumRegistry';
 import type { DatasetDef, ProjectData } from './data-model';
 
 type ExportProject = { name: string; genre: string; platform: string; version: string; status: string; description: string };
-type ExportStory = { id: string; title: string; category: string; status: string; summary: string; content: string; tags: string[]; outlines: string[]; relations: { characters: string[]; locations: string[]; systems: string[] } };
+type ExportStory = { archived?:boolean;format?:'plain'|'markdown';references?:{kind:string;targetId:string;label:string}[]; id: string; title: string; category: string; status: string; summary: string; content: string; tags: string[]; outlines: string[]; relations: { characters: string[]; locations: string[]; systems: string[] } };
 const bullets = (items: string[]) => items.length ? items.map((item) => `- ${item}`).join('\n') : '- 无';
 const table = (headers: string[], rows: string[][]) => [
   `| ${headers.join(' | ')} |`, `| ${headers.map(() => '---').join(' | ')} |`, ...rows.map((row) => `| ${row.map((cell) => String(cell).replace(/\|/g, '\\|').replace(/\n/g, ' ')).join(' | ')} |`),
@@ -36,7 +36,7 @@ export function buildAiMarkdown(project: ExportProject, stories: ExportStory[], 
   lines.push(taskFlowsMarkdown(tasks, { designs: gameplay, capabilities: functional.capabilities.map(c => ({ ...c, archived: c.archived || !!functional.systems.find(s => s.id === c.systemId)?.archived })), stories, assets: art.assets, definitions, data }), '');
   lines.push(storyOrchestrationMarkdown(narrative), '', mapMarkdown(maps, gameplay), '');
   lines.push('## 故事文档', '');
-  for (const story of stories) lines.push(`### ${story.title}`, '', `- 分类：${story.category}`, `- 状态：${story.status}`, '', story.summary, '', story.content, '', `标签：${story.tags.join('、')}`, '', `大纲：${story.outlines.join('、')}`, '');
+  for (const story of stories) lines.push(`### ${story.title}`, '', `- 分类：${story.category}`, `- 归档：${story.archived?'是':'否'}`,`- 正文格式：${story.format||'plain'}`,`- 条目引用：${(story.references||[]).map(r=>r.kind+' / '+r.label+' ('+r.targetId+')').join('；')||'无'}`, `- 状态：${story.status}`, '', story.summary, '', story.content, '', `标签：${story.tags.join('、')}`, '', `大纲：${story.outlines.join('、')}`, '');
   lines.push(numericalAnalysisMarkdown(analysis, {data,narrative}), '');
   lines.push('## 数据配置', '');
   for (const definition of definitions) { const rows = (data.datasets[definition.key] ?? []).map((record) => definition.columns.map((column) => String(record[column.key] ?? ''))); lines.push(`### ${definition.label}`, '', table(definition.columns.map((column) => column.label), rows), ''); }

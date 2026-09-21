@@ -1,4 +1,6 @@
+export type StoryReference = { kind: 'story'|'gameplay'|'capability'|'requirement'|'asset'|'map'|'character'|'narrative'|'task'; targetId: string; label: string; sourceOnly?: boolean };
 export type StoryDoc = {
+  archived?: boolean; format?: 'plain'|'markdown'; references?: StoryReference[]; updatedAt?: string;
   id: string;
   title: string;
   category: string;

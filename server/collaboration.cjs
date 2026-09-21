@@ -25,10 +25,12 @@ function stringList(value, name) {
   if (!Array.isArray(value) || value.length > 200 || value.some(item => typeof item !== 'string' || item.length > 2000)) fail(400, `${name}必须是最多 200 项的文本列表`);
   return value;
 }
+const {storyExtras:normalizeStoryExtras}=require('../shared/story-document.cjs');
+const storyExtras=(input,fallback)=>normalizeStoryExtras(input,fallback,message=>fail(400,message));
 function storyDetails(input, fallback = emptyDetails()) {
   const relations = input.relations ?? fallback.relations;
   if (!relations || typeof relations !== 'object' || Array.isArray(relations)) fail(400, '关联设定格式无效');
-  return { status: textField(input.status ?? fallback.status, '状态', 80, true), tags: stringList(input.tags ?? fallback.tags, '标签'),
+  return { ...storyExtras(input,fallback), status: textField(input.status ?? fallback.status, '状态', 80, true), tags: stringList(input.tags ?? fallback.tags, '标签'),
     outlines: stringList(input.outlines ?? fallback.outlines, '大纲'), relations: {
       characters: stringList(relations.characters, '关联角色'), locations: stringList(relations.locations, '关联地点'), systems: stringList(relations.systems, '关联系统') } };
 }
@@ -176,6 +178,13 @@ async function createCollaborationServer({ directory, port = 4747, root = path.r
     db.prepare('INSERT INTO story_imports VALUES (?, ?, ?)').run(project, sourceKey, storyId);
     return story;
   };
+  const resolveImportedReferences=(project,entries,allowedIds)=>{
+    for(const entry of entries){const stored=db.prepare('SELECT story_id FROM story_imports WHERE project_id=? AND source_key=?').get(project,entry.sourceKey);if(!stored||allowedIds&&!allowedIds.has(stored.story_id)||!entry.fields.references)continue;
+      const source=JSON.parse(entry.sourceKey),story=getStory(project,stored.story_id);
+      const references=entry.fields.references.map(r=>{if(r.sourceOnly)return r;if(r.kind==='story'){const target=db.prepare('SELECT story_id FROM story_imports WHERE project_id=? AND source_key=?').get(project,JSON.stringify([source[0],source[1],r.targetId]));if(target)return{...r,targetId:target.story_id,sourceOnly:false};}return{...r,sourceOnly:true};});
+      const next={...story,references};db.prepare('UPDATE stories SET details=? WHERE id=? AND project_id=?').run(JSON.stringify(storyDetails(next)),story.id,project);db.prepare('UPDATE history SET snapshot=? WHERE story_id=? AND revision=?').run(JSON.stringify(next),story.id,story.revision);
+    }
+  };
   const send = (response, status, value) => {
     response.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
     response.end(JSON.stringify(value));
@@ -209,7 +218,7 @@ async function createCollaborationServer({ directory, port = 4747, root = path.r
         }
         fail(405, '不支持此操作');
       }
-      if (route === '/api/team/health' && request.method === 'GET') return send(response, 200, { service: 'gamecreator-collaboration', serverId, apiVersion: 10 });
+      if (route === '/api/team/health' && request.method === 'GET') return send(response, 200, { service: 'gamecreator-collaboration', serverId, apiVersion: 11 });
       if (route === '/api/team/login' && request.method === 'POST') {
         const input = await readBody(request);
         const username = textField(input.username, '账号', 80, true).toLowerCase();
@@ -220,7 +229,7 @@ async function createCollaborationServer({ directory, port = 4747, root = path.r
         for (const [token, session] of sessions) if (session.expires < Date.now()) sessions.delete(token);
         const token = randomBytes(32).toString('hex');
         sessions.set(token, { userId: user.id, username: user.username, authRevision: user.auth_revision, expires: Date.now() + 12 * 60 * 60 * 1000 });
-        return send(response, 200, { token, serverId, apiVersion: 10, user: { id: user.id, username: user.username, serverRole: user.server_role } });
+        return send(response, 200, { token, serverId, apiVersion: 11, user: { id: user.id, username: user.username, serverRole: user.server_role } });
       }
       if (route.startsWith('/api/team/')) {
         const session = authenticate(request);
@@ -344,6 +353,7 @@ async function createCollaborationServer({ directory, port = 4747, root = path.r
             if (input.overview !== undefined) overview.initialize(id,input.schedule === undefined ? input.overview : {...input.overview,milestones:[]},session.userId,name);
             if (input.core !== undefined) core.initialize(id,input.core,session.userId);
             for (const entry of imports) insertImportedStory(id, entry, session.userId);
+            resolveImportedReferences(id,imports);
             if (input.gameplay !== undefined) gameplay.initialize(id,input.gameplay,session.userId,source);
             if (input.schedule !== undefined) schedule.initialize(id,input.schedule,session.userId);
             db.prepare(`INSERT INTO project_publications VALUES (?, ?, ?, ?, ?, ?)
@@ -469,7 +479,8 @@ async function createCollaborationServer({ directory, port = 4747, root = path.r
               if (db.prepare('SELECT story_id FROM story_imports WHERE project_id=? AND source_key=?').get(project, entry.sourceKey)) { skipped++; continue; }
               imported.push(insertImportedStory(project, entry, session.userId));
             }
-            return { imported, skipped };
+            resolveImportedReferences(project,imports,new Set(imported.map(s=>s.id)));
+            return { imported:imported.map(s=>getStory(project,s.id)), skipped };
           });
           return send(response, 200, result);
         }
