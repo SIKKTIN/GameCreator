@@ -18,7 +18,8 @@
     "test:engine": "node --test tests/godot-engine.test.mjs tests/enum-bindings.test.mjs tests/enum-versions.test.mjs tests/project-catalog.test.mjs tests/project-package.test.mjs tests/project-package-files.test.cjs",
     "test:server-manager": "node --test tests/collaboration-host.test.cjs",
     "git:install-hooks": "node scripts/install-git-hooks.cjs",
-    "test:git-policy": "node --test tests/git-branch-policy.test.cjs"
+    "test:git-policy": "node --test tests/git-branch-policy.test.cjs",
+    "test:engine-sync": "node --test tests/engine-sync.test.cjs tests/art-files.test.cjs tests/ai-document-export.test.mjs tests/ai-document-files.test.cjs"
   },
   "dependencies": {
     "react": "latest",

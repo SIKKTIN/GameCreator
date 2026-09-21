@@ -238,6 +238,8 @@ test('project package IPC accepts only native-selected folders and window-owned 
     if (name === './test-workspaces.cjs') return {createWorkspaceStorage: () => ({}), prepareTestWorkspace() {}};
     if (name === './server.cjs') return {createDesktopServer() {}};
     if (name === './project-locations.cjs') return {validateProjectLocation() {}};
+    if (name === './ai-documents.cjs') return {createAiDocuments: () => ({})};
+    if (name === './engine-sync.cjs') return {createEngineSync: () => ({})};
     if (name === './legacy-storage.cjs') return {migrateLegacy() {}};
     if (name === './collaboration-host.cjs') return require(path.join(__dirname, '../desktop', name));
     return require(name);

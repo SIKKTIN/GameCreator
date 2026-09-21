@@ -2,6 +2,7 @@
 interface Window {
   desktopClient?: {
     platform: string; localFiles: boolean;
+    engineSync?: import('./engine-sync').EngineSyncAPI;
     collaborationHost?: {
       status: () => Promise<import('./ServerManager').HostStatus>;
       start: () => Promise<import('./ServerManager').HostStatus>;

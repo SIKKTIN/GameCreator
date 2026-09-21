@@ -249,6 +249,18 @@ function createArtFiles(dataDirectory, options = {}) {
     } catch (error) { throw missing(error); }
     finally { if (opened) await opened.handle.close(); }
   }
-  return {importFiles, readPreview, reveal};
+  // Original delivery bytes for engine sync; never execute or accept arbitrary source paths.
+  async function readBytes(workspaceId, storagePath) {
+    let opened;
+    try {
+      opened=await openedManaged(workspaceId,storagePath);
+      if(opened.stat.size>maxFileBytes)throw new Error('素材超过同步大小限制');
+      const bytes=await opened.handle.readFile(),after=await opened.handle.stat();
+      const current=await checkedPath(workspaceId,storagePath);
+      if(!sameFile(current.stat,opened.stat)||bytes.length!==opened.stat.size||after.size!==opened.stat.size||after.mtimeMs!==opened.stat.mtimeMs)throw new Error('素材在读取期间发生变化');
+      return bytes;
+    }catch(error){throw missing(error);}finally{await opened?.handle.close();}
+  }
+  return {importFiles, readPreview, reveal, readBytes};
 }
 module.exports = {createArtFiles, validateWorkspaceId, workspaceHash, MAX_FILE_BYTES, MAX_PREVIEW_BYTES};

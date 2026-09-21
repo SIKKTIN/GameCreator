@@ -26,6 +26,13 @@ contextBridge.exposeInMainWorld('desktopClient', {
   pickProjectDirectory: () => ipcRenderer.invoke('pick-project-directory'),
   validateProjectLocation: input => ipcRenderer.invoke('validate-project-location', input),
   prepareTestWorkspace: scenario => ipcRenderer.invoke('prepare-test-workspace', scenario),
+  engineSync: {
+    preview: input => ipcRenderer.invoke('engine-sync-preview',input),
+    apply: input => ipcRenderer.invoke('engine-sync-apply',input),
+    history: input => ipcRenderer.invoke('engine-sync-history',input),
+    recover: input => ipcRenderer.invoke('engine-sync-recover',input),
+    release: token => ipcRenderer.invoke('engine-sync-release',token),
+  },
   aiDocuments: {
     options: () => ipcRenderer.invoke('ai-documents-options'),
     chooseDirectory: initial => ipcRenderer.invoke('ai-documents-choose-directory', initial),

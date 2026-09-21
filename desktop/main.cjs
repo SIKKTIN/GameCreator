@@ -8,6 +8,7 @@ const { createArtFiles, validateWorkspaceId } = require('./art-files.cjs');
 const { createProjectPackages, safeProjectDirectoryName } = require('./project-package.cjs');
 const { createCollaborationHost } = require('./collaboration-host.cjs');
 const { createAiDocuments } = require('./ai-documents.cjs');
+const { createEngineSync } = require('./engine-sync.cjs');
 
 const root = path.resolve(__dirname, '..');
 const dataDirectory = process.env.GAMECREATOR_DATA_DIR || path.join(root, '.gamecreator');
@@ -16,6 +17,7 @@ const storage = createWorkspaceStorage(dataDirectory);
 const artFiles = createArtFiles(dataDirectory);
 const projectPackages = createProjectPackages({dataDirectory, storage});
 const aiDocuments = createAiDocuments({defaultDirectory:path.join(root,'generate')});
+const engineSync = createEngineSync({artFiles});
 const packageTokens = new Map();
 let localServer, mainWindow;
 let initializing = true;
@@ -113,6 +115,10 @@ else {
   ipcMain.handle('project-package-release', (event, token) => {
     if (!trusted(event) || packageTokens.get(token) !== event.sender) throw new Error('不允许释放此项目文件夹');
     projectPackages.release(token); packageTokens.delete(token);
+  });
+  for(const operation of ['preview','apply','history','recover','release'])ipcMain.handle('engine-sync-'+operation,(event,input)=>{
+    if(!trusted(event))throw new Error('不允许同步工程文件');
+    return engineSync[operation](input);
   });
   ipcMain.handle('ai-documents-options', event => {
     if(!trusted(event))throw new Error('不允许读取导出设置');
