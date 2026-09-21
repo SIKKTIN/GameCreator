@@ -34,6 +34,7 @@ async function fixture(t) {
   archives['story-orchestration'] = {schema:1,enabled:false,stories:[]};
   archives['map-design'] = {schema:1,enabled:false,maps:[],connections:[]};
   archives['numerical-analysis'] = {schema:1,plans:[]};
+  archives['program-framework'] = (await import('../shared/program-framework.mjs')).emptyProgramFramework();
   archives['project-schedule'] = {schema:1,tasks:[],milestones:[]};
   archives['task-flows'] = {schema: 1, tasks: []};
   archives['data-view'] = {schema: 1, activeTable: 'crops'};

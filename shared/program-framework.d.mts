@@ -1,0 +1,10 @@
+import type {FrameworkDocument} from './program-framework-library.mjs';
+export type FrameworkExtensionId='save'|'state'|'assembly'|'network';
+export type ProgramFrameworkStore={schema:1;enabled:boolean;templateVersion:'1.0';runtime:'singleplayer'|'multiplayer';extensions:FrameworkExtensionId[];oasisSupplement:boolean;notes:string};
+export const frameworkExtensions:{id:FrameworkExtensionId;label:string;description:string}[];
+export function emptyProgramFramework():ProgramFrameworkStore;
+export function validateProgramFramework(value:unknown):ProgramFrameworkStore;
+export function adoptedFrameworkDocuments(store:ProgramFrameworkStore,engine:string):FrameworkDocument[];
+export function resolveFrameworkLink(fromPath:string,href:string):FrameworkDocument|undefined;
+export function frameworkDocumentBody(doc:FrameworkDocument,selected:FrameworkDocument[]):string;
+export function programFrameworkMarkdown(store:ProgramFrameworkStore,engine:string):string;

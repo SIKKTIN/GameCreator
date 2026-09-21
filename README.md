@@ -83,6 +83,7 @@ npm run mcp:debug
 - [Withdraw 枚举导入说明](docs/withdraw-enum-import.md)
 - [本地客户端](docs/desktop-client.md)
 - [AI 文档导出](docs/ai-export.md)
+- [程序框架与内置规范库](docs/program-framework.md)
 - [本地数据持久化与旧版迁移](docs/persistence.md)
 - [Space 测试面板](docs/test-panel.md)
 

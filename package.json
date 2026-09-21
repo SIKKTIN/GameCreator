@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "build": "node scripts/build-framework-library.mjs --check && tsc --noEmit && vite build",
+    "framework:build": "node scripts/build-framework-library.mjs",
+    "test:framework": "node --test tests/program-framework.test.mjs",
     "preview": "vite preview",
     "desktop:build": "npm run build",
     "desktop:dev": "npm run desktop:build && electron desktop/main.cjs",

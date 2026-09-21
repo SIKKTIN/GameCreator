@@ -48,6 +48,7 @@ export function ProjectPackageDialog({ state, names, onClose, onChoose, onImport
           <div><dt>玩法核心节点</dt><dd>{archives['gameplay-core'].graphs.reduce((sum, graph) => sum + graph.nodes.length, 0)}</dd></div>
           <div><dt>玩法设计</dt><dd>{archives.gameplay.designs.length}</dd></div>
           <div><dt>功能系统</dt><dd>{archives['functional-systems'].systems.length}</dd></div>
+          <div><dt>程序框架</dt><dd>{archives['program-framework'].enabled ? '已采用通用框架' : '未采用'} · v{archives['program-framework'].templateVersion}</dd></div>
           <div><dt>素材需求</dt><dd>{archives['art-assets'].requirements.length}</dd></div>
           <div><dt>素材文件</dt><dd>{fileCount}</dd></div>
           <div><dt>故事文档</dt><dd>{archives.stories.length}</dd></div>

@@ -1,4 +1,5 @@
 import { markdownName, validateDocumentFiles } from '../shared/ai-document-files.mjs';
+import {emptyProgramFramework,programFrameworkMarkdown,type ProgramFrameworkStore} from './program-framework.ts';
 import { buildDocumentZip } from './ai-document-zip.ts';
 import { emptyNumericalAnalysis, numericalAnalysisMarkdown, type NumericalAnalysisStore } from './numerical-analysis.ts';
 import { emptyProjectSchedule, buildScheduleSources, projectScheduleMarkdown, type ProjectScheduleStore } from './project-schedule.ts';
@@ -22,7 +23,7 @@ const table = (headers: string[], rows: string[][]) => [
   `| ${headers.join(' | ')} |`, `| ${headers.map(() => '---').join(' | ')} |`, ...rows.map((row) => `| ${row.map((cell) => String(cell).replace(/\|/g, '\\|').replace(/\n/g, ' ')).join(' | ')} |`),
 ].join('\n');
 
-export function buildAiDocument(project: ExportProject, stories: ExportStory[], data: ProjectData, definitions: DatasetDef[], config: EngineConfig, registry: EnumRegistry, gameplay: GameplayDesign[] = [], functional: FunctionalStore = emptyFunctionalSystems(), art: ArtStore = emptyArtAssets(), core: GameplayCoreStore = emptyGameplayCore(), prototype: PrototypeDesignStore = emptyPrototypeDesign(), tasks: TaskFlowStore = emptyTaskFlows(), narrative: StoryOrchestrationStore = emptyStoryOrchestration(), maps: MapDesignStore = emptyMapDesign(), categories: GameplayCategory[] = [], schedule: ProjectScheduleStore = emptyProjectSchedule(), analysis: NumericalAnalysisStore = emptyNumericalAnalysis()) {
+export function buildAiDocument(project: ExportProject, stories: ExportStory[], data: ProjectData, definitions: DatasetDef[], config: EngineConfig, registry: EnumRegistry, gameplay: GameplayDesign[] = [], functional: FunctionalStore = emptyFunctionalSystems(), art: ArtStore = emptyArtAssets(), core: GameplayCoreStore = emptyGameplayCore(), prototype: PrototypeDesignStore = emptyPrototypeDesign(), tasks: TaskFlowStore = emptyTaskFlows(), narrative: StoryOrchestrationStore = emptyStoryOrchestration(), maps: MapDesignStore = emptyMapDesign(), categories: GameplayCategory[] = [], schedule: ProjectScheduleStore = emptyProjectSchedule(), analysis: NumericalAnalysisStore = emptyNumericalAnalysis(), framework: ProgramFrameworkStore = emptyProgramFramework()) {
   const sections: AiSection[] = [];
   const add=(id:AiModuleId,body:string,empty=false)=>sections.push({id,label:aiModules.find(m=>m.id===id)!.label,body:body.trim()+(empty?'\n\n暂无内容。':'')});
   add('overview', ['## 项目概览','',`- 类型：${project.genre}`,`- 平台：${project.platform}`,`- 版本：${project.version}`,`- 状态：${project.status}`,'',project.description].join('\n'));
@@ -48,6 +49,7 @@ export function buildAiDocument(project: ExportProject, stories: ExportStory[], 
   for (const story of stories) lines.push(`### ${story.title}`, '', `- 分类：${story.category}`, `- 归档：${story.archived?'是':'否'}`,`- 正文格式：${story.format||'plain'}`,`- 条目引用：${(story.references||[]).map(r=>r.kind+' / '+r.label+' ('+r.targetId+')').join('；')||'无'}`, `- 状态：${story.status}`, '', story.summary, '', story.content, '', `标签：${story.tags.join('、')}`, '', `大纲：${story.outlines.join('、')}`, '');
   add('stories',lines.join('\n'),!stories.length);
   add('analysis',numericalAnalysisMarkdown(analysis,{data,narrative}));
+  add('framework',programFrameworkMarkdown(framework,config.engine));
   lines.length=0;lines.push('## 数据配置','');
   for (const definition of definitions) { const rows = (data.datasets[definition.key] ?? []).map((record) => definition.columns.map((column) => String(record[column.key] ?? ''))); lines.push(`### ${definition.label}`, '', table(definition.columns.map((column) => column.label), rows), ''); }
   add('data',lines.join('\n'),!definitions.length);
@@ -58,7 +60,7 @@ export function buildAiDocument(project: ExportProject, stories: ExportStory[], 
 export const aiModules = [
   {id:'overview',label:'项目概览'}, {id:'schedule',label:'项目排期'}, {id:'core',label:'玩法核心'},
   {id:'gameplay',label:'玩法设计'}, {id:'prototype',label:'原型设计'}, {id:'maps',label:'地图设计'},
-  {id:'functional',label:'功能系统'}, {id:'art',label:'素材资产'}, {id:'stories',label:'故事文档'},
+  {id:'functional',label:'功能系统'}, {id:'framework',label:'程序框架'}, {id:'art',label:'素材资产'}, {id:'stories',label:'故事文档'},
   {id:'narrative',label:'故事编排'}, {id:'data',label:'数据配置'}, {id:'enum-definitions',label:'枚举定义'},
   {id:'enum-versions',label:'枚举管理'}, {id:'engine',label:'引擎设置'}, {id:'tasks',label:'任务与流程'},
   {id:'analysis',label:'数值分析'},

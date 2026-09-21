@@ -8,7 +8,7 @@ const { workspaceHash } = require('./art-files.cjs');
 
 const CATALOG_KEY = 'gamecreator.projects.v1';
 const SECTIONS = ['gameplay', 'functional-systems', 'art-assets', 'definitions', 'stories', 'project', 'milestones', 'enum-versions'];
-const OPTIONAL_SECTIONS = ['numerical-analysis', 'project-schedule', 'data-view', 'gameplay-core', 'prototype-design', 'task-flows', 'story-orchestration', 'map-design'];
+const OPTIONAL_SECTIONS = ['program-framework', 'numerical-analysis', 'project-schedule', 'data-view', 'gameplay-core', 'prototype-design', 'task-flows', 'story-orchestration', 'map-design'];
 const FILE_TOKEN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.[a-z0-9]{1,12}$/;
 const NEW_PROJECT = /^project-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_METADATA_BYTES = 20 * 1024 * 1024;
@@ -553,6 +553,7 @@ function createProjectPackages({dataDirectory, storage}) {
     if (typeof directory !== 'string' || !path.isAbsolute(directory)) throw new Error('请选择绝对路径项目文件夹');
     // Detach caller data before the first asynchronous operation.
     const document = validateDocument(JSON.parse(JSON.stringify(input))), snapshot = JSON.parse(JSON.stringify(expectedEntries));
+    if(Object.hasOwn(document.archives,'program-framework'))(await import('../shared/program-framework.mjs')).validateProgramFramework(document.archives['program-framework']);
     const engineValidation=await import('../shared/engine-config.mjs');engineValidation.validateEngineConfig(document.project.config);
     for(const snapshot of document.archives['enum-versions']?.snapshots||[])engineValidation.validateEngineScanMetadata(snapshot.scan);
     checkSnapshot(projectId, document, snapshot);
@@ -638,6 +639,7 @@ function createProjectPackages({dataDirectory, storage}) {
     const archives = {};
     for (const section of [...SECTIONS, ...OPTIONAL_SECTIONS]) if (data.has(sectionPath(section))) archives[section] = data.get(sectionPath(section));
     const document = validateDocument({schema: 1, project: data.get('data/project.json'), archives});
+    if(Object.hasOwn(document.archives,'program-framework'))(await import('../shared/program-framework.mjs')).validateProgramFramework(document.archives['program-framework']);
     const engineValidation=await import('../shared/engine-config.mjs');engineValidation.validateEngineConfig(document.project.config);
     for(const snapshot of document.archives['enum-versions']?.snapshots||[])engineValidation.validateEngineScanMetadata(snapshot.scan);
     if (document.project.name !== manifest.projectName) throw new Error('项目名称与清单不一致');

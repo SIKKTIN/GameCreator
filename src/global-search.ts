@@ -1,7 +1,8 @@
 /** A rebuildable, project-scoped index. Never reads disk, credentials or file contents. */
+import {frameworkLibrary} from '../shared/program-framework-library.mjs';
 export type SearchTarget = { module: string; id: string; parent?: string; kind?: string; scope?: string };
 export type SearchEntry = { key: string; title: string; path: string; body: string; archived: boolean; status: string; target: SearchTarget; refs: string[]; unavailable?: string };
-export type SearchSources = Partial<Record<'project'|'gameplay'|'core'|'functional'|'art'|'prototype'|'maps'|'stories'|'narrative'|'schedule'|'tasks'|'data'|'definitions'|'enums'|'analysis', unknown>>;
+export type SearchSources = Partial<Record<'project'|'gameplay'|'core'|'functional'|'art'|'prototype'|'maps'|'stories'|'narrative'|'schedule'|'tasks'|'data'|'definitions'|'enums'|'analysis'|'framework', unknown>>;
 type Row = Record<string, unknown>;
 const row = (v: unknown): Row => v && typeof v === 'object' && !Array.isArray(v) ? v as Row : {};
 const list = (v: unknown): Row[] => Array.isArray(v) ? v.map(row) : [];
@@ -29,6 +30,10 @@ export function buildSearchIndex(s: SearchSources): SearchEntry[] {
     out.push({key:targetKey(target),title:options.title || name(value) || '未命名条目',path:[module,options.path].filter(Boolean).join(' / '),body,archived:options.archived || value.archived === true,status:str(value.status),target,refs:references(value),unavailable:options.unavailable});
   }
   if(s.project) add('项目概览',row(s.project),{id:'project',title:str(row(s.project).name)||'项目基本信息'});
+  if(s.framework){
+    add('程序框架',{...row(s.framework),title:'项目采用方案',status:row(s.framework).enabled?'已采用':'未采用'},{id:'settings',kind:'settings'});
+    for(const doc of frameworkLibrary.documents)add('程序框架',{id:doc.id,title:doc.title,content:doc.content,status:'内置规范'},{kind:'document',path:doc.group});
+  }
   const gp=row(s.gameplay), categories=list(gp.categories);
   for(const d of list(gp.designs)) {
     const category=name(categories.find(c=>c.id===d.categoryId)||{})||'未分类';
