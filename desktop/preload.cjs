@@ -23,6 +23,7 @@ contextBridge.exposeInMainWorld('desktopClient', {
     restoreAssets: input => ipcRenderer.invoke('project-package-restore-assets', input),
     release: token => ipcRenderer.invoke('project-package-release', token),
   },
+  revealProjectData: projectId => ipcRenderer.invoke('reveal-project-data',projectId),
   pickProjectDirectory: () => ipcRenderer.invoke('pick-project-directory'),
   validateProjectLocation: input => ipcRenderer.invoke('validate-project-location', input),
   prepareTestWorkspace: scenario => ipcRenderer.invoke('prepare-test-workspace', scenario),

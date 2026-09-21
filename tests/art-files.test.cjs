@@ -187,6 +187,7 @@ test('art IPC accepts only the trusted main frame and imports only native-dialog
     for (const event of [{sender:{},senderFrame:frame}, {sender:contents,senderFrame:{url:frame.url}}]) await assert.rejects(handlers.get(channel)(event,payload), /不允许/);
   }
   assert.equal(calls.length,0); assert.equal(dialogs,0);
+  await assert.rejects(handlers.get('reveal-project-data')({sender:{},senderFrame:frame},'project-id'),/不允许/);
   for(const operation of ['preview','apply','history','recover','release'])assert.throws(()=>handlers.get('engine-sync-'+operation)({sender:{},senderFrame:frame},{}),/不允许/);
   await assert.rejects(handlers.get('art-files-import')(trusted,{workspaceId:PROJECT,filePaths:['unselected']}), /工作区标识无效/);
   assert.equal(dialogs,0);
@@ -219,6 +220,8 @@ test('preload exposes only workspace/token operations, without a renderer-contro
     assert.equal(name,'electron');
     return {contextBridge: {exposeInMainWorld: (name,value) => {assert.equal(name,'desktopClient');api=value;}}, ipcRenderer:{invoke: async (...args) => {invocations.push(args);return null;},sendSync(){throw new Error('not used');}}};
   }});
+  await api.revealProjectData('project-id','/private/unselected');
+  assert.deepEqual(invocations.pop(), ['reveal-project-data','project-id']);
   await api.artFiles.importFiles(PROJECT, '/private/unselected.png');
   await api.artFiles.readPreview(PROJECT, 'asset-token');
   await api.artFiles.reveal(PROJECT, 'asset-token');

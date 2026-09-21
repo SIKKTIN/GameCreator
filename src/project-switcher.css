@@ -79,3 +79,5 @@
 .empty-project-main h1 { color:#eee7f6; margin:8px 0; }
 .empty-project-main p { max-width:550px; margin:0; line-height:1.8; }
 .empty-project-main button { margin-top:12px; }
+
+.ps-context-menu .ps-open-data-action{display:flex;align-items:center;gap:9px;width:100%;padding:10px 8px;border:0;border-radius:5px;background:transparent;color:#ded3f2;text-align:left;cursor:pointer;font:inherit}.ps-context-menu .ps-open-data-action:hover{background:#382e49}.ps-context-menu .ps-open-data-action:disabled{opacity:.5;cursor:not-allowed}.ps-context-hint{font-size:10px;color:#a297af;padding:0 8px 10px;border-bottom:1px solid #41354f;margin-bottom:4px}

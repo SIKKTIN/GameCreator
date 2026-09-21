@@ -76,15 +76,16 @@ export function ProjectSwitcher({ projects, currentId, currentName, testName, te
     setContext(null);
     if (restoreFocus) requestAnimationFrame(() => contextOrigin.current?.focus());
   }
+  const canOpenContext=(project:SwitchableProject)=>project.kind!=='team'&&!!((canAdd&&onDelete)||window.desktopClient?.revealProjectData);
   function openContext(project: SwitchableProject, button: HTMLButtonElement, x: number, y: number) {
-    if (locked || !canAdd || !onDelete || project.kind === 'team') return;
+    if (locked || !canOpenContext(project)) return;
     contextOrigin.current = button;
-    setContext({ id: project.id, x: Math.max(8, Math.min(x, window.innerWidth - 232)), y: Math.max(8, Math.min(y, window.innerHeight - 100)) });
+    setContext({ id: project.id, x: Math.max(8, Math.min(x, window.innerWidth - 232)), y: Math.max(8, Math.min(y, window.innerHeight - 172)) });
   }
   useEffect(() => {
     if (!context) return;
     if (!contextProject || locked) { setContext(null); return; }
-    contextRef.current?.querySelector<HTMLButtonElement>('button')?.focus();
+    contextRef.current?.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus();
     const close = () => setContext(null);
     const scroll = (event: Event) => { if (!(event.target instanceof Node) || !contextRef.current?.contains(event.target)) close(); };
     window.addEventListener('resize', close);
@@ -94,6 +95,14 @@ export function ProjectSwitcher({ projects, currentId, currentName, testName, te
   useEffect(() => {
     if (deleting) { deleteDialog.current?.showModal(); deleteCancel.current?.focus(); }
   }, [deleting]);
+  async function openDataFolder(projectId:string) {
+    const reveal=window.desktopClient?.revealProjectData;
+    if(!reveal||locked||operationRef.current)return;
+    operationRef.current=true;setPending(true);setMenuError('');closeContext();
+    try {await reveal(projectId);closeMenu(true);}
+    catch(error){setMenuError(errorMessage(error));}
+    finally{operationRef.current=false;setPending(false);}
+  }
   async function confirmDelete(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!deleting || !onDelete || !canAdd || locked || operationRef.current) return;
@@ -216,13 +225,13 @@ export function ProjectSwitcher({ projects, currentId, currentName, testName, te
           title={`${project.name}\n${project.kind === 'team' ? '团队项目' : '本地项目'} · ${project.detail || project.projectPath || '尚未配置引擎'}`}
           onClick={() => void selectProject(project.id)}
           onContextMenu={event => {
-            if (!canAdd || !onDelete || project.kind === 'team') return;
+            if (!canOpenContext(project)) return;
             event.preventDefault(); event.stopPropagation();
             openContext(project, event.currentTarget, event.clientX, event.clientY);
           }}
           onKeyDown={event => {
             if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) {
-              if (!canAdd || !onDelete || project.kind === 'team') return;
+              if (!canOpenContext(project)) return;
               event.preventDefault(); event.stopPropagation();
               const rect = event.currentTarget.getBoundingClientRect();
               openContext(project, event.currentTarget, rect.left + 20, rect.bottom);
@@ -248,12 +257,19 @@ export function ProjectSwitcher({ projects, currentId, currentName, testName, te
       style={{ left: context.x, top: context.y }} onContextMenu={event => event.preventDefault()}
       onKeyDown={event => {
         if (event.key === 'Escape' || event.key === 'Tab') { event.preventDefault(); event.stopPropagation(); closeContext(true); }
-        if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) { event.preventDefault(); event.stopPropagation(); }
+        if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
+          event.preventDefault(); event.stopPropagation();
+          const buttons=Array.from(contextRef.current?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)')??[]);
+          const index=buttons.indexOf(document.activeElement as HTMLButtonElement);
+          if(buttons.length)buttons[event.key==='Home'?0:event.key==='End'?buttons.length-1:event.key==='ArrowUp'?(index-1+buttons.length)%buttons.length:(index+1)%buttons.length].focus();
+        }
       }}>
       <div className="ps-context-name" title={contextProject.name}>{contextProject.name}</div>
-      <button type="button" role="menuitem" className="ps-delete-action" disabled={locked} onClick={() => {
+      <button type="button" role="menuitem" className="ps-open-data-action" disabled={locked||!window.desktopClient?.revealProjectData} title={window.desktopClient?.revealProjectData?'打开本地数据目录并定位该项目存档':'仅桌面客户端可打开本地数据目录'} onClick={()=>void openDataFolder(contextProject.id)}><FolderOpen size={15} aria-hidden="true"/>打开数据文件夹</button>
+      <div className="ps-context-hint">GameCreator 本地存档位置</div>
+      {canAdd&&onDelete&&<button type="button" role="menuitem" className="ps-delete-action" disabled={locked} onClick={() => {
         setDeleting(contextProject); setDeleteError(''); closeMenu();
-      }}><Trash2 size={15} aria-hidden="true" />删除项目</button>
+      }}><Trash2 size={15} aria-hidden="true" />删除项目</button>}
     </div>, document.body)}
     <dialog ref={deleteDialog} className="ps-dialog ps-delete-dialog" aria-labelledby={`${id}-delete-title`} aria-describedby={`${id}-delete-description`}
       onCancel={event => { if (pending) event.preventDefault(); }}

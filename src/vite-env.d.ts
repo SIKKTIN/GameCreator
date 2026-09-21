@@ -20,6 +20,7 @@ interface Window {
       restoreAssets: (input: { token: string; projectId: string }) => Promise<void>;
       release: (token: string) => Promise<void>;
     };
+    revealProjectData?: (projectId:string) => Promise<{directory:string;file:string|null}>;
     pickProjectDirectory?: () => Promise<string | null>;
     validateProjectLocation?: (input: { projectPath: string; enumPath: string; engine?:string }) => Promise<{ projectPath: string; enumPath: string }>;
     prepareTestWorkspace?: (scenario: import('./test-scenarios').TestScenarioId) => Promise<import('./test-scenarios').PreparedTest>;

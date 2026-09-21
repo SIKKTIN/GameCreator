@@ -52,6 +52,27 @@ else {
       else throw new Error('未知存档操作');
     } catch (error) { event.returnValue = { ok: false, error: error.message }; }
   });
+  ipcMain.handle('reveal-project-data', async (event, projectId) => {
+    if(!trusted(event))throw new Error('不允许打开项目数据目录');
+    const catalog=JSON.parse(storage.getItem('gamecreator.projects.v1')||'null');
+    if(typeof projectId!=='string'||!catalog?.projects?.some(project=>project.id===projectId))throw new Error('本地项目不存在，请刷新项目列表');
+    const keys=['gamecreator.workspace.v1:'+projectId+':project','gamecreator.enum-versions.v1:'+projectId,
+      ...['gameplay','art-assets','stories'].map(section=>'gamecreator.workspace.v1:'+projectId+':'+section)];
+    const directory=path.resolve(storage.directory);
+    const stat=await require('node:fs/promises').stat(directory).catch(()=>null);
+    if(!stat?.isDirectory())throw new Error('项目数据目录不存在或无法访问');
+    if(!trusted(event))throw new Error('原工作区窗口已关闭');
+    for(const key of keys) {
+      const info=storage.info(key);
+      if(info.modifiedAt&&path.dirname(path.resolve(info.file))===directory) {
+        shell.showItemInFolder(info.file);
+        return {directory,file:info.file};
+      }
+    }
+    // A newly created project may only have a catalog entry, without module archives yet.
+    const error=await shell.openPath(directory);if(error)throw new Error('打开项目数据目录失败：'+error);
+    return {directory,file:null};
+  });
   ipcMain.handle('pick-project-directory', async event => {
     if (!trusted(event)) throw new Error('不允许选择工程目录');
     const result = await dialog.showOpenDialog(mainWindow, { title: '选择游戏工程目录', properties: ['openDirectory'] });
