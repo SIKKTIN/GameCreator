@@ -1,3 +1,4 @@
+import {EngineSyncBinding,foreignSyncBinding} from './EngineSyncBinding';
 import {useEffect,useRef,useState} from 'react';
 import {ArrowRight,CheckCircle2,FileText,FolderSync,History,RefreshCw,Save,Settings2} from 'lucide-react';
 import {EngineSettings} from './EnginePanels';
@@ -6,7 +7,7 @@ import type {ArtStore} from './art-assets';
 import {engineInfo,type EngineConfig} from './engine';
 import type {EnumRegistry} from './useEnumRegistry';
 import {defaultSyncSettings,syncSettings,syncPath,type SyncSettings} from '../shared/engine-sync.mjs';
-import type {SyncHistory,SyncPlan} from './engine-sync';
+import type {SyncHistory,SyncPlan,SyncBinding} from './engine-sync';
 import {workspaceStorage} from './workspace-storage';
 import {beforeLogoutEvent} from './auth';
 import './engine-sync.css';
@@ -34,11 +35,13 @@ function ContentSync({projectId,config,build,art,blockedReason,tab,setTab}:Props
   const [error,setError]=useState(initial.error),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false);
   const [plan,setPlan]=useState<SyncPlan>(),[entries,setEntries]=useState<SyncHistory[]>([]),[decisions,setDecisions]=useState<Record<string,'keep'|'replace'>>({}),[removals,setRemovals]=useState<string[]>([]);
   const [showUnchanged,setShowUnchanged]=useState(false),running=useRef(false),alive=useRef(true),token=useRef('');
+  const [ownership,setOwnership]=useState<SyncBinding>(),[confirmBinding,setConfirmBinding]=useState(false),bindingToken=useRef(''),checkedBinding=useRef(false);
+  const foreign=foreignSyncBinding(ownership);
   const dirty=JSON.stringify(settings)!==saved;
   const blocked=!api?'工程文件同步需要桌面客户端。浏览器仍可使用“生成 AI 文档”。':!config.projectPath?'请先在工程连接中配置并保存工程目录。':blockedReason;
   let invalid='';try{syncSettings(settings);if(settings.documents&&!settings.modules.some(m=>available.includes(m as typeof available[number])))invalid='请选择至少一个文档模块';}catch(e){invalid=(e as Error).message;}
   const discard=()=>{if(token.current){void api?.release(token.current);token.current='';}setPlan(undefined);setDecisions({});setRemovals([]);};
-  useEffect(()=>{alive.current=true;return()=>{alive.current=false;if(token.current)void api?.release(token.current);};},[]);
+  useEffect(()=>{alive.current=true;return()=>{alive.current=false;if(token.current)void api?.release(token.current);if(bindingToken.current)void api?.release(bindingToken.current);};},[]);
   useEffect(()=>{
     const guard=(e:Event)=>{if(running.current)e.preventDefault();};
     const unload=(e:BeforeUnloadEvent)=>{if(running.current){e.preventDefault();e.returnValue='';}};
@@ -49,13 +52,31 @@ function ContentSync({projectId,config,build,art,blockedReason,tab,setTab}:Props
   let source='';try{const doc=build();source=JSON.stringify({art,sections:doc.sections,name:doc.projectName,version:doc.version});}catch{/* blocked above */}
   const lastSource=useRef(source);
   useEffect(()=>{if(lastSource.current!==source){lastSource.current=source;discard();}},[source]);
-  async function run(operation:()=>Promise<void>){if(running.current)return;running.current=true;setBusy(true);setError('');try{await operation();}catch(e){if(alive.current)setError((e as Error).message);}finally{running.current=false;if(alive.current)setBusy(false);}}
-  const loadHistory=()=>run(async()=>{if(!api||!config.projectPath)return;const result=await api.history({projectId,config});if(alive.current)setEntries(result.entries);});
-  useEffect(()=>{if(tab==='history')void loadHistory();},[tab]);
-  const save=()=>{if(invalid)return;try{const next=syncSettings(settings);workspaceStorage.setItem(key,JSON.stringify(next));setSettings(next);setSaved(JSON.stringify(next));setNotice('同步配置已保存。');setError('');discard();}catch(e){setError((e as Error).message);}};
+  async function run(operation:()=>Promise<void>){if(running.current)return;running.current=true;setBusy(true);setError('');try{await operation();}catch(e){if(alive.current)setError((e as Error).message.replace(/^Error invoking remote method '[^']+': (?:Error: )?/,''));}finally{running.current=false;if(alive.current)setBusy(false);}}
+  const inspectBinding=async()=>{
+    if(!api||!config.projectPath)return;
+    const next=await api.binding({projectId,config});
+    if(!alive.current){if(next.token)void api.release(next.token);return;}
+    if(bindingToken.current)void api.release(bindingToken.current);
+    bindingToken.current=next.token||'';checkedBinding.current=true;setOwnership(next);
+    if(foreignSyncBinding(next)){discard();setEntries([]);}
+    return next;
+  };
+  const checkBinding=()=>run(async()=>{await inspectBinding();});
+  const loadHistory=()=>run(async()=>{if(!api||!config.projectPath)return;const binding=await inspectBinding();if(!binding||foreignSyncBinding(binding))return;const result=await api.history({projectId,config});if(alive.current)setEntries(result.entries);});
+  useEffect(()=>{if(tab==='history')void loadHistory();else if(tab!=='connection'&&!checkedBinding.current)void checkBinding();},[tab]);
+  const rebind=()=>run(async()=>{
+    if(!api||blocked||!ownership?.token)return;
+    const result=await api.rebind({token:ownership.token});
+    if(!alive.current)return;
+    setConfirmBinding(false);discard();setNotice(result.message);await inspectBinding();
+    const history=await api.history({projectId,config});if(alive.current)setEntries(history.entries);
+  });
+  const save=()=>{if(invalid)return;try{const next=syncSettings(settings);workspaceStorage.setItem(key,JSON.stringify(next));setSettings(next);setSaved(JSON.stringify(next));setNotice('同步配置已保存。');setError('');discard();}catch(e){setError((e as Error).message.replace(/^Error invoking remote method '[^']+': (?:Error: )?/,''));}};
   const patch=(next:Partial<SyncSettings>)=>{setSettings(s=>({...s,...next}));discard();setNotice('');};
   const preview=()=>run(async()=>{
     if(!api||blocked||invalid||dirty)return;discard();setNotice('');
+    const binding=await inspectBinding();if(!binding||foreignSyncBinding(binding))return;
     const next=await api.preview({projectId,config,settings,document:build(),art});
     if(!alive.current){void api.release(next.token);return;}
     token.current=next.token;setPlan(next);setEntries(next.history);setTab('preview');
@@ -73,6 +94,7 @@ function ContentSync({projectId,config,build,art,blockedReason,tab,setTab}:Props
   const actions=plan?.rows.filter(r=>r.status!=='unchanged'&&(r.status!=='conflict'||decisions[r.path]==='replace')&&(!r.remove||removals.includes(r.path))).length||0;
   return <div className="engine-content" hidden={tab==='connection'}>
     <section className="es-engine-root" aria-label="当前同步工程"><div><span>{engineInfo(config.engine).name} · 已保存的游戏工程根目录</span><code aria-label="同步工程根目录">{root||'尚未连接游戏工程'}</code><p>同步直接写入此工程。下方仅设置工程内的子目录。</p></div><button type="button" className="gp-secondary" disabled={busy} onClick={()=>setTab('connection')}>更换工程</button></section>
+    <EngineSyncBinding binding={ownership} busy={busy} blocked={blocked} confirming={confirmBinding} error={error} onRefresh={()=>void checkBinding()} onConfirm={()=>{setError('');setConfirmBinding(true);}} onCancel={()=>setConfirmBinding(false)} onRebind={()=>void rebind()}/>
     {blocked&&<p className="es-notice" role="status">{blocked}</p>}
     {error&&<p className="es-error" role="alert">{error}</p>}{notice&&<p className="es-success" role="status"><CheckCircle2 size={17}/>{notice}</p>}
     {tab==='settings'&&<>
@@ -84,23 +106,23 @@ function ContentSync({projectId,config,build,art,blockedReason,tab,setTab}:Props
         </div>
       </fieldset>
       {invalid&&<p className="es-error" role="alert">{invalid}</p>}
-      <div className="es-footer"><span>{dirty?'配置待保存':'配置已保存 · 手动预览后同步'}</span><button className="primary" disabled={busy||dirty||!!blocked||!!invalid} onClick={()=>void preview()}>预览同步变更<ArrowRight size={16}/></button></div>
+      <div className="es-footer"><span>{dirty?'配置待保存':'配置已保存 · 手动预览后同步'}</span><button className="primary" disabled={busy||foreign||dirty||!!blocked||!!invalid} onClick={()=>void preview()}>预览同步变更<ArrowRight size={16}/></button></div>
     </>}
     {tab==='preview'&&<>
-      <div className="es-section-heading"><div><h3>待同步变更</h3><p>以当前内容为快照；文件变化或预览超过十分钟后需重新检查。</p></div><button className="gp-secondary" disabled={busy||dirty||!!blocked||!!invalid} onClick={()=>void preview()}><RefreshCw size={16}/>{busy?'处理中…':'检查同步变更'}</button></div>
+      <div className="es-section-heading"><div><h3>待同步变更</h3><p>以当前内容为快照；文件变化或预览超过十分钟后需重新检查。</p></div><button className="gp-secondary" disabled={busy||foreign||dirty||!!blocked||!!invalid} onClick={()=>void preview()}><RefreshCw size={16}/>{busy?'处理中…':'检查同步变更'}</button></div>
       {dirty&&<p className="es-notice">请先到同步配置保存设置。</p>}
-      {!plan?<div className="es-empty"><FolderSync size={36}/><h3>把最新内容交付到工程</h3><p>检查文档和已采用素材的变化，确认后一次同步。</p><code>{config.projectPath||'尚未连接工程'}</code><button className="primary" disabled={busy||dirty||!!blocked||!!invalid} onClick={()=>void preview()}>预览同步变更</button></div>:<>
+      {!plan?<div className="es-empty"><FolderSync size={36}/><h3>把最新内容交付到工程</h3><p>检查文档和已采用素材的变化，确认后一次同步。</p><code>{config.projectPath||'尚未连接工程'}</code><button className="primary" disabled={busy||foreign||dirty||!!blocked||!!invalid} onClick={()=>void preview()}>预览同步变更</button></div>:<>
         <div className="es-summary">{Object.entries(labels).map(([status,label])=><span className={'es-state '+status} key={status}>{label} {plan.rows.filter(r=>r.status===status).length}</span>)}<label className="es-checkbox"><input type="checkbox" checked={showUnchanged} onChange={e=>setShowUnchanged(e.target.checked)}/>显示无变化</label></div>
         {!!plan.warnings.length&&<details className="es-notice"><summary>{plan.warnings.length} 项同步提示</summary>{plan.warnings.map((w,i)=><p key={i}>{w}</p>)}</details>}
         <div className="es-changes">{plan.rows.filter(r=>showUnchanged||r.status!=='unchanged').map(r=><article className="es-change" key={r.path}><div><span className={'es-state '+r.status}>{labels[r.status]}{r.remove&&r.status==='conflict'?' · 待移除':''}</span><b>{r.label}</b>{r.placeholder&&<small>占位素材</small>}<code title={root.replace(/[\\/]+$/,'')+'/'+r.path}>{root.replace(/[\\/]+$/,'')+'/'+r.path}</code><small>{r.version&&'版本：'+r.version+' · '}{r.reason}</small></div><div className="es-row-actions">{r.status==='conflict'&&<select aria-label={'冲突处理 '+r.path} disabled={busy} value={decisions[r.path]||''} onChange={e=>setDecisions(d=>({...d,[r.path]:e.target.value as 'keep'|'replace'}))}><option value="">请选择处理方式</option><option value="keep">保留工程文件，本次跳过</option><option value="replace">{r.remove?'备份并允许移除':'备份并使用 GameCreator 版本'}</option></select>}{r.remove&&<label className="es-checkbox"><input type="checkbox" aria-label={'确认移除 '+r.path} disabled={busy} checked={removals.includes(r.path)} onChange={e=>setRemovals(a=>e.target.checked?[...a,r.path]:a.filter(p=>p!==r.path))}/>确认移除</label>}</div></article>)}</div>
         {plan.rows.every(r=>r.status==='unchanged')&&<p className="es-success"><CheckCircle2 size={20}/>所选范围的工程文件已是最新版本。</p>}
-        <div className="es-footer"><span>{unresolved?'请先处理冲突':actions?'本次处理 '+actions+' 个文件，覆盖前自动备份':'没有需要写入的变更'}</span><button className="primary" disabled={busy||!!blocked||!!unresolved||!actions} onClick={()=>void apply()}><FolderSync size={16}/>{busy?'正在同步…':'同步到工程'}</button></div>
+        <div className="es-footer"><span>{unresolved?'请先处理冲突':actions?'本次处理 '+actions+' 个文件，覆盖前自动备份':'没有需要写入的变更'}</span><button className="primary" disabled={busy||foreign||!!blocked||!!unresolved||!actions} onClick={()=>void apply()}><FolderSync size={16}/>{busy?'正在同步…':'同步到工程'}</button></div>
       </>}
     </>}
     {tab==='history'&&<>
       <div className="es-section-heading"><div><h3>同步记录</h3><p>记录保存在当前工程，备份目录保留写入前的文件和清单。</p></div><button className="gp-secondary" disabled={busy||!api||!config.projectPath} onClick={()=>void loadHistory()}><RefreshCw size={16}/>刷新记录</button></div>
-      {!entries.length?<div className="es-empty"><History size={32}/><h3>尚无同步记录</h3><p>完成第一次同步后，可在这里查看交付内容与备份位置。</p></div>:entries.map(entry=><details className="es-history" key={entry.id}><summary><span className={'es-state '+(entry.status==='success'?'added':'conflict')}>{entry.status==='success'?'已同步':'失败 / 已恢复'}</span>{new Date(entry.at).toLocaleString()}<span>{entry.files.length} 个文件</span></summary><p>{entry.message}</p>{entry.backupDirectory&&<><small>写入前备份位置</small><code>{entry.backupDirectory}</code></>}{entry.files.map(f=><p key={f.path}><code>{f.path}</code> {f.action==='removed'?'已移除':f.version?'版本：'+f.version:'已写入'}</p>)}</details>)}
-      <div className="es-footer"><small>客户端异常退出后，可恢复未完成的同步。检测到外部改动时会停止恢复。</small><button className="gp-secondary" disabled={busy||!api||!config.projectPath} onClick={()=>void recover()}>恢复中断的同步</button></div>
+      {!entries.length?<div className="es-empty"><History size={32}/><h3>尚无同步记录</h3><p>完成第一次同步后，可在这里查看交付内容与备份位置。</p></div>:entries.map(entry=><details className="es-history" key={entry.id}><summary><span className={'es-state '+(entry.status==='success'?'added':'conflict')}>{entry.kind==='rebind'?'已重新绑定':entry.status==='success'?'已同步':'失败 / 已恢复'}</span>{new Date(entry.at).toLocaleString()}<span>{entry.files.length} 个文件</span></summary><p>{entry.message}</p>{entry.kind==='rebind'&&<p>原归属：{entry.fromProjectId}<br/>新归属：{entry.toProjectId}</p>}{entry.backupDirectory&&<><small>写入前备份位置</small><code>{entry.backupDirectory}</code></>}{entry.files.map(f=><p key={f.path}><code>{f.path}</code> {f.action==='removed'?'已移除':f.version?'版本：'+f.version:'已写入'}</p>)}</details>)}
+      <div className="es-footer"><small>客户端异常退出后，可恢复未完成的同步。检测到外部改动时会停止恢复。</small><button className="gp-secondary" disabled={busy||foreign||!api||!config.projectPath} onClick={()=>void recover()}>恢复中断的同步</button></div>
     </>}
   </div>;
 }

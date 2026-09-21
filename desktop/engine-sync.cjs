@@ -12,8 +12,8 @@ const MEDIA=/\.(png|jpe?g|webp|gif|svg|bmp|tga|exr|hdr|dds|ktx|wav|ogg|mp3|flac|
 const HASH=/^[a-f0-9]{64}$/;
 const UUID=/^[a-f0-9-]{36}$/;
 
-function createEngineSync({artFiles,beforeWrite=async()=>{}}) {
-  const plans=new Map();
+function createEngineSync({artFiles,beforeWrite=async()=>{},beforeRebind=async()=>{}}) {
+  const plans=new Map(),bindings=new Map();
   const modules=()=>import('../shared/engine-sync.mjs');
   async function targetPath(value) {
     const {syncPath}=await modules();
@@ -64,17 +64,20 @@ function createEngineSync({artFiles,beforeWrite=async()=>{}}) {
     const handle=await fs.open(temp,'wx');try{await handle.writeFile(value);await handle.sync();}finally{await handle.close();}
     await checked(ctx,relative);await fs.rename(temp,filename);
   }
-  async function validateManifest(m,ctx) {
-    if(m?.schema!==1||m.projectId!==ctx.projectId||m.engine!==ctx.engine||!Array.isArray(m.files)||!Array.isArray(m.history))throw new Error('工程同步清单不兼容或属于另一个项目/引擎，已停止写入');
+  async function validateManifest(m,ctx,allowForeign=false) {
+    if(m?.schema!==1||typeof m.projectId!=='string'||!['godot-gdscript','oasis-lua'].includes(m.engine)||!Array.isArray(m.files)||!Array.isArray(m.history))throw new Error('工程同步清单格式不兼容，已停止写入');
+    validateWorkspaceId('project:'+m.projectId);
+    if(!allowForeign&&m.engine!==ctx.engine)throw new Error('工程同步记录属于另一个项目/引擎：记录引擎为 '+m.engine+'，当前为 '+ctx.engine+'。请更换工程或选择对应引擎。');
+    if(!allowForeign&&m.projectId!==ctx.projectId)throw new Error('工程同步记录属于另一个项目：'+m.projectId+'。请在同步配置中检查归属，并确认是否重新绑定到当前项目。');
     const paths=new Set();
     for(const f of m.files){await targetPath(f.path);const key=f.path.normalize('NFC').toLowerCase();if(!HASH.test(f.hash)||typeof f.id!=='string'||!['asset','document'].includes(f.kind)||paths.has(key))throw new Error('工程同步清单损坏');paths.add(key);}
-    for(const h of m.history)if(!UUID.test(h.id)||typeof h.at!=='string'||!['success','failed'].includes(h.status)||typeof h.message!=='string'||!Array.isArray(h.files))throw new Error('同步历史损坏');
+    for(const h of m.history)if(!h||!UUID.test(h.id)||typeof h.at!=='string'||!['success','failed'].includes(h.status)||typeof h.message!=='string'||!Array.isArray(h.files)||(h.kind!==undefined&&(h.kind!=='rebind'||typeof h.fromProjectId!=='string'||typeof h.toProjectId!=='string')))throw new Error('同步历史损坏');
     return m;
   }
-  async function manifest(ctx) {
+  async function manifest(ctx,allowForeign=false) {
     const bytes=await read(ctx,META+'/manifest.json');
-    const value=bytes?await validateManifest(JSON.parse(bytes),ctx):{schema:1,projectId:ctx.projectId,engine:ctx.engine,files:[],history:[]};
-    return {value,hash:bytes?hash(bytes):null};
+    const value=bytes?await validateManifest(JSON.parse(bytes),ctx,allowForeign):{schema:1,projectId:ctx.projectId,engine:ctx.engine,files:[],history:[]};
+    return {value,hash:bytes?hash(bytes):null,bytes};
   }
   async function locked(ctx,fn) {
     const filename=await checked(ctx,META+'/lock',true);
@@ -86,6 +89,43 @@ function createEngineSync({artFiles,beforeWrite=async()=>{}}) {
   async function history(input) {
     const ctx=await context(input),m=await manifest(ctx);
     return {entries:m.value.history,interrupted:!!await read(ctx,META+'/pending.json')};
+  }
+  async function binding(input) {
+    const ctx=await context(input),m=await manifest(ctx,true);
+    const status=!m.bytes?'unbound':m.value.engine!==ctx.engine?'engine-mismatch':m.value.projectId!==ctx.projectId?'project-mismatch':'current';
+    let reason='',token;
+    if(status==='engine-mismatch')reason='同步记录的引擎与当前连接不同，请更换工程或选择记录对应的引擎。';
+    if(status==='project-mismatch') {
+      if(await read(ctx,META+'/pending.json'))reason='旧项目还有未完成的同步，请先用原项目恢复中断的同步，再重新绑定。';
+      else if(await read(ctx,META+'/lock'))reason='工程同步锁仍存在，请先完成或恢复原项目的同步，再重新绑定。';
+      else {
+        const now=Date.now();for(const [key,b] of bindings)if(now-b.created>600000)bindings.delete(key);
+        if(bindings.size>=4)bindings.delete(bindings.keys().next().value);
+        token=randomUUID();bindings.set(token,{ctx,m,created:now});
+      }
+    }
+    return {status,root:ctx.root,projectId:ctx.projectId,engine:ctx.engine,ownerProjectId:m.bytes?m.value.projectId:null,ownerEngine:m.bytes?m.value.engine:null,fileCount:m.value.files.length,historyCount:m.value.history.length,token,reason};
+  }
+  async function rebind({token}) {
+    const review=bindings.get(token);if(!review||Date.now()-review.created>600000)throw new Error('归属检查已过期，请重新检查后确认绑定');
+    const {ctx,m}=review;
+    if(!m.bytes||m.value.engine!==ctx.engine||m.value.projectId===ctx.projectId)throw new Error('当前工程不需要或不支持重新绑定');
+    return locked(ctx,async()=>{
+      const assertBinding=async()=>{
+        if(await read(ctx,META+'/pending.json'))throw new Error('存在未完成的同步，请先用原项目恢复');
+        if((await manifest(ctx,true)).hash!==m.hash)throw new Error('同步记录已改变，请重新检查归属后再确认');
+      };
+      await assertBinding();
+      const id=randomUUID(),folder=META+'/history/'+id;
+      // Preserve the exact old manifest; content files and their recorded hashes are never rewritten here.
+      await writeMeta(ctx,folder+'/before-manifest.json',m.bytes);
+      await beforeRebind();await assertBinding();
+      const entry={id,at:new Date().toISOString(),status:'success',kind:'rebind',fromProjectId:m.value.projectId,toProjectId:ctx.projectId,message:'同步归属已重新绑定到当前项目。工程文件保持原样，请重新预览同步变更。',files:[],backupDirectory:path.join(ctx.root,folder)};
+      const next={...m.value,projectId:ctx.projectId,history:[entry,...m.value.history]};
+      await writeMeta(ctx,META+'/manifest.json',JSON.stringify(next,null,2));
+      for(const cache of [plans,bindings])for(const [key,value] of cache)if(value.ctx.root===ctx.root)cache.delete(key);
+      return entry;
+    });
   }
   async function preview(input) {
     // A plan owns an immutable snapshot, and is valid for ten minutes.
@@ -255,7 +295,7 @@ function createEngineSync({artFiles,beforeWrite=async()=>{}}) {
       }
     });
   }
-  function release(token){plans.delete(token);}
-  return {preview,apply,history,recover,release};
+  function release(token){plans.delete(token);bindings.delete(token);}
+  return {preview,apply,history,recover,release,binding,rebind};
 }
 module.exports={createEngineSync};

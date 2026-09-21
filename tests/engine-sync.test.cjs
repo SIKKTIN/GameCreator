@@ -62,6 +62,64 @@ test('missing files and unapproved adopted releases fail; placeholders can be ex
 test('one engineering project cannot silently be claimed by another project or engine adapter',async t=>{
   const f=await fixture(t);await f.apply(await f.preview());await assert.rejects(f.api.preview({...f.input,projectId:'other'}),/另一个项目/);await assert.rejects(f.api.preview({...f.input,config:{...f.input.config,engine:'oasis-lua'}}),/另一个项目/);
 });
+test('binding inspection is read-only, distinguishes owners and engines, and cancellation changes nothing',async t=>{
+ const f=await fixture(t);
+ assert.equal((await f.api.binding(f.input)).status,'unbound');assert.equal(await fs.stat(path.join(f.engine,'.gamecreator-sync')).catch(()=>null),null);
+ await f.apply(await f.preview());const raw=await f.read('.gamecreator-sync/manifest.json');
+ assert.equal((await f.api.binding(f.input)).status,'current');
+ const other={...f.input,projectId:'new-project'},review=await f.api.binding(other);
+ assert.equal(review.status,'project-mismatch');assert.equal(review.ownerProjectId,f.input.projectId);assert.equal(review.projectId,other.projectId);assert.equal(review.fileCount,3);assert.equal(review.historyCount,1);assert.ok(review.token);
+ f.api.release(review.token);await assert.rejects(f.api.rebind({token:review.token}),/过期/);assert.equal(await f.read('.gamecreator-sync/manifest.json'),raw);
+ const engine=await f.api.binding({...other,config:{...other.config,engine:'oasis-lua'}});assert.equal(engine.status,'engine-mismatch');assert.equal(engine.token,undefined);assert.match(engine.reason,/引擎/);
+});
+
+test('explicit rebind preserves exact old manifest, file records, manual changes and history; new owner can preview after restart',async t=>{
+ const f=await fixture(t);await f.apply(await f.preview());const oldRaw=await f.read('.gamecreator-sync/manifest.json'),old=JSON.parse(oldRaw);
+ const target='docs/gamecreator/modules/gameplay.md';await fs.writeFile(path.join(f.engine,target),'manual changes');
+ f.input.document.sections[1].body='new story';const oldPlan=await f.preview(),other={...f.input,projectId:'migrated-project'};
+ const review=await f.api.binding(other),result=await f.api.rebind({token:review.token});
+ const next=JSON.parse(await f.read('.gamecreator-sync/manifest.json'));
+ assert.equal(next.projectId,other.projectId);assert.equal(next.engine,old.engine);assert.deepEqual(next.files,old.files);assert.deepEqual(next.history.slice(1),old.history);
+ assert.equal(result.kind,'rebind');assert.equal(result.fromProjectId,old.projectId);assert.equal(result.toProjectId,other.projectId);assert.equal(result.files.length,0);
+ assert.equal(await fs.readFile(path.join(result.backupDirectory,'before-manifest.json'),'utf8'),oldRaw);assert.equal(await f.read(target),'manual changes');
+ await assert.rejects(f.api.apply({token:oldPlan.token,decisions:{[target]:'replace'}}),/过期/);await assert.rejects(f.preview(),/另一个项目/);await assert.rejects(f.api.rebind({token:review.token}),/过期/);
+ const reopened=createEngineSync({artFiles:createArtFiles(f.data)});assert.equal((await reopened.binding(other)).status,'current');assert.equal((await reopened.history(other)).entries.length,2);
+ const plan=await reopened.preview(other);assert.equal(plan.rows.find(r=>r.path===target).status,'conflict');assert.equal(plan.rows.find(r=>r.path.endsWith('stories.md')).status,'updated');assert.equal(plan.rows.some(r=>r.status==='added'),false);
+ assert.equal(await f.read(target),'manual changes');
+});
+
+test('rebind rejects changed manifests, pending journals, locks and replaced roots without taking ownership',async t=>{
+ const f=await fixture(t);await f.apply(await f.preview());const other={...f.input,projectId:'new-project'},raw=await f.read('.gamecreator-sync/manifest.json');
+ let review=await f.api.binding(other);await fs.writeFile(path.join(f.engine,'.gamecreator-sync/manifest.json'),raw+'\n');await assert.rejects(f.api.rebind({token:review.token}),/记录已改变/);assert.equal(await f.read('.gamecreator-sync/manifest.json'),raw+'\n');
+ review=await f.api.binding(other);await fs.writeFile(path.join(f.engine,'.gamecreator-sync/pending.json'),'{}');assert.equal((await f.api.binding(other)).token,undefined);await assert.rejects(f.api.rebind({token:review.token}),/未完成/);await fs.unlink(path.join(f.engine,'.gamecreator-sync/pending.json'));
+ review=await f.api.binding(other);await fs.writeFile(path.join(f.engine,'.gamecreator-sync/lock'),JSON.stringify({pid:process.pid}));assert.equal((await f.api.binding(other)).token,undefined);await assert.rejects(f.api.rebind({token:review.token}),/工程正在同步/);await fs.unlink(path.join(f.engine,'.gamecreator-sync/lock'));
+ assert.equal(JSON.parse(await f.read('.gamecreator-sync/manifest.json')).projectId,f.input.projectId);
+ review=await f.api.binding(other);await fs.rename(f.engine,f.engine+'-old');await fs.mkdir(f.engine);await assert.rejects(f.api.rebind({token:review.token}),/目录已被替换/);
+});
+
+test('failed rebind can retry while a concurrent manifest change is preserved',async t=>{
+ let fail=true,change=false;let f;
+ f=await fixture(t,{beforeRebind:async()=>{if(fail)throw Error('rebind disk failure');if(change)await fs.writeFile(path.join(f.engine,'.gamecreator-sync/manifest.json'),oldRaw+'\n');}});
+ await f.apply(await f.preview());const oldRaw=await f.read('.gamecreator-sync/manifest.json'),other={...f.input,projectId:'new-project'},review=await f.api.binding(other);
+ await assert.rejects(f.api.rebind({token:review.token}),/disk failure/);assert.equal(await f.read('.gamecreator-sync/manifest.json'),oldRaw);assert.equal(await fs.stat(path.join(f.engine,'.gamecreator-sync/lock')).catch(()=>null),null);
+ fail=false;change=true;await assert.rejects(f.api.rebind({token:review.token}),/记录已改变/);assert.equal(await f.read('.gamecreator-sync/manifest.json'),oldRaw+'\n');
+ change=false;const refreshed=await f.api.binding(other);await f.api.rebind({token:refreshed.token});assert.equal(JSON.parse(await f.read('.gamecreator-sync/manifest.json')).projectId,other.projectId);
+});
+
+test('corrupt manifests are never offered for rebind',async t=>{
+ const f=await fixture(t);await f.apply(await f.preview());const raw=await f.read('.gamecreator-sync/manifest.json');
+ for(const mutate of [m=>m.schema=99,m=>m.files[0].path='../outside.md',m=>m.files[0].hash='invalid',m=>m.history[0].status='broken',m=>m.projectId='']) {
+   const m=JSON.parse(raw);mutate(m);const changed=JSON.stringify(m);await fs.writeFile(path.join(f.engine,'.gamecreator-sync/manifest.json'),changed);
+   await assert.rejects(f.api.binding({...f.input,projectId:'new-project'}));assert.equal(await f.read('.gamecreator-sync/manifest.json'),changed);
+ }
+});
+
+test('expired rebind reviews cannot write',async t=>{
+ const f=await fixture(t);await f.apply(await f.preview());const review=await f.api.binding({...f.input,projectId:'new-project'}),raw=await f.read('.gamecreator-sync/manifest.json'),now=Date.now;
+ try {Date.now=()=>now()+600001;await assert.rejects(f.api.rebind({token:review.token}),/过期/);}finally{Date.now=now;}
+ assert.equal(await f.read('.gamecreator-sync/manifest.json'),raw);
+});
+
 test('Oasis receives docs and assets without Godot ignore files',async t=>{
   const f=await fixture(t);f.input.config.engine='oasis-lua';const p=await f.preview();assert.equal(p.rows.length,3);await f.apply(p);assert.match(await f.read('docs/gamecreator/modules/stories.md'),/故事/);
 });
