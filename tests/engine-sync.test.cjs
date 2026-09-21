@@ -14,8 +14,8 @@ async function fixture(t,options={}) {
 }
 test('real adopted files and selected deterministic Markdown are delivered; repeat and restart are no-ops',async t=>{
   const f=await fixture(t);f.input.art.assets.push(await f.asset('植物.png','PNG original bytes'));
-  const p=await f.preview();assert.equal(p.rows.length,5);assert.ok(p.rows.every(r=>r.status==='added'));assert.equal(await fs.stat(path.join(f.engine,'.gamecreator-sync')).catch(()=>null),null);
-  const result=await f.apply(p);assert.equal(result.files.length,5);assert.equal(await f.read(p.rows.find(r=>r.kind==='asset').path),'PNG original bytes');assert.match(await f.read('docs/gamecreator/modules/gameplay.md'),/选择/);assert.match(await f.read('docs/gamecreator/README.md'),/modules\/stories.md/);
+  const p=await f.preview();assert.equal(p.rows.length,4);assert.ok(p.rows.every(r=>r.status==='added'));assert.equal(await fs.stat(path.join(f.engine,'.gamecreator-sync')).catch(()=>null),null);
+  const result=await f.apply(p);assert.equal(result.files.length,4);assert.equal(await f.read(p.rows.find(r=>r.kind==='asset').path),'PNG original bytes');assert.match(await f.read('docs/gamecreator/modules/gameplay.md'),/选择/);assert.match(await f.read('docs/gamecreator/README.md'),/modules\/stories.md/);
   f.input.document.generatedAt='new time';assert.ok((await f.preview()).rows.every(r=>r.status==='unchanged'));
   const restarted=createEngineSync({artFiles:createArtFiles(f.data)});assert.equal((await restarted.history(f.input)).entries.length,1);assert.ok((await restarted.preview(f.input)).rows.every(r=>r.status==='unchanged'));
   await assert.rejects(f.apply(p),/过期/);
@@ -84,4 +84,11 @@ test('recovery removes an exclusively staged new file when interrupted between l
 test('source files remain isolated by workspace and snapshots are immutable after preview',async t=>{
  const f=await fixture(t),a=await f.asset('plant.png','first bytes');f.input.art.assets=[a];const p=await f.preview();f.input.document.sections[0].body='mutated after preview';a.name='renamed after preview';await f.apply(p);
  assert.match(await f.read('docs/gamecreator/modules/gameplay.md'),/选择/);await assert.rejects(f.api.preview({...f.input,projectId:'unrelated',config:{...f.input.config,projectPath:await fs.mkdtemp(path.join(f.dir,'other-')),engine:'oasis-lua'}}),/丢失/);
+});
+
+test('Godot documents stay visible and legacy ignore removal is reviewed, backed up, and never recreated',async t=>{
+ const f=await fixture(t);await f.apply(await f.preview());const ignore='docs/gamecreator/.gdignore';assert.equal(await fs.stat(path.join(f.engine,ignore)).catch(()=>null),null);
+ const bytes='# Development documentation; not a runtime resource.\n';await fs.writeFile(path.join(f.engine,ignore),bytes);const mpath=path.join(f.engine,'.gamecreator-sync/manifest.json'),m=JSON.parse(await fs.readFile(mpath,'utf8'));m.files.push({id:'document:ignore',path:ignore,kind:'document',label:'old',version:'',hash:digest(bytes)});await fs.writeFile(mpath,JSON.stringify(m));
+ const p=await f.preview();assert.ok(p.warnings.some(w=>w.includes(ignore)));assert.equal(p.rows.find(r=>r.path===ignore).status,'removed');await assert.rejects(f.apply(p),/没有需要/);const result=await f.api.apply({token:p.token,removals:[ignore]});assert.equal(await fs.stat(path.join(f.engine,ignore)).catch(()=>null),null);assert.equal(await fs.readFile(path.join(result.backupDirectory,'files/0'),'utf8'),bytes);assert.ok((await f.preview()).rows.every(r=>r.status==='unchanged'));
+ await fs.writeFile(path.join(f.engine,'docs/.gdignore'),'user ignore');const next=await f.preview();assert.ok(next.warnings.some(w=>w.includes('docs/.gdignore')));assert.equal(next.rows.some(r=>r.path==='docs/.gdignore'),false);assert.equal(await f.read('docs/.gdignore'),'user ignore');
 });
