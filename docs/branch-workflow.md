@@ -37,3 +37,5 @@
 示例内容需要更新时，单独更新相关 JSON 并运行 `node scripts/validate-prototype-examples.mjs`，不要把整个本地存档目录加入 Git。
 
 已编辑的本地项目通过“导出项目到文件夹 / 从文件夹导入项目”迁移完整内容和美术交付文件，详见 [项目文件夹迁移](project-package.md)。`ProjectCache/` 是 Git 忽略的本机导出目录；运行数据的迁移与源代码分支合并分别进行。
+
+本地项目列表右键的“打开数据文件夹”会打开实际运行数据的 `storage/` 目录，并定位所选项目已存在的存档文件；尚无模块存档时只打开目录，不创建占位文件。该位置跟随 `GAMECREATOR_DATA_DIR`，默认位于当前检出目录的 `.gamecreator/storage/`，与引擎连接路径无关。当前存档按项目身份分文件存储在共享目录中，素材原文件另存于 `.gamecreator/art-files/`；完整迁移仍使用项目文件夹导出。
