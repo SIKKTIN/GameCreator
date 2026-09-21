@@ -1,3 +1,4 @@
+const {storyExtras}=require('../shared/story-document.cjs');
 // Portable project folders contain JSON archives and original art files, never executable imports.
 const path = require('node:path');
 const fs = require('node:fs/promises');
@@ -467,6 +468,8 @@ function validateDocument(value) {
   if (Object.hasOwn(value.archives, 'numerical-analysis')) validateNumericalAnalysisArchive(value.archives['numerical-analysis']);
   if (Object.hasOwn(value.archives, 'map-design')) validateMapArchive(value.archives['map-design']);
   if (Object.hasOwn(value.archives, 'story-orchestration')) validateStoryArchive(value.archives['story-orchestration']);
+  if(!Array.isArray(value.archives.stories))throw new Error('故事文档格式无效');
+  for(const story of value.archives.stories)storyExtras(story);
   validateGameplayLibraryArchive(value.archives.gameplay);
   const art = value.archives['art-assets'];
   if (!record(art) || !Array.isArray(art.assets)) throw new Error('素材资产存档格式无效');

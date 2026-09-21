@@ -30,6 +30,8 @@ export function PublishProjectDialog({ session, project, onClose, onPublished }:
     try {
       if ((session.apiVersion ?? 0) < 10) throw new Error('请先重启并升级协作服务器，再重新连接，以启用项目排期和完整项目发布。');
       const origin = { sourceInstanceId: localSourceIdentity(workspaceStorage), sourceProjectId: project.id };
+      const storyArchive=workspaceStorage.getItem('gamecreator.workspace.v1:'+project.id+':stories');
+      if((session.apiVersion??0)<11&&storyArchive&&JSON.parse(storyArchive).some((s:{archived?:boolean;format?:string;references?:unknown[]})=>s.archived||s.format==='markdown'||s.references?.length))throw new Error('请升级并重新连接协作服务器，以完整发布故事文档格式、归档和引用。');
       const result = await lookup(origin);
       if (!alive.current || read !== reads.current) return;
       setSource(origin);setDeletedPublication(result.deletedPublication??null);

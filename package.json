@@ -13,7 +13,8 @@
     "mcp:debug": "node mcp/debug-server.mjs",
     "collaboration": "node server/collaboration.cjs",
     "collaboration:demo": "npm run build && node scripts/collaboration-demo.cjs",
-    "test:collaboration": "node --test tests/collaboration.test.cjs tests/team-projects.test.cjs tests/team-project-delete.test.cjs tests/team-publication.test.cjs tests/team-publish.test.mjs tests/team-overview.test.cjs tests/team-access.test.cjs tests/team-core.test.cjs tests/team-gameplay.test.cjs tests/team-gameplay-model.test.mjs tests/team-schedule.test.cjs tests/team-schedule-publish.test.mjs tests/overview-model.test.mjs tests/story-import.test.mjs",
+    "test:collaboration": "node --test tests/collaboration.test.cjs tests/team-projects.test.cjs tests/team-project-delete.test.cjs tests/team-publication.test.cjs tests/team-publish.test.mjs tests/team-overview.test.cjs tests/team-access.test.cjs tests/team-core.test.cjs tests/team-gameplay.test.cjs tests/team-gameplay-model.test.mjs tests/team-schedule.test.cjs tests/team-schedule-publish.test.mjs tests/overview-model.test.mjs tests/story-import.test.mjs tests/team-story-library.test.cjs",
+    "test:story-library": "node --test tests/story-library.test.mjs tests/team-story-library.test.cjs tests/story-import.test.mjs tests/desktop-storage.test.cjs",
     "test:server-manager": "node --test tests/collaboration-host.test.cjs",
     "git:install-hooks": "node scripts/install-git-hooks.cjs",
     "test:git-policy": "node --test tests/git-branch-policy.test.cjs"

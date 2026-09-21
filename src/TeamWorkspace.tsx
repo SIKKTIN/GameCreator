@@ -1,3 +1,6 @@
+import {makeStory,validateStoryExtras,type StoryTarget} from './story-library';
+import {storyTargets,incomingStories} from './story-targets';
+import type {StoryDoc,StoryReference} from './story-model';
 import {GlobalSearchProvider,GlobalSearchInput,GlobalSearchPanel,SearchReturn} from './GlobalSearch';
 import type {SearchTarget} from './global-search';
 import {TeamProjectSchedule} from './TeamProjectSchedule';
@@ -37,6 +40,8 @@ export function TeamProjectWorkspace({ project, session, picker, localProjects, 
   const leaveSearch = () => setSearchNavigation(n => n + 1);
   const setActive = (name:string) => {leaveSearch();setActiveModule(name);};
   const [selectedGameplayId,setSelectedGameplayId] = useState('');
+  const [requestedStory,setRequestedStory]=useState<{id:string}>();
+  const openStory=(id:string)=>{setSelectedId(id);setRequestedStory({id});setActive('故事文档');};
   const scheduleEnabled = (session.apiVersion ?? 0) >= 10;
   const gameplayEnabled = (session.apiVersion ?? 0) >= 9;
   const gameplay = useTeamGameplay(session,project.id,accessBlocked,status=>{setAccessDenied(true);if(status===410)setProjectDeleted(true);});
@@ -83,19 +88,22 @@ export function TeamProjectWorkspace({ project, session, picker, localProjects, 
     if (existing && existing.revision > story.revision) return previous;
     return existing ? previous.map(item => item.id === story.id ? story : item) : [story, ...previous];
   });
-  const create = async () => {
+  const create = async (draft?:StoryDoc) => {
     if (creating.current || !writableStories || !canLeaveTeam()) return;
     creating.current = true; setCreateBusy(true); setCreateError('');
     try {
-      const result = await teamRequest<{ story: TeamStory }>(session.url, route, session.token, 'POST', {
-        title: '新的故事文档', category: '世界观', status: '草稿', summary: '', content: '', tags: [], outlines: [], relations: { characters: [], locations: [], systems: [] },
-      });
-      if (alive.current) { receive(result.story); leaveSearch(); setSelectedId(result.story.id); }
-    } catch (reason) { if (alive.current) setCreateError((reason as Error).message); }
+      const source=draft||makeStory();
+      const {id:_id,updated:_updated,updatedAt:_updatedAt,...fields}=source;
+      const result = await teamRequest<{ story: TeamStory }>(session.url, route, session.token, 'POST', fields);
+      if (alive.current) { receive(result.story); openStory(result.story.id); }
+    } catch (reason) { if (alive.current) setCreateError((reason as Error).message); throw reason; }
     finally { creating.current = false; if (alive.current) setCreateBusy(false); }
   };
   const selected = stories.find(item => item.id === selectedId);
-  const openSearchTarget=(t:SearchTarget)=>{if(accessBlocked||!canLeaveTeam())return false;onLeaveServer();if(t.module==='故事文档')setSelectedId(t.id);if(t.module==='玩法设计')setSelectedGameplayId(t.parent||t.id);setActiveModule(t.module);};
+  const storySources={stories:stories.map(teamStoryDocument),gameplay:gameplay.remote?.store};
+  const storyTargetList=storyTargets(storySources);
+  const onStoryReference=(r:StoryReference)=>{if(!canLeaveTeam()||r.sourceOnly)return;if(r.kind==='story'){openStory(r.targetId);}else if(r.kind==='gameplay'){setSelectedGameplayId(r.targetId);setActive('玩法设计');}};
+  const openSearchTarget=(t:SearchTarget)=>{if(accessBlocked||!canLeaveTeam())return false;onLeaveServer();if(t.module==='故事文档'){setRequestedStory(undefined);setSelectedId(t.id);}if(t.module==='玩法设计')setSelectedGameplayId(t.parent||t.id);setActiveModule(t.module);};
 
   return <GlobalSearchProvider navigationRevision={searchNavigation} activeModule={serverPage ? '服务器管理' : active} blocked={accessBlocked} sources={{stories:loaded&&!accessBlocked?stories:undefined,gameplay:gameplayEnabled&&!accessBlocked&&gameplay.remote?gameplay.remote.store:undefined}} warning={[!loaded?'故事文档正在加载':syncError,gameplayEnabled?gameplay.syncError||(!gameplay.loaded?'玩法设计正在加载':''):'', '仅搜索当前团队已共享且可访问的模块；未提交草稿不计入搜索。'].filter(Boolean).join('；')} onNavigate={()=>{if(!canLeaveTeam())return false;onLeaveServer();setActiveModule('全局搜索');}} onOpen={openSearchTarget}><div className="app team-project">
     {manageMembers && !accessBlocked && role === 'admin' && <TeamProjectDialog session={session} project={project} onClose={() => setManageMembers(false)} onSaved={() => setRefresh(value => value + 1)} />}
@@ -116,16 +124,16 @@ export function TeamProjectWorkspace({ project, session, picker, localProjects, 
       {overviewEnabled&&<div hidden={accessBlocked||active!=='项目概览'}><TeamOverview onSchedule={scheduleEnabled?()=>{if(canLeaveTeam())setActive('项目排期');}:undefined} blocked={accessBlocked} session={session} projectId={project.id} members={members} onMembers={()=>setManageMembers(true)} onDenied={status=>{setAccessDenied(true);if(status===410)setProjectDeleted(true);}}/></div>}
       {(session.apiVersion ?? 0) >= 7 && <div hidden={accessBlocked || active !== '玩法核心'}><TeamGameplayCore session={session} projectId={project.id} blocked={accessBlocked} designs={gameplay.remote?.store.designs} designsReady={!!gameplay.remote?.initialized} onOpenGameplay={id=>{if(canLeaveTeam()){setSelectedGameplayId(id);setActive('玩法设计');}}} onDenied={status=>{setAccessDenied(true);if(status===410)setProjectDeleted(true);}}/></div>}
       {scheduleEnabled&&<div hidden={accessBlocked||active!=='项目排期'}><TeamProjectSchedule session={session} projectId={project.id} blocked={accessBlocked} designs={gameplay.remote?.store.designs} onOpenGameplay={id=>{if(canLeaveTeam()){setSelectedGameplayId(id);setActive('玩法设计');}}} onDenied={status=>{setAccessDenied(true);if(status===410)setProjectDeleted(true);}}/></div>}
-      {gameplayEnabled&&<div hidden={accessBlocked||active!=='玩法设计'}><TeamGameplayDesign state={gameplay} session={session} projectId={project.id} stories={stories} selectedId={selectedGameplayId} onSelect={id=>{if(!canLeaveTeam())return false;setSelectedGameplayId(id);}} onOpenStory={id=>{if(canLeaveTeam()){setSelectedId(id);setActive('故事文档');}}}/></div>}
+      {gameplayEnabled&&<div hidden={accessBlocked||active!=='玩法设计'}><TeamGameplayDesign state={gameplay} session={session} projectId={project.id} stories={stories} selectedId={selectedGameplayId} onSelect={id=>{if(!canLeaveTeam())return false;setSelectedGameplayId(id);}} onOpenStory={id=>{if(canLeaveTeam()){openStory(id);}}}/></div>}
       <div hidden={active!=='故事文档'}>
       {writableStories && <div className="team-import-toolbar"><StoryImportDialog projects={localProjects} session={session} projectId={project.id} onImported={imported => {
-        imported.forEach(receive); if (imported.length) {leaveSearch();setSelectedId(imported[0].id);}
+        imported.forEach(receive); if (imported.length) openStory(imported[0].id);
       }} /></div>}
       {createError && <p className="team-message" role="alert">{createError}</p>}
       <div hidden={accessBlocked}>
       {selected ? <TeamStoryEditor key={selected.id} story={selected} documents={stories} session={session} role={writableStories ? role : 'viewer'} onSaved={receive} busy={createBusy}
-        onSelect={id => { if (canLeaveTeam()) {leaveSearch();setSelectedId(id);} }} onCreate={() => void create()} />
-        : loaded ? <StoryDocuments documents={[]} activeStoryId="" setActiveStoryId={() => {}} updateStory={() => {}} addStoryDoc={() => void create()} readOnly={!writableStories} busy={createBusy} />
+        onSelect={id => { if (!canLeaveTeam())return false;setSelectedId(id);setRequestedStory(undefined); }} onCreate={create} requestedId={requestedStory} targets={storyTargetList} incoming={id=>incomingStories(storySources,id)} onOpenReference={onStoryReference} />
+        : loaded ? <StoryDocuments documents={[]} activeStoryId="" setActiveStoryId={() => {}} updateStory={() => {}} workspaceKey={'team:'+session.serverId+':'+session.user.id+':'+project.id} enhanced={(session.apiVersion??0)>=11} addStoryDoc={create} readOnly={!writableStories} busy={createBusy} />
           : <p className="team-empty">等待团队内容…</p>}
       </div>
       </div>
@@ -133,9 +141,9 @@ export function TeamProjectWorkspace({ project, session, picker, localProjects, 
   </div></GlobalSearchProvider>;
 }
 
-function TeamStoryEditor({ story, documents, session, role, onSaved, onSelect, onCreate, busy }: {
+function TeamStoryEditor({ story, documents, session, role, onSaved, onSelect, onCreate, busy,targets,incoming,onOpenReference,requestedId }: {
   story: TeamStory; documents: TeamStory[]; session: TeamSession; role: TeamRole; onSaved: (story: TeamStory) => void;
-  onSelect: (id: string) => void; onCreate: () => void; busy: boolean;
+  onSelect: (id: string) => void|boolean; onCreate: (draft?:StoryDoc) => void|Promise<void>; busy: boolean; requestedId?:{id:string}; targets:StoryTarget[]; incoming:(id:string)=>StoryTarget[]; onOpenReference:(ref:StoryReference)=>void;
 }) {
   const key = `gamecreator.team-draft.v1:${session.serverId}:${session.user.id}:${story.projectId}:${story.id}`;
   const [initial] = useState(() => {
@@ -145,7 +153,7 @@ function TeamStoryEditor({ story, documents, session, role, onSaved, onSelect, o
         !['title', 'category', 'summary', 'content'].every(field => typeof value.fields[field as keyof TeamStoryFields] === 'string'))) throw new Error('本机草稿格式异常');
       const base = value ? { ...story, ...value.base } : story;
       const fields = value ? { ...storyFields(base), ...value.fields } : storyFields(story);
-      for (const frame of [storyFields(base), fields]) {
+      for (const frame of [storyFields(base), fields]) { validateStoryExtras(frame);
         if (!['title','category','summary','content','status'].every(field => typeof frame[field as keyof TeamStoryFields] === 'string') ||
           !frame.relations || ![frame.tags, frame.outlines, frame.relations.characters, frame.relations.locations, frame.relations.systems]
             .every(list => Array.isArray(list) && list.every(item => typeof item === 'string'))) throw new Error('本机草稿字段无效');
@@ -223,7 +231,7 @@ function TeamStoryEditor({ story, documents, session, role, onSaved, onSelect, o
       <div className="team-actions"><button disabled={readOnly || saving || !!initial.error} onClick={() => { change({ ...current.current, base: conflict }); setConflict(null); setSaveError(''); setMessage('已确认合并，请点击“保存到团队”提交'); }}>已合并，准备提交</button>
         <button disabled={saving || !!initial.error} onClick={() => { change({ base: conflict, fields: storyFields(conflict) }); setConflict(null); setSaveError(''); setMessage('已采用团队最新版本'); }}>采用最新版本并丢弃草稿</button></div>
     </section>}
-    <StoryDocuments documents={documents.map(item => item.id === story.id ? { ...draft.fields, id: item.id, updated: `${draft.base.updatedBy} · 版本 ${draft.base.revision}` } : teamStoryDocument(item))}
+    <StoryDocuments requestedId={requestedId} workspaceKey={'team:'+session.serverId+':'+session.user.id+':'+story.projectId} enhanced={(session.apiVersion??0)>=11} targets={targets} incoming={incoming} onOpenReference={onOpenReference} documents={documents.map(item => item.id === story.id ? { ...draft.fields, id: item.id, updatedAt:story.updatedAt, updated: `${draft.base.updatedBy} · 版本 ${draft.base.revision}` } : teamStoryDocument(item))}
       activeStoryId={story.id} setActiveStoryId={onSelect} addStoryDoc={onCreate} readOnly={readOnly || !!initial.error} busy={saving || busy}
       updateStory={(_id, changes) => { setMessage(''); setSaveError(''); change({ ...current.current, fields: storyFields({ ...current.current.base, ...current.current.fields, ...changes }) }); }}
       contextHeader={conflict && <section className="context-card team-latest" aria-label="团队最新版本"><h3>团队版本 {conflict.revision}</h3><StorySnapshot story={conflict} /></section>} />
@@ -235,6 +243,6 @@ function TeamStoryEditor({ story, documents, session, role, onSaved, onSelect, o
 
 function StorySnapshot({ story }: { story: TeamStory }) {
   return <div className="story-snapshot"><strong>{story.title}</strong><p>{story.category} · {story.status}</p><p>{story.summary || '无摘要'}</p><pre>{story.content}</pre>
-    <p>标签：{story.tags.join('、') || '无'}</p><p>大纲：{story.outlines.join(' / ') || '无'}</p>
+    <p>归档：{story.archived?'已归档':'有效文档'} · 格式：{story.format||'plain'}</p><p>条目引用：{story.references?.map(r=>r.label||r.targetId).join('、')||'无'}</p><p>标签：{story.tags.join('、') || '无'}</p><p>大纲：{story.outlines.join(' / ') || '无'}</p>
     <p>角色：{story.relations.characters.join('、') || '无'}</p><p>地点：{story.relations.locations.join('、') || '无'}</p><p>系统：{story.relations.systems.join('、') || '无'}</p></div>;
 }

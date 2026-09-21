@@ -17,6 +17,7 @@ function content(v: unknown, depth = 0): string {
 function references(v: unknown, depth = 0): string[] {
   if (depth > 12 || !v || typeof v !== 'object') return [];
   if (Array.isArray(v)) return v.flatMap(x => references(x, depth + 1));
+  if(row(v).sourceOnly===true)return [];
   return Object.entries(row(v)).flatMap(([k,x]) => k !== 'id' && /Ids?$/.test(k) ? (Array.isArray(x) ? x.map(str) : [str(x)]).filter(Boolean) : references(x, depth + 1));
 }
 export const targetKey = (t: SearchTarget) => JSON.stringify([t.module,t.kind || '',t.parent || '',t.id,t.scope || '']);

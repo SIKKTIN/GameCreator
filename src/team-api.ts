@@ -1,3 +1,4 @@
+import {storyExtras} from './story-library';
 export type TeamRole = 'admin' | 'editor' | 'viewer';
 export type ModulePermissions = { schedule: 'inherit' | 'view' | 'edit'; overview: 'inherit' | 'view' | 'edit'; stories: 'inherit' | 'view' | 'edit'; core: 'inherit' | 'view' | 'edit'; gameplay: 'inherit' | 'view' | 'edit' };
 export type TeamCapabilities = { schedule: 'view' | 'edit'; overview: 'view' | 'edit'; stories: 'view' | 'edit'; core: 'view' | 'edit'; gameplay: 'view' | 'edit' };
@@ -17,15 +18,15 @@ export const canEditModule = (session: TeamSession, role: TeamRole, capabilities
 export type DeletedPublication = { projectId: string; name: string; deletedAt: string };
 export type TeamPublication = { project: TeamProject; publishedAt: string; storyCount: number; overviewInitialized?: boolean; coreInitialized?: boolean; gameplayInitialized?: boolean; scheduleInitialized?: boolean };
 import type { StoryDoc } from './story-model';
-export type TeamStoryFields = Omit<StoryDoc, 'id' | 'updated'>;
+export type TeamStoryFields = Omit<StoryDoc, 'id' | 'updated' | 'updatedAt'>;
 export type TeamStory = TeamStoryFields & { id: string; projectId: string; revision: number; updatedAt: string; updatedBy: string };
 export const roleLabels: Record<TeamRole, string> = { admin: '管理员', editor: '编辑者', viewer: '只读成员' };
 export const storyFields = (story: TeamStory): TeamStoryFields => ({ title: story.title, category: story.category, summary: story.summary, content: story.content,
-  status: story.status, tags: story.tags, outlines: story.outlines, relations: story.relations });
+  status: story.status, tags: story.tags, outlines: story.outlines, relations: story.relations, ...storyExtras(story) });
 export const sameFields = (a: TeamStoryFields, b: TeamStoryFields) => a.title === b.title && a.category === b.category && a.summary === b.summary && a.content === b.content &&
   a.status === b.status && JSON.stringify(a.tags) === JSON.stringify(b.tags) && JSON.stringify(a.outlines) === JSON.stringify(b.outlines) &&
-  JSON.stringify(a.relations) === JSON.stringify(b.relations);
-export const teamStoryDocument = (story: TeamStory): StoryDoc => ({ ...storyFields(story), id: story.id, updated: `${story.updatedBy} · 版本 ${story.revision}` });
+  JSON.stringify(a.relations) === JSON.stringify(b.relations) && JSON.stringify(storyExtras(a)) === JSON.stringify(storyExtras(b));
+export const teamStoryDocument = (story: TeamStory): StoryDoc => ({ ...storyFields(story), id: story.id, updatedAt:story.updatedAt, updated: `${story.updatedBy} · 版本 ${story.revision}` });
 export const leaveTeamEvent = 'gamecreator:leave-team';
 export const canLeaveTeam = () => window.dispatchEvent(new Event(leaveTeamEvent, { cancelable: true }));
 

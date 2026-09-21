@@ -1,3 +1,4 @@
+import {storyExtras} from './story-library.ts';
 import {readLocalSchedule} from './team-schedule-publish.ts';
 import type {SchedulePublication} from './team-schedule-model.ts';
 import {readLocalGameplay} from './team-gameplay-publish.ts';
@@ -35,7 +36,7 @@ export function readPublicationPreview(storage: StorageReader, project: SavedPro
   const stories = local.map(story => {
     const id = text(story.id, '文档标识', 1000, true);
     if (ids.has(id)) throw new Error('本地文档标识重复，请修复后重新读取预览。'); ids.add(id);
-    return { id, title: text(story.title, '文档标题', 160, true), category: text(story.category, '文档分类', 80, true),
+    return { ...storyExtras(story), id, title: text(story.title, '文档标题', 160, true), category: text(story.category, '文档分类', 80, true),
       status: text(story.status, '文档状态', 80, true), summary: text(story.summary, '文档摘要', 2000), content: text(story.content, '文档正文', 100000),
       tags: list(story.tags, '标签'), outlines: list(story.outlines, '大纲'), relations: {
         characters: list(story.relations.characters, '关联角色'), locations: list(story.relations.locations, '关联地点'), systems: list(story.relations.systems, '关联系统'),

@@ -1,114 +1,71 @@
-import { AlignLeft, Bold, BookOpen, CalendarDays, Clock3, Eye, FileText, Italic, Link, ListTree, Map, Plus, Quote, Tag } from 'lucide-react';
-import type { StoryDoc } from './story-model';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import {useEffect,useMemo,useRef,useState,type ReactNode} from 'react';
+import {BookOpen,Plus,Search,ArrowLeft,ArrowRight,PanelLeftClose,PanelRightClose,PanelLeft,PanelRight,Maximize2,Minimize2,Bold,Italic,List,Quote,Link,Heading2,Minus,Copy,Archive,RotateCcw,Globe,UserRound,Map,Flag,FileText,X} from 'lucide-react';
+import type {StoryDoc,StoryReference} from './story-model';
+import {copyStory,filterStories,formatStorySelection,makeStory,storyBlocks,storyCategories,storyKinds,storyTemplates,type StoryFormat,type StoryTarget} from './story-library';
+import {StoryMarkdown} from './StoryMarkdown';
+import {workspaceStorage} from './workspace-storage';
+import {useSearchRequest,useLeaveSearch} from './GlobalSearch';
 import './story.css';
-
-export function StoryDocuments({
-  documents,
-  activeStoryId,
-  setActiveStoryId,
-  updateStory,
-  addStoryDoc,
-  readOnly = false, busy = false, contextHeader, listActions,
-}: {
-  documents: StoryDoc[];
-  activeStoryId: string;
-  setActiveStoryId: (id: string) => void;
-  updateStory: (id: string, changes: Partial<StoryDoc>) => void;
-  addStoryDoc: () => void;
-  readOnly?: boolean; busy?: boolean; contextHeader?: ReactNode; listActions?: ReactNode;
-}) {
-  const selected = documents.find((document) => document.id === activeStoryId) ?? documents[0];
-  if (!selected) return <section className="enum-catalog-empty"><BookOpen size={28} /><h3>暂无故事文档</h3><p>创建这个项目的第一份故事文档。</p>{!readOnly && <button className="primary" disabled={busy} onClick={addStoryDoc}>新建故事文档</button>}{listActions}</section>;
-  const characterCount = selected.content.replace(/\s/g, '').length;
-  const paragraphCount = selected.content.split(/\n+/).filter(Boolean).length;
-
-  return (
-    <section className="story-workspace">
-      <div className="story-list-panel">
-        <div className="story-panel-head">
-          <div><span className="section-kicker">STORY LIBRARY</span><h3>文档库</h3></div>
-          {!readOnly && <button className="icon-button" title="新建故事文档" aria-label="新建故事文档" disabled={busy} onClick={addStoryDoc}><Plus size={16} /></button>}
-        </div>
-        <div className="story-filter">
-          <button className="active">全部</button>
-          <button>世界观</button>
-          <button>剧情</button>
-          <button>角色</button>
-        </div>
-        {listActions}
-        <div className="story-doc-list">
-          {documents.map((document) => (
-            <button
-              className={`story-doc-card ${selected.id === document.id ? 'active' : ''}`}
-              key={document.id}
-              aria-label={'打开故事文档：' + document.title}
-              onClick={() => setActiveStoryId(document.id)}
-            >
-              <span className="doc-category">{document.category}</span>
-              <strong>{document.title}</strong>
-              <small>{document.summary}</small>
-              <span className="doc-meta"><Clock3 size={12} />{document.updated}<em>{document.status}</em></span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <fieldset disabled={readOnly || busy} className="story-editor-panel">
-        <div className="story-editor-top">
-          <input
-            className="story-title-input"
-            aria-label="文档标题"
-            maxLength={160}
-            value={selected.title}
-            onChange={(event) => updateStory(selected.id, { title: event.target.value })}
-          />
-          <div className="story-editor-actions">
-            <button title="预览"><Eye size={16} /></button>
-            <button title="引用"><Link size={16} /></button>
-          </div>
-        </div>
-        <div className="story-meta-grid">
-          <label><span>分类</span><select aria-label="文档分类" value={selected.category} onChange={(event) => updateStory(selected.id, { category: event.target.value })}>{!['世界观','主线剧情','角色设定','阵营设定','地点设定'].includes(selected.category) && <option>{selected.category}</option>}<option>世界观</option><option>主线剧情</option><option>角色设定</option><option>阵营设定</option><option>地点设定</option></select></label>
-          <label><span>状态</span><select aria-label="文档状态" value={selected.status} onChange={(event) => updateStory(selected.id, { status: event.target.value })}>{!['草稿','待补充','评审中','定稿'].includes(selected.status) && <option>{selected.status}</option>}<option>草稿</option><option>待补充</option><option>评审中</option><option>定稿</option></select></label>
-        </div>
-        <label className="story-summary"><span>摘要</span><textarea aria-label="文档摘要" maxLength={2000} value={selected.summary} onChange={(event) => updateStory(selected.id, { summary: event.target.value })} /></label>
-        <div className="editor-toolbar">
-          <button title="正文"><AlignLeft size={15} /></button>
-          <button title="加粗"><Bold size={15} /></button>
-          <button title="斜体"><Italic size={15} /></button>
-          <button title="引用"><Quote size={15} /></button>
-          <span />
-          <button title="添加标签"><Tag size={15} /></button>
-        </div>
-        <textarea
-          className="story-body"
-          aria-label="文档正文"
-          maxLength={100000}
-          value={selected.content}
-          onChange={(event) => updateStory(selected.id, { content: event.target.value })}
-        />
-      </fieldset>
-
-      <div className="story-context-panel">
-        {contextHeader}
-        <div className="context-card"><ListField label="文档标签" items={selected.tags} disabled={readOnly || busy} onChange={tags => updateStory(selected.id, { tags })} /></div>
-        <div className="context-card">
-          <div className="story-panel-head"><div><span className="section-kicker">OUTLINE</span><h3>文档大纲</h3></div><ListTree size={16} /></div>
-          <ListField label="文档大纲" items={selected.outlines} disabled={readOnly || busy} onChange={outlines => updateStory(selected.id, { outlines })} />
-        </div>
-        <div className="context-card">
-          <div className="story-panel-head"><div><span className="section-kicker">LINKED CONTENT</span><h3>关联设定</h3></div><Map size={16} /></div>
-          {([['characters', '关联角色'], ['locations', '关联地点'], ['systems', '关联系统']] as const).map(([key, label]) => <ListField key={key} label={label} items={selected.relations[key]} disabled={readOnly || busy} onChange={items => updateStory(selected.id, { relations: { ...selected.relations, [key]: items } })} />)}
-        </div>
-        <div className="context-card compact-card">
-          <div><CalendarDays size={16} /><span>最后编辑</span><strong>{selected.updated}</strong></div>
-          <div><FileText size={16} /><span>正文长度</span><strong>{characterCount} 字</strong></div>
-          <div><BookOpen size={16} /><span>段落数量</span><strong>{paragraphCount} 段</strong></div>
-        </div>
-      </div>
-    </section>
-  );
+type View={page:'home'|'category'|'editor';category:string|null;id:string;left:boolean;right:boolean;panel:string;mode:string;scroll:number};
+const initialView:View={page:'home',category:null,id:'',left:true,right:true,panel:'properties',mode:'edit',scroll:0};
+const icons={world:Globe,character:UserRound,map:Map,faction:Flag,plot:BookOpen};
+export function StoryDocuments({documents,activeStoryId,setActiveStoryId,updateStory,addStoryDoc,readOnly=false,busy=false,contextHeader,listActions,workspaceKey='default',targets=[],incoming=()=>[],onOpenReference,enhanced=true,requestedId}:{
+ documents:StoryDoc[];activeStoryId:string;setActiveStoryId:(id:string)=>void|boolean;updateStory:(id:string,changes:Partial<StoryDoc>)=>void;addStoryDoc:(draft?:StoryDoc)=>void|Promise<void>;
+ readOnly?:boolean;busy?:boolean;contextHeader?:ReactNode;listActions?:ReactNode;workspaceKey?:string;targets?:StoryTarget[];incoming?:(id:string)=>StoryTarget[];onOpenReference?:(r:StoryReference)=>void;enhanced?:boolean;requestedId?:{id:string};
+}){
+ const viewKey='gamecreator.story-view.v1:'+workspaceKey;
+ const leaveSearch=useLeaveSearch('故事文档');
+ const [view,setView]=useState<View>(()=>{try{const v=JSON.parse(workspaceStorage.getItem(viewKey)||'null');return v&&['home','category','editor'].includes(v.page)?{...initialView,...v}:initialView;}catch{return initialView;}});
+ const viewRef=useRef(view);viewRef.current=view;
+ const patchView=(patch:Partial<View>)=>{const next={...viewRef.current,...patch};viewRef.current=next;setView(next);try{workspaceStorage.setItem(viewKey,JSON.stringify(next));}catch{setNotice('阅读位置暂时无法保存，正文保存不受影响。');}};
+ const [query,setQuery]=useState(''),[status,setStatus]=useState('all'),[range,setRange]=useState('active'),[sort,setSort]=useState('updated'),[focus,setFocus]=useState(false),[notice,setNotice]=useState('');
+ const [creating,setCreating]=useState(false),[newTitle,setNewTitle]=useState(''),[newCategory,setNewCategory]=useState('世界观'),[template,setTemplate]=useState<keyof typeof storyTemplates>('blank'),[createBusy,setCreateBusy]=useState(false),[refKind,setRefKind]=useState<StoryReference['kind']>('story');
+ const dialog=useRef<HTMLDialogElement>(null),body=useRef<HTMLTextAreaElement>(null),contentArea=useRef<HTMLDivElement>(null),formatting=useRef(false);
+ const selected=documents.find(d=>d.id===activeStoryId),disabled=readOnly||busy||!!selected?.archived;
+ const categories=[...new Set([...documents.map(d=>d.category),...storyCategories.map(c=>c.name)])];
+ const category=view.page==='home'||query.trim()?null:view.category;
+ const visible=useMemo(()=>filterStories(documents,query,category,status,range,sort),[documents,query,category,status,range,sort]);
+ const headings=useMemo(()=>selected?.format==='markdown'?storyBlocks(selected.content).filter(b=>b.kind==='heading'):[],[selected?.content,selected?.format]);
+ const open=(id:string,fromSearch=false)=>{const d=documents.find(d=>d.id===id);if(!d||setActiveStoryId(id)===false)return;if(!fromSearch&&(id!==selected?.id||view.page!=='editor'))leaveSearch();patchView({page:'editor',category:d.category,id,scroll:id===view.id?view.scroll:0});setQuery('');setStatus('all');setRange(d.archived?'archived':'active');};
+ const searchRequest=useSearchRequest('故事文档',t=>documents.some(d=>d.id===t.id));
+ useEffect(()=>{if(searchRequest)open(searchRequest.id,true);},[searchRequest]);
+ useEffect(()=>{if(requestedId)open(requestedId.id);},[requestedId]);
+ useEffect(()=>{if(!searchRequest&&!requestedId&&view.page==='editor'&&view.id&&documents.some(d=>d.id===view.id)&&activeStoryId!==view.id)setActiveStoryId(view.id);},[]);
+ useEffect(()=>{if(view.page==='editor'&&selected&&view.id===selected.id)patchView({category:selected.category});},[selected?.category]);
+ useEffect(()=>{if(creating){dialog.current?.showModal();}else dialog.current?.close();},[creating]);
+ useEffect(()=>{const area=contentArea.current;if(area)area.scrollTop=viewRef.current.scroll;if(body.current)body.current.scrollTop=viewRef.current.scroll;},[selected?.id,view.mode,view.page]);
+ const navigateView=(patch:Partial<View>)=>{leaveSearch();patchView(patch);};
+ const create=(category=view.category||'世界观')=>{leaveSearch();setNewTitle('');setNewCategory(category);setTemplate('blank');setNotice('');setCreating(true);};
+ const submit=async()=>{if(!newTitle.trim()||!newCategory.trim()||createBusy)return;setCreateBusy(true);try{const d=makeStory(newTitle,newCategory,template);if(!enhanced)delete d.format;patchView({page:'editor',id:d.id,category:d.category,scroll:0});await addStoryDoc(d);setCreating(false);}catch(e){setNotice(String(e));}finally{setCreateBusy(false);}};
+ const copy=async()=>{if(!selected)return;leaveSearch();const d=copyStory(selected);try{patchView({page:'editor',id:d.id,category:d.category,scroll:0});await addStoryDoc(d);}catch(e){setNotice(String(e));}};
+ const applyFormat=(kind:StoryFormat)=>{const el=body.current;if(!el||!selected||disabled||!enhanced)return;const a=el.selectionStart,b=el.selectionEnd,{replacement,content}=formatStorySelection(el.value,a,b,kind);formatting.current=true;el.focus();el.setSelectionRange(a,b);const ok=document.execCommand('insertText',false,replacement);if(!ok)updateStory(selected.id,{content,format:'markdown'});else if(selected.format!=='markdown')updateStory(selected.id,{format:'markdown'});formatting.current=false;};
+ const jump=(line:number)=>{if(view.mode!=='edit'){contentArea.current?.querySelector('[data-story-line="'+line+'"]')?.scrollIntoView({block:'start'});return;}const el=body.current;if(!el||!selected)return;const offset=selected.content.split('\n').slice(0,line).reduce((n,l)=>n+l.length+1,0);el.focus();el.setSelectionRange(offset,offset);el.scrollTop=line*28;};
+ const linkLabel=(r:StoryReference)=>targets.find(t=>t.kind===r.kind&&t.targetId===r.targetId&&!r.sourceOnly)?.label||r.label||r.targetId;
+ const linked=(r:StoryReference)=>!r.sourceOnly&&targets.some(t=>t.kind===r.kind&&t.targetId===r.targetId&&!t.unavailable);
+ const categoryHome=view.page==='home'&&!query.trim()&&status==='all'&&range==='active';
+ return <section className={'story-workspace sl-workspace'+(focus?' sl-focused':'')} aria-label="故事文档工作区">
+  <div className="sl-topbar"><div className="sl-breadcrumb"><button onClick={()=>{navigateView({page:'home',category:null});setQuery('');setStatus('all');setRange('active');}}>文档分类</button>{view.category&&<><span>/</span><button onClick={()=>navigateView({page:'category'})}>{view.category}</button></>}{view.page==='editor'&&selected&&<><span>/</span><strong>{selected.title}</strong></>}</div><div className="sl-actions">{view.page==='editor'&&<><button aria-label="切换文档目录" onClick={()=>patchView({left:!view.left})}>{view.left?<PanelLeftClose size={17}/>:<PanelLeft size={17}/>}</button><button aria-label="切换文档属性" onClick={()=>patchView({right:!view.right})}>{view.right?<PanelRightClose size={17}/>:<PanelRight size={17}/>}</button><button onClick={()=>setFocus(!focus)}>{focus?<Minimize2 size={17}/>:<Maximize2 size={17}/>} {focus?'退出专注':'专注写作'}</button></>}{!readOnly&&<button className="primary" disabled={busy} onClick={()=>create()}><Plus size={16}/>新建故事文档</button>}</div></div>
+  {notice&&<p className="sl-notice" role="status">{notice}</p>}{!enhanced&&<p className="sl-notice">服务器升级后可使用 Markdown、归档和条目引用；现有文档仍可阅读与编辑。</p>}
+  {view.page!=='editor'||!selected?<>
+    <div className="sl-library-heading"><span>STORY LIBRARY</span><h2>{categoryHome?'让世界、人物与故事各有归处。':view.category||'全部故事文档'}</h2><p>{categoryHome?'先选择一个分类，再进入具体文档。':'查找设定、整理章节，继续你的创作。'}</p></div>
+    <div className="sl-filterbar"><label className="sl-search"><Search size={17}/><input aria-label="搜索故事文档" placeholder="搜索标题、正文或标签…" value={query} onChange={e=>setQuery(e.target.value)}/></label><select aria-label="故事状态筛选" value={status} onChange={e=>setStatus(e.target.value)}><option value="all">全部状态</option>{[...new Set(['草稿','待补充','评审中','定稿',...documents.map(d=>d.status)])].map(s=><option key={s}>{s}</option>)}</select><select aria-label="故事归档筛选" value={range} onChange={e=>setRange(e.target.value)}><option value="active">有效文档</option><option value="archived">已归档</option><option value="all">全部文档</option></select><select aria-label="故事排序" value={sort} onChange={e=>setSort(e.target.value)}><option value="updated">最近编辑</option><option value="title">标题顺序</option></select>{listActions}</div>
+    {categoryHome?<div className="sl-category-grid">{categories.map(name=>{const def=storyCategories.find(c=>c.name===name),Icon=icons[(def?.icon||'plot') as keyof typeof icons],docs=documents.filter(d=>d.category===name&&!d.archived);return <button className="sl-category" key={name} aria-label={'进入故事分类：'+name} onClick={()=>navigateView({page:'category',category:name})}><div><Icon size={25}/><span>{docs.length} 篇</span></div><h3>{name}</h3><p>{def?.description||'集中整理这一主题下的故事与设定。'}</p><small>{docs.length?`草稿 ${docs.filter(d=>d.status==='草稿').length} · 评审中 ${docs.filter(d=>d.status==='评审中').length} · 定稿 ${docs.filter(d=>d.status==='定稿').length}`:'从这个分类开始创作'}</small><ArrowRight size={17}/></button>;})}{!readOnly&&<button className="sl-category sl-custom" onClick={()=>create('')}><Plus size={28}/><h3>自定义分类</h3><p>为新文档指定一个适合项目的分类。</p></button>}</div>:<><p className="sl-muted">{visible.length} 篇文档</p><div className="sl-document-grid">{visible.map(d=><button className="sl-document" key={d.id} aria-label={'打开故事文档：'+d.title} onClick={()=>open(d.id)}><small>{d.category} · {d.archived?'已归档':d.status}</small><h3>{d.title}</h3><p>{d.summary||d.content.replace(/[#*`]/g,'').slice(0,120)||'尚未填写摘要'}</p><span>{d.tags.join(' · ')}</span><small>{d.updatedAt?new Date(d.updatedAt).toLocaleString('zh-CN'):d.updated}</small></button>)}</div>{!visible.length&&<div className="sl-empty"><BookOpen size={40}/><h3>{query?'没有找到匹配文档':'这个分类还没有文档'}</h3><p>从一份角色背景、地点说明或剧情梗概开始。</p>{!readOnly&&<button className="primary" disabled={busy} onClick={()=>create()}>创建故事文档</button>}</div>}</>}
+  </>:<div className={'sl-editor-layout'+(!view.left?' no-left':'')+(!view.right?' no-right':'')}>
+    {view.left&&<aside className="sl-directory"><button className="sl-back" onClick={()=>navigateView({page:'category'})}><ArrowLeft size={16}/>返回分类</button><select aria-label="切换故事分类" value={view.category||''} onChange={e=>navigateView({page:'category',category:e.target.value})}>{categories.map(c=><option key={c}>{c}</option>)}</select><h3>同分类文档</h3>{documents.filter(d=>d.category===selected.category&&!!d.archived===!!selected.archived).map(d=><button className={d.id===selected.id?'active':''} key={d.id} aria-label={'打开故事文档：'+d.title} onClick={()=>open(d.id)}><FileText size={15}/><span>{d.title}</span><small>{d.status}</small></button>)}</aside>}
+    <div className="sl-editor-main"><div className="sl-editor-heading"><input aria-label="文档标题" maxLength={160} value={selected.title} disabled={disabled} onChange={e=>updateStory(selected.id,{title:e.target.value})}/><div className="sl-actions"><span>{selected.archived?'已归档':selected.status}</span>{!readOnly&&<><button disabled={busy} onClick={()=>void copy()}><Copy size={15}/>复制文档</button>{enhanced&&<button disabled={busy} onClick={()=>updateStory(selected.id,{archived:!selected.archived})}>{selected.archived?<RotateCcw size={15}/>:<Archive size={15}/>} {selected.archived?'恢复文档':'归档文档'}</button>}</>}</div></div>
+    <div className="sl-modebar">{[['edit','编辑'],['read','阅读预览'],['split','分栏预览']].map(([id,label])=><button key={id} className={view.mode===id?'active':''} onClick={()=>patchView({mode:id})}>{label}</button>)}<small>{selected.content.replace(/\s/g,'').length} 字 · {selected.format==='markdown'?'Markdown':'纯文本'}</small></div>
+    {view.mode!=='read'&&<div className="sl-formatbar">{([['heading','标题',Heading2],['bold','加粗',Bold],['italic','斜体',Italic],['list','列表',List],['quote','引用',Quote],['rule','分隔线',Minus],['link','链接',Link]] as const).map(([id,label,Icon])=><button key={id} title={label} aria-label={label} disabled={disabled||!enhanced} onMouseDown={e=>e.preventDefault()} onClick={()=>applyFormat(id)}><Icon size={16}/></button>)}<span>使用标题组织长文，右侧目录会自动更新。</span></div>}
+    <div ref={contentArea} className={'sl-content sl-content-'+view.mode} onScroll={e=>{const scroll=e.currentTarget.scrollTop;viewRef.current={...viewRef.current,scroll};try{workspaceStorage.setItem(viewKey,JSON.stringify(viewRef.current));}catch{}}}>
+      {view.mode!=='read'&&<textarea key={selected.id} ref={body} className="story-body sl-body" aria-label="文档正文" maxLength={100000} spellCheck={false} onScroll={e=>{viewRef.current={...viewRef.current,scroll:e.currentTarget.scrollTop};try{workspaceStorage.setItem(viewKey,JSON.stringify(viewRef.current));}catch{}}} disabled={disabled} value={selected.content} onChange={e=>updateStory(selected.id,{content:e.target.value,...(formatting.current?{format:'markdown' as const}:{})})} onKeyDown={e=>{if((e.ctrlKey||e.metaKey)&&['b','i'].includes(e.key.toLowerCase())){e.preventDefault();applyFormat(e.key.toLowerCase()==='b'?'bold':'italic');}}}/>}
+      {view.mode!=='edit'&&<StoryMarkdown content={selected.content} markdown={selected.format==='markdown'}/>}
+    </div></div>
+    {view.right&&<aside className="sl-inspector">{contextHeader}<div className="sl-panel-tabs">{[['properties','属性'],['outline','大纲'],['links','关联']].map(([id,label])=><button key={id} className={view.panel===id?'active':''} onClick={()=>patchView({panel:id})}>{label}</button>)}</div>
+      {view.panel==='properties'?<fieldset disabled={disabled}><label>分类<input aria-label="文档分类" list="story-category-options" maxLength={80} value={selected.category} onChange={e=>updateStory(selected.id,{category:e.target.value})}/></label><datalist id="story-category-options">{categories.map(c=><option key={c} value={c}/>)}</datalist><label>状态<select aria-label="文档状态" value={selected.status} onChange={e=>updateStory(selected.id,{status:e.target.value})}>{[...new Set(['草稿','待补充','评审中','定稿',selected.status])].map(s=><option key={s}>{s}</option>)}</select></label><label>摘要<textarea aria-label="文档摘要" maxLength={2000} rows={5} value={selected.summary} onChange={e=>updateStory(selected.id,{summary:e.target.value})}/></label><label>正文格式<select aria-label="正文格式" disabled={!enhanced||disabled} value={selected.format||'plain'} onChange={e=>updateStory(selected.id,{format:e.target.value as 'plain'|'markdown'})}><option value="plain">纯文本</option><option value="markdown">Markdown</option></select></label><ListField label="文档标签" items={selected.tags} disabled={disabled} onChange={tags=>updateStory(selected.id,{tags})}/><p className="sl-muted">最后编辑<br/>{selected.updatedAt?new Date(selected.updatedAt).toLocaleString('zh-CN'):selected.updated}</p></fieldset>:view.panel==='outline'?<><h3>正文目录</h3>{headings.length?headings.map(h=><button className="sl-outline-item" key={h.line} style={{paddingLeft:10+(h.level!-1)*12}} onClick={()=>jump(h.line)}>{h.text}</button>):<p className="sl-muted">启用 Markdown 后，使用标题生成可跳转目录。</p>}<h3>创作提纲</h3><p className="sl-muted">保留写作前的想法，不随正文目录变化。</p><ListField label="文档大纲" items={selected.outlines} disabled={disabled} onChange={outlines=>updateStory(selected.id,{outlines})}/></>:<><h3>本文引用</h3>{(selected.references||[]).map(r=><div className="sl-ref" key={r.kind+':'+r.targetId}><button disabled={!linked(r)} onClick={()=>onOpenReference?.(r)}><small>{storyKinds[r.kind]}{!linked(r)?' · 来源或目标暂不可用':''}</small>{linkLabel(r)}</button>{!disabled&&enhanced&&<button aria-label={'解除引用：'+linkLabel(r)} onClick={()=>updateStory(selected.id,{references:selected.references?.filter(x=>x!==r)})}><X size={14}/></button>}</div>)}{!selected.references?.length&&<p className="sl-muted">暂无条目引用。</p>}{!disabled&&enhanced&&<><select aria-label="故事引用类型" value={refKind} onChange={e=>setRefKind(e.target.value as StoryReference['kind'])}>{Object.entries(storyKinds).map(([id,label])=><option key={id} value={id}>{label}</option>)}</select><select aria-label="添加故事引用" value="" onChange={e=>{const r=targets.find(t=>t.kind===refKind&&t.targetId===e.target.value);if(r)updateStory(selected.id,{references:[...(selected.references||[]),{kind:r.kind,targetId:r.targetId,label:r.label}]});}}><option value="">选择关联条目…</option>{targets.filter(t=>t.kind===refKind&&!t.unavailable&&!(t.kind==='story'&&t.targetId===selected.id)&&!selected.references?.some(r=>r.kind===t.kind&&r.targetId===t.targetId)).map(t=><option key={t.targetId} value={t.targetId}>{t.label}</option>)}</select></>}
+      <h3>引用本文</h3>{incoming(selected.id).map((r,i)=><button className="sl-ref-incoming" key={i} disabled={r.unavailable} onClick={()=>onOpenReference?.(r)}><small>{storyKinds[r.kind]}</small>{r.label}</button>)}{!incoming(selected.id).length&&<p className="sl-muted">暂无已登记的反向引用。</p>}<details><summary>文字关联设定</summary><p className="sl-muted">已有设定名称原样保留，可在上方绑定实际条目。</p>{([['characters','关联角色'],['locations','关联地点'],['systems','关联系统']] as const).map(([key,label])=><ListField key={key} label={label} items={selected.relations[key]} disabled={disabled} onChange={items=>updateStory(selected.id,{relations:{...selected.relations,[key]:items}})}/>)}</details></>}
+    </aside>}
+  </div>}
+  <dialog ref={dialog} className="sl-dialog" aria-label="新建故事文档" onCancel={()=>setCreating(false)}><form onSubmit={e=>{e.preventDefault();void submit();}}><h2>新建故事文档</h2><label>文档名称<input aria-label="新文档名称" autoFocus required maxLength={160} value={newTitle} onChange={e=>setNewTitle(e.target.value)}/></label><label>文档分类<input aria-label="新文档分类" required maxLength={80} list="new-story-categories" value={newCategory} onChange={e=>setNewCategory(e.target.value)}/></label><datalist id="new-story-categories">{categories.map(c=><option key={c} value={c}/>)}</datalist><label>内容模板<select aria-label="故事内容模板" value={template} disabled={!enhanced} onChange={e=>{const k=e.target.value as keyof typeof storyTemplates;setTemplate(k);if(k!=='blank')setNewCategory(storyTemplates[k].category);}}>{Object.entries(storyTemplates).map(([id,t])=><option key={id} value={id}>{t.name}</option>)}</select></label>{template!=='blank'&&<pre>{storyTemplates[template].content}</pre>}<div className="sl-actions"><button type="button" disabled={createBusy} onClick={()=>setCreating(false)}>取消</button><button className="primary" disabled={createBusy||busy||!newTitle.trim()||!newCategory.trim()}>{createBusy?'正在创建…':'创建文档'}</button></div></form></dialog>
+ </section>;
 }
 
 function ListField({ label, items, disabled, onChange }: { label: string; items: string[]; disabled: boolean; onChange: (items: string[]) => void }) {

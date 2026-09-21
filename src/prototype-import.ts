@@ -1,3 +1,4 @@
+import {validateStoryExtras} from './story-library.ts';
 import { emptyNumericalAnalysis, validateNumericalAnalysis, type NumericalAnalysisStore } from './numerical-analysis.ts';
 import { emptyProjectSchedule, validateProjectSchedule, projectScheduleIssues, buildScheduleSources, type ProjectScheduleStore } from './project-schedule.ts';
 import { emptyMapDesign, validateMapDesign, mapIssues, type MapDesignStore } from './map-design.ts';
@@ -76,7 +77,7 @@ export function validatePrototypeExample(value: unknown): PrototypeExample {
   }
 
   unique(value.stories, 'id', '故事文档');
-  for (const story of value.stories) {
+  for (const story of value.stories) { validateStoryExtras(story);
     requireValid(['title', 'category', 'status', 'updated', 'summary', 'content'].every(key => typeof story[key] === 'string'), '故事文档内容无效');
     requireValid(strings(story.tags) && strings(story.outlines) && record(story.relations) &&
       ['characters', 'locations', 'systems'].every(key => strings((story.relations as Record<string, unknown>)[key])), '故事文档关系无效');

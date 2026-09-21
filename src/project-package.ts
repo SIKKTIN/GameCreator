@@ -1,3 +1,4 @@
+import {validateStoryExtras} from './story-library.ts';
 import { emptyNumericalAnalysis, validateNumericalAnalysis, type NumericalAnalysisStore } from './numerical-analysis.ts';
 import { scheduleFromMilestones, validateProjectSchedule, type ProjectScheduleStore } from './project-schedule.ts';
 import { emptyMapDesign, validateMapDesign, type MapDesignStore } from './map-design.ts';
@@ -124,7 +125,7 @@ export function validateProjectPackage(value: unknown): ProjectPackageDocument {
     validateColumns(definition.columns, definition.key as string);
   }
   unique(archives.stories, 'id', '故事文档');
-  for (const story of archives.stories) requireValid(fields(story, ['title', 'category', 'status', 'updated', 'summary', 'content']) && strings(story.tags) && strings(story.outlines) && record(story.relations) && ['characters', 'locations', 'systems'].every(key => strings((story.relations as Record<string, unknown>)[key])), '故事文档结构无效');
+  for (const story of archives.stories) { validateStoryExtras(story); requireValid(fields(story, ['title', 'category', 'status', 'updated', 'summary', 'content']) && strings(story.tags) && strings(story.outlines) && record(story.relations) && ['characters', 'locations', 'systems'].every(key => strings((story.relations as Record<string, unknown>)[key])), '故事文档结构无效'); }
   requireValid(record(archives.project) && fields(archives.project, ['name', 'genre', 'platform', 'version', 'status', 'description']), '项目资料不完整');
   requireValid(Array.isArray(archives.milestones) && archives.milestones.every(item => record(item) && fields(item, ['title', 'owner', 'due']) && ['done', 'active', 'planned'].includes(item.status as string)), '里程碑结构无效');
   const normalized = structuredClone(value) as unknown as ProjectPackageDocument;

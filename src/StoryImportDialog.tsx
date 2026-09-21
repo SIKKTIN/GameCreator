@@ -32,6 +32,7 @@ export function StoryImportDialog({ projects, session, projectId, onImported }: 
     if (inFlight.current || !selected.size) return;
     inFlight.current = true; setBusy(true); setError(''); setResult('');
     try {
+      if((session.apiVersion??0)<11&&stories.filter(s=>selected.has(s.id)).some(s=>s.archived||s.format==='markdown'||s.references?.length))throw new Error('请升级并重新连接协作服务器，以完整导入文档格式、归档和引用。');
       const response = await teamRequest<{ imported: TeamStory[]; skipped: number }>(session.url, `/projects/${projectId}/stories/import`, session.token, 'POST', {
         sourceInstanceId: localSourceIdentity(workspaceStorage), sourceProjectId: sourceId, stories: stories.filter(item => selected.has(item.id)),
       });

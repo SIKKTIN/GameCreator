@@ -41,10 +41,11 @@ const pauseUntil = async (check, message) => {
     return { app, page };
   };
   const login = async (page, account) => {
-    if(await page.getByRole('main',{name:'工作区入口',exact:true}).isVisible()) await page.getByRole('tab',{name:'本地工作区',exact:true}).click();
-    await page.locator('.auth-submit, .ps-trigger').first().waitFor();
-    if (await page.getByRole('button', { name: '进入本地工作区', exact: true }).isVisible()) await page.getByRole('button', { name: '进入本地工作区', exact: true }).click();
-    await page.locator('.ps-trigger').waitFor();
+    if(!await page.locator('.ps-trigger').isVisible()) {
+      const entry=page.getByRole('main',{name:'工作区入口',exact:true});await entry.waitFor();await page.getByRole('tab',{name:'团队协作',exact:true}).click();
+      await entry.getByLabel('协作服务地址',{exact:true}).fill(serviceUrl);await entry.getByLabel('团队账号',{exact:true}).fill(account);await entry.getByLabel('团队密码',{exact:true}).fill(account+'123');
+      await entry.getByRole('button',{name:'登录团队协作',exact:true}).click();await page.locator('.team-project .story-workspace').waitFor();return;
+    }
     const dialog = page.getByRole('dialog', { name: '连接团队服务器', exact: true });
     if (!await dialog.isVisible()) {
       await page.locator('.ps-trigger').click(); await page.getByRole('menuitem', { name: '连接团队服务器', exact: true }).click();
@@ -55,7 +56,8 @@ const pauseUntil = async (check, message) => {
     await page.getByRole('button', { name: '连接并进入项目', exact: true }).click();
     await page.locator('.team-project .story-workspace').waitFor();
   };
-  const open = (page, title) => page.getByRole('button', { name: '打开故事文档：' + title, exact: true }).click();
+  const open = async (page, title) => {const target=page.getByRole('button',{name:'打开故事文档：'+title,exact:true});if(!await target.isVisible()){await page.getByRole('button',{name:'文档分类',exact:true}).click();await page.getByLabel('搜索故事文档',{exact:true}).fill(title);}await target.click();};
+  const metadata=async(page,label)=>{const tab=label==='文档大纲'?'大纲':label.startsWith('关联')?'关联':'属性';await page.locator('.sl-panel-tabs').getByRole('button',{name:tab,exact:true}).click();if(tab==='关联'){const details=page.locator('.sl-inspector details');if(await details.getAttribute('open')===null)await details.locator('summary').click();}return page.getByLabel(label,{exact:true});};
   const selectProject = async (page, name) => { await page.locator('.ps-trigger').click(); await page.getByRole('menuitemradio', { name: new RegExp('^' + name) }).click(); };
   const body = page => page.getByLabel('文档正文', { exact: true });
   const save = async page => {
@@ -78,15 +80,15 @@ const pauseUntil = async (check, message) => {
     await importer.getByRole('button', { name: '复制 1 篇到团队', exact: true }).click();
     await importer.getByText(/已复制 1 篇/).waitFor();
     await importer.getByRole('button', { name: '完成', exact: true }).click();
-    await b.page.getByRole('button', { name: '打开故事文档：本地完整故事', exact: true }).waitFor();
+    await b.page.getByRole('button',{name:'进入故事分类：角色设定',exact:true}).click();
     await open(b.page, '本地完整故事');
     for (const [label,value] of [['文档状态','评审中'],['文档标签','星核\n主角'],['文档大纲','起因\n转折'],['关联角色','艾拉'],['关联地点','灰炉'],['关联系统','声望']]) {
-      assert.equal(await b.page.getByLabel(label,{exact:true}).inputValue(),value);
+      assert.equal(await (await metadata(b.page,label)).inputValue(),value);
     }
-    await b.page.getByLabel('文档标签',{exact:true}).fill('星核\n已补充');
-    await b.page.getByLabel('文档大纲',{exact:true}).fill('起因\n转折\n结局');
-    await b.page.getByLabel('关联角色',{exact:true}).fill('艾拉\n诺恩');
-    await b.page.getByLabel('文档状态',{exact:true}).selectOption('定稿'); await save(b.page);
+    await (await metadata(b.page,'文档标签')).fill('星核\n已补充');
+    await (await metadata(b.page,'文档大纲')).fill('起因\n转折\n结局');
+    await (await metadata(b.page,'关联角色')).fill('艾拉\n诺恩');
+    await (await metadata(b.page,'文档状态')).selectOption('定稿'); await save(b.page);
     await pauseUntil(async()=>await a.page.getByLabel('文档状态',{exact:true}).inputValue()==='定稿','Full story metadata did not sync');
     await a.page.getByRole('button', { name: '从本地导入故事', exact: true }).click();
     await importer.getByRole('button', { name: '复制 1 篇到团队', exact: true }).click();
@@ -94,7 +96,7 @@ const pauseUntil = async (check, message) => {
     assert.equal(await a.page.evaluate(key => window.desktopClient.storage.getItem(key),sourceKey),sourceBefore);
     await open(a.page,'世界背景'); await body(a.page).fill('切换项目后仍存在的团队草稿');
     await selectProject(a.page,'本地原型'); await a.page.getByRole('button',{name:'故事文档',exact:true}).click();
-    assert.equal(await body(a.page).inputValue(),localStory.content);
+    await open(a.page,localStory.title);assert.equal(await body(a.page).inputValue(),localStory.content);
     assert.equal(await a.page.getByLabel('文档标签',{exact:true}).inputValue(),'星核\n主角');
     assert.ok(await a.page.getByRole('button',{name:'玩法设计',exact:true}).isEnabled());
     await a.page.locator('.ps-trigger').click();
@@ -123,10 +125,10 @@ const pauseUntil = async (check, message) => {
     await b.page.getByRole('region', { name: '文档修改历史', exact: true }).waitFor();
     assert.ok((await b.page.locator('.team-history').innerText()).includes('bob'));
     await b.page.getByRole('button', { name: '新建故事文档', exact: true }).click();
-    await pauseUntil(async()=>await b.page.getByLabel('文档标题',{exact:true}).inputValue()==='新的故事文档','New story was not selected');
+    const creator=b.page.getByRole('dialog',{name:'新建故事文档',exact:true});await creator.getByLabel('新文档名称').fill('新的故事文档');await creator.getByRole('button',{name:'创建文档',exact:true}).click();await pauseUntil(async()=>await b.page.getByLabel('文档标题',{exact:true}).inputValue()==='新的故事文档','New story was not selected');
     await b.page.getByLabel('文档标题', { exact: true }).fill('协作新增故事'); await save(b.page);
     await a.page.getByRole('button', { name: '打开故事文档：协作新增故事', exact: true }).waitFor();
-    await b.page.getByRole('button', { name: '断开团队连接', exact: true }).click(); await login(b.page, 'viewer');
+    await b.page.getByRole('button', { name: '断开团队连接', exact: true }).click(); await login(b.page, 'viewer');await open(b.page,'世界背景');
     assert.ok(await body(b.page).isDisabled());
     assert.equal(await b.page.getByRole('button', { name: '保存到团队', exact: true }).count(), 0);
     assert.equal(await b.page.getByRole('button', { name: '新建故事文档', exact: true }).count(), 0);
@@ -150,7 +152,7 @@ const pauseUntil = async (check, message) => {
     a = await launch('alice'); await login(a.page, 'alice'); await open(a.page, '世界背景');
     assert.notEqual(a.page.url(), oldUrl); assert.equal(await body(a.page).inputValue(), '需要恢复的本机草稿');
     // Stop and restart the actual service; drafts survive both an offline save and a renderer reload.
-    await service.close();
+    await (()=>{const closing=service.close();service.server.closeAllConnections();return closing;})();
     await body(a.page).fill('断线后保留的草稿');
     await a.page.getByRole('button', { name: '保存到团队', exact: true }).click();
     await a.page.getByText('无法连接协作服务，请确认服务正在运行。未提交的草稿保留在本机。', { exact: true }).first().waitFor();
@@ -169,6 +171,7 @@ const pauseUntil = async (check, message) => {
     assert.equal(await a.page.evaluate(key => window.desktopClient.storage.getItem(key), draftKey), JSON.stringify({ broken: true }));
     // Return to the existing local workspace without a team session overriding its login.
     await a.page.getByRole('button', { name: '断开团队连接', exact: true }).click();
+    await a.page.getByRole('main',{name:'工作区入口',exact:true}).waitFor();await a.page.getByRole('tab',{name:'本地工作区',exact:true}).click();await a.page.getByRole('button',{name:'进入本地工作区',exact:true}).click();
     await a.page.getByRole('button', { name: '故事文档', exact: true }).waitFor();
     assert.equal(await a.page.evaluate(key=>window.desktopClient.storage.getItem(key),sourceKey),sourceBefore);
     assert.equal(await a.page.evaluate(()=>JSON.parse(window.desktopClient.storage.getItem('gamecreator.projects.v1')).projects.length),2);
@@ -179,7 +182,7 @@ const pauseUntil = async (check, message) => {
     throw error;
   } finally {
     for (const app of apps) await app.close();
-    await service.close();
+    await (()=>{const closing=service.close();service.server.closeAllConnections();return closing;})();
     assert.ok(path.resolve(directory).startsWith(path.resolve(prefix)));
     await fs.rm(directory, { recursive: true, force: true });
   }
