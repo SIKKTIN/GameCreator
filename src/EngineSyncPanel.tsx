@@ -12,7 +12,7 @@ import {workspaceStorage} from './workspace-storage';
 import {beforeLogoutEvent} from './auth';
 import './engine-sync.css';
 
-type Props={projectId:string;config:EngineConfig;setConfig:(next:EngineConfig)=>Promise<boolean>|boolean;registry:EnumRegistry;onPickDirectory?:()=>Promise<string|null>;build:()=>AiDocument;art:ArtStore;blockedReason:string};
+type Props={projectId:string;config:EngineConfig;setConfig:(next:EngineConfig)=>Promise<boolean>|boolean;registry:EnumRegistry;onPickDirectory?:()=>Promise<string|null>;build:()=>AiDocument;art:ArtStore;blockedReason:string;onOpenAsset?:(id:string)=>void};
 const labels={added:'新增',updated:'更新',removed:'待移除',unchanged:'无变化',conflict:'冲突'};
 export function EngineSyncPanel(props:Props) {
   const [tab,setTab]=useState('connection'),[connectionDirty,setConnectionDirty]=useState(false);
@@ -23,7 +23,7 @@ export function EngineSyncPanel(props:Props) {
     <ContentSync key={props.projectId+':'+props.config.engine+':'+props.config.projectPath} {...props} blockedReason={connectionDirty?'工程连接有未保存的修改，请先保存工程连接再同步。':props.blockedReason} tab={tab} setTab={setTab}/>
   </section>;
 }
-function ContentSync({projectId,config,build,art,blockedReason,tab,setTab}:Props&{tab:string;setTab:(tab:string)=>void}) {
+function ContentSync({projectId,config,build,art,blockedReason,onOpenAsset,tab,setTab}:Props&{tab:string;setTab:(tab:string)=>void}) {
   const api=window.desktopClient?.engineSync,key='gamecreator.workspace.v1:'+projectId+':engine-sync-'+config.engine;
   const available=buildSafe();
   function buildSafe(){try{return build().sections.map(s=>s.id);}catch{return aiModules.map(m=>m.id);}}
@@ -37,6 +37,7 @@ function ContentSync({projectId,config,build,art,blockedReason,tab,setTab}:Props
   const [showUnchanged,setShowUnchanged]=useState(false),running=useRef(false),alive=useRef(true),token=useRef('');
   const [ownership,setOwnership]=useState<SyncBinding>(),[confirmBinding,setConfirmBinding]=useState(false),bindingToken=useRef(''),checkedBinding=useRef(false);
   const foreign=foreignSyncBinding(ownership);
+  const unadopted=art.assets.filter(a=>!a.archived&&!a.adoptedVersionId&&a.versions.some(v=>v.files.length>0));
   const dirty=JSON.stringify(settings)!==saved;
   const blocked=!api?'工程文件同步需要桌面客户端。浏览器仍可使用“生成 AI 文档”。':!config.projectPath?'请先在工程连接中配置并保存工程目录。':blockedReason;
   let invalid='';try{syncSettings(settings);if(settings.documents&&!settings.modules.some(m=>available.includes(m as typeof available[number])))invalid='请选择至少一个文档模块';}catch(e){invalid=(e as Error).message;}
@@ -97,6 +98,11 @@ function ContentSync({projectId,config,build,art,blockedReason,tab,setTab}:Props
     <EngineSyncBinding binding={ownership} busy={busy} blocked={blocked} confirming={confirmBinding} error={error} onRefresh={()=>void checkBinding()} onConfirm={()=>{setError('');setConfirmBinding(true);}} onCancel={()=>setConfirmBinding(false)} onRebind={()=>void rebind()}/>
     {blocked&&<p className="es-notice" role="status">{blocked}</p>}
     {error&&<p className="es-error" role="alert">{error}</p>}{notice&&<p className="es-success" role="status"><CheckCircle2 size={17}/>{notice}</p>}
+    {(tab==='settings'||tab==='preview')&&settings.assets&&unadopted.length>0&&<section className="es-notice es-material-pending" aria-label="未纳入同步的素材">
+      <strong>{unadopted.length} 项素材已有文件，但尚未采用，不会同步到引擎</strong>
+      <p>审核通过后，还需要点击“采用此版本”。下方文档同步成功并不代表这些图片已交付。</p>
+      <ul>{unadopted.map(asset=><li key={asset.id}><div><b>{asset.name}</b><small>{asset.versions.some(v=>v.files.length>0&&v.review==='已通过')?'已有审核通过的版本，请确认采用':'请先审核正式版本，或采用占位版本'}</small></div>{onOpenAsset&&<button className="gp-secondary" disabled={busy} onClick={()=>onOpenAsset(asset.id)}>查看并采用</button>}</li>)}</ul>
+    </section>}
     {tab==='settings'&&<>
       <div className="es-section-heading"><div><h3>同步范围与目录</h3><p>同步位置跟随已保存的工程连接。关闭某类同步会保留其已交付文件。</p></div><button className="primary" disabled={busy||!dirty||!!invalid} onClick={save}><Save size={16}/>保存同步配置</button></div>
       <fieldset disabled={busy} className="es-fields">
@@ -115,7 +121,7 @@ function ContentSync({projectId,config,build,art,blockedReason,tab,setTab}:Props
         <div className="es-summary">{Object.entries(labels).map(([status,label])=><span className={'es-state '+status} key={status}>{label} {plan.rows.filter(r=>r.status===status).length}</span>)}<label className="es-checkbox"><input type="checkbox" checked={showUnchanged} onChange={e=>setShowUnchanged(e.target.checked)}/>显示无变化</label></div>
         {!!plan.warnings.length&&<details className="es-notice"><summary>{plan.warnings.length} 项同步提示</summary>{plan.warnings.map((w,i)=><p key={i}>{w}</p>)}</details>}
         <div className="es-changes">{plan.rows.filter(r=>showUnchanged||r.status!=='unchanged').map(r=><article className="es-change" key={r.path}><div><span className={'es-state '+r.status}>{labels[r.status]}{r.remove&&r.status==='conflict'?' · 待移除':''}</span><b>{r.label}</b>{r.placeholder&&<small>占位素材</small>}<code title={root.replace(/[\\/]+$/,'')+'/'+r.path}>{root.replace(/[\\/]+$/,'')+'/'+r.path}</code><small>{r.version&&'版本：'+r.version+' · '}{r.reason}</small></div><div className="es-row-actions">{r.status==='conflict'&&<select aria-label={'冲突处理 '+r.path} disabled={busy} value={decisions[r.path]||''} onChange={e=>setDecisions(d=>({...d,[r.path]:e.target.value as 'keep'|'replace'}))}><option value="">请选择处理方式</option><option value="keep">保留工程文件，本次跳过</option><option value="replace">{r.remove?'备份并允许移除':'备份并使用 GameCreator 版本'}</option></select>}{r.remove&&<label className="es-checkbox"><input type="checkbox" aria-label={'确认移除 '+r.path} disabled={busy} checked={removals.includes(r.path)} onChange={e=>setRemovals(a=>e.target.checked?[...a,r.path]:a.filter(p=>p!==r.path))}/>确认移除</label>}</div></article>)}</div>
-        {plan.rows.every(r=>r.status==='unchanged')&&<p className="es-success"><CheckCircle2 size={20}/>所选范围的工程文件已是最新版本。</p>}
+        {plan.rows.every(r=>r.status==='unchanged')&&<p className="es-success"><CheckCircle2 size={20}/>{settings.assets&&unadopted.length?'已纳入同步的文件已是最新版本；上方未采用素材仍未同步。':'所选范围的工程文件已是最新版本。'}</p>}
         <div className="es-footer"><span>{unresolved?'请先处理冲突':actions?'本次处理 '+actions+' 个文件，覆盖前自动备份':'没有需要写入的变更'}</span><button className="primary" disabled={busy||foreign||!!blocked||!!unresolved||!actions} onClick={()=>void apply()}><FolderSync size={16}/>{busy?'正在同步…':'同步到工程'}</button></div>
       </>}
     </>}
