@@ -95,7 +95,6 @@ function createEngineSync({artFiles,beforeWrite=async()=>{}}) {
     const m=await manifest(ctx),desired=[],warnings=[];
     if(settings.documents) {
       for(const d of syncDocuments(input.document,settings.modules))desired.push({id:d.id,path:settings.docsDirectory+'/'+d.path,bytes:Buffer.from(d.content),kind:'document',label:d.id==='document:index'?'项目文档目录':input.document.sections.find(s=>'document:'+s.id===d.id)?.label||d.path,version:input.document.version});
-      if(ctx.engine==='godot-gdscript')desired.push({id:'document:ignore',path:settings.docsDirectory+'/.gdignore',bytes:Buffer.from('# Development documentation; not a runtime resource.\n'),kind:'document',label:'文档不参与 Godot 资源导入',version:''});
     }
     let totalBytes=desired.reduce((n,f)=>n+f.bytes.length,0);
     if(totalBytes>MAX_BYTES)throw new Error('文档超过 256 MB，请缩小同步范围');
@@ -129,6 +128,17 @@ function createEngineSync({artFiles,beforeWrite=async()=>{}}) {
     for(const old of m.value.files)if(!paths.has(old.path.normalize('NFC').toLowerCase())&&(old.kind==='document'?settings.documents:settings.assets)) {
       const current=await read(ctx,old.path),currentHash=current?hash(current):null;
       rows.push({...old,remove:true,currentHash,status:currentHash!==null&&currentHash!==old.hash?'conflict':'removed',reason:currentHash!==null&&currentHash!==old.hash?'待移除文件在工程中被修改':'不再属于当前同步范围'});
+    }
+    if(ctx.engine==='godot-gdscript') {
+      const ignored=new Set();
+      for(const directory of [settings.documents?settings.docsDirectory:null,settings.assets?settings.assetsDirectory:null].filter(Boolean)) {
+        const parts=directory.split('/');
+        for(let i=0;i<=parts.length;i++) {
+          const ignore=(i?parts.slice(0,i).join('/')+'/':'')+'.gdignore';
+          if(!ignored.has(ignore)&&await read(ctx,ignore)!==null) {ignored.add(ignore);warnings.push('Godot 会隐藏此目录及其子目录：'+ignore+'。若为旧版同步生成，请确认移除对应 .gdignore；其他忽略规则需在工程中检查。');}
+        }
+      }
+      for(const row of rows)if(row.id==='document:ignore'&&row.remove){row.label='解除 Godot 文档目录隐藏';row.reason=row.status==='conflict'?'旧版忽略文件已被修改，请确认是否移除':'移除此旧版忽略文件后，Godot 才能显示文档目录';}
     }
     const token=randomUUID(),now=Date.now();for(const [key,p] of plans)if(now-p.created>600000)plans.delete(key);
     if(plans.size>=4)plans.delete(plans.keys().next().value);
