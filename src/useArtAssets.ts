@@ -1,4 +1,5 @@
 import { artLibrary } from './art-library';
+import { writeArtItemDeletion, type ArtItemTarget } from './art-deletion';
 import { useEffect, useRef, useState } from 'react';
 import { workspaceStorage } from './workspace-storage';
 import { emptyArtAssets, readArtAssets, validateArtAssets, validateArtMutation, writeArtAssets, type ArtStore } from './art-assets';
@@ -28,13 +29,19 @@ export function useArtAssets(workspaceId: string, fileWorkspaceId = 'project:' +
     return persist(next);
   };
   const pending = !!saveError;
+  const remove = (target: ArtItemTarget, references: string[]) => {
+    if (initial.error) throw new Error('素材存档暂不可读，请恢复后再删除');
+    if (pending) throw new Error('请先保存尚未写入的素材修改，再删除');
+    const result = writeArtItemDeletion(workspaceStorage, key, committed.current, target, references);
+    committed.current = result.raw; latest.current = result.store; setStore(result.store); setOperationError('');
+  };
   useEffect(() => {
     if (!pending) return;
     const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ''; };
     window.addEventListener('beforeunload', warn);
     return () => window.removeEventListener('beforeunload', warn);
   }, [pending]);
-  return { workspaceId: fileWorkspaceId, store, update, retry: () => persist(latest.current), blocked: !!initial.error, pending,
+  return { workspaceId: fileWorkspaceId, store, update, remove, retry: () => persist(latest.current), blocked: !!initial.error, pending,
     error: initial.error ? '素材资产存档读取失败，已停止写入：' + initial.error : [saveError, operationError].filter(Boolean).join('；') };
 }
 export type ArtController = ReturnType<typeof useArtAssets>;

@@ -128,3 +128,11 @@
 .material-prompt-dialog { width:min(850px,calc(100vw - 40px)); max-height:85vh; overflow:auto; box-sizing:border-box; }
 .material-prompt-notice { color:#92d2b6; font-size:12px; }
 .material-prompt-dialog .gp-card-heading { align-items:center; }
+.ar-card-menu { position:fixed; z-index:1200; width:200px; box-sizing:border-box; padding:6px; border:1px solid #655079; border-radius:9px; background:#241d30; box-shadow:0 12px 35px #0008; }
+.ar-card-menu button { display:flex; align-items:center; gap:10px; width:100%; padding:12px; border:0; border-radius:5px; background:transparent; color:#f4acb7; font:inherit; text-align:left; cursor:pointer; }
+.ar-card-menu button:hover, .ar-card-menu button:focus-visible { background:#403049; outline:2px solid #b998ea; outline-offset:-2px; }
+.ar-delete-dialog { box-sizing:border-box; max-width:calc(100vw - 32px); max-height:85vh; overflow:auto; overflow-wrap:anywhere; }
+.ar-delete-dialog p, .ar-delete-references { line-height:1.8; }
+.ar-delete-references { color:#edcfa3; padding:14px; background:#302731; border-radius:8px; }
+.ar-delete-references ul { margin:8px 0 0; padding-left:20px; max-height:30vh; overflow:auto; }
+.ar-delete-dialog .ar-delete-confirm { border-color:#925063; color:#f4acb7; }

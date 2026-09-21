@@ -1,3 +1,4 @@
+import { externalArtReferences, type ArtItemTarget } from './art-deletion';
 import {useStoryDocuments} from './useStoryDocuments';
 import {storyTargets,incomingStories} from './story-targets';
 import {makeStory} from './story-library';
@@ -434,6 +435,11 @@ function WorkspaceApp({ username, testSession, onLoadTest, onExitTest, preparing
 
   const functionalSources = { designs: gameplay.store.designs, data: currentData, definitions };
   const artSources = { designs: gameplay.store.designs, functional: functional.store };
+  const artDeletionReferences = (target: ArtItemTarget) => {
+    const related = [prototype, maps, tasks, schedule, narrative, storyState];
+    if (related.some(c => c.blocked || c.pending)) return ['关联内容尚未保存或暂不可读，请恢复后再删除'];
+    return externalArtReferences(target, { prototype: prototype.store, maps: maps.store, tasks: tasks.store, schedule: schedule.store, narrative: narrative.store, stories: storyDocs });
+  };
   const openArtRequirement = (id: string) => { setArtSelection({ kind: 'requirement', id }); setActive('素材资产'); };
   const openCapability = (id: string) => { setFunctionalSelection({ kind: 'capability', id }); setActive('功能系统'); };
   const openGameplay = (id: string, kind = 'design', sourceId = '') => { setActiveGameplayId(id); setGameplaySource({ kind, id: sourceId }); setActive('玩法设计'); };
@@ -590,7 +596,7 @@ function WorkspaceApp({ username, testSession, onLoadTest, onExitTest, preparing
           if (link.kind === 'story') { openStory(link.targetId); }
           else { setActiveDataset(link.targetId); setActive('数据配置'); }
         }} />}
-        {active === '素材资产' && <ArtAssets controller={art} sources={artSources} selected={artSelection} onSelect={value=>{leaveSearch();setArtSelection(value);}} onOpenGameplay={openGameplay} onOpenCapability={openCapability} />}
+        {active === '素材资产' && <ArtAssets deletionReferences={artDeletionReferences} controller={art} sources={artSources} selected={artSelection} onSelect={value=>{leaveSearch();setArtSelection(value);}} onOpenGameplay={openGameplay} onOpenCapability={openCapability} />}
         {active === '功能系统' && <FunctionalSystems workspaceId={dataKey} renderArtReferences={c => <ArtReferences controller={art} sources={artSources} kind="capability" targetId={c.id} onOpenRequirement={openArtRequirement} />} controller={functional} sources={functionalSources} selected={functionalSelection} onSelect={value=>{leaveSearch();setFunctionalSelection(value);}} onOpenGameplay={openGameplay} onOpenDataset={key => { setActiveDataset(key); setActive('数据配置'); }} />}
         {active === '故事文档' && (storyState.pending||storyState.blocked) && <div className="sl-notice" role="alert">{storyError}<button disabled={storyState.blocked} onClick={storyState.retry}>重试保存故事文档</button><button onClick={()=>{if(!storyState.pending||window.confirm('重新读取会放弃未保存的故事草稿。请先导出备份，再确认继续。'))storyState.reload();}}>重新读取故事文档</button><button onClick={()=>{const u=URL.createObjectURL(new Blob([JSON.stringify(storyDocs,null,2)],{type:'application/json'})),a=document.createElement('a');a.href=u;a.download='story-draft.json';a.click();URL.revokeObjectURL(u);}}>导出故事草稿</button></div>}
         {active === '故事文档' && (
