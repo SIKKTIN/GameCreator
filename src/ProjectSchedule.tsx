@@ -1,3 +1,4 @@
+import {useSearchRequest} from './GlobalSearch';
 import { cloneElement, isValidElement, useEffect, useId, useRef, useState, type ReactElement, type ReactNode } from 'react';
 import { CalendarDays, Plus, Flag, CheckCircle2, Clock3, AlertTriangle, X, ExternalLink, Trash2, ChevronLeft, ChevronRight, Search, List, GanttChart } from 'lucide-react';
 import { ScheduleTimeline } from './ScheduleTimeline';
@@ -8,6 +9,8 @@ import './project-schedule.css';
 type Selection = { kind: 'task' | 'milestone'; id: string };
 type Props = { controller: ProjectScheduleController; sources: ScheduleSources; onOpenReference: (ref: ScheduleReference) => void; requested?: Selection; statusLabel?: string };
 export function ProjectSchedule({ controller: c, sources, onOpenReference, requested, statusLabel }: Props) {
+  const searchRequest=useSearchRequest('项目排期',t=>(t.kind==='milestone'?c.store.milestones:c.store.tasks).some(x=>x.id===t.id));
+  useEffect(()=>{if(searchRequest){setSelection({kind:searchRequest.kind==='milestone'?'milestone':'task',id:searchRequest.id});setQuery('');setStatus('all');setTab(searchRequest.kind==='milestone'?'milestones':'tasks');}},[searchRequest]);
   const [tab, setTab] = useState('timeline'), [query, setQuery] = useState(''), [status, setStatus] = useState('all'), [groupBy, setGroupBy] = useState('milestone');
   const [selection, setSelection] = useState<Selection | null>(null), [creating, setCreating] = useState<Selection['kind'] | null>(null), [newName, setNewName] = useState('');
   const [today, setToday] = useState(scheduleToday), [start, setStart] = useState(() => shiftScheduleDate(scheduleToday(), -3)), [days, setDays] = useState(42);

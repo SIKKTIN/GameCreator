@@ -35,7 +35,7 @@ export function SpatialCanvas(p: Props) {
   useEffect(() => { setCamera(fitRef.current()); setPreview(null); drag.current = null; setDragging(false); }, [view, roomId]);
   useEffect(() => { if (p.focusToken) setCamera(fitRef.current(true)); }, [p.focusToken]);
   const firstSize = useRef(false);
-  useEffect(() => { if (!firstSize.current && size.width !== 800) { firstSize.current = true; setCamera(fitRef.current()); } }, [size.width]);
+  useEffect(() => { if (!firstSize.current && size.width !== 800) { firstSize.current = true; setCamera(fitRef.current(!!p.focusToken)); } }, [size.width]);
   const zoomAt = (factor: number, x = size.width / 2, y = size.height / 2) => setCamera(c => { const zoom = Math.max(.000001, Math.min(5, c.zoom * factor)), ratio = zoom / c.zoom; return { x: x - (x - c.x) * ratio, y: y - (y - c.y) * ratio, zoom }; });
   const zoomRef = useRef(zoomAt); zoomRef.current = zoomAt;
   useEffect(() => { const el = svg.current; if (!el) return; const wheel = (e: WheelEvent) => { e.preventDefault(); const b = el.getBoundingClientRect(); zoomRef.current(Math.exp(-Math.max(-200, Math.min(200, e.deltaY)) * .003), e.clientX - b.left, e.clientY - b.top); }; el.addEventListener('wheel', wheel, { passive: false }); return () => el.removeEventListener('wheel', wheel); }, []);

@@ -1,3 +1,4 @@
+import {useSearchRequest} from './GlobalSearch';
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, ChevronsUpDown, Database, PanelLeftClose, PanelLeftOpen, PanelRight, Plus, RefreshCw, Search, SlidersHorizontal, Table2, Trash2, X } from 'lucide-react';
 import {
@@ -147,6 +148,8 @@ function DatasetEditor({ workspaceKey, data, onChange, definitions, activeDatase
     return Object.prototype.hasOwnProperty.call(tables, activeDataset) ? tables[activeDataset] : defaultDatasetViewState();
   },
     next => patchDatasetViewState(workspaceKey, activeDataset, next));
+  const searchRequest=useSearchRequest('数据配置');
+  useEffect(()=>{if(searchRequest?.kind==='record'&&searchRequest.parent===activeDataset)patchView({query:'',filter:'all',selectedId:searchRequest.id,detailOpen:true,scrollTop:0});},[searchRequest,activeDataset]);
   const [showFields, setShowFields] = useState(false);
   const [savingFields, setSavingFields] = useState(false);
   const scroll = useRef<HTMLDivElement>(null);

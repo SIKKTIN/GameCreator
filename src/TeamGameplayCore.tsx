@@ -1,3 +1,4 @@
+import {usePublishSearch} from './GlobalSearch';
 import type { CorePosition } from './core-selection';
 import { useEffect, useRef, useState } from 'react';
 import { beforeLogoutEvent } from './auth';
@@ -32,6 +33,7 @@ export function TeamGameplayCore({ session, projectId, blocked, onDenied, design
   const alive = useRef(true), savingRef = useRef(false), generation = useRef(0), request = useRef<{ signature: string; id: string } | null>(null);
   const route = `/projects/${encodeURIComponent(projectId)}/core`;
   const dirty = coreChanges(draft.base,draft.store).length > 0;
+  usePublishSearch('core',response?.store,'core',syncError||(!loaded?'玩法核心正在加载':''),!blocked&&loaded&&!!response);
   const readOnly = blocked || !loaded || !response || !canEditModule(session,response.role,response.capabilities,'core');
   const persist = (next: CoreDraft) => {
     if (initial.error) return false;

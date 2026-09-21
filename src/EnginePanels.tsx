@@ -1,3 +1,4 @@
+import {useSearchRequest} from './GlobalSearch';
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import './enum-definitions.css';
 import './project-switcher.css';
@@ -86,11 +87,15 @@ export function EngineSettings({ config, setConfig, registry, onPickDirectory }:
   </form>;
 }
 export function EnumDefinitions({ registry }: { registry: EnumRegistry }) {
+  const searchRequest=useSearchRequest('枚举定义');
+  useEffect(()=>{if(searchRequest)setQuery(searchRequest.parent||searchRequest.id);},[searchRequest]);
   const scan = registry.active?.scan;
   const [query, setQuery] = useState('');
+  useEffect(()=>{if(searchRequest?.kind==='member'){const frame=requestAnimationFrame(()=>document.querySelector('.gsearch-enum-focus')?.scrollIntoView({block:'center'}));return()=>cancelAnimationFrame(frame);}},[searchRequest,query]);
   const search = query.trim().toLowerCase();
   const matches = (text: string) => text.toLowerCase().includes(search);
   const groups = (scan?.groups ?? []).flatMap((group) => {
+    if(searchRequest?.scope && query===(searchRequest.parent||searchRequest.id) && group.source!==searchRequest.scope)return [];
     const members = matches(group.name) || matches(group.comment)
       ? group.members
       : group.members.filter((member) => matches(member.key) || matches(member.comment));
@@ -125,7 +130,7 @@ export function EnumDefinitions({ registry }: { registry: EnumRegistry }) {
           </div>
           {group.comment.trim() && <p className="enum-catalog-description">{group.comment}</p>}
           {members.length ? <ul className="enum-catalog-members">{members.map((member) =>
-            <li key={member.key}><code>{member.key}</code>
+            <li key={member.key} className={searchRequest?.kind==='member'&&searchRequest.parent===group.name&&searchRequest.id===member.key?'gsearch-enum-focus':undefined}><code>{member.key}</code>
               {member.comment.trim() && <span>{member.comment}</span>}
             </li>)}</ul> : <p className="enum-catalog-description">暂无成员</p>}
         </article>)}</div>

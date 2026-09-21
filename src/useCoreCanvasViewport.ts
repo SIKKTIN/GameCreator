@@ -96,7 +96,12 @@ export function useCoreCanvasViewport(containerRef: RefObject<HTMLDivElement | n
     // Keep keyboard activation working after the gesture; a new left press clears the token.
     if (pan.current || (suppressPanClick.current && event.detail > 0)) { event.preventDefault(); event.stopPropagation(); }
   };
-  return { ...view, panning, setZoom, resetView, endPan,
+  const focusPoint = useCallback((x:number,y:number) => {
+    const el=containerRef.current;if(!el||!el.clientWidth)return;
+    endPan();const zoom=Math.max(.7,latest.current.zoom);
+    applyView({zoom,x:el.clientWidth/2-x*zoom,y:el.clientHeight/2-y*zoom});
+  },[containerRef,endPan,applyView]);
+  return { ...view, panning, setZoom, resetView, endPan, focusPoint,
     handlers: {
       onPointerDownCapture: beginPan, onPointerMoveCapture: movePan, onPointerUpCapture: finishPan,
       onPointerCancelCapture: finishPan, onClickCapture: suppressCameraClick, onDoubleClickCapture: suppressCameraClick,

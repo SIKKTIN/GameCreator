@@ -1,3 +1,5 @@
+import {GlobalSearchProvider,GlobalSearchInput,GlobalSearchPanel,SearchReturn} from './GlobalSearch';
+import type {SearchTarget} from './global-search';
 import {TeamProjectSchedule} from './TeamProjectSchedule';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Check, Cloud, CloudOff, History, RefreshCw } from 'lucide-react';
@@ -90,7 +92,9 @@ export function TeamProjectWorkspace({ project, session, picker, localProjects, 
     finally { creating.current = false; if (alive.current) setCreateBusy(false); }
   };
   const selected = stories.find(item => item.id === selectedId);
-  return <div className="app team-project">
+  const openSearchTarget=(t:SearchTarget)=>{if(accessBlocked||!canLeaveTeam())return false;onLeaveServer();if(t.module==='故事文档')setSelectedId(t.id);if(t.module==='玩法设计')setSelectedGameplayId(t.parent||t.id);setActive(t.module);};
+
+  return <GlobalSearchProvider activeModule={active} blocked={accessBlocked} sources={{stories:loaded&&!accessBlocked?stories:undefined,gameplay:gameplayEnabled&&!accessBlocked&&gameplay.remote?gameplay.remote.store:undefined}} warning={[!loaded?'故事文档正在加载':syncError,gameplayEnabled?gameplay.syncError||(!gameplay.loaded?'玩法设计正在加载':''):'', '仅搜索当前团队已共享且可访问的模块；未提交草稿不计入搜索。'].filter(Boolean).join('；')} onNavigate={()=>{if(canLeaveTeam()){onLeaveServer();setActive('全局搜索');}}} onOpen={openSearchTarget}><div className="app team-project">
     {manageMembers && !accessBlocked && role === 'admin' && <TeamProjectDialog session={session} project={project} onClose={() => setManageMembers(false)} onSaved={() => setRefresh(value => value + 1)} />}
     <WorkspaceSidebar picker={picker} team teamSchedule={scheduleEnabled} teamGameplay={gameplayEnabled} teamOverview={overviewEnabled} teamCore={(session.apiVersion ?? 0) >= 7} active={serverPage ? adminPageName??'服务器管理' : active} onManageServer={onManageServer} onManageUsers={onManageUsers}
       onNavigate={name=>{if(canLeaveTeam()){onLeaveServer();setActive(name);}}} footer={<>
@@ -99,7 +103,8 @@ export function TeamProjectWorkspace({ project, session, picker, localProjects, 
     </>} />
     {serverPage}
     <main hidden={!!serverPage} className={active === '玩法核心' ? 'core-workspace-page' : undefined}><header><div><div className="crumb">{project.name} <span>/</span> 团队项目</div><h1>{active}</h1></div>
-      <div className="team-actions">{!accessBlocked && role === 'admin' && <button onClick={() => { if (canLeaveTeam()) setManageMembers(true); }}>成员管理</button>}<button onClick={onConnection}>连接设置</button><button onClick={onDisconnect}>断开团队连接</button></div></header>
+      <div className="team-actions"><GlobalSearchInput/>{!accessBlocked && role === 'admin' && <button onClick={() => { if (canLeaveTeam()) setManageMembers(true); }}>成员管理</button>}<button onClick={onConnection}>连接设置</button><button onClick={onDisconnect}>断开团队连接</button></div></header>
+      <SearchReturn active={active==='全局搜索'}/><GlobalSearchPanel active={active==='全局搜索'}/>
       <div className="team-project-info"><span>团队项目 · {session.url}</span><span>当前成员：{session.user.username} · {roleLabels[role]}</span><span>已共享：{scheduleEnabled ? '项目概览、项目排期、玩法核心、玩法设计、故事文档' : gameplayEnabled ? '项目概览、玩法核心、玩法设计、故事文档' : (session.apiVersion ?? 0) >= 7 ? '项目概览、玩法核心、故事文档' : overviewEnabled ? '项目概览、故事文档' : '故事文档'}</span></div>
       <div className={'team-sync ' + (syncError ? 'offline' : '')} role="status">{syncError ? <CloudOff size={16} /> : <Cloud size={16} />}
         <span>{syncError || (loaded ? '已连接 · 每 2 秒检查团队更新' : '正在读取团队故事…')}</span>
@@ -122,7 +127,7 @@ export function TeamProjectWorkspace({ project, session, picker, localProjects, 
       </div>
       </div>
     </main>
-  </div>;
+  </div></GlobalSearchProvider>;
 }
 
 function TeamStoryEditor({ story, documents, session, role, onSaved, onSelect, onCreate, busy }: {

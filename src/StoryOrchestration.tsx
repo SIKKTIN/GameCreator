@@ -1,3 +1,4 @@
+import {useSearchRequest} from './GlobalSearch';
 import { useEffect, useRef, useState } from 'react';
 import { BookOpen, GitBranch, Plus, Play, Archive, Copy } from 'lucide-react';
 import { always, conditionOperators, copyNarrative, createNarrative, effectsText, narrativeIssues, nodeKindNames, predicateText, removeNarrativeNode, type Narrative, type NarrativeNode, type StoryChoice, type StoryEffect, type StoryPredicate } from './story-orchestration';
@@ -37,6 +38,8 @@ function StoryRecovery({controller}:{controller:StoryOrchestrationController}) {
 
 export function StoryOrchestration({controller,data,tasks,selectedId,onSelect,onOpenTask,art,workspaceId,requestedCharacterId}:{requestedCharacterId?:string;controller:StoryOrchestrationController;data:ProjectData;tasks:Task[];art:ArtStore;workspaceId:string;selectedId:string;onSelect:(id:string)=>void;onOpenTask:(id:string)=>void}) {
   const {store,update,blocked}=controller;
+  const searchRequest=useSearchRequest('故事编排');
+  useEffect(()=>{if(!searchRequest)return;setQuery('');setRange('all');if(searchRequest.kind==='node'){const n=store.stories.find(s=>s.id===searchRequest.parent)?.nodes.find(n=>n.id===searchRequest.id);if(n){setScene(n.sceneId);setNode(n.id);setView('script');}}else setView(searchRequest.kind==='character'?'people':'script');},[searchRequest]);
   const [query,setQuery]=useState(''),[range,setRange]=useState('active'),[sceneId,setScene]=useState(''),[nodeId,setNode]=useState(''),[view,setView]=useState(requestedCharacterId?'people':'script'),[name,setName]=useState(''),[error,setError]=useState(''),[selectedState,setSelectedState]=useState('');
   const dialog=useRef<HTMLDialogElement>(null);
   const storedStory=store.stories.find(s=>s.id===selectedId), story=storedStory?resolveStoryActors(store,storedStory):undefined, scene=story?.scenes.find(s=>s.id===sceneId)??story?.scenes[0], node=story?.nodes.find(n=>n.id===nodeId && n.sceneId===scene?.id)??story?.nodes.find(n=>n.sceneId===scene?.id);

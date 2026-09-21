@@ -1,3 +1,4 @@
+import {usePublishSearch} from './GlobalSearch';
 import {useEffect,useRef,useState} from 'react';
 import {beforeLogoutEvent} from './auth';
 import {ProjectSchedule} from './ProjectSchedule';
@@ -46,6 +47,7 @@ export function TeamProjectSchedule({session,projectId,blocked,designs=[],onOpen
     catch(e){if(alive.current){setError((e as Error).message);if(e instanceof TeamError){if(e.status===409&&e.currentRecord)receive({...e.currentRecord as ScheduleSnapshot,role:response!.role,capabilities:response!.capabilities});if([401,403,410].includes(e.status))setResponse(undefined);}}}
     finally{savingRef.current=false;++generation.current;if(alive.current)setSaving(false);}
   };
+  usePublishSearch('schedule',response?.store,'schedule',syncError||(!loaded?'项目排期正在加载':''),!blocked&&loaded&&!!response);
   const controller:ProjectScheduleController={store:draft.store,pending:dirty,blocked:readOnly||saving||!!initial.error,error:'',reload:()=>false,retry:()=>persist(current.current),update:operation=>{if(readOnly||savingRef.current||initial.error)return false;try{const next=validateProjectSchedule(operation(structuredClone(current.current.store)));change({...current.current,store:next});setError('');return true;}catch(e){setError((e as Error).message);return false;}}};
   const sources:ScheduleSources={gameplay:designs.map(d=>({id:d.id,name:d.title,status:d.status,unavailable:d.archived})),capability:[],requirement:[],asset:[],map:[],prototype:[]};
   for(const r of draft.base.references)if(!sources[r.kind].some(s=>s.id===r.targetId))sources[r.kind].push({id:r.targetId,name:r.name,unavailable:true,status:r.kind==='gameplay'?'团队来源已删除':'来源模块尚未接入协作'});

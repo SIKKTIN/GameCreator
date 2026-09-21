@@ -1,3 +1,4 @@
+import {useSearchRequest} from './GlobalSearch';
 import { CORE_NODE_WIDTH as NODE_WIDTH, CORE_NODE_HEIGHT as NODE_HEIGHT, selectionRectangle, nodesInRectangle, moveCoreGroup, type CorePosition, type CanvasPoint, type SelectionRectangle } from './core-selection';
 import { useCallback, useEffect, useId, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { ArrowDownRight, ArrowLeft, ArrowRight, ChevronRight, Circle, CircleStop, CornerDownRight, GitBranch, Layers, Link2, Maximize2, Minus, MousePointer2, Play, Plus, RotateCcw, Trash2, Unlink, X } from 'lucide-react';
@@ -89,6 +90,8 @@ function edgeRoute(edge: CoreEdge, nodes: CoreNode[], index: number, outsideInde
 export function GameplayCore({ controller, designs, onOpenGameplay, team = false, teamDesignsReady = false, onMoveNodes, onGraphChange, statusLabel }: { controller: GameplayCoreController; designs: CoreDesignReference[]; onOpenGameplay: (id: string) => void;
   team?: boolean; teamDesignsReady?: boolean; onMoveNodes?: (positions: CorePosition[]) => void; onGraphChange?: (id: string) => void; statusLabel?: string }) {
   const { store, update, blocked } = controller;
+  const searchRequest=useSearchRequest('玩法核心',t=>{const g=store.graphs.find(g=>g.id===(t.parent||t.id));return !!g&&(t.kind==='node'?g.nodes.some(n=>n.id===t.id):t.kind==='edge'?g.edges.some(e=>e.id===t.id):true);});
+  useEffect(()=>{if(!searchRequest)return;setGraphId(searchRequest.parent||searchRequest.id);setSelected(searchRequest.kind==='node'||searchRequest.kind==='edge'?{kind:searchRequest.kind,id:searchRequest.id}:null);setLinking(false);setLinkFromId(null);},[searchRequest]);
   const [graphId, setGraphId] = useState(store.rootId), [selected, setSelected] = useState<Selection>(null);
   const [linking, setLinking] = useState(false), [linkFromId, setLinkFromId] = useState<string | null>(null);
   const [dragPositions, setDragPositions] = useState<CorePosition[] | null>(null), [marquee, setMarquee] = useState<SelectionRectangle | null>(null);
@@ -100,6 +103,13 @@ export function GameplayCore({ controller, designs, onOpenGameplay, team = false
   const markerId = 'gc-arrow-' + useId().replace(/:/g, '');
   const graph = store.graphs.find(g => g.id === graphId) ?? store.graphs.find(g => g.id === store.rootId);
   useEffect(() => { if (graph) onGraphChange?.(graph.id); }, [graph?.id,onGraphChange]);
+  useEffect(()=>{
+    if(!searchRequest||graph?.id!==(searchRequest.parent||searchRequest.id))return;
+    const target=graph?.nodes.find(n=>n.id===searchRequest.id) || (searchRequest.kind==='edge'?graph?.nodes.find(n=>n.id===graph.edges.find(e=>e.id===searchRequest.id)?.fromId):undefined);
+    if(!target)return;
+    const frame=requestAnimationFrame(()=>viewport.focusPoint(target.x+NODE_WIDTH/2,target.y+NODE_HEIGHT/2));
+    return()=>cancelAnimationFrame(frame);
+  },[searchRequest,graph?.id,viewport.focusPoint]);
   const selectedIds = selected?.kind === 'node' ? selected.ids ?? [selected.id] : [];
   const selectedNodes = graph?.nodes.filter(n => selectedIds.includes(n.id)) ?? [];
   const node = selectedNodes.length === 1 ? selectedNodes[0] : undefined;
