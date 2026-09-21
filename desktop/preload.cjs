@@ -26,5 +26,10 @@ contextBridge.exposeInMainWorld('desktopClient', {
   pickProjectDirectory: () => ipcRenderer.invoke('pick-project-directory'),
   validateProjectLocation: input => ipcRenderer.invoke('validate-project-location', input),
   prepareTestWorkspace: scenario => ipcRenderer.invoke('prepare-test-workspace', scenario),
-  writeMarkdown: (filename, content) => ipcRenderer.invoke('write-markdown', { filename, content }),
+  aiDocuments: {
+    options: () => ipcRenderer.invoke('ai-documents-options'),
+    chooseDirectory: initial => ipcRenderer.invoke('ai-documents-choose-directory', initial),
+    exportFolder: input => ipcRenderer.invoke('ai-documents-export', input),
+    reveal: token => ipcRenderer.invoke('ai-documents-reveal', token),
+  },
 });

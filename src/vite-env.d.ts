@@ -22,6 +22,11 @@ interface Window {
     pickProjectDirectory?: () => Promise<string | null>;
     validateProjectLocation?: (input: { projectPath: string; enumPath: string }) => Promise<{ projectPath: string; enumPath: string }>;
     prepareTestWorkspace?: (scenario: import('./test-scenarios').TestScenarioId) => Promise<import('./test-scenarios').PreparedTest>;
-    writeMarkdown?: (filename: string, content: string) => Promise<string>;
+    aiDocuments?: {
+      options: () => Promise<{defaultDirectory:string}>;
+      chooseDirectory: (initial:string) => Promise<string|null>;
+      exportFolder: (input:{directory:string;folderName:string;files:{path:string;content:string}[]}) => Promise<{directory:string;fileCount:number;token:string}>;
+      reveal: (token:string) => Promise<void>;
+    };
   };
 }

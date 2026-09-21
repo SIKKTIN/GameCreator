@@ -89,8 +89,8 @@ const root = path.resolve(__dirname, '..');
     assert.equal(await button('生成 AI 文档').isDisabled(), true); await click('返回启动页'); assert.equal(await field('节点说明').inputValue(), '保存失败后保留的核心草稿');
     await app.evaluate(({ ipcMain }) => { ipcMain.removeAllListeners('workspace-storage'); ipcMain.on('workspace-storage', globalThis.coreStorageHandler); });
     await click('重试保存玩法核心'); await wait(() => graph().nodes.find(n => n.title === '挑战关卡').description === '保存失败后保留的核心草稿', 'retry did not save');
-    await app.evaluate(({ ipcMain }) => { ipcMain.removeHandler('write-markdown'); ipcMain.handle('write-markdown', (_event, payload) => { globalThis.coreMarkdown = payload; return '隔离测试导出'; }); });
-    await click('生成 AI 文档'); const markdown = await app.evaluate(() => globalThis.coreMarkdown.content);
+    await app.evaluate(({ ipcMain }) => { ipcMain.removeHandler('ai-documents-export'); ipcMain.handle('ai-documents-export',(_event,payload)=>{payload={...payload,content:payload.files[0].content}; globalThis.coreMarkdown = payload; return {directory:'隔离测试导出',fileCount:payload.files.length,token:'test'}; }); });
+    await click('生成 AI 文档');await require('./ai-export-test-helper.cjs').finishAiExport(page); const markdown = await app.evaluate(() => globalThis.coreMarkdown.content);
     for (const text of ['## 玩法核心', '开始游戏', '所有关卡完成并击败 Boss', design.title]) assert.ok(markdown.includes(text), text);
     // Deleting a connection source must clear linking rather than crashing the canvas.
     const originalNodes = graph().nodes.length;

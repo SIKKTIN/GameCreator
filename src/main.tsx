@@ -83,7 +83,8 @@ import { patchDataViewState, readDataViewState, resolveActiveDataset } from './d
 import { projectIdentity, type DatasetKey, type DataRecord, type DatasetDef, type ProjectData } from './data-model';
 import { WorkspaceShell, beforeLogoutEvent } from './auth';
 import {WorkspaceEntry,TeamProjectSelection} from './WorkspaceEntry';
-import { buildAiMarkdown, saveAiMarkdown } from './ai-export';
+import { aiModules, buildAiDocument } from './ai-export';
+import { AiExportDialog } from './AiExportDialog';
 
 function WorkspaceController() {
   const username='本地';
@@ -364,6 +365,7 @@ function WorkspaceApp({ username, testSession, onLoadTest, onExitTest, preparing
   const leaveSearch = () => setSearchNavigation(n => n + 1);
   const setActive = (name: string) => { leaveSearch(); setActiveModule(name); };
 
+  const [aiExportOpen,setAiExportOpen] = useState(false);
   const [activeGameplayId, setActiveGameplayId] = useState('');
   const [gameplaySource, setGameplaySource] = useState<{ kind: string; id: string } | undefined>();
   const [functionalSelection, setFunctionalSelection] = useState<FunctionalSelection>(null);
@@ -430,12 +432,10 @@ function WorkspaceApp({ username, testSession, onLoadTest, onExitTest, preparing
   const progress = milestones.length ? Math.round((completedMilestones / milestones.length) * 100) : 0;
   const storageError = [definitionsError, storyError, projectError, registry.error, gameplay.error, functional.error, art.error, core.error, prototype.error, tasks.error, narrative.error, maps.error, schedule.error, analysis.error].filter(Boolean).join('；');
 
-  const exportAiContext = async () => {
-    if (testSession || gameplay.blocked || gameplay.pending || functional.blocked || functional.pending || art.blocked || art.pending || core.blocked || prototype.blocked || tasks.blocked || narrative.blocked || maps.blocked || schedule.blocked || analysis.blocked || core.pending || prototype.pending || tasks.pending || narrative.pending || maps.pending || schedule.pending || analysis.pending || storyState.pending) return;
-    const markdown = buildAiMarkdown(project, storyDocs, currentData, definitions, engineConfig, registry, gameplay.store.designs, functional.store, art.store, core.store, prototype.store, tasks.store, narrative.store, maps.store, gameplay.store.categories || [], schedule.store, analysis.store);
-    const location = await saveAiMarkdown(markdown, formalProject.id);
-
-    window.alert(`AI 文档已生成：${location}`);
+  const aiExportBlocked = testSession ? '测试工作区不生成正式项目文档' : storageError ? '请先处理项目读取或保存异常：'+storageError : registry.loading || registry.busy || gameplay.pending || functional.pending || art.pending || core.pending || prototype.pending || tasks.pending || narrative.pending || maps.pending || schedule.pending || analysis.pending || storyState.pending ? '请等待项目加载和保存完成后生成文档' : gameplay.blocked || functional.blocked || art.blocked || core.blocked || prototype.blocked || tasks.blocked || narrative.blocked || maps.blocked || schedule.blocked || analysis.blocked || storyState.blocked ? '部分项目存档暂不可读，请恢复后重试' : '';
+  const exportAiContext = () => {
+    if(aiExportBlocked)throw new Error(aiExportBlocked);
+    return buildAiDocument(project, storyDocs, currentData, definitions, engineConfig, registry, gameplay.store.designs, functional.store, art.store, core.store, prototype.store, tasks.store, narrative.store, maps.store, gameplay.store.categories || [], schedule.store, analysis.store);
   };
   const createDataset = async (definition: DatasetDef): Promise<boolean> => {
     if (creatingDataset.current) return false;
@@ -502,6 +502,7 @@ function WorkspaceApp({ username, testSession, onLoadTest, onExitTest, preparing
   const searchSources = useMemo(()=>({analysis:analysis.blocked?undefined:analysis.store,project:projectError?undefined:project,gameplay:gameplay.blocked?undefined:gameplay.store,core:core.blocked?undefined:core.store,functional:functional.blocked?undefined:functional.store,art:art.blocked?undefined:art.store,prototype:prototype.blocked?undefined:prototype.store,maps:maps.blocked?undefined:maps.store,narrative:narrative.blocked?undefined:narrative.store,schedule:schedule.blocked?undefined:schedule.store,tasks:tasks.blocked?undefined:tasks.store,stories:storyError?undefined:storyDocs,data:registry.data,definitions,enums:registry.active?.scan}),[analysis.store,analysis.blocked,project,projectError,gameplay.store,gameplay.blocked,core.store,core.blocked,functional.store,functional.blocked,art.store,art.blocked,prototype.store,prototype.blocked,maps.store,maps.blocked,narrative.store,narrative.blocked,schedule.store,schedule.blocked,tasks.store,tasks.blocked,storyDocs,storyError,registry.data,definitions,registry.active]);
   return (
     <GlobalSearchProvider navigationRevision={searchNavigation} activeModule={serverPage ? '服务器管理' : active} key={dataKey} sources={searchSources} warning={storageError ? "部分内容读取或保存异常，请检查各模块状态。" : ""} onNavigate={()=>{if(!canLeaveTeam())return false;onLeaveServer();setActiveModule('全局搜索');}} onOpen={openSearchTarget}><div className="app local-workspace">
+      {aiExportOpen&&<AiExportDialog projectId={formalProject.id} projectName={project.name} modules={aiModules.filter(m=>(m.id!=='maps'||maps.store.enabled)&&(m.id!=='narrative'||narrative.store.enabled)).map(m=>m.id)} build={exportAiContext} blockedReason={aiExportBlocked} onClose={()=>setAiExportOpen(false)}/>}
       <WorkspaceSidebar picker={<ProjectSwitcher projects={projectOptions} teamNotice={teamNotice} currentId={testSession ? null : formalProject.id} currentName={project.name}
           testName={testSession ? testScenarios.find(item=>item.id===testSession.scenario)?.name : undefined}
           canAdd busy={preparingTest || registry.busy || registry.loading || gameplay.pending || functional.pending || functional.blocked || art.pending || art.blocked || core.pending || prototype.pending || tasks.pending || narrative.pending || maps.pending || schedule.pending || analysis.pending || storyState.pending} onSelect={onSelectProject} onAdd={onAddProject} onDelete={onDeleteProject} onConnectTeam={onConnectTeam} onCreateTeam={onCreateTeam} onPublishProject={!testSession && !storageError ? onPublishProject : undefined} onImportPrototype={onImportPrototype} onImportProject={onImportProject} onExportProject={!testSession && !storageError ? onExportProject : undefined} />} active={serverPage ? adminPageName??'服务器管理' : active}
@@ -517,7 +518,7 @@ function WorkspaceApp({ username, testSession, onLoadTest, onExitTest, preparing
             {<TestPanel page={active} username={username} config={engineConfig} registry={registry} testSession={testSession}
               busy={preparingTest || gameplay.pending || functional.pending || functional.blocked || art.pending || art.blocked || core.pending || prototype.pending || tasks.pending || narrative.pending || maps.pending || schedule.pending || analysis.pending || storyState.pending} error={testError || storageError} onLoad={onLoadTest} onExit={onExitTest} onNavigate={setActive} />}
             <GlobalSearchInput/>
-            <button className="save" disabled={!!testSession || gameplay.blocked || gameplay.pending || functional.blocked || functional.pending || art.blocked || art.pending || core.blocked || prototype.blocked || tasks.blocked || narrative.blocked || maps.blocked || schedule.blocked || analysis.blocked || core.pending || prototype.pending || tasks.pending || narrative.pending || maps.pending || schedule.pending || analysis.pending || storyState.pending} title={testSession ? "测试工作区可在面板复制诊断信息" : undefined} onClick={exportAiContext}><FileText size={16} />生成 AI 文档</button>
+            <button className="save" disabled={!!aiExportBlocked} title={aiExportBlocked||undefined} onClick={()=>setAiExportOpen(true)}><FileText size={16} />生成 AI 文档</button>
             <span className="save" role="status">{storageError ? <AlertTriangle size={16} /> : <Check size={16} />}{storageError ? '请检查保存状态' : registry.busy ? '正在保存…' : '已自动保存'}</span>
           </div>
         </header>
