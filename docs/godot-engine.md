@@ -39,3 +39,7 @@
 - `npm run build` 后运行 `node tests/desktop-godot-engine.cjs`、`node tests/desktop-enum-review.cjs`、`node tests/desktop-project-switching.cjs`。桌面测试使用隔离临时项目；Playwright 可通过 `GAMECREATOR_PLAYWRIGHT_PATH` 指定。
 
 参考：[Godot 文件系统](https://docs.godotengine.org/en/stable/tutorials/scripting/filesystem.html)、[GDScript 枚举](https://docs.godotengine.org/en/stable/tutorials/scripting/gdscript/gdscript_basics.html#enums)。
+
+## 工程内容交付
+
+文档与已采用素材可通过引擎设置的同步分页交付到工程，包含范围选择、变更预览、冲突处理、备份与记录。参见 [工程内容同步](engine-content-sync.md)。配置表 JSON 输出仍未接入。

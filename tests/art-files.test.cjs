@@ -173,6 +173,8 @@ test('art IPC accepts only the trusted main frame and imports only native-dialog
     if (name === './test-workspaces.cjs') return {createWorkspaceStorage: () => ({}), prepareTestWorkspace: () => {}};
     if (name === './server.cjs') return {createDesktopServer: () => {}};
     if (name === './project-locations.cjs') return {validateProjectLocation: () => {}};
+    if (name === './ai-documents.cjs') return {createAiDocuments: () => ({})};
+    if (name === './engine-sync.cjs') return {createEngineSync: () => ({})};
     if (name === './legacy-storage.cjs') return {migrateLegacy: () => {}};
     if (name === './collaboration-host.cjs') return require(path.join(__dirname, '../desktop', name));
     return require(name);
@@ -185,6 +187,7 @@ test('art IPC accepts only the trusted main frame and imports only native-dialog
     for (const event of [{sender:{},senderFrame:frame}, {sender:contents,senderFrame:{url:frame.url}}]) await assert.rejects(handlers.get(channel)(event,payload), /不允许/);
   }
   assert.equal(calls.length,0); assert.equal(dialogs,0);
+  for(const operation of ['preview','apply','history','recover','release'])assert.throws(()=>handlers.get('engine-sync-'+operation)({sender:{},senderFrame:frame},{}),/不允许/);
   await assert.rejects(handlers.get('art-files-import')(trusted,{workspaceId:PROJECT,filePaths:['unselected']}), /工作区标识无效/);
   assert.equal(dialogs,0);
   await handlers.get('art-files-import')(trusted,PROJECT,['renderer-supplied-path']);
