@@ -8,14 +8,16 @@ const { createArtFiles, validateWorkspaceId } = require('./art-files.cjs');
 const { createProjectPackages, safeProjectDirectoryName } = require('./project-package.cjs');
 const { createCollaborationHost } = require('./collaboration-host.cjs');
 const { createAiDocuments } = require('./ai-documents.cjs');
+const { createFolderProjects } = require('./folder-projects.cjs');
 const { createEngineSync } = require('./engine-sync.cjs');
 
 const root = path.resolve(__dirname, '..');
 const dataDirectory = process.env.GAMECREATOR_DATA_DIR || path.join(root, '.gamecreator');
 if (process.env.GAMECREATOR_USER_DATA_DIR) app.setPath('userData', process.env.GAMECREATOR_USER_DATA_DIR);
-const storage = createWorkspaceStorage(dataDirectory);
-const artFiles = createArtFiles(dataDirectory);
-const projectPackages = createProjectPackages({dataDirectory, storage});
+const folders = createFolderProjects({legacyStorage:createWorkspaceStorage(dataDirectory),dataDirectory});
+const storage = folders.storage;
+const artFiles = createArtFiles(dataDirectory, {resolveWorkspaceDirectory:folders.assetDirectory});
+const projectPackages = createProjectPackages({dataDirectory, storage, resolveAssetDirectory:folders.assetDirectory});
 const aiDocuments = createAiDocuments({defaultDirectory:path.join(root,'generate')});
 const engineSync = createEngineSync({artFiles});
 const packageTokens = new Map();
@@ -52,10 +54,35 @@ else {
       else throw new Error('未知存档操作');
     } catch (error) { event.returnValue = { ok: false, error: error.message }; }
   });
+  ipcMain.handle('folder-project', async (event, operation, payload) => {
+    if (!trusted(event)) throw new Error('不允许访问项目文件夹');
+    if (operation === 'verify') return folders.verify(payload.id);
+    if (operation === 'open') {
+      const result = await dialog.showOpenDialog(mainWindow, {title:'打开 GameCreator 项目文件夹',properties:['openDirectory']});
+      if (result.canceled || !result.filePaths.length) return null;
+      if (!trusted(event)) throw new Error('原工作区已关闭');
+      const directory = result.filePaths[0];
+      if (!require('node:fs').existsSync(path.join(directory,'project.gamecreator'))) {
+        if(!require('node:fs').existsSync(path.join(directory,'manifest.json')))throw new Error('请选择包含 project.gamecreator 的项目文件夹，也支持旧版 manifest.json 文件夹');
+        const legacy = await projectPackages.readFolder(directory);
+        return folders.upgradeLegacy(directory, legacy.document);
+      }
+      return folders.open(directory);
+    }
+    if (operation === 'create') {
+      const result = await dialog.showSaveDialog(mainWindow, {title:'保存 GameCreator 项目（创建同名文件夹）',buttonLabel:'保存项目',defaultPath:safeProjectDirectoryName(payload.project.name)});
+      if (result.canceled || !result.filePath) return null;
+      if (!trusted(event)) throw new Error('原工作区已关闭');
+      return folders.create(result.filePath,payload.project,payload.entries,payload.sourceId,payload.expectedEntries);
+    }
+    throw new Error('未知项目操作');
+  });
   ipcMain.handle('reveal-project-data', async (event, projectId) => {
     if(!trusted(event))throw new Error('不允许打开项目数据目录');
     const catalog=JSON.parse(storage.getItem('gamecreator.projects.v1')||'null');
     if(typeof projectId!=='string'||!catalog?.projects?.some(project=>project.id===projectId))throw new Error('本地项目不存在，请刷新项目列表');
+    const projectFolder=folders.folder(projectId);
+    if(projectFolder){const error=await shell.openPath(projectFolder);if(error)throw new Error(error);return {directory:projectFolder,file:null};}
     const keys=['gamecreator.workspace.v1:'+projectId+':project','gamecreator.enum-versions.v1:'+projectId,
       ...['gameplay','art-assets','stories'].map(section=>'gamecreator.workspace.v1:'+projectId+':'+section)];
     const directory=path.resolve(storage.directory);
@@ -182,6 +209,7 @@ else {
   }
   app.whenReady().then(async () => {
     await migrateLegacy({ userData: app.getPath('userData'), dataDirectory, storage, BrowserWindow, session: session.defaultSession });
+    folders.refreshRecent();
     await createWindow();
     initializing = false;
   }).catch(error => {
@@ -189,6 +217,6 @@ else {
     app.quit();
   });
   app.on('window-all-closed', () => { if (!initializing && process.platform !== 'darwin') app.quit(); });
-  app.on('before-quit', () => { if (localServer) localServer.server.close(); });
+  app.on('will-quit', () => { folders.close(); if (localServer) localServer.server.close(); });
   app.on('activate', () => { if (!initializing && !mainWindow) void createWindow(); });
 }

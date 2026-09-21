@@ -5,7 +5,7 @@ import { projectIdentity } from './data-model.ts';
 // Keep the existing storage key so upgrades can discover the previous catalog.
 export const PROJECT_CATALOG_KEY = 'gamecreator.projects.v1';
 type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
-export type SavedProject = { id: string; name: string; config: EngineConfig; initialContent: 'legacy' | 'empty' };
+export type SavedProject = { id: string; name: string; config: EngineConfig; initialContent: 'legacy' | 'empty'; folderPath?: string };
 export type ProjectCatalog = { schema: 2; activeId: string; mode: 'project' | 'test'; projects: SavedProject[] };
 type LegacyProjectCatalog = Omit<ProjectCatalog, 'schema'> & { schema: 1 };
 
@@ -20,6 +20,7 @@ function validateCatalogVersion(value: ProjectCatalog | LegacyProjectCatalog, sc
         typeof project.name !== 'string' || !project.config || typeof project.config.projectPath !== 'string' || ids.has(project.id) ||
         (schema === 1 && (!project.config.projectPath.trim() || project.id !== projectIdentity(project.config.projectPath))) ||
         !['legacy', 'empty'].includes(project.initialContent) ||
+        (project.folderPath !== undefined && (typeof project.folderPath !== 'string' || !project.folderPath.trim())) ||
         ['engine', 'enumPath', 'dataPath', 'outputFormat'].some(key => typeof project.config[key as keyof EngineConfig] !== 'string') ||
         typeof project.config.autoSync !== 'boolean' || typeof project.config.backupBeforeSync !== 'boolean') {
       throw new Error('项目列表含无效或重复工程，已停止写入');

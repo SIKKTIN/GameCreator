@@ -128,7 +128,7 @@ function createArtFiles(dataDirectory, options = {}) {
     if (comparable(real) !== comparable(absolute)) throw new Error('素材文件目录超出受管目录');
     return absolute;
   }
-  function workspaceDirectory(workspaceId) { return path.join(artRoot, workspaceHash(workspaceId)); }
+  function workspaceDirectory(workspaceId) { return options.resolveWorkspaceDirectory?.(workspaceId) || path.join(artRoot, workspaceHash(workspaceId)); }
   async function checkedPath(workspaceId, storagePath) {
     if (typeof storagePath !== 'string' || !FILE_TOKEN.test(storagePath)) throw new Error('素材文件存储标识无效');
     const directory = workspaceDirectory(workspaceId);

@@ -243,6 +243,7 @@ test('project package IPC accepts only native-selected folders and window-owned 
     if (name === './engine-sync.cjs') return {createEngineSync: () => ({})};
     if (name === './legacy-storage.cjs') return {migrateLegacy() {}};
     if (name === './collaboration-host.cjs') return require(path.join(__dirname, '../desktop', name));
+    if (name === './folder-projects.cjs') return {createFolderProjects: ({legacyStorage}) => ({storage:legacyStorage,assetDirectory:()=>null,folder:()=>null,close:()=>{}})};
     return require(name);
   }, __dirname: path.resolve(__dirname, '../desktop'), process, URL};
   vm.runInNewContext(fsSync.readFileSync(path.join(__dirname, '../desktop/main.cjs'), 'utf8') + '\nglobalThis.setPackageWindow = (window, server) => {mainWindow=window;localServer=server;};', context);
