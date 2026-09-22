@@ -1,4 +1,5 @@
 import {useSearchRequest,useLeaveSearch} from './GlobalSearch';
+import {JsonObjectEditor} from './JsonObjectEditor';
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, ChevronsUpDown, Database, PanelLeftClose, PanelLeftOpen, PanelRight, Plus, RefreshCw, Search, SlidersHorizontal, Table2, Trash2, X } from 'lucide-react';
 import {
@@ -129,9 +130,9 @@ export function DataConfiguration({ workspaceKey, ...props }: Props) {
           <p>{registry.active ? '稳定版本 ' + registry.active.id.slice(0, 10) + ' · ' + registry.scan?.groups.length + ' 组枚举' : '尚无稳定枚举版本'}</p>
           <p>{registry.candidate ? '请到「枚举管理」审核更新；当前配置继续使用稳定版本。' : registry.ready ? '字段和记录自动保存到当前项目。' : !registry.sourceConfigured ? '可以先编写配置，后续在引擎设置中连接工程。' : '请到「枚举管理」审核首次导入。'}</p>
           {registry.blockingIssues.length > 0 && <ul>{registry.blockingIssues.map((issue, index) => <li key={index}>{issue}</li>)}</ul>}
-          <small>{registry.sourceWarning}引擎配置文件生成尚未接入。候选版本不参与当前数据解析。</small>
+          <small>{registry.sourceWarning}通过“数据同步”导入或导出工程 JSON。候选枚举版本不参与当前数据解析。</small>
         </div>}
-        {definition ? <DatasetEditor key={activeDataset} {...props} workspaceKey={workspaceKey} definition={definition} docked={width >= 1320} />
+        {definition ? data.jsonFormats?.[activeDataset]?.shape==='object'?<JsonObjectEditor key={activeDataset} data={data} table={activeDataset} onChange={props.onChange}/>:<DatasetEditor key={activeDataset} {...props} workspaceKey={workspaceKey} definition={definition} docked={width >= 1320} />
           : <div className="data-table-empty"><h3>还没有配置表</h3><p>新建一张配置表，开始整理原型数据。</p><button className="primary" onClick={() => setShowCreateTable(true)}><Plus size={15} />新建配置表</button></div>}
       </div>
     </div>
@@ -282,6 +283,7 @@ function FieldManager({ columns, definitions, registry, onApply, onClose, onBusy
         update(index, { type: event.target.value as ColumnDef['type'], enumId: undefined, enumName: undefined, options: undefined,
           reference: event.target.value === 'reference' ? definitions[0]?.key ?? '' : undefined })}>
         <option value="text">文本</option><option value="enum">枚举</option><option value="reference">跨表引用</option></select>
+      {column.type!=='enum'&&<select aria-label={column.key+' JSON 类型'} disabled={column.key==='id'} value={column.jsonType||''} onChange={e=>update(index,{jsonType:e.target.value?e.target.value as ColumnDef['jsonType']:undefined})}><option value="">JSON：沿用导入类型 / 默认字符串</option>{(['string','number','boolean','null','array','object'] as const).map(t=><option key={t} value={t}>JSON：{t}</option>)}</select>}
       {column.type === 'enum' && <div className="enum-binding">
         <select aria-label={column.key + ' 绑定枚举'} disabled={!registry.ready} value={column.enumId ?? ''} onChange={(event) => {
           const group = registry.scan?.groups.find((item) => enumId(item) === event.target.value);

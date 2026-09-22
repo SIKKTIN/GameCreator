@@ -66,14 +66,7 @@ export function EngineSettings({ config, setConfig, registry, onPickDirectory, o
         {onPickDirectory && <button type="button" className="engine-directory-button" disabled={locked} onClick={() => void pickDirectory()}><FolderOpen size={15} aria-hidden="true" />{picking ? '正在选择…' : '选择目录'}</button>}
       </div><small id={`${id}-project-hint`}>{draft.engine==='godot-gdscript'?'选择包含 project.godot 的 Godot 4 工程根目录。':'选择绿洲启元游戏工程根目录。'}留空并保存可暂不绑定引擎，项目内容仍独立保留。</small></div>
       <div className="settings-grid"><label>枚举定义目录<input aria-label="枚举定义目录" required={!!draft.projectPath.trim()} value={draft.enumPath} onChange={(event) => update('enumPath', event.target.value)} disabled={saving || picking} /><small>{draft.engine==='godot-gdscript'?'支持相对路径或 res://，默认扫描整个工程，跳过 .godot 缓存。':'相对于项目目录'}</small></label>
-        <label>数据输出目录<input aria-label="数据输出目录" value={draft.dataPath} onChange={(event) => update('dataPath', event.target.value)} disabled={saving || picking} /><small>配置文件的预留输出位置（文件生成待接入）</small></label></div>
-    </div>
-    <div className="settings-card"><h3>数据配置输出（预留）</h3>
-      <div className="setting-option"><div><b>输出格式</b><small>{draft.engine==='godot-gdscript'?'JSON 配置（导出待接入）':'Lua 配置（导出待接入）'}</small></div><select aria-label="输出格式" value={draft.outputFormat} onChange={(event) => update('outputFormat', event.target.value)} disabled={saving || picking}><option value={adapter.outputFormat}>{adapter.outputFormat.toUpperCase()}</option>{draft.outputFormat!==adapter.outputFormat&&<option value={draft.outputFormat}>旧配置：{draft.outputFormat}</option>}</select></div>
-      <div className="setting-option"><div><b>自动同步</b><small>保存数据配置后自动生成引擎配置文件（待接入）</small></div>
-        <button type="button" className={draft.autoSync ? 'toggle on' : 'toggle'} aria-label="自动同步" disabled><span /></button></div>
-      <div className="setting-option"><div><b>同步前备份</b><small>配置文件生成时保留上一版；文档与素材同步始终自动备份</small></div>
-        <button type="button" className={draft.backupBeforeSync ? 'toggle on' : 'toggle'} aria-label="同步前备份" aria-pressed={draft.backupBeforeSync} disabled={saving || picking} onClick={() => update('backupBeforeSync', !draft.backupBeforeSync)}><span /></button></div>
+        </div><p>数据配置目录、JSON 导入导出与自动导出设置已移至“数据同步”模块。</p>
     </div>
     <div className="settings-footer engine-settings-footer"><span>{dirty ? '有未保存的设置，保存后生效' : window.desktopClient?.storage ? '设置保存在本地磁盘' : '设置保存在当前浏览器'}</span>
       <div className="engine-settings-actions"><button type="button" className="engine-test-button" disabled={locked || dirty || !registry.sourceConfigured} title={dirty ? '请先保存设置，再测试连接' : !registry.sourceConfigured ? '请先配置并保存游戏工程目录' : undefined} onClick={() => { if (!locked && !dirty && registry.sourceConfigured) void registry.refresh(); }}>

@@ -33,6 +33,11 @@ contextBridge.exposeInMainWorld('desktopClient', {
   validateProjectLocation: input => ipcRenderer.invoke('validate-project-location', input),
   prepareTestWorkspace: scenario => ipcRenderer.invoke('prepare-test-workspace', scenario),
   engineSync: {
+    dataPreview: input => ipcRenderer.invoke('engine-sync-dataPreview',input),
+    dataApply: input => ipcRenderer.invoke('engine-sync-dataApply',input),
+    dataRecover: input => ipcRenderer.invoke('engine-sync-dataRecover',input),
+    dataUndo: input => ipcRenderer.invoke('engine-sync-dataUndo',input),
+    dataRelease: input => ipcRenderer.invoke('engine-sync-dataRelease',input),
     feedbackScan: input => ipcRenderer.invoke('engine-sync-feedbackScan',input),
     feedbackApply: input => ipcRenderer.invoke('engine-sync-feedbackApply',input),
     feedbackApplyBatch: input => ipcRenderer.invoke('engine-sync-feedbackApplyBatch',input),

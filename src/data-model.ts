@@ -6,11 +6,13 @@ export type DataRecord = Record<string, string> & { id: string };
 export type ColumnDef = {
   key: string; label: string; type?: 'text' | 'enum' | 'reference';
   options?: string[]; enumName?: string; enumId?: string; reference?: DatasetKey;
+  jsonType?: 'string'|'number'|'boolean'|'null'|'array'|'object';
 };
 export type DatasetDef = { key: DatasetKey; label: string; badge: string; columns: ColumnDef[] };
 export type ProjectData = {
   datasets: Record<DatasetKey, DataRecord[]>;
   columns: Record<DatasetKey, ColumnDef[]>;
+  jsonFormats?: Record<string,import('../shared/data-sync.mjs').JsonFormat>;
 };
 export type RegistrySnapshot = { scan: EnumScan | null; ready: boolean };
 

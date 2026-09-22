@@ -563,6 +563,7 @@ function createProjectPackages({dataDirectory, storage, resolveAssetDirectory}) 
     if(Object.hasOwn(document.archives,'program-framework'))(await import('../shared/program-framework.mjs')).validateProgramFramework(document.archives['program-framework']);
     const engineValidation=await import('../shared/engine-config.mjs');engineValidation.validateEngineConfig(document.project.config);
     for(const snapshot of document.archives['enum-versions']?.snapshots||[])engineValidation.validateEngineScanMetadata(snapshot.scan);
+    (await import('../shared/data-sync.mjs')).validateDataSync(document.archives['enum-versions']);
     checkSnapshot(projectId, document, snapshot);
     const assets = referencedFiles(document), destination = path.resolve(directory), parent = path.dirname(destination);
     if (destination === path.parse(destination).root || activeExports.has(comparable(destination))) throw new Error('目标文件夹已存在或正在导出');
@@ -650,6 +651,7 @@ function createProjectPackages({dataDirectory, storage, resolveAssetDirectory}) 
     if(Object.hasOwn(document.archives,'program-framework'))(await import('../shared/program-framework.mjs')).validateProgramFramework(document.archives['program-framework']);
     const engineValidation=await import('../shared/engine-config.mjs');engineValidation.validateEngineConfig(document.project.config);
     for(const snapshot of document.archives['enum-versions']?.snapshots||[])engineValidation.validateEngineScanMetadata(snapshot.scan);
+    (await import('../shared/data-sync.mjs')).validateDataSync(document.archives['enum-versions']);
     if (document.project.name !== manifest.projectName) throw new Error('项目名称与清单不一致');
     const assets = referencedFiles(document);
     for (const [token, file] of assets) if (entries.get('assets/' + token)?.size !== file.size) throw new Error('素材资产引用文件缺失或大小不一致：' + (file.name || token));

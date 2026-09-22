@@ -1,4 +1,5 @@
 import { DevelopmentTools } from './DevelopmentTools';
+import {DataSyncPanel,useAutomaticDataExport} from './DataSyncPanel';
 import { useDevelopmentTools } from './useDevelopmentTools';
 import { supplementDevelopmentPlan, validateDevelopmentTools } from './development-tools';
 import { validateProjectSchedule } from './project-schedule';
@@ -427,7 +428,7 @@ function WorkspaceApp({ username, testSession, onLoadTest, onExitTest, preparing
   const currentData = registry.data;
   const [allDefinitions, setDefinitions, definitionsError] = useStoredState<DatasetDef[]>('gamecreator.workspace.v1:' + dataKey + ':definitions', isNewProject ? emptyDatasetDefinitions : datasetDefinitions);
   const definitions = Object.keys(currentData.datasets).map(key =>
-    ({ ...(allDefinitions.find(item => item.key === key) ?? { key, label: key, badge: '' }), columns: currentData.columns[key] }));
+    ({ ...(allDefinitions.find(item => item.key === key) ?? { key, label: key, badge: '' }), ...(currentData.jsonFormats?.[key]?{label:key}:{}), columns: currentData.columns[key] }));
   const currentDataset = resolveActiveDataset(definitions, currentData, activeDataset);
   useEffect(() => {
     if (active !== '数据配置' || !currentDataset || currentDataset === activeDataset) return;
@@ -456,6 +457,7 @@ function WorkspaceApp({ username, testSession, onLoadTest, onExitTest, preparing
   const storageError = [definitionsError, storyError, projectError, registry.error, gameplay.error, functional.error, art.error, core.error, prototype.error, tasks.error, narrative.error, maps.error, schedule.error, analysis.error, framework.error, developmentTools.error].filter(Boolean).join('；');
 
   const aiExportBlocked = testSession ? '测试工作区不生成正式项目文档' : storageError ? '请先处理项目读取或保存异常：'+storageError : registry.loading || registry.busy || gameplay.pending || functional.pending || art.pending || core.pending || prototype.pending || tasks.pending || narrative.pending || maps.pending || schedule.pending || analysis.pending || framework.pending || developmentTools.pending || storyState.pending ? '请等待项目加载和保存完成后生成文档' : gameplay.blocked || functional.blocked || art.blocked || core.blocked || prototype.blocked || tasks.blocked || narrative.blocked || maps.blocked || schedule.blocked || analysis.blocked || framework.blocked || developmentTools.blocked || storyState.blocked ? '部分项目存档暂不可读，请恢复后重试' : '';
+  const autoDataStatus = useAutomaticDataExport(formalProject.id, engineConfig, registry, !!testSession || !!storageError || active === '数据同步');
   const exportAiContext = () => {
     if(aiExportBlocked)throw new Error(aiExportBlocked);
     return buildAiDocument(project, storyDocs, currentData, definitions, engineConfig, registry, gameplay.store.designs, functional.store, art.store, core.store, prototype.store, tasks.store, narrative.store, maps.store, gameplay.store.categories || [], schedule.store, analysis.store, framework.store, developmentTools.store);
@@ -547,6 +549,7 @@ function WorkspaceApp({ username, testSession, onLoadTest, onExitTest, preparing
           </div>
         </header>
 
+        {autoDataStatus&&<div className="ds-auto-status" role="status">{autoDataStatus} <button onClick={()=>setActive('数据同步')}>查看数据同步</button></div>}
         <SearchReturn active={active==='全局搜索'}/><GlobalSearchPanel active={active==='全局搜索'}/>
         {testSession && <div className="test-workspace-banner" role="status"><span><b>测试工作区</b> · {testScenarios.find(item=>item.id===testSession.scenario)?.name} · 数据独立保存</span>
           <button disabled={preparingTest || registry.busy || registry.loading || gameplay.pending || functional.pending || functional.blocked || art.pending || art.blocked || core.pending || prototype.pending || tasks.pending || narrative.pending || maps.pending || schedule.pending || analysis.pending || framework.pending || developmentTools.pending || storyState.pending} onClick={onExitTest}>返回原工作区</button></div>}
@@ -634,10 +637,11 @@ function WorkspaceApp({ username, testSession, onLoadTest, onExitTest, preparing
         {active === '数据配置' && <DataConfiguration key={dataKey} workspaceKey={dataKey} data={currentData}
           onChange={(next) => registry.updateData(next)}
           definitions={definitions} activeDataset={currentDataset} setActiveDataset={id=>{leaveSearch();setActiveDataset(id);}} registry={registry} onCreateTable={createDataset} />}
+        {active === '数据同步' && <DataSyncPanel projectId={formalProject.id} config={engineConfig} setConfig={onConfigChange} registry={registry} blocked={!!testSession} onOpenTable={name=>{setActiveDataset(name);setActive('数据配置');}}/>}
         {active === '枚举定义' && <EnumDefinitions registry={registry} />}
         {active === '枚举管理' && <EnumManager config={engineConfig} registry={registry} />}
         {active === '引擎设置' && <fieldset disabled={!!testSession} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>{testSession && <p>测试场景使用固定来源，请通过测试面板加载或重置场景。</p>}<EngineSyncPanel collaboration={{schedule:schedule.store,tools:developmentTools.store}} onFeedbackApplied={()=>{const s=schedule.reloadIfClean(),t=developmentTools.reloadIfClean();return s&&t;}} onOpenAsset={id=>{setArtSelection({kind:'asset',id});setActive('素材资产');}} projectId={formalProject.id} build={exportAiContext} art={art.store} blockedReason={aiExportBlocked} config={engineConfig} registry={registry} onPickDirectory={window.desktopClient?.pickProjectDirectory} setConfig={(next) => testSession ? Promise.resolve(false) : onConfigChange(next)} /></fieldset>}
-        {active !== '开发工具' && active !== '程序框架' && active !== '全局搜索' && active !== '数值分析' && active !== '项目排期' && active !== '地图设计' && active !== '工作区设置' && active !== '故事编排' && active !== '原型设计' && active !== '任务与流程' && active !== '项目概览' && active !== '玩法核心' && active !== '玩法设计' && active !== '功能系统' && active !== '素材资产' && active !== '故事文档' && active !== '数据配置' && active !== '枚举定义' && active !== '枚举管理' && active !== '引擎设置' && (
+        {active !== '数据同步' && active !== '开发工具' && active !== '程序框架' && active !== '全局搜索' && active !== '数值分析' && active !== '项目排期' && active !== '地图设计' && active !== '工作区设置' && active !== '故事编排' && active !== '原型设计' && active !== '任务与流程' && active !== '项目概览' && active !== '玩法核心' && active !== '玩法设计' && active !== '功能系统' && active !== '素材资产' && active !== '故事文档' && active !== '数据配置' && active !== '枚举定义' && active !== '枚举管理' && active !== '引擎设置' && (
           <section className="empty">
             <div className="empty-icon"><Layers size={34} /></div>
             <h2>{active}</h2>

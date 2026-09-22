@@ -1,0 +1,62 @@
+.data-sync{max-width:1480px;margin:auto}
+.ds-intro>span{font-size:11px;letter-spacing:.18em;color:#b4a1f2}
+.ds-intro h2{font-size:26px;margin:15px 0}
+.data-sync p,.data-sync small{color:#a89ebc;line-height:1.7}
+.data-sync code{overflow-wrap:anywhere}
+.ds-settings,.ds-file,.ds-history{border:1px solid #433650;border-radius:14px;background:#1d1927;padding:24px;margin:22px 0;min-width:0}
+.ds-settings>label{display:grid;gap:10px}
+.data-sync input:not([type=checkbox]),.data-sync select,.data-sync textarea{background:#15121e;border:1px solid #504060;border-radius:8px;color:#ebe5fa;padding:12px;font:inherit;max-width:100%;box-sizing:border-box}
+.data-sync textarea{width:100%;min-height:90px;font-family:monospace}
+.data-sync label{color:#ded4f1}
+.data-sync input[type=checkbox]{accent-color:#9676dc;margin-right:10px}
+.ds-settings-options,.ds-toolbar,.ds-file-head,.ds-selection,.ds-actions,.ds-tabs{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.ds-settings-options{margin:22px 0}
+.ds-settings-options>label{display:flex;align-items:center;gap:8px}
+.ds-actions{margin-top:18px}
+.ds-tabs{border-bottom:1px solid #433650;padding:12px 0}
+.ds-tabs button[aria-selected=true]{border-color:#b392ed;background:#352845}
+.ds-toolbar{justify-content:space-between;margin:28px 0}
+.ds-toolbar p{margin-bottom:0}
+.ds-selection{background:#292133;border-radius:10px;padding:16px;position:sticky;top:0;z-index:2}
+.ds-selection button{margin-left:auto}
+.ds-file-head{justify-content:space-between;margin-bottom:14px}
+.ds-file-head span,.ds-history-row time{color:#a89ebc;font-size:12px}
+.ds-file-head strong{font-size:18px}
+.ds-mapping{margin:18px 0;border-top:1px solid #433650;padding-top:16px}
+.data-sync summary{cursor:pointer;color:#c2b0e5}
+.ds-map-editor{display:grid;gap:12px}
+.ds-map-editor button{justify-self:start}
+.ds-diff{padding:18px;margin-top:14px;border:1px solid #443451;border-radius:10px}
+.ds-diff.conflict{border-color:#a37a45}
+.ds-diff b>span{color:#e7bf70;margin-left:12px;font-size:12px}
+.ds-diff>label{display:flex;align-items:center;gap:14px;margin:12px 0}
+.ds-values{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:14px 0}
+.ds-values>div{min-width:0}
+.ds-values pre{max-height:220px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;background:#13101b;padding:12px;border-radius:8px;font-size:12px;min-width:0}
+.ds-ok{display:flex;gap:8px;align-items:center;color:#79c7a4!important}
+.ds-empty{padding:48px;text-align:center;border:1px dashed #443451;border-radius:12px;color:#a89ebc}
+.ds-history-row{display:flex;gap:20px;padding:14px 0;border-bottom:1px solid #352b40}
+.ds-auto-status{padding:10px 16px;border:1px solid #514062;border-radius:8px;margin:10px 0;color:#ccb8ed}
+.json-object-editor{padding:24px}
+.json-object-fields{display:grid;gap:12px}
+.json-object-field{border:1px solid #443451;border-radius:10px;padding:18px;background:#201a2b}
+.json-object-field>div:first-child{display:flex;gap:16px;align-items:center}
+.json-object-field code{font-size:15px}
+.json-object-field small{color:#baa5d7}
+.json-object-field textarea{width:100%;min-height:90px;margin:12px 0;background:#15121e;color:#ece4f9;border:1px solid #504060;border-radius:8px;padding:12px;box-sizing:border-box}
+.json-tree{padding-left:18px;border-left:1px solid #433650;margin:8px 0;overflow-wrap:anywhere}
+.json-tree summary{cursor:pointer;color:#bba5e6}
+@media(max-width:800px){.ds-values{grid-template-columns:1fr}
+.ds-selection{position:static}
+.ds-history-row{flex-wrap:wrap}
+.ds-settings,.ds-file{padding:16px}
+}
+
+.data-sync button:not(.primary),.json-object-editor button,.ds-auto-status button{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:9px 14px;min-height:36px;border:1px solid #514061;border-radius:8px;background:#2b2238;color:#d9c8f4;font:inherit;font-size:13px;cursor:pointer}
+.data-sync button:not(.primary):hover,.json-object-editor button:hover,.ds-auto-status button:hover{background:#3a2d4b}
+.data-sync button:disabled,.json-object-editor button:disabled{opacity:.45;cursor:not-allowed}
+.ds-tabs button[aria-selected=true]{color:#f1e9ff;background:#44305f;border-color:#b392ed}
+.json-object-editor input{border:1px solid #514061;background:#15121e;color:#ebe5fa;padding:10px;border-radius:8px;margin:10px}
+.json-object-editor code{font-family:ui-monospace,Consolas,monospace}
+.json-object-editor p{color:#b7abc9;line-height:1.65}
+

@@ -127,6 +127,11 @@ export function useEnumRegistry(config: EngineConfig, initial: ProjectData, user
     busy: actionState.key === key && actionState.busy,
     error: (actionState.key === key ? actionState.error : '') || (scanState.key === sourceKey ? scanState.error : '') || loaded.error,
     refresh, publish,
+    reload: () => {
+      if(actionState.busy||scanState.loading)return false;
+      try { const next=upgradeApprovalReview(readVersions(workspaceStorage,key,initial));latest.current={key,store:next};setFrame({key,store:next});setActionState({key,busy:false,error:''});return true; }
+      catch(reason){setActionState({key,busy:false,error:String(reason)});return false;}
+    },
     canConfirmSource:!!candidate&&!!active&&!sameEngineSource(active.scan,candidate.scan)&&!candidate.scan.incomplete&&!diffEnums(active.scan,candidate.scan).length,
     confirmSource:()=>mutate(current=>{if(!sameEngineSource(snapshotById(current,current.candidateId)?.scan,configNow.current))throw new Error('来源已变化');return confirmEnumSource(current,username);},'确认枚举来源'),
     decide: (ids: string[], agree: boolean) => mutate(current => {

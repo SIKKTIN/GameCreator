@@ -1,4 +1,5 @@
 import {validateEngineScanMetadata} from '../shared/engine-config.mjs';
+import {validateDataSync} from '../shared/data-sync.mjs';
 import { emptyStore, type VersionStore } from './enum-versions.ts';
 import type { ProjectData } from './data-model';
 
@@ -44,6 +45,7 @@ export function readVersions(storage: StorageLike, key: string, initial: Project
     throw new Error('版本快照或审核记录异常，已停止加载');
   }
   value.snapshots.forEach(snapshot=>validateEngineScanMetadata(snapshot.scan));
+  validateDataSync(value);
   return value;
 }
 

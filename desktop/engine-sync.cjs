@@ -12,9 +12,10 @@ const MEDIA=/\.(png|jpe?g|webp|gif|svg|bmp|tga|exr|hdr|dds|ktx|wav|ogg|mp3|flac|
 const HASH=/^[a-f0-9]{64}$/;
 const UUID=/^[a-f0-9-]{36}$/;
 
-function createEngineSync({artFiles,storage,beforeWrite=async()=>{},beforeRebind=async()=>{},beforeFeedbackCommit}) {
+function createEngineSync({artFiles,storage,beforeWrite=async()=>{},beforeRebind=async()=>{},beforeFeedbackCommit,beforeDataWrite}) {
   const plans=new Map(),bindings=new Map();
   const feedback=require('./engine-feedback.cjs').createEngineFeedback({storage,context,manifest,read,writeMeta,checked,locked,hash,beforeFeedbackCommit});
+  const data=require('./data-sync.cjs').createDataSync({storage,context,manifest,read,writeMeta,checked,locked,hash,beforeDataWrite});
   const modules=()=>import('../shared/engine-sync.mjs');
   async function targetPath(value) {
     const {syncPath}=await modules();
@@ -113,6 +114,7 @@ function createEngineSync({artFiles,storage,beforeWrite=async()=>{},beforeRebind
     if(!m.bytes||m.value.engine!==ctx.engine||m.value.projectId===ctx.projectId)throw new Error('当前工程不需要或不支持重新绑定');
     return locked(ctx,async()=>{
       const assertBinding=async()=>{
+        if(await read(ctx,META+'/data-pending.json'))throw new Error('请先在数据同步中恢复中断的同步，再重新绑定');
         if(await read(ctx,META+'/pending.json'))throw new Error('存在未完成的同步，请先用原项目恢复');
         if((await manifest(ctx,true)).hash!==m.hash)throw new Error('同步记录已改变，请重新检查归属后再确认');
       };
@@ -134,6 +136,7 @@ function createEngineSync({artFiles,storage,beforeWrite=async()=>{},beforeRebind
     const ctx=await context(input),{syncSettings,adoptedSyncAssets,syncDocuments}=await modules(),settings=syncSettings(input.settings);
     if(await read(ctx,META+'/pending.json'))throw new Error('存在未完成的同步，请先恢复中断的同步');
     const m=await manifest(ctx),desired=[],warnings=[];
+    if(await read(ctx,META+'/data-pending.json'))throw new Error('请先在数据同步中恢复中断的同步');
     if(settings.collaboration)desired.push(...await feedback.documents(ctx,input,settings));
     if(settings.documents) {
       for(const d of syncDocuments(input.document,settings.modules))desired.push({id:d.id,path:settings.docsDirectory+'/'+d.path,bytes:Buffer.from(d.content),kind:'document',label:d.id==='document:index'?'项目文档目录':input.document.sections.find(s=>'document:'+s.id===d.id)?.label||d.path,version:input.document.version});
@@ -234,6 +237,7 @@ function createEngineSync({artFiles,storage,beforeWrite=async()=>{},beforeRebind
   }
   async function recover(input) {
     const ctx=await context(input);await manifest(ctx);
+    if(await read(ctx,META+'/data-pending.json'))throw new Error('请在数据同步中恢复中断的数据同步');
     const lock=await read(ctx,META+'/lock');
     if(lock) {
       const owner=JSON.parse(lock);if(!Number.isSafeInteger(owner.pid)||owner.pid<1)throw new Error('锁文件损坏，请人工检查');
@@ -260,6 +264,7 @@ function createEngineSync({artFiles,storage,beforeWrite=async()=>{},beforeRebind
     if(!chosen.length)throw new Error('没有需要写入的变更');
     return locked(ctx,async()=>{
       if(await read(ctx,META+'/pending.json'))throw new Error('存在未完成的同步，请先恢复');
+      if(await read(ctx,META+'/data-pending.json'))throw new Error('请先在数据同步中恢复中断的数据同步');
       if((await manifest(ctx)).hash!==m.hash)throw new Error('同步记录已改变，请重新预览');
       for(const r of rows)await assertCurrent(ctx,r);
       const id=randomUUID(),folder=META+'/history/'+id;
@@ -310,6 +315,6 @@ function createEngineSync({artFiles,storage,beforeWrite=async()=>{},beforeRebind
     });
   }
   function release(token){plans.delete(token);bindings.delete(token);feedback.release(token);}
-  return {preview,apply,history,recover,release,binding,rebind,feedbackScan:feedback.feedbackScan,feedbackApply:feedback.feedbackApply,feedbackApplyBatch:feedback.feedbackApplyBatch,feedbackRepair:feedback.feedbackRepair};
+  return {...data,preview,apply,history,recover,release,binding,rebind,feedbackScan:feedback.feedbackScan,feedbackApply:feedback.feedbackApply,feedbackApplyBatch:feedback.feedbackApplyBatch,feedbackRepair:feedback.feedbackRepair};
 }
 module.exports={createEngineSync};

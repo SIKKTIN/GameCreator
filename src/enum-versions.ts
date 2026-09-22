@@ -23,6 +23,7 @@ export type Release = {
   reviewer: string; note: string; accepted: Change[]; patches: CellPatch[]; kind: 'publish' | 'rollback';
 };
 export type VersionStore = {
+  dataSync?: import('../shared/data-sync.mjs').DataSyncState;
   schema: 1; revision: number; activeId: string | null; candidateId: string | null;
   snapshots: Snapshot[]; reviews: Record<string, Review>; releases: Release[]; data: ProjectData;
 };

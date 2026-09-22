@@ -164,7 +164,7 @@ else {
     if (!trusted(event) || packageTokens.get(token) !== event.sender) throw new Error('不允许释放此项目文件夹');
     projectPackages.release(token); packageTokens.delete(token);
   });
-  for(const operation of ['preview','apply','history','recover','release','binding','rebind','feedbackScan','feedbackApply','feedbackApplyBatch','feedbackRepair'])ipcMain.handle('engine-sync-'+operation,(event,input)=>{
+  for(const operation of ['preview','apply','history','recover','release','binding','rebind','feedbackScan','feedbackApply','feedbackApplyBatch','feedbackRepair','dataPreview','dataApply','dataRecover','dataUndo','dataRelease'])ipcMain.handle('engine-sync-'+operation,(event,input)=>{
     if(!trusted(event))throw new Error('不允许同步工程文件');
     return engineSync[operation](input);
   });
