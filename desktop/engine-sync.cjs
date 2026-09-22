@@ -310,6 +310,6 @@ function createEngineSync({artFiles,storage,beforeWrite=async()=>{},beforeRebind
     });
   }
   function release(token){plans.delete(token);bindings.delete(token);feedback.release(token);}
-  return {preview,apply,history,recover,release,binding,rebind,feedbackScan:feedback.feedbackScan,feedbackApply:feedback.feedbackApply,feedbackRepair:feedback.feedbackRepair};
+  return {preview,apply,history,recover,release,binding,rebind,feedbackScan:feedback.feedbackScan,feedbackApply:feedback.feedbackApply,feedbackApplyBatch:feedback.feedbackApplyBatch,feedbackRepair:feedback.feedbackRepair};
 }
 module.exports={createEngineSync};

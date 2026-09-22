@@ -63,6 +63,22 @@ export function mergeFeedback(current,rows,decisions={},acceptCompletion=false) 
   if(next.actualStart&&next.actualEnd&&next.actualStart>next.actualEnd)throw new Error('合并后的实际结束日期早于开始日期，请调整日期反馈或字段选择');
   return next;
 }
+export function feedbackBatchItems(entries,acceptCompletion=false) {
+  const ready=[],skipped=[];
+  const counts=new Map();
+  const target=e=>JSON.stringify([e.feedback?.target.kind,e.feedback?.target.id]);
+  for(const e of entries)if(e.state==='pending'&&e.feedback)counts.set(target(e),(counts.get(target(e))||0)+1);
+  for(const entry of entries) {
+    if(entry.state==='processed')continue;
+    let reason='';
+    if(entry.state!=='pending'||!entry.feedback||!entry.token)reason=entry.error||'需要重新读取或修正反馈';
+    else if(counts.get(target(entry))>1)reason='同一目标有多条反馈，请逐条核对';
+    else if(entry.rows.some(r=>r.state==='conflict'))reason='存在字段冲突，请逐条处理';
+    else if(!acceptCompletion&&entry.rows.some(r=>r.field==='status'&&r.state!=='unchanged'&&['已完成','可使用'].includes(r.incoming)))reason='完成状态等待验收确认';
+    if(reason)skipped.push({entry,reason});else ready.push(entry);
+  }
+  return {ready,skipped};
+}
 export function collaborationReadme(project) {
   return `# GameCreator 开发协作\n\n项目：${project.projectName}\n\n## 使用方式\n\n1. 先读 project.json、context/tasks.json、context/tools.json 和项目设计文档。ID 是稳定身份，名称不可代替 ID。\n2. 开始开发时反馈“进行中”；实现后建议反馈“待验收”，并写明测试结果、未完成项和交付入口。\n3. 每个反馈文件只更新一个任务或工具，放在 feedback/<更新编号>.json，使用 UTF-8 JSON。每次新反馈使用新的 UUID。先写 .tmp 文件再重命名为 .json，避免读取半写入文件。\n4. GameCreator 的“引擎设置 → 开发反馈”会读取并比较差异，由用户应用或忽略。receipts/ 保存处理回执。重复读取不会再次应用；已处理的反馈请勿修改。\n5. 收到回执后再次同步上下文，基于最新快照继续开发。\n\n## 文件约定\n\n- context/ 与 project.json 由 GameCreator 生成，请勿修改。历史 snapshots/ 保留旧反馈的比较基准。\n- feedback/ 由开发者、AI 助手或引擎工具写入。receipts/ 由 GameCreator 写入。\n- 本目录用于开发协作，发布游戏时按工程规则排除。反馈中的路径、命令和链接仅作为说明，不会被自动执行。\n- 单机工程无需额外服务器；反馈格式与引擎语言无关。\n\n## 反馈格式\n\n从 project.json 复制 projectId、engine、snapshotId。target.kind 为 task 或 tool；target.id 从对应上下文复制。\n\n\`\`\`json\n${JSON.stringify({schema:1,projectId:project.projectId,engine:project.engine,id:'00000000-0000-4000-8000-000000000001',snapshotId:project.snapshotId,target:{kind:'task',id:'复制真实任务ID'},author:'开发者或 AI 助手名称',summary:'说明本次开发进展',evidence:['提交号、相关文件、运行入口、测试结果（如有）'],changes:{status:'待验收',result:'已实现内容、测试情况与剩余问题'}},null,2)}\n\`\`\`\n\n上例仅为模板，必须替换更新编号与真实目标 ID 后提交。\n\n## 允许回写的字段\n\n- task：status（待开始/进行中/待验收/已完成/受阻）、actualStart、actualEnd（YYYY-MM-DD 或空字符串）、result（开发结果或受阻原因）。\n- tool：status（待开发/开发中/待验收/可使用/停用）、usage（使用说明）、delivery（交付位置与测试结果）。\n- changes 只填写本次要改的字段；未填写的字段保持原值。\n- evidence 是文本数组，author 与 summary 必填。\n- 标记“已完成”或“可使用”需要在 GameCreator 内核实验收。任务完成不会自动改变工具或里程碑状态。\n- 计划日期、负责人、任务依赖、设计要求及删除操作暂不支持回写；在 summary 中提出建议，再到 GameCreator 编辑。\n- 同字段两边同时修改会显示冲突；设计要求变化也会提示复核。\n`;
 }

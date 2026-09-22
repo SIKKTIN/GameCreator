@@ -35,6 +35,7 @@ contextBridge.exposeInMainWorld('desktopClient', {
   engineSync: {
     feedbackScan: input => ipcRenderer.invoke('engine-sync-feedbackScan',input),
     feedbackApply: input => ipcRenderer.invoke('engine-sync-feedbackApply',input),
+    feedbackApplyBatch: input => ipcRenderer.invoke('engine-sync-feedbackApplyBatch',input),
     feedbackRepair: input => ipcRenderer.invoke('engine-sync-feedbackRepair',input),
     binding: input => ipcRenderer.invoke('engine-sync-binding',input),
     rebind: input => ipcRenderer.invoke('engine-sync-rebind',input),

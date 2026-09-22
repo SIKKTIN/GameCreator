@@ -10,4 +10,5 @@ export function validateFeedback(value:unknown):Feedback;
 export function validateFeedbackHistory(value:unknown,kind:FeedbackKind):FeedbackReceipt[];
 export function feedbackDiff(feedback:Feedback,base:unknown,current:unknown):FeedbackRow[];
 export function mergeFeedback<T>(current:T,rows:FeedbackRow[],decisions:Record<string,'keep'|'feedback'>,acceptCompletion?:boolean):T;
+export function feedbackBatchItems<T extends {state:string;feedback?:Feedback;token?:string;error?:string;rows:FeedbackRow[]}>(entries:T[],acceptCompletion?:boolean):{ready:T[];skipped:{entry:T;reason:string}[]};
 export function collaborationReadme(project:{projectName:string;projectId:string;engine:string;snapshotId:string}):string;

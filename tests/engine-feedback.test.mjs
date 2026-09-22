@@ -5,7 +5,7 @@ import path from 'node:path';
 import os from 'node:os';
 import {randomUUID} from 'node:crypto';
 import {createRequire} from 'node:module';
-import {validateFeedback,feedbackDiff,mergeFeedback,validateFeedbackHistory} from '../shared/engine-feedback.mjs';
+import {validateFeedback,feedbackDiff,mergeFeedback,validateFeedbackHistory,feedbackBatchItems} from '../shared/engine-feedback.mjs';
 import {createProductionTask,createProductionMilestone,validateProjectSchedule} from '../src/project-schedule.ts';
 import {createDevelopmentTool,validateDevelopmentTools} from '../shared/development-tools.mjs';
 const require=createRequire(import.meta.url),{createEngineSync}=require('../desktop/engine-sync.cjs'),{createStorage}=require('../desktop/storage.cjs');
@@ -29,6 +29,13 @@ async function fixture(t,options={}) {
   const scan=()=>api.feedbackScan(fresh());
   const apply=(entry,other={})=>api.feedbackApply({token:entry.token,...other});
   return {dir,engine,storage,sk,tk,input,api,fresh,sync,project,make,put,scan,apply};
+}
+async function batchFixture(t,options={}) {
+  const f=await fixture(t,options),s=rawRead(f.storage,f.sk);
+  for(const id of ['task-b','task-c','task-d'])s.tasks.push({...createProductionTask(id),id});
+  f.storage.setItem(f.sk,JSON.stringify(s));await f.sync();Object.assign(f.project,JSON.parse(await fs.readFile(path.join(f.engine,'gamecreator/project.json'),'utf8')));
+  f.post=async(id,changes,kind='task')=>{const v=f.make(changes,kind);v.target.id=id;await f.put(v);return v;};
+  f.batch=(entries,acceptCompletion=false)=>f.api.feedbackApplyBatch({tokens:entries.filter(e=>e.token).map(e=>e.token),acceptCompletion});return f;
 }
 test('collaboration produces readable context, stable snapshots and preserves feedback/history on scope changes',async t=>{
   const f=await fixture(t),readme=await fs.readFile(path.join(f.engine,'gamecreator/README.md'),'utf8');assert.match(readme,/待验收/);assert.match(readme,/单机工程/);
@@ -126,4 +133,32 @@ test('feedback history is portable through full project folder export and reject
   assert.deepEqual(JSON.parse(await fs.readFile(path.join(directory,'data/project-schedule.json'),'utf8')).feedbackHistory,[receipt]);
   assert.throws(()=>validateFeedbackHistory([{...receipt,rows:[{...receipt.rows[0],current:{bad:true}}]}],'task'),/处理记录损坏/);
   const bad=rawRead(f.storage,f.sk);bad.feedbackHistory[0].decisions={other:'feedback'};f.storage.setItem(f.sk,JSON.stringify(bad));await assert.rejects(()=>f.scan(),/处理记录损坏/);
+});
+test('batch applies different tasks in one archive and tools without treating its own writes as concurrent edits',async t=>{
+  const f=await batchFixture(t);for(const id of ['task-a','task-b','task-c','task-d'])await f.post(id,{status:'进行中',result:'开发进展：'+id});await f.post('tool-a',{status:'开发中',delivery:'工具入口'},'tool');
+  const entries=(await f.scan()).entries,result=await f.batch(entries);assert.equal(result.applied.length,5);assert.deepEqual(result.failed,[]);assert.deepEqual(result.skipped,[]);
+  const s=rawRead(f.storage,f.sk);assert.equal(s.feedbackHistory.length,4);assert.ok(s.tasks.every(t=>t.status==='进行中'&&t.result==='开发进展：'+t.id));assert.equal(s.milestones[0].status,'计划中');assert.equal(rawRead(f.storage,f.tk).feedbackHistory.length,1);
+  assert.ok((await f.scan()).entries.every(e=>e.state==='processed'));await assert.rejects(()=>f.batch(entries),/已过期/);assert.equal(rawRead(f.storage,f.sk).feedbackHistory.length,4);
+});
+test('batch retains conflicts, duplicate targets and invalid files; completed states require batch acceptance',async t=>{
+  const f=await batchFixture(t);await f.post('task-a',{status:'进行中'});await f.post('task-b',{status:'待验收'});await f.post('task-c',{status:'已完成'});await f.post('tool-a',{status:'开发中'},'tool');await f.post('tool-a',{usage:'重复反馈'},'tool');
+  await fs.writeFile(path.join(f.engine,'gamecreator/feedback/broken.json'),'{bad');const s=rawRead(f.storage,f.sk);s.tasks.find(t=>t.id==='task-b').status='受阻';f.storage.setItem(f.sk,JSON.stringify(s));
+  let scan=await f.scan(),selection=feedbackBatchItems(scan.entries);assert.equal(selection.ready.length,1);assert.equal(selection.skipped.length,5);
+  let result=await f.batch(scan.entries);assert.equal(result.applied.length,1);assert.equal(result.skipped.length,4);assert.equal(result.failed.length,0);assert.equal(rawRead(f.storage,f.sk).tasks.find(t=>t.id==='task-c').status,'待开始');
+  scan=await f.scan();selection=feedbackBatchItems(scan.entries,true);assert.equal(selection.ready.length,1);result=await f.batch(scan.entries,true);assert.equal(result.applied[0].receipt.target.id,'task-c');assert.equal(rawRead(f.storage,f.sk).tasks.find(t=>t.id==='task-b').status,'受阻');assert.equal(rawRead(f.storage,f.tk).tools[0].status,'待开发');assert.equal((await f.scan()).entries.filter(e=>e.state==='pending').length,3);
+});
+test('batch stops on external writes and reports partial success without replaying completed items',async t=>{
+  let before=()=>{};const f=await batchFixture(t,{beforeFeedbackCommit:async()=>before()});for(const id of ['task-a','task-b','task-c'])await f.post(id,{status:'进行中'});
+  const entries=(await f.scan()).entries.sort((a,b)=>a.feedback.target.id.localeCompare(b.feedback.target.id));let calls=0;
+  before=()=>{if(++calls===2){const s=rawRead(f.storage,f.sk);s.tasks.find(t=>t.id==='task-b').owner='新的用户编辑';f.storage.setItem(f.sk,JSON.stringify(s));}};
+  const result=await f.batch(entries);assert.equal(result.applied.length,1);assert.equal(result.failed.length,1);assert.equal(result.skipped.length,1);assert.match(result.failed[0].reason,/应用前发生变化/);
+  const s=rawRead(f.storage,f.sk);assert.equal(s.feedbackHistory.length,1);assert.equal(s.tasks.find(t=>t.id==='task-a').status,'进行中');assert.equal(s.tasks.find(t=>t.id==='task-b').status,'待开始');assert.equal(s.tasks.find(t=>t.id==='task-b').owner,'新的用户编辑');assert.equal(s.tasks.find(t=>t.id==='task-c').status,'待开始');
+  before=()=>{};const again=await f.batch((await f.scan()).entries);assert.equal(again.applied.length,2);assert.equal(rawRead(f.storage,f.sk).feedbackHistory.length,3);
+});
+test('batch rejects mixed generations or duplicate tokens before writing and detects modified feedback files',async t=>{
+  const f=await batchFixture(t),a=await f.post('task-a',{status:'进行中'});await f.post('task-b',{status:'进行中'});let entries=(await f.scan()).entries;
+  await assert.rejects(()=>f.api.feedbackApplyBatch({tokens:[entries[0].token,entries[0].token]}),/选择无效/);
+  const old=entries.find(e=>e.feedback.id===a.id);const s=rawRead(f.storage,f.sk);s.tasks[0].description='更新需求';f.storage.setItem(f.sk,JSON.stringify(s));entries=(await f.scan()).entries;const other=entries.find(e=>e.feedback.id!==a.id);
+  await assert.rejects(()=>f.api.feedbackApplyBatch({tokens:[old.token,other.token]}),/快照不一致/);assert.equal(rawRead(f.storage,f.sk).feedbackHistory,undefined);
+  a.summary='文件已更改';await f.put(a);entries.sort((x,y)=>x.feedback.target.id.localeCompare(y.feedback.target.id));const result=await f.batch(entries);assert.equal(result.applied.length,0);assert.equal(result.failed.length,1);assert.match(result.failed[0].reason,/反馈文件在预览后发生变化/);assert.equal(rawRead(f.storage,f.sk).feedbackHistory,undefined);
 });

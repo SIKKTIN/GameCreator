@@ -115,40 +115,77 @@ function createEngineFeedback({storage,context,manifest,read,writeMeta,checked,l
     }
     return {root:ctx.root,entries,history,missingReceipts};
   }
-  async function feedbackApply({token,decisions={},dismiss=false,acceptCompletion=false}) {
+  function review(token) {
     const p=plans.get(token);if(!p||Date.now()-p.created>600000)throw new Error('反馈预览已过期，请重新读取');
+    return p;
+  }
+  async function commitFeedback(token,p,{decisions={},dismiss=false,acceptCompletion=false},expectedRaw=p.raw) {
+    review(token);
     if(!decisions||typeof decisions!=='object'||Array.isArray(decisions)||Object.entries(decisions).some(([k,v])=>!p.rows.some(r=>r.field===k)||!['keep','feedback'].includes(v))||typeof dismiss!=='boolean'||typeof acceptCompletion!=='boolean')throw new Error('反馈处理选择无效');
     const {ctx,feedback}=p,{mergeFeedback,validateFeedbackHistory}=await model();
-    return locked(ctx,async()=>{
-      active(ctx);
-      if((await established(ctx)).hash!==p.m.hash)throw new Error('工程同步记录已变化，请重新读取反馈');
-      const bytes=await smallRead(ctx,p.path);if(!bytes||hash(bytes)!==p.digest)throw new Error('反馈文件在预览后发生变化，请重新读取');
-      await baseline(ctx,p.m,feedback);
-      const other=await load(ctx,feedback.target.kind==='task'?'tool':'task'),state=await load(ctx,feedback.target.kind);
-      if(receiptOf([state,other],ctx,feedback.id))throw new Error('此反馈已经处理，请重新读取');
-      if(state.raw!==p.raw)throw new Error('项目内容在预览后发生变化，请重新读取反馈');
-      const next=structuredClone(state.value),list=records(next,feedback.target.kind),index=list.findIndex(t=>t.id===feedback.target.id);
-      if(index<0)throw new Error('反馈目标已删除');
-      if(!dismiss)list[index]=mergeFeedback(list[index],p.rows,decisions,acceptCompletion);
-      const receipt={schema:1,id:feedback.id,projectId:ctx.projectId,engine:ctx.engine,digest:p.digest,snapshotId:feedback.snapshotId,target:feedback.target,title:titleOf(p.current,feedback),at:new Date().toISOString(),outcome:dismiss?'dismissed':'applied',author:feedback.author,summary:feedback.summary,evidence:feedback.evidence,rows:p.rows,decisions:Object.fromEntries(p.rows.map(r=>[r.field,dismiss?'keep':decisions[r.field]||'feedback']))};
-      if((next.feedbackHistory?.length||0)>=10000)throw new Error('此模块已有 10000 条反馈记录，请整理项目后再接收');
-      next.feedbackHistory=[...(next.feedbackHistory||[]),receipt];
-      validateFeedbackHistory(next.feedbackHistory,feedback.target.kind);
-      if(feedback.target.kind==='task')validateProjectScheduleArchive(next);else (await import('../shared/development-tools.mjs')).validateDevelopmentTools(next);
-      const serialized=JSON.stringify(next);
-      if(Buffer.byteLength(JSON.stringify(receipt,null,2)+'\n')>LIMIT||Buffer.byteLength(serialized)>20*1024*1024)throw new Error('反馈处理记录超过单条 2 MB 或模块存档 20 MB 的限制，未写入项目');
-      await beforeFeedbackCommit();
-      active(ctx);
-      const latest=await smallRead(ctx,p.path);if(!latest||hash(latest)!==p.digest)throw new Error('反馈文件在应用前发生变化，请重新读取');
-      // No await between comparison and atomic write: editor writes cannot interleave here.
-      active(ctx);
-      if(storage.getItem(key(ctx,feedback.target.kind))!==p.raw)throw new Error('项目内容在应用前发生变化，请重新读取反馈');
-      storage.setItem(key(ctx,feedback.target.kind),serialized);
-      plans.delete(token);
-      let warning='';
-      try{await writeMeta(ctx,ROOT+'/receipts/'+feedback.id+'.json',JSON.stringify(receipt,null,2)+'\n');}
-      catch(e){warning='项目已保存，工程回执写入失败；请点击“补写回执”。'+e.message;}
-      return {receipt,warning};
+    active(ctx);
+    if((await established(ctx)).hash!==p.m.hash)throw new Error('工程同步记录已变化，请重新读取反馈');
+    const bytes=await smallRead(ctx,p.path);if(!bytes||hash(bytes)!==p.digest)throw new Error('反馈文件在预览后发生变化，请重新读取');
+    await baseline(ctx,p.m,feedback);
+    const other=await load(ctx,feedback.target.kind==='task'?'tool':'task'),state=await load(ctx,feedback.target.kind);
+    if(receiptOf([state,other],ctx,feedback.id))throw new Error('此反馈已经处理，请重新读取');
+    if(state.raw!==expectedRaw)throw new Error('项目内容在预览后发生变化，请重新读取反馈');
+    const next=structuredClone(state.value),list=records(next,feedback.target.kind),index=list.findIndex(t=>t.id===feedback.target.id);
+    if(index<0)throw new Error('反馈目标已删除');
+    if(!dismiss)list[index]=mergeFeedback(list[index],p.rows,decisions,acceptCompletion);
+    const receipt={schema:1,id:feedback.id,projectId:ctx.projectId,engine:ctx.engine,digest:p.digest,snapshotId:feedback.snapshotId,target:feedback.target,title:titleOf(p.current,feedback),at:new Date().toISOString(),outcome:dismiss?'dismissed':'applied',author:feedback.author,summary:feedback.summary,evidence:feedback.evidence,rows:p.rows,decisions:Object.fromEntries(p.rows.map(r=>[r.field,dismiss?'keep':decisions[r.field]||'feedback']))};
+    if((next.feedbackHistory?.length||0)>=10000)throw new Error('此模块已有 10000 条反馈记录，请整理项目后再接收');
+    next.feedbackHistory=[...(next.feedbackHistory||[]),receipt];
+    validateFeedbackHistory(next.feedbackHistory,feedback.target.kind);
+    if(feedback.target.kind==='task')validateProjectScheduleArchive(next);else (await import('../shared/development-tools.mjs')).validateDevelopmentTools(next);
+    const serialized=JSON.stringify(next);
+    if(Buffer.byteLength(JSON.stringify(receipt,null,2)+'\n')>LIMIT||Buffer.byteLength(serialized)>20*1024*1024)throw new Error('反馈处理记录超过单条 2 MB 或模块存档 20 MB 的限制，未写入项目');
+    await beforeFeedbackCommit();
+    active(ctx);
+    const latest=await smallRead(ctx,p.path);if(!latest||hash(latest)!==p.digest)throw new Error('反馈文件在应用前发生变化，请重新读取');
+    // No await between comparison and atomic write: editor writes cannot interleave here.
+    active(ctx);
+    if(storage.getItem(key(ctx,feedback.target.kind))!==expectedRaw)throw new Error('项目内容在应用前发生变化，请重新读取反馈');
+    storage.setItem(key(ctx,feedback.target.kind),serialized);
+    plans.delete(token);
+    let warning='';
+    try{await writeMeta(ctx,ROOT+'/receipts/'+feedback.id+'.json',JSON.stringify(receipt,null,2)+'\n');}
+    catch(e){warning='项目已保存，工程回执写入失败；请点击“补写回执”。'+e.message;}
+    return {receipt,warning,serialized};
+  }
+  async function feedbackApply(input) {
+    const p=review(input?.token);
+    const {serialized,...result}=await locked(p.ctx,()=>commitFeedback(input.token,p,input));return result;
+  }
+  async function feedbackApplyBatch({tokens,acceptCompletion=false}) {
+    if(!Array.isArray(tokens)||!tokens.length||tokens.length>500||tokens.some(t=>typeof t!=='string')||new Set(tokens).size!==tokens.length||typeof acceptCompletion!=='boolean')throw new Error('批量反馈选择无效');
+    const items=tokens.map(token=>({token,p:review(token)})),first=items[0].p,expected=new Map();
+    // Every token must come from the same reviewed project and archive generation.
+    for(const {p} of items) {
+      if(p.ctx.root!==first.ctx.root||p.ctx.projectId!==first.ctx.projectId||p.ctx.engine!==first.ctx.engine||p.m.hash!==first.m.hash)throw new Error('批量反馈不属于同一项目或同步版本，请重新读取');
+      const kind=p.feedback.target.kind;
+      if(expected.has(kind)&&expected.get(kind)!==p.raw)throw new Error('批量反馈的项目快照不一致，请重新读取');
+      expected.set(kind,p.raw);
+    }
+    const {feedbackBatchItems}=await model();
+    const entries=items.map(({token,p})=>({token,state:'pending',feedback:p.feedback,rows:p.rows,path:p.path}));
+    const selection=feedbackBatchItems(entries,acceptCompletion),applied=[],failed=[],skipped=selection.skipped.map(({entry,reason})=>({path:entry.path,reason}));
+    return locked(first.ctx,async()=>{
+      active(first.ctx);
+      for(const [kind,raw] of expected)if(storage.getItem(key(first.ctx,kind))!==raw)throw new Error('项目内容在预览后发生变化，请重新读取反馈');
+      for(const [index,entry] of selection.ready.entries()) {
+        try {
+          const p=review(entry.token),kind=p.feedback.target.kind;
+          const {serialized,...result}=await commitFeedback(entry.token,p,{acceptCompletion},expected.get(kind));
+          // Rebase only on bytes written by this batch. Outside edits must still fail CAS.
+          expected.set(kind,serialized);applied.push(result);
+        }catch(e){
+          failed.push({path:entry.path,reason:e.message});
+          skipped.push(...selection.ready.slice(index+1).map(e=>({path:e.path,reason:'前一条处理失败，本次未尝试'})));
+          break;
+        }
+      }
+      return {applied,skipped,failed};
     });
   }
   async function feedbackRepair(input) {
@@ -162,6 +199,6 @@ function createEngineFeedback({storage,context,manifest,read,writeMeta,checked,l
       return {count};
     });
   }
-  return {documents,feedbackScan,feedbackApply,feedbackRepair,release:token=>plans.delete(token)};
+  return {documents,feedbackScan,feedbackApply,feedbackApplyBatch,feedbackRepair,release:token=>plans.delete(token)};
 }
 module.exports={createEngineFeedback};
