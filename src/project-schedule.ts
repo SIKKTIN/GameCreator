@@ -4,6 +4,7 @@ import type { FunctionalStore } from './functional-systems.ts';
 import type { ArtStore } from './art-assets.ts';
 import type { MapDesignStore } from './map-design.ts';
 import type { PrototypeDesignStore } from './prototype-design.ts';
+import type { FeedbackReceipt } from '../shared/engine-feedback.mjs';
 
 export const productionKinds = ['设计', '程序', '美术', '关卡', '测试', '其他'] as const;
 export const productionStatuses = ['待开始', '进行中', '待验收', '已完成', '受阻'] as const;
@@ -17,7 +18,7 @@ export type ProductionTask = {
   acceptance: string; result: string; dependencyIds: string[]; references: ScheduleReference[];
 };
 export type ProductionMilestone = { id: string; title: string; owner: string; due: string; description: string; acceptance: string; review: string; status: '计划中' | '进行中' | '已验收' };
-export type ProjectScheduleStore = { schema: 1; tasks: ProductionTask[]; milestones: ProductionMilestone[] };
+export type ProjectScheduleStore = { schema: 1; tasks: ProductionTask[]; milestones: ProductionMilestone[]; feedbackHistory?: FeedbackReceipt[] };
 export type ScheduleSources = Record<ScheduleReference['kind'], { id: string; name: string; status?: string; unavailable?: boolean }[]>;
 export type ScheduleIssue = { taskId?: string; milestoneId?: string; kind: 'blocked' | 'conflict' | 'overdue' | 'reference' | 'review'; message: string };
 export const emptyProjectSchedule = (): ProjectScheduleStore => ({ schema: 1, tasks: [], milestones: [] });

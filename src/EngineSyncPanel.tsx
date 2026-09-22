@@ -1,4 +1,5 @@
 import {EngineSyncBinding,foreignSyncBinding} from './EngineSyncBinding';
+import {EngineFeedbackPanel} from './EngineFeedbackPanel';
 import {useEffect,useRef,useState} from 'react';
 import {ArrowRight,CheckCircle2,FileText,FolderSync,History,RefreshCw,Save,Settings2} from 'lucide-react';
 import {EngineSettings} from './EnginePanels';
@@ -7,23 +8,24 @@ import type {ArtStore} from './art-assets';
 import {engineInfo,type EngineConfig} from './engine';
 import type {EnumRegistry} from './useEnumRegistry';
 import {defaultSyncSettings,syncSettings,syncPath,type SyncSettings} from '../shared/engine-sync.mjs';
-import type {SyncHistory,SyncPlan,SyncBinding} from './engine-sync';
+import type {SyncHistory,SyncPlan,SyncBinding,CollaborationSource} from './engine-sync';
 import {workspaceStorage} from './workspace-storage';
 import {beforeLogoutEvent} from './auth';
 import './engine-sync.css';
 
-type Props={projectId:string;config:EngineConfig;setConfig:(next:EngineConfig)=>Promise<boolean>|boolean;registry:EnumRegistry;onPickDirectory?:()=>Promise<string|null>;build:()=>AiDocument;art:ArtStore;blockedReason:string;onOpenAsset?:(id:string)=>void};
+type Props={projectId:string;config:EngineConfig;setConfig:(next:EngineConfig)=>Promise<boolean>|boolean;registry:EnumRegistry;onPickDirectory?:()=>Promise<string|null>;build:()=>AiDocument;art:ArtStore;collaboration:CollaborationSource;onFeedbackApplied:()=>boolean;blockedReason:string;onOpenAsset?:(id:string)=>void};
 const labels={added:'新增',updated:'更新',removed:'待移除',unchanged:'无变化',conflict:'冲突'};
 export function EngineSyncPanel(props:Props) {
   const [tab,setTab]=useState('connection'),[connectionDirty,setConnectionDirty]=useState(false);
   return <section className="engine-hub" aria-label="引擎与同步">
     <div className="engine-hub-intro"><div><span>ENGINE & CONTENT</span><h2>连接工程，交付项目内容。</h2><p>文档与采用的素材由 GameCreator 交付，引擎继续负责场景、程序与运行。</p></div><FolderSync size={30}/></div>
-    <div className="engine-hub-tabs" role="tablist" aria-label="引擎与同步分页">{([['connection','工程连接',Settings2],['settings','同步配置',FileText],['preview','待同步变更',FolderSync],['history','同步记录',History]] as const).map(([key,label,Icon])=><button key={key as string} role="tab" aria-selected={tab===key} onClick={()=>setTab(key as string)}><Icon size={16}/>{label as string}</button>)}</div>
+    <div className="engine-hub-tabs" role="tablist" aria-label="引擎与同步分页">{([['connection','工程连接',Settings2],['settings','同步配置',FileText],['preview','待同步变更',FolderSync],['feedback','开发反馈',RefreshCw],['history','同步记录',History]] as const).map(([key,label,Icon])=><button key={key as string} role="tab" aria-selected={tab===key} onClick={()=>setTab(key as string)}><Icon size={16}/>{label as string}</button>)}</div>
     <div hidden={tab!=='connection'}><EngineSettings onDirtyChange={setConnectionDirty} config={props.config} setConfig={props.setConfig} registry={props.registry} onPickDirectory={props.onPickDirectory}/></div>
     <ContentSync key={props.projectId+':'+props.config.engine+':'+props.config.projectPath} {...props} blockedReason={connectionDirty?'工程连接有未保存的修改，请先保存工程连接再同步。':props.blockedReason} tab={tab} setTab={setTab}/>
+    {tab==='feedback'&&<EngineFeedbackPanel key={props.projectId+':'+props.config.engine+':'+props.config.projectPath} projectId={props.projectId} config={props.config} collaboration={props.collaboration} onApplied={props.onFeedbackApplied} blockedReason={connectionDirty?'工程连接有未保存的修改，请先保存工程连接再读取反馈。':props.blockedReason}/>}
   </section>;
 }
-function ContentSync({projectId,config,build,art,blockedReason,onOpenAsset,tab,setTab}:Props&{tab:string;setTab:(tab:string)=>void}) {
+function ContentSync({projectId,config,build,art,collaboration,blockedReason,onOpenAsset,tab,setTab}:Props&{tab:string;setTab:(tab:string)=>void}) {
   const api=window.desktopClient?.engineSync,key='gamecreator.workspace.v1:'+projectId+':engine-sync-'+config.engine;
   const available=buildSafe();
   function buildSafe(){try{return build().sections.map(s=>s.id);}catch{return aiModules.map(m=>m.id);}}
@@ -50,7 +52,7 @@ function ContentSync({projectId,config,build,art,blockedReason,onOpenAsset,tab,s
     return()=>{window.removeEventListener(beforeLogoutEvent,guard);window.removeEventListener('beforeunload',unload);};
   },[]);
   // Any source edits invalidate the reviewed snapshot, including programmatic updates while the tab stays open.
-  let source='';try{const doc=build();source=JSON.stringify({art,sections:doc.sections,name:doc.projectName,version:doc.version});}catch{/* blocked above */}
+  let source='';try{const doc=build();source=JSON.stringify({art,collaboration,sections:doc.sections,name:doc.projectName,version:doc.version});}catch{/* blocked above */}
   const lastSource=useRef(source);
   useEffect(()=>{if(lastSource.current!==source){lastSource.current=source;discard();}},[source]);
   async function run(operation:()=>Promise<void>){if(running.current)return;running.current=true;setBusy(true);setError('');try{await operation();}catch(e){if(alive.current)setError((e as Error).message.replace(/^Error invoking remote method '[^']+': (?:Error: )?/,''));}finally{running.current=false;if(alive.current)setBusy(false);}}
@@ -78,7 +80,7 @@ function ContentSync({projectId,config,build,art,blockedReason,onOpenAsset,tab,s
   const preview=()=>run(async()=>{
     if(!api||blocked||invalid||dirty)return;discard();setNotice('');
     const binding=await inspectBinding();if(!binding||foreignSyncBinding(binding))return;
-    const next=await api.preview({projectId,config,settings,document:build(),art});
+    const next=await api.preview({projectId,config,settings,document:build(),art,collaboration});
     if(!alive.current){void api.release(next.token);return;}
     token.current=next.token;setPlan(next);setEntries(next.history);setTab('preview');
   });
@@ -93,7 +95,7 @@ function ContentSync({projectId,config,build,art,blockedReason,onOpenAsset,tab,s
   const fullPath=(relative:string)=>{if(!root)return '请先连接游戏工程';try{const sub=syncPath(relative);return root.replace(/[\\/]+$/,'')+'/'+sub;}catch{return '请填写有效的工程内子目录';}};
   useEffect(()=>{if(blockedReason)discard();},[blockedReason]);
   const actions=plan?.rows.filter(r=>r.status!=='unchanged'&&(r.status!=='conflict'||decisions[r.path]==='replace')&&(!r.remove||removals.includes(r.path))).length||0;
-  return <div className="engine-content" hidden={tab==='connection'}>
+  return <div className="engine-content" hidden={tab==='connection'||tab==='feedback'}>
     <section className="es-engine-root" aria-label="当前同步工程"><div><span>{engineInfo(config.engine).name} · 已保存的游戏工程根目录</span><code aria-label="同步工程根目录">{root||'尚未连接游戏工程'}</code><p>同步直接写入此工程。下方仅设置工程内的子目录。</p></div><button type="button" className="gp-secondary" disabled={busy} onClick={()=>setTab('connection')}>更换工程</button></section>
     <EngineSyncBinding binding={ownership} busy={busy} blocked={blocked} confirming={confirmBinding} error={error} onRefresh={()=>void checkBinding()} onConfirm={()=>{setError('');setConfirmBinding(true);}} onCancel={()=>setConfirmBinding(false)} onRebind={()=>void rebind()}/>
     {blocked&&<p className="es-notice" role="status">{blocked}</p>}
@@ -111,6 +113,7 @@ function ContentSync({projectId,config,build,art,blockedReason,onOpenAsset,tab,s
           <section className="es-card"><label className="es-checkbox"><input type="checkbox" checked={settings.assets} onChange={e=>patch({assets:e.target.checked})}/>同步已采用素材</label><p>交付采用版本的原文件，历史版本仍保留在素材资产中。</p><label>素材子目录（相对于工程根目录）<input aria-label="素材目标目录" value={settings.assetsDirectory} onChange={e=>patch({assetsDirectory:e.target.value})}/></label><div className="es-target-path"><span>最终写入位置</span><output aria-label="素材最终写入位置">{fullPath(settings.assetsDirectory)}</output></div><label className="es-checkbox"><input type="checkbox" disabled={!settings.assets} checked={settings.includePlaceholders} onChange={e=>patch({includePlaceholders:e.target.checked})}/>包含已采用的占位素材</label><small>关闭后，仅纳入审核通过的正式采用版本。单文件素材更新时保留同格式的工程路径；多文件版本按文件名对应。</small><div className="es-policy"><b>交付规则</b><p>更新和移除前自动备份。工程中手工修改过的文件需处理冲突。不会修改程序、场景或引擎生成的导入缓存。</p></div></section>
         </div>
       </fieldset>
+      <section className="es-card es-collaboration"><label className="es-checkbox"><input type="checkbox" checked={settings.collaboration} disabled={busy} onChange={e=>patch({collaboration:e.target.checked})}/>同步开发协作（任务与工具回写）</label><p>在工程的 gamecreator/ 中生成任务与工具上下文、反馈填写规范和比较基准。开发者或 AI 提交反馈后，到“开发反馈”查看并应用。</p><div className="es-target-path"><span>开发协作目录</span><output>{fullPath('gamecreator')}</output></div><small>关闭后保留已有上下文、反馈及回执。既有同步配置需要手动开启；历史快照保留用于核对旧反馈。</small></section>
       {invalid&&<p className="es-error" role="alert">{invalid}</p>}
       <div className="es-footer"><span>{dirty?'配置待保存':'配置已保存 · 手动预览后同步'}</span><button className="primary" disabled={busy||foreign||dirty||!!blocked||!!invalid} onClick={()=>void preview()}>预览同步变更<ArrowRight size={16}/></button></div>
     </>}

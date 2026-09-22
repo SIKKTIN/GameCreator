@@ -14,12 +14,13 @@ export function useProjectSchedule(workspaceId: string, legacyDefaults: unknown[
   const [loadError, setLoadError] = useState(initial.error);
   const [saveError, setSaveError] = useState(''), [operationError, setOperationError] = useState('');
   const latest = useRef(store), committed = useRef(initial.raw), legacyRaw = useRef(initial.legacyRaw);
+  const unsaved=useRef(false);
   const persist = (next: ProjectScheduleStore) => {
     try {
       if (loadError) throw new Error(loadError);
       committed.current = writeProjectSchedule(workspaceStorage, key, committed.current, next, { key: legacyKey, expected: legacyRaw.current });
-      setSaveError(''); setOperationError(''); return true;
-    } catch (error) { setSaveError('项目排期修改未保存：' + String(error)); return false; }
+      unsaved.current=false;setSaveError(''); setOperationError(''); return true;
+    } catch (error) { unsaved.current=true;setSaveError('项目排期修改未保存：' + String(error)); return false; }
   };
   const update = (operation: (current: ProjectScheduleStore) => ProjectScheduleStore) => {
     if (loadError) return false;
@@ -34,7 +35,7 @@ export function useProjectSchedule(workspaceId: string, legacyDefaults: unknown[
     try {
       const loaded = readProjectSchedule(workspaceStorage, key, legacyKey, legacyDefaults);
       latest.current = loaded.store; committed.current = loaded.raw; legacyRaw.current = loaded.legacyRaw; setStore(loaded.store);
-      setLoadError(''); setSaveError(''); setOperationError(''); return true;
+      unsaved.current=false;setLoadError(''); setSaveError(''); setOperationError(''); return true;
     } catch (error) { setLoadError(String(error)); return false; }
   };
   const pending = !!saveError;
@@ -44,7 +45,7 @@ export function useProjectSchedule(workspaceId: string, legacyDefaults: unknown[
     window.addEventListener('beforeunload', warn);
     return () => window.removeEventListener('beforeunload', warn);
   }, [pending]);
-  return { store, update, retry: () => persist(latest.current), reload, blocked: !!loadError, pending,
+  return { store, update, retry: () => persist(latest.current), reload, reloadIfClean:()=>!unsaved.current&&reload(), blocked: !!loadError, pending,
     error: loadError ? '项目排期存档读取失败，已停止写入：' + loadError : [saveError, operationError].filter(Boolean).join('；') };
 }
-export type ProjectScheduleController = ReturnType<typeof useProjectSchedule>;
+export type ProjectScheduleController = Omit<ReturnType<typeof useProjectSchedule>,'reloadIfClean'>;

@@ -13,12 +13,13 @@ export function useDevelopmentTools(workspaceId: string) {
   const [loadError, setLoadError] = useState(initial.error);
   const [saveError, setSaveError] = useState(''), [operationError, setOperationError] = useState('');
   const latest = useRef(store), committed = useRef(initial.raw);
+  const unsaved=useRef(false);
   const persist = (next: DevelopmentToolsStore) => {
     try {
       if (loadError) throw new Error(loadError);
       committed.current = writeDevelopmentTools(workspaceStorage, key, committed.current, next);
-      setSaveError(''); setOperationError(''); return true;
-    } catch (error) { setSaveError('开发工具修改未保存：' + String(error)); return false; }
+      unsaved.current=false;setSaveError(''); setOperationError(''); return true;
+    } catch (error) { unsaved.current=true;setSaveError('开发工具修改未保存：' + String(error)); return false; }
   };
   const update = (operation: (current: DevelopmentToolsStore) => DevelopmentToolsStore) => {
     if (loadError) return false;
@@ -33,7 +34,7 @@ export function useDevelopmentTools(workspaceId: string) {
     try {
       const loaded = readDevelopmentTools(workspaceStorage, key);
       latest.current = loaded.store; committed.current = loaded.raw; setStore(loaded.store);
-      setLoadError(''); setSaveError(''); setOperationError(''); return true;
+      unsaved.current=false;setLoadError(''); setSaveError(''); setOperationError(''); return true;
     } catch (error) { setLoadError(String(error)); return false; }
   };
   const pending = !!saveError;
@@ -43,7 +44,7 @@ export function useDevelopmentTools(workspaceId: string) {
     window.addEventListener('beforeunload', warn);
     return () => window.removeEventListener('beforeunload', warn);
   }, [pending]);
-  return { store, update, retry: () => persist(latest.current), reload, blocked: !!loadError, pending,
+  return { store, update, retry: () => persist(latest.current), reload, reloadIfClean:()=>!unsaved.current&&reload(), blocked: !!loadError, pending,
     error: loadError ? '开发工具存档读取失败，已停止写入：' + loadError : [saveError, operationError].filter(Boolean).join('；') };
 }
 export type DevelopmentToolsController = ReturnType<typeof useDevelopmentTools>;

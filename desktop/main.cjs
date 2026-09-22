@@ -19,7 +19,7 @@ const storage = folders.storage;
 const artFiles = createArtFiles(dataDirectory, {resolveWorkspaceDirectory:folders.assetDirectory});
 const projectPackages = createProjectPackages({dataDirectory, storage, resolveAssetDirectory:folders.assetDirectory});
 const aiDocuments = createAiDocuments({defaultDirectory:path.join(root,'generate')});
-const engineSync = createEngineSync({artFiles});
+const engineSync = createEngineSync({artFiles,storage});
 const packageTokens = new Map();
 let localServer, mainWindow;
 let initializing = true;
@@ -164,7 +164,7 @@ else {
     if (!trusted(event) || packageTokens.get(token) !== event.sender) throw new Error('不允许释放此项目文件夹');
     projectPackages.release(token); packageTokens.delete(token);
   });
-  for(const operation of ['preview','apply','history','recover','release','binding','rebind'])ipcMain.handle('engine-sync-'+operation,(event,input)=>{
+  for(const operation of ['preview','apply','history','recover','release','binding','rebind','feedbackScan','feedbackApply','feedbackRepair'])ipcMain.handle('engine-sync-'+operation,(event,input)=>{
     if(!trusted(event))throw new Error('不允许同步工程文件');
     return engineSync[operation](input);
   });

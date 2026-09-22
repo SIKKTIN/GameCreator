@@ -12,8 +12,9 @@ const MEDIA=/\.(png|jpe?g|webp|gif|svg|bmp|tga|exr|hdr|dds|ktx|wav|ogg|mp3|flac|
 const HASH=/^[a-f0-9]{64}$/;
 const UUID=/^[a-f0-9-]{36}$/;
 
-function createEngineSync({artFiles,beforeWrite=async()=>{},beforeRebind=async()=>{}}) {
+function createEngineSync({artFiles,storage,beforeWrite=async()=>{},beforeRebind=async()=>{},beforeFeedbackCommit}) {
   const plans=new Map(),bindings=new Map();
+  const feedback=require('./engine-feedback.cjs').createEngineFeedback({storage,context,manifest,read,writeMeta,checked,locked,hash,beforeFeedbackCommit});
   const modules=()=>import('../shared/engine-sync.mjs');
   async function targetPath(value) {
     const {syncPath}=await modules();
@@ -70,7 +71,7 @@ function createEngineSync({artFiles,beforeWrite=async()=>{},beforeRebind=async()
     if(!allowForeign&&m.engine!==ctx.engine)throw new Error('工程同步记录属于另一个项目/引擎：记录引擎为 '+m.engine+'，当前为 '+ctx.engine+'。请更换工程或选择对应引擎。');
     if(!allowForeign&&m.projectId!==ctx.projectId)throw new Error('工程同步记录属于另一个项目：'+m.projectId+'。请在同步配置中检查归属，并确认是否重新绑定到当前项目。');
     const paths=new Set();
-    for(const f of m.files){await targetPath(f.path);const key=f.path.normalize('NFC').toLowerCase();if(!HASH.test(f.hash)||typeof f.id!=='string'||!['asset','document'].includes(f.kind)||paths.has(key))throw new Error('工程同步清单损坏');paths.add(key);}
+    for(const f of m.files){await targetPath(f.path);const key=f.path.normalize('NFC').toLowerCase();if(!HASH.test(f.hash)||typeof f.id!=='string'||!['asset','document','collaboration'].includes(f.kind)||paths.has(key))throw new Error('工程同步清单损坏');paths.add(key);}
     for(const h of m.history)if(!h||!UUID.test(h.id)||typeof h.at!=='string'||!['success','failed'].includes(h.status)||typeof h.message!=='string'||!Array.isArray(h.files)||(h.kind!==undefined&&(h.kind!=='rebind'||typeof h.fromProjectId!=='string'||typeof h.toProjectId!=='string')))throw new Error('同步历史损坏');
     return m;
   }
@@ -133,6 +134,7 @@ function createEngineSync({artFiles,beforeWrite=async()=>{},beforeRebind=async()
     const ctx=await context(input),{syncSettings,adoptedSyncAssets,syncDocuments}=await modules(),settings=syncSettings(input.settings);
     if(await read(ctx,META+'/pending.json'))throw new Error('存在未完成的同步，请先恢复中断的同步');
     const m=await manifest(ctx),desired=[],warnings=[];
+    if(settings.collaboration)desired.push(...await feedback.documents(ctx,input,settings));
     if(settings.documents) {
       for(const d of syncDocuments(input.document,settings.modules))desired.push({id:d.id,path:settings.docsDirectory+'/'+d.path,bytes:Buffer.from(d.content),kind:'document',label:d.id==='document:index'?'项目文档目录':input.document.sections.find(s=>'document:'+s.id===d.id)?.label||d.path,version:input.document.version});
     }
@@ -177,7 +179,7 @@ function createEngineSync({artFiles,beforeWrite=async()=>{},beforeRebind=async()
       rows.push({...f,currentHash,status:conflict?'conflict':currentHash===f.hash&&old?.versionId===f.versionId?'unchanged':old?'updated':'added',reason:conflict?(old?'工程文件在同步后被修改':'目标存在非本项目管理的文件'):''});
     }
     // Disabling a scope does not remove its previous output. Within an enabled scope, removals are opt-in.
-    for(const old of m.value.files)if(!paths.has(old.path.normalize('NFC').toLowerCase())&&(old.kind==='document'?settings.documents:settings.assets)) {
+    for(const old of m.value.files)if(old.kind!=='collaboration'&&!paths.has(old.path.normalize('NFC').toLowerCase())&&(old.kind==='document'?settings.documents:settings.assets)) {
       const current=await read(ctx,old.path),currentHash=current?hash(current):null;
       rows.push({...old,remove:true,currentHash,status:currentHash!==null&&currentHash!==old.hash?'conflict':'removed',reason:currentHash!==null&&currentHash!==old.hash?'待移除文件在工程中被修改':'不再属于当前同步范围'});
     }
@@ -307,7 +309,7 @@ function createEngineSync({artFiles,beforeWrite=async()=>{},beforeRebind=async()
       }
     });
   }
-  function release(token){plans.delete(token);bindings.delete(token);}
-  return {preview,apply,history,recover,release,binding,rebind};
+  function release(token){plans.delete(token);bindings.delete(token);feedback.release(token);}
+  return {preview,apply,history,recover,release,binding,rebind,feedbackScan:feedback.feedbackScan,feedbackApply:feedback.feedbackApply,feedbackRepair:feedback.feedbackRepair};
 }
 module.exports={createEngineSync};

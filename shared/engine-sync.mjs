@@ -1,6 +1,6 @@
 import {validName} from './ai-document-files.mjs';
 
-export const defaultSyncSettings = {documents:true, assets:true, includePlaceholders:true, docsDirectory:'docs/gamecreator', assetsDirectory:'assets/gamecreator', modules:[]};
+export const defaultSyncSettings = {documents:true, assets:true, collaboration:true, includePlaceholders:true, docsDirectory:'docs/gamecreator', assetsDirectory:'assets/gamecreator', modules:[]};
 export function syncPath(value) {
   if(typeof value!=='string')throw new Error('同步目录必须是工程内的相对路径');
   const result=value.trim().replace(/^res:\/\//,'').replaceAll('\\','/');
@@ -16,7 +16,10 @@ export function syncSettings(input) {
   const docsDirectory=syncPath(input.docsDirectory),assetsDirectory=syncPath(input.assetsDirectory);
   const a=docsDirectory.toLowerCase(),b=assetsDirectory.toLowerCase();
   if(a===b||a.startsWith(b+'/')||b.startsWith(a+'/'))throw new Error('文档目录和素材目录不能相同或互相包含');
-  return {documents:input.documents,assets:input.assets,includePlaceholders:input.includePlaceholders,docsDirectory,assetsDirectory,modules:[...new Set(input.modules)]};
+  if(input.collaboration!==undefined&&typeof input.collaboration!=='boolean')throw new Error('开发协作配置无效');
+  const collaboration=input.collaboration??false;
+  if(collaboration&&[a,b].some(p=>p==='gamecreator'||p.startsWith('gamecreator/')))throw new Error('gamecreator 目录保留给开发协作，请调整文档或素材目录');
+  return {documents:input.documents,assets:input.assets,collaboration,includePlaceholders:input.includePlaceholders,docsDirectory,assetsDirectory,modules:[...new Set(input.modules)]};
 }
 
 // Deterministic output: checking changes must not rewrite every file because the clock changed.

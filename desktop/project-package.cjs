@@ -698,4 +698,4 @@ function createProjectPackages({dataDirectory, storage, resolveAssetDirectory}) 
   return {exportFolder, readFolder, prepareImport, restoreAssets, release};
 }
 
-module.exports = {createProjectPackages, safeProjectDirectoryName, archiveKey, SECTIONS, MAX_ASSET_BYTES, MAX_METADATA_BYTES, MAX_TOTAL_BYTES};
+module.exports = {createProjectPackages, safeProjectDirectoryName, archiveKey, SECTIONS, MAX_ASSET_BYTES, MAX_METADATA_BYTES, MAX_TOTAL_BYTES, validateProjectScheduleArchive};

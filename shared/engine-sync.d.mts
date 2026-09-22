@@ -1,4 +1,4 @@
-export type SyncSettings={documents:boolean;assets:boolean;includePlaceholders:boolean;docsDirectory:string;assetsDirectory:string;modules:string[]};
+export type SyncSettings={documents:boolean;assets:boolean;collaboration:boolean;includePlaceholders:boolean;docsDirectory:string;assetsDirectory:string;modules:string[]};
 export const defaultSyncSettings:SyncSettings;
 export function syncPath(value:unknown):string;
 export function syncSettings(value:unknown):SyncSettings;
