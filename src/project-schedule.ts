@@ -1,3 +1,4 @@
+import { emptyDevelopmentTools, type DevelopmentToolsStore } from '../shared/development-tools.mjs';
 import type { GameplayDesign } from './gameplay.ts';
 import type { FunctionalStore } from './functional-systems.ts';
 import type { ArtStore } from './art-assets.ts';
@@ -7,7 +8,7 @@ import type { PrototypeDesignStore } from './prototype-design.ts';
 export const productionKinds = ['设计', '程序', '美术', '关卡', '测试', '其他'] as const;
 export const productionStatuses = ['待开始', '进行中', '待验收', '已完成', '受阻'] as const;
 export const productionPriorities = ['低', '普通', '高', '紧急'] as const;
-export const scheduleReferenceLabels = { gameplay: '玩法文档', capability: '程序功能', requirement: '素材需求', asset: '素材资产', map: '地图', prototype: '原型场景' };
+export const scheduleReferenceLabels = { gameplay: '玩法文档', capability: '程序功能', tool: '开发工具', requirement: '素材需求', asset: '素材资产', map: '地图', prototype: '原型场景' };
 export type ScheduleReference = { kind: keyof typeof scheduleReferenceLabels; targetId: string };
 export type ProductionTask = {
   id: string; title: string; description: string; kind: typeof productionKinds[number]; owner: string;
@@ -59,7 +60,7 @@ export function validateProjectSchedule(value: unknown): ProjectScheduleStore {
       !Array.isArray(t.dependencyIds) || t.dependencyIds.some(v => typeof v !== 'string' || !v.trim()) || new Set(t.dependencyIds).size !== t.dependencyIds.length || !Array.isArray(t.references)) return fail();
     const refs = new Set<string>();
     for (const r of t.references) {
-      if (!record(r) || !['gameplay', 'capability', 'requirement', 'asset', 'map', 'prototype'].includes(r.kind as string) || typeof r.targetId !== 'string' || !r.targetId.trim()) return fail();
+      if (!record(r) || !['gameplay', 'capability', 'requirement', 'asset', 'map', 'prototype', 'tool'].includes(r.kind as string) || typeof r.targetId !== 'string' || !r.targetId.trim()) return fail();
       const key = JSON.stringify([r.kind, r.targetId]); if (refs.has(key)) return fail(); refs.add(key);
     }
   }
@@ -96,8 +97,9 @@ export function removeProductionTask(store: ProjectScheduleStore, id: string): P
 export function removeProductionMilestone(store: ProjectScheduleStore, id: string): ProjectScheduleStore {
   return { ...store, milestones: store.milestones.filter(m => m.id !== id), tasks: store.tasks.map(t => t.milestoneId === id ? { ...t, milestoneId: '' } : t) };
 }
-export function buildScheduleSources(designs: GameplayDesign[], functional: FunctionalStore, art: ArtStore, maps: MapDesignStore, prototype: PrototypeDesignStore): ScheduleSources {
+export function buildScheduleSources(designs: GameplayDesign[], functional: FunctionalStore, art: ArtStore, maps: MapDesignStore, prototype: PrototypeDesignStore, tools: DevelopmentToolsStore = emptyDevelopmentTools()): ScheduleSources {
   return {
+    tool: tools.tools.map(t => ({ id: t.id, name: t.name, status: '工具：' + t.status, unavailable: t.archived || t.status === '停用' })),
     gameplay: designs.map(d => ({ id: d.id, name: d.title, status: '设计：' + d.status, unavailable: d.archived })),
     capability: functional.capabilities.map(c => ({ id: c.id, name: c.name, status: '实现：' + c.status, unavailable: c.archived || !!functional.systems.find(s => s.id === c.systemId)?.archived })),
     requirement: art.requirements.map(r => ({ id: r.id, name: r.name, status: '需求：' + r.status, unavailable: r.archived })),

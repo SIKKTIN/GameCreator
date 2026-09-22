@@ -8,7 +8,7 @@ import {buildAiDocument,buildAiMarkdown,buildAiDocumentFiles,aiModules} from '..
 import {buildDocumentZip} from '../src/ai-document-zip.ts';
 import {defaultFolderName,markdownName,validateDocumentFiles} from '../shared/ai-document-files.mjs';
 const config={engine:'test',projectPath:'',enumPath:'',dataPath:'',outputFormat:'lua',autoSync:false};
-const args=e=>[{name:e.name,description:e.description,genre:'',platform:'',version:'v1',status:'草稿'},e.stories,e.data,e.definitions,config,{scan:null,active:null},e.gameplay.designs,e.functionalSystems,e.artAssets,e.gameplayCore,e.prototypeDesign,e.taskFlows,e.storyOrchestration,e.mapDesign,e.gameplay.categories,e.projectSchedule,e.numericalAnalysis];
+const args=e=>[{name:e.name,description:e.description,genre:'',platform:'',version:'v1',status:'草稿'},e.stories,e.data,e.definitions,config,{scan:null,active:null},e.gameplay.designs,e.functionalSystems,e.artAssets,e.gameplayCore,e.prototypeDesign,e.taskFlows,e.storyOrchestration,e.mapDesign,e.gameplay.categories,e.projectSchedule,e.numericalAnalysis,undefined,e.developmentTools];
 for(const slug of ['plants-vs-zombies','stardew-valley','hollow-knight','disco-elysium','vampire-survivors']) {
   test(slug+': shared sections retain all content in the full and separate documents',async()=>{
     const e=JSON.parse(await fs.readFile(new URL('../examples/prototypes/'+slug+'.json',import.meta.url),'utf8')),before=JSON.stringify(e);

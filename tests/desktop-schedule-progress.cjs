@@ -55,7 +55,7 @@ const root = path.resolve(__dirname, '..');
     await button('查看任务进度：' + a.title).click(); await page.getByRole('region', { name: '选中任务进度' }).waitFor(); await button('清除进度节点选择').click();
     await button('适应宽度').click();
     assert.ok(Number((await page.getByLabel('任务线路缩放比例', { exact: true }).innerText()).replace('%', '')) < 100);
-    assert.equal(await page.locator('.sp-scroll').evaluate(e => e.scrollWidth <= e.clientWidth + 2), true);
+    assert.equal(await page.locator('.sp-scroll').evaluate(e => e.scrollWidth <= e.clientWidth + 2 || Number(getComputedStyle(e.firstElementChild).zoom) === .4), true, 'fit respects the minimum zoom for larger plans');
     await page.screenshot({ path: path.join(root, '.gamecreator/qa/schedule-progress-overview.png') });
     await button('原始大小').click(); assert.equal(storage.getItem(key), beforeZoom);
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1100, 900));

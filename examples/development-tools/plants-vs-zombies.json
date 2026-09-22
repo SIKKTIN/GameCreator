@@ -1,0 +1,270 @@
+{
+  "tools": {
+    "schema": 1,
+    "tools": [
+      {
+        "id": "pvz-tool-animation-preview",
+        "name": "骨骼动画预览工具",
+        "kind": "资源制作",
+        "status": "待开发",
+        "priority": "高",
+        "owner": "",
+        "audience": "角色美术、动画、程序、测试",
+        "purpose": "在接入正式对局前，检查植物与僵尸的骨骼动画、挂点和动画事件，减少反复进入游戏调试。",
+        "scope": "1. 加载项目中的骨骼资源，列出动作与时长。\n2. 播放、暂停、循环、倍速、时间轴定位与逐帧检查。\n3. 显示骨骼、根节点、边界与枪口/产出挂点，支持背景与网格切换。\n4. 检查待机、攻击、受击、死亡等动作切换；缺失动作明确提示。\n5. 显示发射、产出、啃咬等事件名和触发时间。\n6. 预览摄像机支持拖动和缩放。首版不制作动画、不修改原资源、不承担战斗结算。",
+        "inputs": "植物及僵尸骨骼/动画资源、贴图、动作命名表、挂点与事件约定；首批用豌豆射手和普通僵尸各一套样例。",
+        "outputs": "可交互动画预览、动作/事件/挂点检查结果、资源名与版本信息；可复制问题报告用于反馈。",
+        "environment": "首版接入当前游戏工程的编辑器或独立调试场景；使用项目现有动画和数据格式。具体引擎版本、资源格式与骨骼方案先在工具规格任务中确认；外部格式通过适配层扩展。",
+        "acceptance": "使用豌豆射手验证枪口位置和发射事件；使用普通僵尸验证行走、啃咬与死亡。暂停逐帧时事件不得重复造成游戏伤害；重复加载不残留上一资源；错误资源有可读提示；退出后源资源不变。",
+        "usage": "交付后补充启动入口、操作步骤、示例资源和常见错误处理。",
+        "delivery": "",
+        "capabilityIds": [
+          "pvz-cap-shoot",
+          "pvz-cap-zombie",
+          "pvz-cap-sun-produce"
+        ],
+        "archived": false
+      },
+      {
+        "id": "pvz-tool-wave-preview",
+        "name": "波次配置预演工具",
+        "kind": "关卡编辑",
+        "status": "待开发",
+        "priority": "高",
+        "owner": "",
+        "audience": "关卡设计、程序、测试",
+        "purpose": "在开始真实对局前，检查三波固定生成事件及五条路线的压力分布。",
+        "scope": "读取当前波次配置，按时间与路线可视化排列；播放/暂停/倍速/定位事件；按路线过滤；检查重复事件 ID、缺失单位、路线越界和非递增时间；展示事件总数与每波统计。首版通过现有数据配置修改，不在预演中另存一套规则。",
+        "inputs": "三波事件配置、普通/路障僵尸参数与 5 行棋盘定义。",
+        "outputs": "波次时间轴预演、每路生成数量、配置检查清单和失败条目定位。",
+        "environment": "首版接入当前游戏工程的编辑器或独立调试场景；使用项目现有动画和数据格式。具体引擎版本、资源格式与骨骼方案先在工具规格任务中确认；外部格式通过适配层扩展。",
+        "acceptance": "三波共 16 次生成与配置完全一致；暂停、回退与重放不改变正式存档；能定位重复 ID、缺失单位、路线越界；重置后统计归零。",
+        "usage": "交付后补充启动入口、操作步骤、示例资源和常见错误处理。",
+        "delivery": "",
+        "capabilityIds": [
+          "pvz-cap-waves",
+          "pvz-cap-clock"
+        ],
+        "archived": false
+      },
+      {
+        "id": "pvz-tool-match-debug",
+        "name": "对局调试面板",
+        "kind": "调试验证",
+        "status": "待开发",
+        "priority": "高",
+        "owner": "",
+        "audience": "玩法程序、测试、设计",
+        "purpose": "快速复现经济、种植、战斗和终局问题，统一查看运行状态。",
+        "scope": "显示当前对局状态、时钟、阳光、卡牌冷却、实体数和当前波次；调试入口支持加阳光、指定路线生成测试僵尸、暂停/单步和重开；记录种植提交、伤害、死亡和胜负事件；调试操作显式标识并通过现有功能接口执行。正式发布默认关闭调试入口。",
+        "inputs": "当前测试对局、单位与波次配置、可复现操作步骤。",
+        "outputs": "实时状态与事件日志、可复制的复现记录；调试操作结果与失败原因。",
+        "environment": "首版接入当前游戏工程的编辑器或独立调试场景；使用项目现有动画和数据格式。具体引擎版本、资源格式与骨骼方案先在工具规格任务中确认；外部格式通过适配层扩展。",
+        "acceptance": "暂停后时钟和波次均停止；单步可检查同帧致死与胜负优先级；重开清空旧实体及日志；修改阳光仍走统一账本；正式构建无法从正常输入打开调试入口。",
+        "usage": "交付后补充启动入口、操作步骤、示例资源和常见错误处理。",
+        "delivery": "",
+        "capabilityIds": [
+          "pvz-cap-clock",
+          "pvz-cap-wallet",
+          "pvz-cap-entity",
+          "pvz-cap-damage",
+          "pvz-cap-finish",
+          "pvz-cap-restart"
+        ],
+        "archived": false
+      }
+    ]
+  },
+  "schedule": {
+    "schema": 1,
+    "tasks": [
+      {
+        "id": "plants-vs-zombies-schedule-tool-spec",
+        "title": "确认制作工具范围与资源接口",
+        "description": "明确三项工具的使用流程、交付入口、资源格式和运行隔离约定。骨骼方案沿用当前工程选择，首版不新增动画制作系统。",
+        "kind": "设计",
+        "owner": "",
+        "status": "待开始",
+        "priority": "高",
+        "start": "2026-09-23",
+        "end": "2026-09-23",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "plants-vs-zombies-schedule-tools",
+        "acceptance": "确认动作、挂点、事件、波次 ID 与日志字段；形成可供美术和程序共同验收的样例清单。",
+        "result": "",
+        "dependencyIds": [
+          "plants-vs-zombies-schedule-scope"
+        ],
+        "references": [
+          {
+            "kind": "tool",
+            "targetId": "pvz-tool-animation-preview"
+          },
+          {
+            "kind": "tool",
+            "targetId": "pvz-tool-wave-preview"
+          },
+          {
+            "kind": "tool",
+            "targetId": "pvz-tool-match-debug"
+          }
+        ]
+      },
+      {
+        "id": "plants-vs-zombies-schedule-tool-animation",
+        "title": "开发骨骼动画预览工具",
+        "description": "实现资源加载、播放控制、骨骼/挂点叠加、事件检查和问题报告；先用最小骨骼样例联调。",
+        "kind": "程序",
+        "owner": "",
+        "status": "待开始",
+        "priority": "高",
+        "start": "2026-10-05",
+        "end": "2026-10-07",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "plants-vs-zombies-schedule-tools",
+        "acceptance": "使用豌豆射手验证枪口位置和发射事件；使用普通僵尸验证行走、啃咬与死亡。暂停逐帧时事件不得重复造成游戏伤害；重复加载不残留上一资源；错误资源有可读提示；退出后源资源不变。",
+        "result": "",
+        "dependencyIds": [
+          "plants-vs-zombies-schedule-tool-spec",
+          "plants-vs-zombies-schedule-flow"
+        ],
+        "references": [
+          {
+            "kind": "tool",
+            "targetId": "pvz-tool-animation-preview"
+          }
+        ]
+      },
+      {
+        "id": "plants-vs-zombies-schedule-tool-samples",
+        "title": "准备并验证骨骼动画样例",
+        "description": "在原型单位资源基础上准备豌豆射手和普通僵尸的动作、骨骼、贴图与挂点说明，记录可复现的异常资源。",
+        "kind": "美术",
+        "owner": "",
+        "status": "待开始",
+        "priority": "高",
+        "start": "2026-10-06",
+        "end": "2026-10-06",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "plants-vs-zombies-schedule-tools",
+        "acceptance": "提供两套样例及资源版本；核对根节点、枪口、行走/攻击/死亡动作，附一套缺失动作的异常样例。",
+        "result": "",
+        "dependencyIds": [
+          "plants-vs-zombies-schedule-tool-spec",
+          "plants-vs-zombies-schedule-hud-art"
+        ],
+        "references": [
+          {
+            "kind": "tool",
+            "targetId": "pvz-tool-animation-preview"
+          }
+        ]
+      },
+      {
+        "id": "plants-vs-zombies-schedule-tool-waves",
+        "title": "开发波次配置预演工具",
+        "description": "在开始真实对局前，检查三波固定生成事件及五条路线的压力分布。",
+        "kind": "程序",
+        "owner": "",
+        "status": "待开始",
+        "priority": "高",
+        "start": "2026-10-05",
+        "end": "2026-10-06",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "plants-vs-zombies-schedule-tools",
+        "acceptance": "三波共 16 次生成与配置完全一致；暂停、回退与重放不改变正式存档；能定位重复 ID、缺失单位、路线越界；重置后统计归零。",
+        "result": "",
+        "dependencyIds": [
+          "plants-vs-zombies-schedule-tool-spec",
+          "plants-vs-zombies-schedule-waves"
+        ],
+        "references": [
+          {
+            "kind": "tool",
+            "targetId": "pvz-tool-wave-preview"
+          }
+        ]
+      },
+      {
+        "id": "plants-vs-zombies-schedule-tool-debug",
+        "title": "开发对局调试面板",
+        "description": "快速复现经济、种植、战斗和终局问题，统一查看运行状态。",
+        "kind": "程序",
+        "owner": "",
+        "status": "待开始",
+        "priority": "高",
+        "start": "2026-10-07",
+        "end": "2026-10-08",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "plants-vs-zombies-schedule-tools",
+        "acceptance": "暂停后时钟和波次均停止；单步可检查同帧致死与胜负优先级；重开清空旧实体及日志；修改阳光仍走统一账本；正式构建无法从正常输入打开调试入口。",
+        "result": "",
+        "dependencyIds": [
+          "plants-vs-zombies-schedule-tool-spec",
+          "plants-vs-zombies-schedule-tool-waves",
+          "plants-vs-zombies-schedule-combat",
+          "plants-vs-zombies-schedule-plant"
+        ],
+        "references": [
+          {
+            "kind": "tool",
+            "targetId": "pvz-tool-match-debug"
+          }
+        ]
+      },
+      {
+        "id": "plants-vs-zombies-schedule-tool-qa",
+        "title": "验收制作工具与调试隔离",
+        "description": "用正式样例与异常样例验收三项工具，补充启动说明、复现步骤及交付位置。",
+        "kind": "测试",
+        "owner": "",
+        "status": "待开始",
+        "priority": "高",
+        "start": "2026-10-09",
+        "end": "2026-10-09",
+        "actualStart": "",
+        "actualEnd": "",
+        "milestoneId": "plants-vs-zombies-schedule-tools",
+        "acceptance": "逐项执行三个工具的验收清单；资源不被预览改写，状态重置无残留，正式构建入口关闭；记录结果与版本。",
+        "result": "",
+        "dependencyIds": [
+          "plants-vs-zombies-schedule-tool-animation",
+          "plants-vs-zombies-schedule-tool-samples",
+          "plants-vs-zombies-schedule-tool-waves",
+          "plants-vs-zombies-schedule-tool-debug"
+        ],
+        "references": [
+          {
+            "kind": "tool",
+            "targetId": "pvz-tool-animation-preview"
+          },
+          {
+            "kind": "tool",
+            "targetId": "pvz-tool-wave-preview"
+          },
+          {
+            "kind": "tool",
+            "targetId": "pvz-tool-match-debug"
+          }
+        ]
+      }
+    ],
+    "milestones": [
+      {
+        "id": "plants-vs-zombies-schedule-tools",
+        "title": "T1｜制作工具链可用",
+        "owner": "",
+        "due": "2026-10-09",
+        "description": "在原最小原型计划中增加工具制作工作。参考安排假设沿用 2 名程序、1 名美术；工具阶段加入后，整合与最终验收顺延至 10 月 15 日，具体日期需按实际资源重新评估。",
+        "acceptance": "动画预览、波次预演、对局调试三项工具通过样例与异常路径测试，并附交付入口和使用说明。",
+        "review": "",
+        "status": "计划中"
+      }
+    ]
+  }
+}

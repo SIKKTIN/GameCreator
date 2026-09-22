@@ -104,7 +104,7 @@ export function PrototypeImportDialog({ open, busy, projects, onClose, onImport 
         <div><span className="pi-kicker">PROTOTYPE EXAMPLES</span><h2 id={id + '-title'}>从原型示例创建项目</h2></div>
         <button type="button" className="pi-close" aria-label="关闭原型示例" disabled={locked} onClick={closeDialog}><X size={19} aria-hidden="true" /></button>
       </div>
-      <p id={id + '-description'} className="pi-description">选择一套设计和保存位置，创建独立的项目文件夹。玩法核心、玩法设计、功能系统、素材需求、配置数据和故事文档会一起复制，之后可自由修改。</p>
+      <p id={id + '-description'} className="pi-description">选择一套设计和保存位置，创建独立的项目文件夹。玩法核心、玩法设计、功能系统、开发工具、项目排期、素材需求、配置数据和故事文档会一起复制，之后可自由修改。</p>
       <fieldset className="pi-example-picker" disabled={locked}>
         <legend>选择原型示例</legend>
         <div className="pi-example-grid">

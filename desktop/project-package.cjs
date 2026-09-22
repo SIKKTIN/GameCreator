@@ -1,5 +1,5 @@
-let validateProductionDocs;
-const productionReady=import('../shared/material-production.mjs').then(m=>{validateProductionDocs=m.validateProductionDocs;});
+let validateProductionDocs, validateDevelopmentTools;
+const productionReady=Promise.all([import('../shared/material-production.mjs').then(m=>{validateProductionDocs=m.validateProductionDocs;}),import('../shared/development-tools.mjs').then(m=>{validateDevelopmentTools=m.validateDevelopmentTools;})]);
 const {storyExtras}=require('../shared/story-document.cjs');
 // Portable project folders contain JSON archives and original art files, never executable imports.
 const path = require('node:path');
@@ -10,7 +10,7 @@ const { workspaceHash } = require('./art-files.cjs');
 
 const CATALOG_KEY = 'gamecreator.projects.v1';
 const SECTIONS = ['gameplay', 'functional-systems', 'art-assets', 'definitions', 'stories', 'project', 'milestones', 'enum-versions'];
-const OPTIONAL_SECTIONS = ['program-framework', 'numerical-analysis', 'project-schedule', 'data-view', 'gameplay-core', 'prototype-design', 'task-flows', 'story-orchestration', 'map-design'];
+const OPTIONAL_SECTIONS = ['development-tools', 'program-framework', 'numerical-analysis', 'project-schedule', 'data-view', 'gameplay-core', 'prototype-design', 'task-flows', 'story-orchestration', 'map-design'];
 const FILE_TOKEN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.[a-z0-9]{1,12}$/;
 const NEW_PROJECT = /^project-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_METADATA_BYTES = 20 * 1024 * 1024;
@@ -450,7 +450,7 @@ function validateProjectScheduleArchive(value) {
             return fail();
         const refs = new Set();
         for (const r of t.references) {
-            if (!record(r) || !['gameplay', 'capability', 'requirement', 'asset', 'map', 'prototype'].includes(r.kind) || typeof r.targetId !== 'string' || !r.targetId.trim())
+            if (!record(r) || !['gameplay', 'capability', 'requirement', 'asset', 'map', 'prototype', 'tool'].includes(r.kind) || typeof r.targetId !== 'string' || !r.targetId.trim())
                 return fail();
             const key = JSON.stringify([r.kind, r.targetId]);
             if (refs.has(key))
@@ -465,6 +465,7 @@ function validateDocument(value) {
   if (value.project.defaultTablesVersion !== undefined && value.project.defaultTablesVersion !== 1) throw new Error('不支持的配置表默认值版本');
   if (Object.hasOwn(value.archives, 'gameplay-core')) validateCoreArchive(value.archives['gameplay-core']);
   if (Object.hasOwn(value.archives, 'prototype-design')) validatePrototypeArchive(value.archives['prototype-design']);
+  if (Object.hasOwn(value.archives, 'development-tools')) validateDevelopmentTools(value.archives['development-tools']);
   if (Object.hasOwn(value.archives, 'project-schedule')) validateProjectScheduleArchive(value.archives['project-schedule']);
   if (Object.hasOwn(value.archives, 'task-flows')) validateTaskArchive(value.archives['task-flows']);
   if (Object.hasOwn(value.archives, 'numerical-analysis')) validateNumericalAnalysisArchive(value.archives['numerical-analysis']);

@@ -6,7 +6,7 @@ import {readPublicationPreview,assertPublicationCurrent} from '../src/team-publi
 const project={id:'schedule-source',name:'测试项目',initialContent:'empty'},prefix='gamecreator.workspace.v1:schedule-source:';
 for(const name of ['plants-vs-zombies','hollow-knight','stardew-valley','disco-elysium','vampire-survivors'])test(name+': publication preserves full schedule, IDs and source names without modifying local archives',async()=>{
   const example=JSON.parse(await fs.readFile(new URL('../examples/prototypes/'+name+'.json',import.meta.url),'utf8'));
-  const data=new Map(Object.entries({'project-schedule':example.projectSchedule,gameplay:example.gameplay,'functional-systems':example.functionalSystems,'art-assets':example.artAssets,'map-design':example.mapDesign,'prototype-design':example.prototypeDesign}).filter(([,value])=>value!==undefined).map(([k,v])=>[prefix+k,JSON.stringify(v)]));
+  const data=new Map(Object.entries({'project-schedule':example.projectSchedule,'development-tools':example.developmentTools,gameplay:example.gameplay,'functional-systems':example.functionalSystems,'art-assets':example.artAssets,'map-design':example.mapDesign,'prototype-design':example.prototypeDesign}).filter(([,value])=>value!==undefined).map(([k,v])=>[prefix+k,JSON.stringify(v)]));
   const storage={getItem:key=>data.get(key)??null},before=[...data],preview=readLocalSchedule(storage,project);
   assert.deepEqual(preview.schedule.store,example.projectSchedule);assert.deepEqual([...data],before);
   assert.ok(preview.schedule.references.length>0);assert.ok(preview.schedule.references.every(r=>r.name&&!r.name.startsWith('来源内容 ')));

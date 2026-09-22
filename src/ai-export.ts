@@ -1,3 +1,4 @@
+import {emptyDevelopmentTools,developmentToolsMarkdown,type DevelopmentToolsStore} from './development-tools.ts';
 import { markdownName, validateDocumentFiles } from '../shared/ai-document-files.mjs';
 import {emptyProgramFramework,programFrameworkMarkdown,type ProgramFrameworkStore} from './program-framework.ts';
 import { buildDocumentZip } from './ai-document-zip.ts';
@@ -23,7 +24,7 @@ const table = (headers: string[], rows: string[][]) => [
   `| ${headers.join(' | ')} |`, `| ${headers.map(() => '---').join(' | ')} |`, ...rows.map((row) => `| ${row.map((cell) => String(cell).replace(/\|/g, '\\|').replace(/\n/g, ' ')).join(' | ')} |`),
 ].join('\n');
 
-export function buildAiDocument(project: ExportProject, stories: ExportStory[], data: ProjectData, definitions: DatasetDef[], config: EngineConfig, registry: EnumRegistry, gameplay: GameplayDesign[] = [], functional: FunctionalStore = emptyFunctionalSystems(), art: ArtStore = emptyArtAssets(), core: GameplayCoreStore = emptyGameplayCore(), prototype: PrototypeDesignStore = emptyPrototypeDesign(), tasks: TaskFlowStore = emptyTaskFlows(), narrative: StoryOrchestrationStore = emptyStoryOrchestration(), maps: MapDesignStore = emptyMapDesign(), categories: GameplayCategory[] = [], schedule: ProjectScheduleStore = emptyProjectSchedule(), analysis: NumericalAnalysisStore = emptyNumericalAnalysis(), framework: ProgramFrameworkStore = emptyProgramFramework()) {
+export function buildAiDocument(project: ExportProject, stories: ExportStory[], data: ProjectData, definitions: DatasetDef[], config: EngineConfig, registry: EnumRegistry, gameplay: GameplayDesign[] = [], functional: FunctionalStore = emptyFunctionalSystems(), art: ArtStore = emptyArtAssets(), core: GameplayCoreStore = emptyGameplayCore(), prototype: PrototypeDesignStore = emptyPrototypeDesign(), tasks: TaskFlowStore = emptyTaskFlows(), narrative: StoryOrchestrationStore = emptyStoryOrchestration(), maps: MapDesignStore = emptyMapDesign(), categories: GameplayCategory[] = [], schedule: ProjectScheduleStore = emptyProjectSchedule(), analysis: NumericalAnalysisStore = emptyNumericalAnalysis(), framework: ProgramFrameworkStore = emptyProgramFramework(), tools: DevelopmentToolsStore = emptyDevelopmentTools()) {
   const sections: AiSection[] = [];
   const add=(id:AiModuleId,body:string,empty=false)=>sections.push({id,label:aiModules.find(m=>m.id===id)!.label,body:body.trim()+(empty?'\n\n暂无内容。':'')});
   add('overview', ['## 项目概览','',`- 类型：${project.genre}`,`- 平台：${project.platform}`,`- 版本：${project.version}`,`- 状态：${project.status}`,'',project.description].join('\n'));
@@ -36,11 +37,12 @@ export function buildAiDocument(project: ExportProject, stories: ExportStory[], 
   add('enum-definitions',enums.join('\n'),!scan?.groups.length&&!scan?.dynamic.length);
   const functionalSources = { designs: gameplay, data, definitions };
   const artSources = { designs: gameplay, functional };
-  add('schedule',projectScheduleMarkdown(schedule,buildScheduleSources(gameplay,functional,art,maps,prototype)),!schedule.tasks.length&&!schedule.milestones.length);
+  add('schedule',projectScheduleMarkdown(schedule,buildScheduleSources(gameplay,functional,art,maps,prototype,tools)),!schedule.tasks.length&&!schedule.milestones.length);
   add('core',gameplayCoreMarkdown(core,gameplay),!core.graphs.length);
   add('prototype',prototypeMarkdown(prototype),!prototype.scenes.length);
   add('gameplay',gameplayMarkdown(gameplay,{stories,datasets:definitions},d=>gameplayFunctionalMarkdown(d.id,functional,functionalSources)+'\n'+artReferencesMarkdown('gameplay',d.id,art,artSources),categories),!gameplay.length);
   add('functional',functionalSystemsMarkdown(functional,functionalSources,c=>artReferencesMarkdown('capability',c.id,art,artSources)),!functional.systems.length&&!functional.capabilities.length);
+  add('development-tools',developmentToolsMarkdown(tools),!tools.tools.length);
   add('art',artAssetsMarkdown(art,artSources),!art.requirements.length&&!art.assets.length);
   add('tasks',taskFlowsMarkdown(tasks,{designs:gameplay,capabilities:functional.capabilities.map(c=>({...c,archived:c.archived||!!functional.systems.find(s=>s.id===c.systemId)?.archived})),stories,assets:art.assets,definitions,data}),!tasks.tasks.length);
   if(narrative.enabled)add('narrative',storyOrchestrationMarkdown(narrative),!narrative.stories.length&&!narrative.characters?.length);
@@ -60,7 +62,7 @@ export function buildAiDocument(project: ExportProject, stories: ExportStory[], 
 export const aiModules = [
   {id:'overview',label:'项目概览'}, {id:'schedule',label:'项目排期'}, {id:'core',label:'玩法核心'},
   {id:'gameplay',label:'玩法设计'}, {id:'prototype',label:'原型设计'}, {id:'maps',label:'地图设计'},
-  {id:'functional',label:'功能系统'}, {id:'framework',label:'程序框架'}, {id:'art',label:'素材资产'}, {id:'stories',label:'故事文档'},
+  {id:'functional',label:'功能系统'}, {id:'development-tools',label:'开发工具'}, {id:'framework',label:'程序框架'}, {id:'art',label:'素材资产'}, {id:'stories',label:'故事文档'},
   {id:'narrative',label:'故事编排'}, {id:'data',label:'数据配置'}, {id:'enum-definitions',label:'枚举定义'},
   {id:'enum-versions',label:'枚举管理'}, {id:'engine',label:'引擎设置'}, {id:'tasks',label:'任务与流程'},
   {id:'analysis',label:'数值分析'},

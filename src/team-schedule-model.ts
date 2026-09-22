@@ -55,7 +55,7 @@ export function normalizeSchedulePublication(value: unknown): SchedulePublicatio
     for(const [key,v] of Object.entries(r))if(typeof v==='string'&&v.length>10000)throw new Error('排期字段过长：'+key);
     if('dependencyIds' in r&&(r.dependencyIds.length>2000||r.dependencyIds.some(id=>id.length>200)||r.references.length>200||r.references.some(ref=>ref.targetId.length>200)))throw new Error('排期依赖或关联内容过多');
   }
-  if(!Array.isArray(input.references)||input.references.length>10000||input.references.some(r=>!r||!['gameplay','capability','requirement','asset','map','prototype'].includes(r.kind)||typeof r.targetId!=='string'||!r.targetId.trim()||r.targetId.length>200||typeof r.name!=='string'||r.name.length>200))throw new Error('排期来源信息无效');
+  if(!Array.isArray(input.references)||input.references.length>10000||input.references.some(r=>!r||!['gameplay','capability','requirement','asset','map','prototype','tool'].includes(r.kind)||typeof r.targetId!=='string'||!r.targetId.trim()||r.targetId.length>200||typeof r.name!=='string'||r.name.length>200))throw new Error('排期来源信息无效');
   const refs=new Map(input.references.map(r=>[r.kind+':'+r.targetId,{kind:r.kind,targetId:r.targetId,name:r.name}]));
   const used=new Map(store.tasks.flatMap(t=>t.references).map(r=>[r.kind+':'+r.targetId,r]));
   return {store:structuredClone(store),references:[...used].map(([k,r])=>refs.get(k)??{...r,name:'来源内容 '+r.targetId})};

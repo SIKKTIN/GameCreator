@@ -2,7 +2,7 @@
 import {frameworkLibrary} from '../shared/program-framework-library.mjs';
 export type SearchTarget = { module: string; id: string; parent?: string; kind?: string; scope?: string };
 export type SearchEntry = { key: string; title: string; path: string; body: string; archived: boolean; status: string; target: SearchTarget; refs: string[]; unavailable?: string };
-export type SearchSources = Partial<Record<'project'|'gameplay'|'core'|'functional'|'art'|'prototype'|'maps'|'stories'|'narrative'|'schedule'|'tasks'|'data'|'definitions'|'enums'|'analysis'|'framework', unknown>>;
+export type SearchSources = Partial<Record<'project'|'gameplay'|'core'|'functional'|'art'|'prototype'|'maps'|'stories'|'narrative'|'schedule'|'tasks'|'data'|'definitions'|'enums'|'analysis'|'framework'|'developmentTools', unknown>>;
 type Row = Record<string, unknown>;
 const row = (v: unknown): Row => v && typeof v === 'object' && !Array.isArray(v) ? v as Row : {};
 const list = (v: unknown): Row[] => Array.isArray(v) ? v.map(row) : [];
@@ -53,6 +53,7 @@ export function buildSearchIndex(s: SearchSources): SearchEntry[] {
   const fs=row(s.functional), systems=list(fs.systems);
   for(const v of systems) add('功能系统',v,{kind:'system'});
   for(const v of list(fs.capabilities)) {const owner=systems.find(x=>x.id===v.systemId);add('功能系统',v,{kind:'capability',path:name(owner||{}),archived:owner?.archived===true});}
+  for(const tool of list(row(s.developmentTools).tools)) add('开发工具',tool,{kind:'tool'});
   const art=row(s.art), library=row(art.library), artCategories=list(library.categories);
   for(const [field,kind] of [['requirements','requirement'],['assets','asset']] as const) for(const v of list(art[field])) {
     const category=artCategories.find(c=>c.id===row(library[field])[str(v.id)]);

@@ -84,6 +84,7 @@ npm run mcp:debug
 - [本地客户端](docs/desktop-client.md)
 - [AI 文档导出](docs/ai-export.md)
 - [程序框架与内置规范库](docs/program-framework.md)
+- [开发工具需求与制作排期](docs/development-tools.md)
 - [本地数据持久化与旧版迁移](docs/persistence.md)
 - [Space 测试面板](docs/test-panel.md)
 

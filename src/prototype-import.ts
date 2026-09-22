@@ -1,3 +1,4 @@
+import {emptyDevelopmentTools,validateDevelopmentTools,type DevelopmentToolsStore} from './development-tools.ts';
 import {validateStoryExtras} from './story-library.ts';
 import { emptyNumericalAnalysis, validateNumericalAnalysis, type NumericalAnalysisStore } from './numerical-analysis.ts';
 import { emptyProjectSchedule, validateProjectSchedule, projectScheduleIssues, buildScheduleSources, type ProjectScheduleStore } from './project-schedule.ts';
@@ -17,7 +18,7 @@ import type { ColumnDef, DatasetDef, ProjectData } from './data-model.ts';
 import type { StoryDoc } from './story-model.ts';
 
 export type PrototypeExample = {
-  schema: 1; name: string; description: string; gameplay: GameplayStore; gameplayCore?: GameplayCoreStore; prototypeDesign?: PrototypeDesignStore; taskFlows?: TaskFlowStore; storyOrchestration?: StoryOrchestrationStore; mapDesign?: MapDesignStore; projectSchedule?: ProjectScheduleStore; numericalAnalysis?: NumericalAnalysisStore;
+  schema: 1; name: string; description: string; gameplay: GameplayStore; gameplayCore?: GameplayCoreStore; prototypeDesign?: PrototypeDesignStore; taskFlows?: TaskFlowStore; storyOrchestration?: StoryOrchestrationStore; mapDesign?: MapDesignStore; projectSchedule?: ProjectScheduleStore; numericalAnalysis?: NumericalAnalysisStore; developmentTools?: DevelopmentToolsStore;
   functionalSystems: FunctionalStore; artAssets: ArtStore; data: ProjectData;
   definitions: DatasetDef[]; stories: StoryDoc[];
 };
@@ -26,7 +27,7 @@ export type PreparedPrototypeProject = {
   entries: { key: string; value: string }[];
 };
 type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
-const sections = ['numerical-analysis', 'project-schedule', 'map-design', 'story-orchestration', 'task-flows', 'gameplay', 'gameplay-core', 'prototype-design', 'functional-systems', 'art-assets', 'definitions', 'stories', 'project', 'milestones'] as const;
+const sections = ['development-tools', 'numerical-analysis', 'project-schedule', 'map-design', 'story-orchestration', 'task-flows', 'gameplay', 'gameplay-core', 'prototype-design', 'functional-systems', 'art-assets', 'definitions', 'stories', 'project', 'milestones'] as const;
 const workspaceKey = (id: string, section: string) => 'gamecreator.workspace.v1:' + id + ':' + section;
 const enumKey = (id: string) => 'gamecreator.enum-versions.v1:' + id;
 const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
@@ -59,7 +60,7 @@ function validateColumns(items: unknown, label: string): asserts items is Column
 export function validatePrototypeExample(value: unknown): PrototypeExample {
   requireValid(record(value), '内容必须是对象');
   const fields = ['schema', 'name', 'description', 'gameplay', 'functionalSystems', 'artAssets', 'data', 'definitions', 'stories'];
-  requireValid(fields.every(field => Object.prototype.hasOwnProperty.call(value, field)) && Object.keys(value).every(field => [...fields, 'gameplayCore', 'prototypeDesign', 'taskFlows', 'storyOrchestration', 'mapDesign', 'projectSchedule', 'numericalAnalysis'].includes(field)), '包含缺失字段或非便携配置');
+  requireValid(fields.every(field => Object.prototype.hasOwnProperty.call(value, field)) && Object.keys(value).every(field => [...fields, 'gameplayCore', 'prototypeDesign', 'taskFlows', 'storyOrchestration', 'mapDesign', 'projectSchedule', 'numericalAnalysis', 'developmentTools'].includes(field)), '包含缺失字段或非便携配置');
   requireValid(value.schema === 1 && nonempty(value.name) && nonempty(value.description), '版本或名称无效');
   requireValid(record(value.gameplay) && value.gameplay.schema === 3, '玩法版本无效');
   const gameplay = validateGameplay(value.gameplay);
@@ -131,6 +132,11 @@ export function validatePrototypeExample(value: unknown): PrototypeExample {
     requireValid(taskFlowIssues(tasks, { designs: gameplay.designs, capabilities: functional.capabilities, stories: example.stories, assets: art.assets, definitions: example.definitions, data: example.data }).length === 0, '任务与流程包含未完成设计或失效引用');
     requireValid(tasks.tasks.every(t => t.status === '草稿' && !t.archived), '示例任务必须保持草稿');
   }
+  if (Object.prototype.hasOwnProperty.call(value, 'developmentTools')) {
+    const tools = validateDevelopmentTools(value.developmentTools);
+    requireValid(tools.tools.every(t => t.name.trim() && t.acceptance.trim() && t.capabilityIds.every(id => functional.capabilities.some(c => c.id === id))), '开发工具缺少名称、验收标准或引用了不存在的程序功能');
+    requireValid(tools.tools.every(t => t.status === '待开发' && !t.archived && !t.owner && !t.delivery), '示例开发工具必须保持待开发、未分配且没有交付记录');
+  }
   if (Object.prototype.hasOwnProperty.call(value, 'numericalAnalysis')) validateNumericalAnalysis(value.numericalAnalysis);
   if (Object.prototype.hasOwnProperty.call(value, 'storyOrchestration')) {
     const narrative = validateStoryOrchestration(value.storyOrchestration);
@@ -143,7 +149,7 @@ export function validatePrototypeExample(value: unknown): PrototypeExample {
   }).length===0, '地图设计包含失效引用');
   if (Object.prototype.hasOwnProperty.call(value, 'projectSchedule')) {
     const schedule = validateProjectSchedule(example.projectSchedule);
-    const sources = buildScheduleSources(gameplay.designs, functional, art, example.mapDesign ?? emptyMapDesign(), example.prototypeDesign ?? emptyPrototypeDesign());
+    const sources = buildScheduleSources(gameplay.designs, functional, art, example.mapDesign ?? emptyMapDesign(), example.prototypeDesign ?? emptyPrototypeDesign(), example.developmentTools ?? emptyDevelopmentTools());
     // Template dates are reference baselines; importing later must not reject them as overdue.
     requireValid(projectScheduleIssues(schedule, '0001-01-01', sources).filter(issue => issue.kind !== 'blocked').length === 0, '项目排期包含冲突、失效引用或缺少验收要求');
     requireValid(schedule.tasks.every(t => t.status === '待开始' && t.owner === '' && t.actualStart === '' && t.actualEnd === '' && t.result === '') &&
@@ -160,6 +166,7 @@ export function preparePrototypeProject(catalog: ProjectCatalog, value: unknown,
   const next = addSavedProject(catalog, name);
   const project = next.projects.find(item => item.id === next.activeId)!;
   const archives = {
+    'development-tools': example.developmentTools ?? emptyDevelopmentTools(),
     'project-schedule': example.projectSchedule ?? emptyProjectSchedule(),
     'numerical-analysis': example.numericalAnalysis ?? emptyNumericalAnalysis(),
     'map-design': example.mapDesign ?? emptyMapDesign(),
