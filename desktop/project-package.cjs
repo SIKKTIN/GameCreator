@@ -1,3 +1,5 @@
+let validateProductionDocs;
+const productionReady=import('../shared/material-production.mjs').then(m=>{validateProductionDocs=m.validateProductionDocs;});
 const {storyExtras}=require('../shared/story-document.cjs');
 // Portable project folders contain JSON archives and original art files, never executable imports.
 const path = require('node:path');
@@ -474,12 +476,15 @@ function validateDocument(value) {
   const art = value.archives['art-assets'];
   if (!record(art) || !Array.isArray(art.assets)) throw new Error('素材资产存档格式无效');
   if (!Array.isArray(art.requirements) || art.requirements.some(r => !record(r) || Object.hasOwn(r, 'generationPrompt') && (!record(r.generationPrompt) || typeof r.generationPrompt.prompt !== 'string' || typeof r.generationPrompt.negative !== 'string'))) throw new Error('素材生成提示词格式无效');
+  // Shared schema validation also protects folder imports.
+  validateProductionDocs(art.productionDocs);
   return value;
 }
 
 function referencedFiles(document) {
   const files = new Map();
-  for (const asset of document.archives['art-assets'].assets) {
+  const art=document.archives['art-assets'];
+  for (const asset of [...art.assets,{versions:(art.productionDocs||[]).map(d=>({files:d.images}))}]) {
     if (!record(asset) || !Array.isArray(asset.versions)) throw new Error('素材资产版本格式无效');
     for (const version of asset.versions) {
       if (!record(version) || !Array.isArray(version.files)) throw new Error('素材文件版本格式无效');
@@ -552,6 +557,7 @@ function createProjectPackages({dataDirectory, storage, resolveAssetDirectory}) 
   async function exportFolder({directory, projectId, document: input, expectedEntries}) {
     if (typeof directory !== 'string' || !path.isAbsolute(directory)) throw new Error('请选择绝对路径项目文件夹');
     // Detach caller data before the first asynchronous operation.
+    await productionReady;
     const document = validateDocument(JSON.parse(JSON.stringify(input))), snapshot = JSON.parse(JSON.stringify(expectedEntries));
     if(Object.hasOwn(document.archives,'program-framework'))(await import('../shared/program-framework.mjs')).validateProgramFramework(document.archives['program-framework']);
     const engineValidation=await import('../shared/engine-config.mjs');engineValidation.validateEngineConfig(document.project.config);
@@ -638,6 +644,7 @@ function createProjectPackages({dataDirectory, storage, resolveAssetDirectory}) 
     }
     const archives = {};
     for (const section of [...SECTIONS, ...OPTIONAL_SECTIONS]) if (data.has(sectionPath(section))) archives[section] = data.get(sectionPath(section));
+    await productionReady;
     const document = validateDocument({schema: 1, project: data.get('data/project.json'), archives});
     if(Object.hasOwn(document.archives,'program-framework'))(await import('../shared/program-framework.mjs')).validateProgramFramework(document.archives['program-framework']);
     const engineValidation=await import('../shared/engine-config.mjs');engineValidation.validateEngineConfig(document.project.config);

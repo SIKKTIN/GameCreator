@@ -190,7 +190,8 @@ function createFolderProjects({ legacyStorage, dataDirectory }) {
         }
       }
       const art = all.get('gamecreator.workspace.v1:' + clean.id + ':art-assets');
-      for (const asset of JSON.parse(art || '{"assets":[]}').assets) for (const version of asset.versions) for (const file of version.files) {
+      const artwork=JSON.parse(art || '{"assets":[]}');
+      for (const asset of [...artwork.assets,{versions:(artwork.productionDocs||[]).map(d=>({files:d.images}))}]) for (const version of asset.versions) for (const file of version.files) {
         if (!/^[a-f0-9-]{36}\.[a-z0-9]{1,12}$/.test(file.storagePath) || regular(path.join(temporary, 'assets', file.storagePath)).size !== file.size) throw new Error('素材文件缺失或大小不符');
       }
       writeHeader(temporary, clean);
