@@ -61,7 +61,8 @@ function createDataSync({storage,context,manifest,read,writeMeta,checked,locked,
         if(l&&r&&l.shape!==r.shape)throw new Error('JSON 根结构已变化，请使用另一文件名导入并检查');
         const baseline=binding&&m.stable(binding.mapping)===m.stable(mapping)?binding.baseline:undefined;
         const differences=m.diffJson(l,r,baseline,input.direction);
-        rows.push({table,file,mapping,shape:(r||l).shape,local:l,remote:r,differences,hash:digest(bytes),bound:!!baseline,localChanged:!!baseline&&m.stable(l)!==m.stable(baseline.local),engineChanged:!!baseline&&m.stable(r)!==m.stable(baseline.remote),fields:{local:store.data.columns[table]?.map(c=>c.key)||[],remote:r?.rows?[...new Set(Object.values(r.rows).flatMap(Object.keys))]:[]}});
+        const fileCanonical=m.canonical(remote);
+        rows.push({table,file,mapping,shape:(r||l).shape,local:l,remote:r,differences,hash:digest(bytes),bound:!!baseline,localChanged:!!baseline&&m.stable(l)!==m.stable(baseline.local),engineChanged:!!baseline&&m.stable(r)!==m.stable(baseline.remote),fields:{local:l?.shape==='object'?Object.keys(l.value):store.data.columns[table]?.map(c=>c.key)||[],remote:fileCanonical?.shape==='object'?Object.keys(fileCanonical.value):[...new Set(Object.values(fileCanonical?.rows||{}).flatMap(Object.keys))]}});
       } catch(e){rows.push({table,file,error:e.message});}
     }
     const token=randomUUID(),now=Date.now();for(const [id,p] of plans)if(now-p.at>600000)plans.delete(id);if(plans.size>=8)plans.delete(plans.keys().next().value);

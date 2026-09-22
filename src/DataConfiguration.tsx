@@ -132,7 +132,7 @@ export function DataConfiguration({ workspaceKey, ...props }: Props) {
           {registry.blockingIssues.length > 0 && <ul>{registry.blockingIssues.map((issue, index) => <li key={index}>{issue}</li>)}</ul>}
           <small>{registry.sourceWarning}通过“数据同步”导入或导出工程 JSON。候选枚举版本不参与当前数据解析。</small>
         </div>}
-        {definition ? data.jsonFormats?.[activeDataset]?.shape==='object'?<JsonObjectEditor key={activeDataset} data={data} table={activeDataset} onChange={props.onChange}/>:<DatasetEditor key={activeDataset} {...props} workspaceKey={workspaceKey} definition={definition} docked={width >= 1320} />
+        {definition ? data.jsonFormats?.[activeDataset]?.shape==='object'?<JsonObjectEditor key={activeDataset} data={data} table={activeDataset} label={definition.label} onChange={props.onChange}/>:<DatasetEditor key={activeDataset} {...props} workspaceKey={workspaceKey} definition={definition} docked={width >= 1320} />
           : <div className="data-table-empty"><h3>还没有配置表</h3><p>新建一张配置表，开始整理原型数据。</p><button className="primary" onClick={() => setShowCreateTable(true)}><Plus size={15} />新建配置表</button></div>}
       </div>
     </div>

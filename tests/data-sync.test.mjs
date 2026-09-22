@@ -6,6 +6,7 @@ import os from 'node:os';
 import {createRequire} from 'node:module';
 import {parseJson,toData,toJson,canonical,diffJson,resolveDiff,fromCanonical,dataDirectory,validateDataSync} from '../shared/data-sync.mjs';
 import {readVersions} from '../src/enum-storage.ts';
+import {compareDataFile,chooseDifferences,choiceFor,pendingDifference} from '../src/data-sync-comparison.ts';
 const require=createRequire(import.meta.url),{createEngineSync}=require('../desktop/engine-sync.cjs'),{createStorage}=require('../desktop/storage.cjs');
 const empty=()=>({schema:1,revision:0,activeId:null,candidateId:null,snapshots:[],reviews:{},releases:[],data:{datasets:{},columns:{}}});
 const plants={schema_version:1,author:'test',rows:[{id:'001',name:'sunflower',cost:50,enabled:true,tags:['sun'],extra:{n:null},optional:null},{id:'002',name:'pea',cost:100,enabled:false,tags:[],extra:{}}]};
@@ -100,4 +101,57 @@ test('linked files are rejected before importing or writing outside the data dir
 test('simultaneously importing referenced tables validates against the complete merged snapshot',async t=>{
   const f=await fixture(t),s=f.store();s.data={datasets:{a:[],b:[]},columns:{a:[{key:'id',label:'id'},{key:'target',label:'target',type:'reference',reference:'b'}],b:[{key:'id',label:'id'}]}};f.set(s);await f.put('a',[{id:'a1',target:'b1'}]);await f.put('b',[{id:'b1'}]);
   const p=await f.preview();await f.apply(p,{selections:p.rows.map(r=>({table:r.table,decisions:Object.fromEntries(r.differences.map(d=>[d.id,{choice:'remote',allowDelete:true}]))}))});assert.equal(f.store().data.datasets.a[0].target,'b1');
+});
+
+function comparisonFile(localJson,remoteJson,mapping={},baseline) {
+  const local=canonical(localJson,mapping),remote=canonical(remoteJson,mapping);
+  return {table:'level',file:'level.json',shape:(local||remote).shape,local,remote,mapping,differences:diffJson(local,remote,baseline,'import')};
+}
+test('comparison aligns header keys once and only compares values in shared columns and records',()=>{
+  const local=[{id:'a',hp:10,cols:9},{id:'b',hp:20,cols:9}],remote=[{id:'a',hp:12,columns:10},{id:'b',hp:20,columns:10}];
+  const f=comparisonFile(local,remote),view=compareDataFile(f);
+  assert.deepEqual(view.shared.map(h=>h.key),['id','hp']);assert.deepEqual(view.structuralFields.map(h=>h.key),['cols','columns']);
+  assert.deepEqual(view.structuralFields.map(h=>h.group.differences.length),[2,2]);assert.deepEqual(view.valueHeaders.map(h=>h.key),['hp']);assert.deepEqual(view.valueRows.map(r=>r.id),['a']);
+  assert.equal(view.valueRows[0].cells[0].local,10);assert.equal(view.valueRows[0].cells[0].remote,12);
+  let choices={};for(const h of view.structuralFields)choices=chooseDifferences(h.group.differences,choices,'remote');
+  const removals=view.structuralFields.find(h=>h.key==='cols').group.differences;
+  assert.ok(removals.every(d=>pendingDifference(d,choices)));assert.throws(()=>resolveDiff(f.local,removals,choices),/删除/);
+  for(const d of removals)choices[d.id].allowDelete=true;
+  choices=chooseDifferences(view.valueRows.flatMap(r=>r.cells.flatMap(c=>c.differences)),choices,'remote');
+  assert.deepEqual(fromCanonical(resolveDiff(f.local,f.differences,choices)),remote);
+});
+test('alias keys align using canonical names while preserving the engine header label',()=>{
+  const mapping={cols:'columns'};
+  const local=canonical([{id:'a',columns:9}],mapping),remote=canonical([{id:'a',columns:10}],mapping);
+  const f={table:'level',file:'level.json',mapping,local,remote,differences:diffJson(local,remote,undefined,'import')},view=compareDataFile(f);
+  assert.equal(view.structuralFields.length,0);assert.equal(view.valueHeaders[0].key,'cols');assert.equal(view.valueHeaders[0].remoteKey,'columns');
+  const choices=chooseDifferences(f.differences,{},'remote');assert.deepEqual(fromCanonical(resolveDiff(local,f.differences,choices),mapping),[{id:'a',columns:10}]);
+});
+test('added files and missing records are structural operations with no repeated value comparisons',()=>{
+  const added=compareDataFile(comparisonFile(undefined,[{id:'a',hp:10},{id:'b',hp:20}]));assert.equal(added.files.length,1);assert.equal(added.valueRows.length,0);
+  const f=comparisonFile([{id:'a',hp:10},{id:'b',hp:20}],[{id:'a',hp:10},{id:'c',hp:30}]),view=compareDataFile(f);
+  assert.deepEqual(view.records.map(r=>r.label),['b','c']);assert.equal(view.valueRows.length,0);assert.equal(view.records[0].differences.length,1);
+});
+test('objects group nested changes under their header and preserve independent three-way choices',()=>{
+  const baseline={local:canonical({settings:{speed:1,hp:10},old:1}),remote:canonical({settings:{speed:1,hp:10},old:1})};
+  const f=comparisonFile({settings:{speed:2,hp:10},old:1},{settings:{speed:1,hp:12},new:true},{},baseline),view=compareDataFile(f);
+  assert.deepEqual(view.structuralFields.map(h=>h.key),['old','new']);assert.deepEqual(view.valueHeaders.map(h=>h.key),['settings']);assert.equal(view.valueRows[0].cells[0].differences.length,2);
+  assert.equal(choiceFor(view.valueRows[0].cells[0].differences,{}),'mixed');
+  const decisions=Object.fromEntries(f.differences.map(d=>[d.id,{choice:d.choice,allowDelete:true}]));
+  assert.deepEqual(fromCanonical(resolveDiff(f.local,f.differences,decisions)),{settings:{speed:2,hp:12},new:true});
+});
+test('sparse values and metadata are not dropped when building the comparison view',()=>{
+  const f=comparisonFile({schema_version:1,rows:[{id:'a',optional:null},{id:'b',optional:false}]},{schema_version:2,rows:[{id:'a'},{id:'b',optional:true}]}),view=compareDataFile(f);
+  assert.equal(view.structuralFields.length,0);assert.equal(view.valueRows[0].cells[0].local,null);assert.equal(view.valueRows[0].cells[0].remoteExists,false);
+  const grouped=[...view.files.flatMap(g=>g.differences),...view.structuralFields.flatMap(h=>h.group.differences),...view.records.flatMap(g=>g.differences),...view.valueRows.flatMap(r=>r.cells.flatMap(c=>c.differences)),...view.other];
+  assert.deepEqual(grouped.map(d=>d.id).sort(),f.differences.map(d=>d.id).sort());
+  const choices=chooseDifferences(f.differences,{},'remote');assert.equal(choiceFor(f.differences,{}),'');
+  const d=f.differences[0];assert.ok(pendingDifference(d,{[d.id]:{choice:'custom',value:'{'}}));assert.equal(pendingDifference(d,{[d.id]:{choice:'custom',value:'null'}}),false);
+  assert.ok(choices[d.id]);
+});
+test('preview offers original engine names for mappings and grouped choices apply to the stored table',async t=>{
+  const f=await fixture(t);await f.put('level',[{id:'a',columns:9,hp:10},{id:'b',columns:9,hp:20}]);await f.apply(await f.preview('import',{mappings:{level:{cols:'columns'}}}));
+  await f.put('level',[{id:'a',columns:10,hp:11},{id:'b',columns:10,hp:22}]);const p=await f.preview(),entry=p.rows[0],view=compareDataFile(entry);
+  assert.deepEqual(entry.fields.remote,['id','columns','hp']);assert.equal(view.structuralFields.length,0);assert.ok(entry.fields.local.includes('cols'));
+  const decisions=chooseDifferences(view.valueRows.flatMap(r=>r.cells.flatMap(c=>c.differences)),{},'remote');await f.apply(p,{selections:[{table:'level',decisions}]});assert.equal(f.store().data.datasets.level[1].cols,'10');
 });

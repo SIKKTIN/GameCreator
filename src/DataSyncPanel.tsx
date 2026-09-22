@@ -1,12 +1,13 @@
 import {useEffect,useRef,useState} from 'react';
-import {ArrowDownToLine,ArrowUpFromLine,RefreshCw,Save,CheckCircle2,AlertTriangle} from 'lucide-react';
-import {dataDirectory,parseJson,stable,validateMapping,fromCanonical,type Canonical,type Json,type Decision} from '../shared/data-sync.mjs';
+import {ArrowDownToLine,ArrowUpFromLine,RefreshCw,Save,CheckCircle2} from 'lucide-react';
+import {dataDirectory,parseJson,stable,validateMapping,type Decision} from '../shared/data-sync.mjs';
 import {savedEngineConfig,type EngineConfig} from './engine';
 import type {EnumRegistry} from './useEnumRegistry';
 import type {DataSyncPlan,DataSyncFile} from './data-sync';
+import {DataSyncComparison} from './DataSyncComparison';
+import {pendingDifference} from './data-sync-comparison';
 import './data-sync.css';
 const message=(e:unknown)=>(e instanceof Error?e.message:String(e)).replace(/^Error invoking remote method '[^']+': Error: /,'');
-const shown=(v:Json|undefined,root:boolean,mapping:Record<string,string>)=>v===undefined?'（不存在）':JSON.stringify(root?fromCanonical(v as unknown as Canonical,mapping):v,null,2);
 type Props={projectId:string;config:EngineConfig;setConfig:(v:EngineConfig)=>Promise<boolean>|boolean;registry:EnumRegistry;blocked?:boolean;onOpenTable:(name:string)=>void};
 export function DataSyncPanel({projectId,config,setConfig,registry,blocked,onOpenTable}:Props) {
   const api=window.desktopClient?.engineSync;
@@ -36,8 +37,7 @@ export function DataSyncPanel({projectId,config,setConfig,registry,blocked,onOpe
     });
     setPlan(null);setNotice((direction==='import'?'导入':'导出')+'完成，已保存同步基准和恢复备份。');
   });
-  const setDecision=(table:string,id:string,patch:Partial<Decision>,fallback:Decision)=>setDecisions(prev=>({...prev,[table]:{...prev[table],[id]:{...fallback,...prev[table]?.[id],...patch}}}));
-  const unresolved=plan?.rows.filter(r=>selected.includes(r.table)).some(r=>r.differences?.some(d=>{const c=decisions[r.table]?.[d.id]||{choice:d.choice};return !c.choice||c.choice!=='custom'&&d[c.choice]===undefined&&!c.allowDelete;}));
+  const unresolved=plan?.rows.filter(r=>selected.includes(r.table)).some(r=>r.differences?.some(d=>pendingDifference(d,decisions[r.table]||{})));
   function fileCard(row:DataSyncFile) {
     const diffs=row.differences||[],chosen=selected.includes(row.table);
     return <article className="ds-file" key={row.table}>
@@ -47,20 +47,11 @@ export function DataSyncPanel({projectId,config,setConfig,registry,blocked,onOpe
       <details className="ds-mapping"><summary>字段映射{Object.keys(mappings[row.table]||row.mapping||{}).length?' · 已自定义':''}</summary><p>左侧是 GameCreator 字段，右侧是文件字段。未列出的字段保留原名。映射会随成功同步保存。</p>
         <MappingEditor key={plan?.token} value={mappings[row.table]||row.mapping||{}} local={row.fields?.local||[]} remote={row.fields?.remote||[]} disabled={locked} onApply={next=>{const all={...mappings,[row.table]:next};setMappings(all);void preview(all);}}/>
       </details>
-      {!row.error&&(!diffs.length?<p className="ds-ok"><CheckCircle2 size={15}/>内容一致{!row.bound?'，可勾选以建立同步基准':''}</p>:<details open={chosen}><summary>{diffs.length} 项差异 · {diffs.filter(d=>d.conflict).length} 项冲突</summary><div className="ds-diffs">{diffs.map(d=>{
-        const c=decisions[row.table]?.[d.id]||{choice:d.choice};const removal=c.choice&&c.choice!=='custom'&&d[c.choice]===undefined;
-        return <div className={'ds-diff'+(d.conflict?' conflict':'')} key={d.id}><b>{d.path.join(' / ')||'整个配置'} {d.conflict&&<span>需要选择</span>}</b>
-          <div className="ds-values"><div><small>GameCreator</small><pre>{shown(d.local,!d.path.length,row.mapping||{})}</pre></div><div><small>引擎文件</small><pre>{shown(d.remote,!d.path.length,row.mapping||{})}</pre></div></div>
-          {(d.baseLocal!==undefined||d.baseRemote!==undefined)&&<details><summary>上次同步基准</summary><div className="ds-values"><pre>{JSON.stringify(d.baseLocal,null,2)??'（不存在）'}</pre><pre>{JSON.stringify(d.baseRemote,null,2)??'（不存在）'}</pre></div></details>}
-          <label>采用值<select aria-label={row.table+' '+(d.path.join('/')||'整个配置')+' 采用值'} disabled={locked} value={c.choice} onChange={e=>setDecision(row.table,d.id,{choice:e.target.value as Decision['choice'],allowDelete:false},c)}><option value="">请选择…</option><option value="local">保留 GameCreator</option><option value="remote">采用引擎文件</option><option value="custom">自定义 JSON 值</option></select></label>
-          {c.choice==='custom'&&<textarea aria-label="自定义 JSON 值" spellCheck={false} value={c.value||''} onChange={e=>setDecision(row.table,d.id,{value:e.target.value},c)} placeholder={'字符串需要双引号，如 "sunflower"；数字直接填写 50'}/>}
-          {removal&&<label><input type="checkbox" checked={!!c.allowDelete} onChange={e=>setDecision(row.table,d.id,{allowDelete:e.target.checked},c)}/>确认删除此字段或记录</label>}
-        </div>;
-      })}</div></details>)}
+      {!row.error&&(!diffs.length?<p className="ds-ok"><CheckCircle2 size={15}/>内容一致{!row.bound?'，可勾选以建立同步基准':''}</p>:<DataSyncComparison key={plan?.token} file={row} decisions={decisions[row.table]||{}} disabled={locked} onChange={next=>setDecisions(prev=>({...prev,[row.table]:next}))}/>)}
     </article>;
   }
   return <section className="data-sync" aria-label="数据同步">
-    <div className="ds-intro"><span>DATA SYNC</span><h2>让配置表与工程数据保持一致。</h2><p>按文件名自动对应配置表。导入前比较变化，导出时保留 JSON 类型与原始结构。</p></div>
+    <div className="ds-intro"><span>DATA SYNC</span><h2>让配置表与工程数据保持一致。</h2><p>按文件名对应配置表，按字段 key 对齐结构，再并排核对值的变化。</p></div>
     {!api&&<p role="alert">此功能需要桌面客户端。请重新启动最新版客户端。</p>}
     <fieldset disabled={locked} className="ds-settings"><h3>数据配置路径</h3><p>工程根目录：<code>{config.projectPath||'请先在引擎设置中连接工程'}</code></p>
       <label>数据配置子目录<input aria-label="数据配置子目录" value={draft.dataPath} onChange={e=>setDraft({...draft,dataPath:e.target.value})} placeholder="data/generated"/></label>
