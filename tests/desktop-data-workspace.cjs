@@ -24,6 +24,12 @@ const artifacts = path.join(root, '.gamecreator', 'qa');
   hollow.definitions.push({ key: longKey, label: longName, badge: '100', columns });
   hollow.data.columns[longKey] = columns;
   hollow.data.datasets[longKey] = Array.from({ length: 100 }, (_, index) => Object.fromEntries(columns.map(column => [column.key, column.key === 'id' ? 'qa_row_' + index : '横向滚动测试值 ' + index])));
+  // Starter tables are no longer bundled. Seed explicit empty fixtures for folding coverage.
+  for (let index = 0; index < 5; index++) {
+    const key = 'qa_empty_' + index, columns = [{ key: 'id', label: 'ID', type: 'text' }];
+    hollow.definitions.push({ key, label: '空表测试 ' + index, badge: '0', columns });
+    hollow.data.datasets[key] = []; hollow.data.columns[key] = columns;
+  }
   // One invalid value gives the real warning filter a deterministic result.
   hollow.data.datasets.hk_params[0].unit = '';
   const cfg = { engine: 'oasis-lua', projectPath: '', enumPath: 'Script/Const', dataPath: 'Script/Config', outputFormat: 'lua', autoSync: false, backupBeforeSync: true };
@@ -105,7 +111,7 @@ const artifacts = path.join(root, '.gamecreator', 'qa');
     await expectTable('裂隙 · 核心参数');
     await page.screenshot({ path: path.join(artifacts, 'data-workspace-default.png') });
     assert.equal(await page.getByRole('region', { name: '记录详情', exact: true }).count(), 0);
-    assert.equal(await page.locator('.data-dataset-link').count(), 9, 'five empty starter tables are folded');
+    assert.equal(await page.locator('.data-dataset-link').count(), 9, 'five explicit empty fixture tables are folded');
     await click('展开空表');
     assert.equal(await page.locator('.data-dataset-link').count(), 14);
     await click('收起空表');

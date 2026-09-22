@@ -1019,3 +1019,16 @@
     gap: 12px;
   }
 }
+
+.data-table-context-menu { position:fixed; z-index:10000; width:200px; padding:6px; box-sizing:border-box; background:#252031; border:1px solid #534661; border-radius:10px; box-shadow:0 12px 32px #0006; }
+.data-table-context-menu button { display:flex; align-items:center; gap:10px; width:100%; padding:12px; border:0; border-radius:6px; color:#f4a7b4; background:transparent; text-align:left; cursor:pointer; }
+.data-table-context-menu button:hover, .data-table-context-menu button:focus-visible { background:#3b293b; outline:2px solid #ad8bd1; outline-offset:-2px; }
+.data-delete-dialog { width:560px; max-width:calc(100vw - 32px); max-height:85vh; box-sizing:border-box; overflow:auto; padding:28px; background:#211c2b; color:#eae3f6; border:1px solid #554660; border-radius:16px; overflow-wrap:anywhere; }
+.data-delete-dialog::backdrop { background:#09070dbb; }
+.data-delete-dialog p { line-height:1.8; color:#b8adc9; }
+.data-delete-dialog [role="alert"] { color:#f0b3ab; }
+.data-delete-dialog ul { max-height:25vh; overflow:auto; }
+.data-delete-actions { display:flex; justify-content:flex-end; gap:12px; margin-top:24px; }
+.data-delete-actions button { padding:10px 18px; border:1px solid #584965; border-radius:8px; background:#30263f; color:#eae3f6; cursor:pointer; }
+.data-delete-actions .data-delete-confirm { color:#ffc1cb; border-color:#91536a; background:#4a293a; }
+.data-delete-actions button:disabled { opacity:.5; cursor:not-allowed; }
