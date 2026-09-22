@@ -1,3 +1,4 @@
+import {datasetReferences,removeDataset} from './dataset-deletion';
 import { DevelopmentTools } from './DevelopmentTools';
 import {DataSyncPanel,useAutomaticDataExport} from './DataSyncPanel';
 import { useDevelopmentTools } from './useDevelopmentTools';
@@ -478,6 +479,28 @@ function WorkspaceApp({ username, testSession, onLoadTest, onExitTest, preparing
     } finally { creatingDataset.current = false; }
   };
 
+  const datasetDeletionBlocked = registry.busy || registry.loading
+    ? '请等待配置保存或扫描完成后再删除。'
+    : registry.error || definitionsError || [gameplay, functional, tasks, analysis].some(c => c.blocked || c.pending)
+      ? '配置或关联内容尚未保存或暂不可读，请恢复后再删除。' : '';
+  const datasetDeletionReferences = (key: string) => datasetReferences(currentData, key, { gameplay: gameplay.store, functional: functional.store, tasks: tasks.store, analysis: analysis.store });
+  const deleteDataset = async (key: string, expected: ProjectData): Promise<boolean> => {
+    if (creatingDataset.current) throw new Error('请等待配置保存完成后再删除');
+    if (datasetDeletionBlocked) throw new Error(datasetDeletionBlocked);
+    if (JSON.stringify(currentData) !== JSON.stringify(expected)) throw new Error('配置已变化，请重新检查后再删除');
+    const next = removeDataset(currentData, key, datasetDeletionReferences(key));
+    creatingDataset.current = true;
+    try {
+      if (!setDefinitions(allDefinitions.filter(d => d.key !== key))) return false;
+      if (!await registry.updateData(next)) {
+        if (!setDefinitions(allDefinitions)) throw new Error('删除未保存，表目录信息恢复失败，请重新打开项目检查保存状态');
+        return false;
+      }
+      if (currentDataset === key) setActiveDataset(Object.keys(next.datasets)[0] || '');
+      return true;
+    } finally { creatingDataset.current = false; }
+  };
+
   const updateProject = (key: keyof typeof project, value: string) => {
 
     if (setProject((current) => ({ ...current, [key]: value })) && key === 'name' && !testSession) onRenameProject(value);
@@ -636,7 +659,7 @@ function WorkspaceApp({ username, testSession, onLoadTest, onExitTest, preparing
         {active === '数值分析' && (registry.loading || registry.busy || registry.error || narrative.blocked || narrative.pending ? <p role="alert">来源数据尚未就绪，请先处理配置或故事存档：{registry.error || narrative.error}</p> : <NumericalAnalysis controller={analysis} sources={{data:currentData,narrative:narrative.store}} definitions={definitions} designs={gameplay.store.designs} onOpenDataset={key=>{setActiveDataset(key);setActive('数据配置');}} onOpenGameplay={id=>openGameplay(id)}/>)}
         {active === '数据配置' && <DataConfiguration key={dataKey} workspaceKey={dataKey} data={currentData}
           onChange={(next) => registry.updateData(next)}
-          definitions={definitions} activeDataset={currentDataset} setActiveDataset={id=>{leaveSearch();setActiveDataset(id);}} registry={registry} onCreateTable={createDataset} />}
+          definitions={definitions} activeDataset={currentDataset} setActiveDataset={id=>{leaveSearch();setActiveDataset(id);}} registry={registry} onCreateTable={createDataset} onDeleteTable={deleteDataset} deletionReferences={datasetDeletionReferences} deletionBlocked={datasetDeletionBlocked} />}
         {active === '数据同步' && <DataSyncPanel projectId={formalProject.id} config={engineConfig} setConfig={onConfigChange} registry={registry} blocked={!!testSession} onOpenTable={name=>{setActiveDataset(name);setActive('数据配置');}}/>}
         {active === '枚举定义' && <EnumDefinitions registry={registry} />}
         {active === '枚举管理' && <EnumManager config={engineConfig} registry={registry} />}
