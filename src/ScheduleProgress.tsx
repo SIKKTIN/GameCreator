@@ -1,7 +1,8 @@
-import { useEffect, useId, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useId, useMemo, useState, type CSSProperties } from 'react';
 import { Check, Circle, ArrowRight, RotateCcw, ExternalLink, AlertTriangle, GitBranch, Minus, Plus } from 'lucide-react';
 import { productionKinds, productionStatuses, type ProductionTask, type ProjectScheduleStore, type ScheduleIssue } from './project-schedule';
 import { scheduleProgressLayout, progressGeometry as geometry, type ProgressEdge } from './schedule-progress';
+import { useProgressNavigation } from './useProgressNavigation';
 import './schedule-progress.css';
 
 const colors: Record<ProductionTask['kind'], string> = { 设计: '#b799ed', 程序: '#82b9ee', 美术: '#e7a0cb', 关卡: '#e6c27c', 测试: '#82cdb6', 其他: '#b1acbf' };
@@ -15,9 +16,9 @@ type Props = { store: ProjectScheduleStore; tasks: ProductionTask[]; issues: Sch
 
 export function ScheduleProgress({ store, tasks, issues, disabled, saveLabel, onOpen, onStatus }: Props) {
   const [role, setRole] = useState('all'), [selectedId, setSelectedId] = useState('');
-  const [zoom, setZoom] = useState(1);
-  const marker = useId().replace(/:/g, ''), scroll = useRef<HTMLDivElement>(null);
+  const marker = useId().replace(/:/g, ''), navigationHint = useId();
   const matching = useMemo(() => new Set(tasks.filter(t => role === 'all' || t.kind === role).map(t => t.id)), [tasks, role]);
+  const { scroll, zoom, setZoom, panning } = useProgressNavigation(matching.size > 0);
   const layout = useMemo(() => scheduleProgressLayout(store.tasks, matching, role === 'all' ? undefined : new Set([role as ProductionTask['kind']])), [store.tasks, matching, role]);
   const selected = store.tasks.find(t => t.id === selectedId), related = new Set(selected ? [selected.id, ...selected.dependencyIds, ...store.tasks.filter(t => t.dependencyIds.includes(selected.id)).map(t => t.id)] : []);
   useEffect(() => { if (role !== 'all' && !store.tasks.some(t => t.kind === role)) setRole('all'); }, [role, store.tasks]);
@@ -28,8 +29,8 @@ export function ScheduleProgress({ store, tasks, issues, disabled, saveLabel, on
   return <section className="sp-view" aria-label="按岗位查看任务进度">
     <div className="sp-heading"><div><span className="sch-kicker">TEAM PROGRESS</span><h3>每个岗位，都有清晰的推进线路。</h3><p>按前置依赖从左向右推进，同列任务可并行。点击节点查看交接关系，勾选圆钮标记完成。</p></div><label>岗位线路<select aria-label="任务进度岗位筛选" value={role} onChange={e => setRole(e.target.value)}><option value="all">全部岗位</option>{productionKinds.filter(k => store.tasks.some(t => t.kind === k)).map(k => <option key={k}>{k}</option>)}</select></label></div>
     <div className="sp-overview"><div><strong>{totals.length ? Math.round(completed / totals.length * 100) : 0}%</strong><span>{role === 'all' ? '全部岗位' : role} · 已完成 {completed}/{totals.length}</span></div><progress aria-label="岗位任务完成率" max={Math.max(totals.length, 1)} value={completed}/><span>当前显示 {matching.size} 项</span></div>
-    <div className="sp-legend"><span><i className="sp-dot"/>待开始</span><span><i className="sp-dot active"/>进行中</span><span><i className="sp-dot review"/>待验收</span><span><i className="sp-dot done"/>已完成</span><span><i className="sp-dot blocked"/>受阻</span><span>依赖 <ArrowRight size={14}/></span><div className="sp-map-tools"><button aria-label="缩小任务线路" disabled={zoom <= .4} onClick={() => setZoom(v => Math.max(.4, Math.round((v - .1) * 100) / 100))}><Minus size={14}/></button><output aria-label="任务线路缩放比例">{Math.round(zoom * 100)}%</output><button aria-label="放大任务线路" disabled={zoom >= 1.25} onClick={() => setZoom(v => Math.min(1.25, Math.round((v + .1) * 100) / 100))}><Plus size={14}/></button><button onClick={() => { if (scroll.current) setZoom(Math.max(.4, Math.min(1, Math.floor(scroll.current.clientWidth / layout.width * 100) / 100))); }}>适应宽度</button><button onClick={() => setZoom(1)}>原始大小</button></div></div>
-    {!matching.size ? <div className="sch-no-results">当前筛选下没有制作任务。调整岗位、搜索或状态筛选后查看。</div> : <div ref={scroll} className="sp-scroll" tabIndex={0} aria-label="任务进度线路画布，可横向滚动">
+    <div className="sp-legend"><span><i className="sp-dot"/>待开始</span><span><i className="sp-dot active"/>进行中</span><span><i className="sp-dot review"/>待验收</span><span><i className="sp-dot done"/>已完成</span><span><i className="sp-dot blocked"/>受阻</span><span>依赖 <ArrowRight size={14}/></span><span id={navigationHint}>右键拖动画布 · 滚轮缩放</span><div className="sp-map-tools"><button aria-label="缩小任务线路" disabled={zoom <= .4} onClick={() => setZoom(Math.round((zoom - .1) * 100) / 100)}><Minus size={14}/></button><output aria-label="任务线路缩放比例">{Math.round(zoom * 100)}%</output><button aria-label="放大任务线路" disabled={zoom >= 1.25} onClick={() => setZoom(Math.round((zoom + .1) * 100) / 100)}><Plus size={14}/></button><button onClick={() => { if (scroll.current) setZoom(Math.min(1, Math.floor(scroll.current.clientWidth / layout.width * 100) / 100)); }}>适应宽度</button><button onClick={() => setZoom(1)}>原始大小</button></div></div>
+    {!matching.size ? <div className="sch-no-results">当前筛选下没有制作任务。调整岗位、搜索或状态筛选后查看。</div> : <div ref={scroll} className={'sp-scroll' + (panning ? ' is-panning' : '')} tabIndex={0} aria-label="任务进度线路画布，可横向滚动" aria-describedby={navigationHint}>
       <div className="sp-canvas" style={{ width: layout.width, height: layout.height, zoom }}>
         <div className="sp-axis" style={{ width: layout.width }}><span className="sp-axis-label">岗位 / 完成情况</span>{Array.from({ length: layout.columns }, (_, index) => <span key={index} style={{ left: geometry.left + 28 + index * geometry.column, width: geometry.width }}>{index === 0 ? '起步任务' : `推进阶段 ${index + 1}`}</span>)}</div>
         {layout.lanes.map(lane => <div className="sp-lane" key={lane.kind} style={{ top: lane.y, height: lane.height, width: layout.width, '--lane-color': colors[lane.kind] } as CSSProperties}><div className="sp-lane-label"><div><i/>{lane.kind}</div><strong>{lane.completed}<small> / {lane.total}</small></strong><progress aria-label={lane.kind + '完成率'} max={lane.total} value={lane.completed}/><small>显示 {lane.visible} 项</small></div>{!lane.visible && <p className="sp-lane-empty">此岗位没有匹配当前筛选的任务</p>}</div>)}

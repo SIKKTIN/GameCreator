@@ -49,7 +49,11 @@ const root = path.resolve(__dirname, '..');
     await details.getByRole('button', { name: '关闭制作任务详情', exact: true }).click();
     await button('清除进度节点选择').click(); await page.locator('.sp-scroll').scrollIntoViewIfNeeded();
     await fs.mkdir(path.join(root, '.gamecreator/qa'), { recursive: true }); await page.screenshot({ path: path.join(root, '.gamecreator/qa/schedule-progress.png') });
-    const beforeZoom = storage.getItem(key); await button('适应宽度').click();
+    const beforeZoom = storage.getItem(key);
+    await require('./helpers/progress-navigation.cjs')(page, button('重新打开任务：' + a.title));
+    assert.equal(storage.getItem(key), beforeZoom, 'panning/zooming never writes project data');
+    await button('查看任务进度：' + a.title).click(); await page.getByRole('region', { name: '选中任务进度' }).waitFor(); await button('清除进度节点选择').click();
+    await button('适应宽度').click();
     assert.ok(Number((await page.getByLabel('任务线路缩放比例', { exact: true }).innerText()).replace('%', '')) < 100);
     assert.equal(await page.locator('.sp-scroll').evaluate(e => e.scrollWidth <= e.clientWidth + 2), true);
     await page.screenshot({ path: path.join(root, '.gamecreator/qa/schedule-progress-overview.png') });
@@ -70,7 +74,7 @@ const root = path.resolve(__dirname, '..');
     await app.close(); app = null; await launch(); await button('重新打开任务：' + a.title).waitFor(); await button('重新打开任务：' + b.title).waitFor(); assert.equal(storage.getItem(key), final);
     await page.locator('.ps-trigger').click(); await page.getByRole('menuitemradio', { name: /另一个进度项目/ }).click(); await button('项目排期').click(); await tab('任务进度').click(); await button('标记任务完成：' + a.title).waitFor();
     assert.equal(storage.getItem(key), final); assert.equal(storage.getItem(otherKey), JSON.stringify(original)); assert.deepEqual(errors, []);
-    console.log('PASS schedule progress: real prototype role lanes/dependencies, completion/reopen, shared list/timeline, filters, details, narrow scrolling, save failure/retry, restart and project isolation.');
+    console.log('PASS schedule progress: role lanes/dependencies, completion/reopen, shared list/timeline, filters, right-button panning/cancellation, cursor-anchored wheel zoom/limits/remount, view-only navigation, narrow scrolling, save failure/retry, restart and project isolation.');
   } catch (error) { if (page && !page.isClosed()) console.error((await page.locator('body').innerText()).slice(-7000)); throw error; }
   finally { if (app) await app.close(); assert.equal(path.dirname(dir), path.resolve(os.tmpdir())); assert.ok(path.basename(dir).startsWith('gc-progress-ui-')); await fs.rm(dir, { recursive: true, force: true }); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

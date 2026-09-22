@@ -28,6 +28,18 @@ const until=async(check,message)=>{const end=Date.now()+20000;while(Date.now()<e
     assert.equal((await read()).store.tasks.length,2);assert.equal((await api('/projects/'+project.id+'/overview',token)).milestones.length,1);assert.equal(source.getItem('gamecreator.workspace.v1:source:project-schedule'),JSON.stringify(store));
     await login(b.page,'alice');await b.page.getByText('项目排期只读',{exact:true}).waitFor();await open(b.page,'制作任务甲');assert.ok(await editor(b.page).getByLabel('制作任务说明',{exact:true}).isDisabled());await close(b.page);
     await b.page.getByRole('tab',{name:'任务进度',exact:true}).click();assert.ok(await button(b.page,'标记任务完成：制作任务甲').isDisabled());await button(b.page,'查看任务进度：制作任务甲').click();assert.ok(await b.page.getByLabel('选中任务制作状态',{exact:true}).isDisabled());
+    // Read-only users can navigate the canvas, including dragging over a disabled completion button.
+    const beforeNavigation=await read(),readonlyCanvas=b.page.locator('.sp-scroll'),readonlyComplete=button(b.page,'标记任务完成：制作任务甲');
+    await readonlyComplete.scrollIntoViewIfNeeded();let completionBox=await readonlyComplete.boundingBox();
+    await b.page.mouse.move(completionBox.x+completionBox.width/2,completionBox.y+completionBox.height/2);
+    await b.page.mouse.down({button:'right'});assert.ok((await readonlyCanvas.getAttribute('class')).includes('is-panning'));
+    await b.page.mouse.move(completionBox.x-25,completionBox.y-15);await b.page.mouse.up({button:'right'});
+    assert.ok(!(await readonlyCanvas.getAttribute('class')).includes('is-panning'));
+    await readonlyComplete.scrollIntoViewIfNeeded();completionBox=await readonlyComplete.boundingBox();
+    await b.page.mouse.move(completionBox.x+completionBox.width/2,completionBox.y+completionBox.height/2);await b.page.mouse.wheel(0,120);
+    await b.page.waitForFunction(()=>Number(getComputedStyle(document.querySelector('.sp-canvas')).zoom)<1);
+    assert.ok(await readonlyComplete.isDisabled());assert.deepEqual((await read()).versions,beforeNavigation.versions);
+    assert.ok(await button(b.page,'保存排期到团队').isDisabled());await button(b.page,'原始大小').click();
     // The real permission manager grants only schedule editing.
     await button(a.page,'用户与权限').click();const manager=a.page.getByRole('main',{name:'用户与权限',exact:true});await button(manager,'配置项目权限：排期协作验收').click();let members=a.page.getByRole('dialog',{name:'成员管理',exact:true});await members.getByLabel('alice 项目排期权限',{exact:true}).selectOption('edit');await button(members,'保存成员配置').click();await members.waitFor({state:'hidden'});await button(manager,'返回工作区').click();await saved(b.page);
     await button(b.page,'标记任务完成：制作任务甲').click();assert.equal((await read()).store.tasks.find(t=>t.id==='local-a').status,'待开始');await save(b.page);assert.equal((await read()).store.tasks.find(t=>t.id==='local-a').status,'已完成');await open(a.page,'制作任务甲');await until(async()=>await editor(a.page).getByLabel('制作状态',{exact:true}).inputValue()==='已完成','Completion not received by teammate');await b.page.getByLabel('选中任务制作状态',{exact:true}).selectOption('待开始');await save(b.page);await until(async()=>await editor(a.page).getByLabel('制作状态',{exact:true}).inputValue()==='待开始','Reopened status not received by teammate');await close(a.page);
