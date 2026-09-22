@@ -1,3 +1,4 @@
+import {useDataTableDeletion} from './DataTableDeletion';
 import {useSearchRequest,useLeaveSearch} from './GlobalSearch';
 import {JsonObjectEditor} from './JsonObjectEditor';
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
@@ -14,6 +15,9 @@ type Props = {
   workspaceKey: string; data: ProjectData; onChange: (data: ProjectData) => Promise<boolean>; definitions: DatasetDef[];
   activeDataset: DatasetKey; setActiveDataset: (key: DatasetKey) => void; registry: EnumRegistry;
   onCreateTable: (definition: DatasetDef) => Promise<boolean>;
+  onDeleteTable: (key: string, expected: ProjectData) => Promise<boolean>;
+  deletionReferences: (key: string) => string[];
+  deletionBlocked: string;
 };
 
 // Presentation preferences are saved separately from project data. Flush pending
@@ -51,6 +55,7 @@ export function DataConfiguration({ workspaceKey, ...props }: Props) {
     const saved = readDataViewState(workspaceKey);
     return { directoryWidth: saved.directoryWidth, directoryCollapsed: saved.directoryCollapsed, emptyExpanded: saved.emptyExpanded };
   }, next => patchDataViewState(workspaceKey, next));
+  const deletion = useDataTableDeletion({ data, definitions, blocked: props.deletionBlocked, references: props.deletionReferences, onDelete: props.onDeleteTable });
   const [tableQuery, setTableQuery] = useState('');
   const [mobileOpen, setMobileOpen] = useState(false);
   const [showStatus, setShowStatus] = useState(false);
@@ -74,7 +79,7 @@ export function DataConfiguration({ workspaceKey, ...props }: Props) {
   const closeDirectory = () => { setMobileOpen(false); if (narrow) directoryTrigger.current?.focus(); };
   useEffect(() => { if (mobileOpen && narrow) root.current?.querySelector<HTMLInputElement>('.data-directory-search input')?.focus(); }, [mobileOpen, narrow]);
   useEffect(() => { if (directory.directoryCollapsed && !narrow) directoryTrigger.current?.focus(); }, [directory.directoryCollapsed]);
-  const renderTable = (item: DatasetDef) => <button type="button" key={item.key}
+  const renderTable = (item: DatasetDef) => <button type="button" key={item.key} {...deletion.bind(item.key)}
     className={'data-dataset-link' + (activeDataset === item.key ? ' active' : '')}
     aria-current={activeDataset === item.key ? 'page' : undefined}
     aria-label={item.label + '，' + (data.datasets[item.key]?.length ?? 0) + ' 条记录'} title={item.label + ' · ' + item.key}
@@ -136,6 +141,7 @@ export function DataConfiguration({ workspaceKey, ...props }: Props) {
           : <div className="data-table-empty"><h3>还没有配置表</h3><p>新建一张配置表，开始整理原型数据。</p><button className="primary" onClick={() => setShowCreateTable(true)}><Plus size={15} />新建配置表</button></div>}
       </div>
     </div>
+    {deletion.overlay}
     {showCreateTable && <DataPanel label="新建配置表" busy={creatingTable} onClose={() => setShowCreateTable(false)}><CreateTableDialog definitions={definitions} onBusyChange={setCreatingTable} onClose={() => setShowCreateTable(false)}
       onCreate={async definition => { const saved = await onCreateTable(definition); if (saved) { setShowCreateTable(false); setTableQuery(''); setMobileOpen(false); patchDirectory({ emptyExpanded: true }); } return saved; }} /></DataPanel>}
   </section>;

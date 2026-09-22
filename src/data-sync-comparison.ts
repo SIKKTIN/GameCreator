@@ -60,3 +60,16 @@ export function chooseDifferences(differences: DataDifference[], decisions: Reco
   return next;
 }
 export function sameCell(cell: ComparisonCell) {return stable(cell.local) === stable(cell.remote);}
+
+export function selectedGroupDifferences(groups: DifferenceGroup[], selected: string[]) {
+  const ids = new Set(selected);
+  return [...new Map(groups.filter(g => ids.has(g.id)).flatMap(g => g.differences).map(d => [d.id, d])).values()];
+}
+export function differenceRemovals(differences: DataDifference[], decisions: Record<string, Decision>) {
+  return differences.filter(d => {const c = decisionFor(d, decisions); return c.choice && c.choice !== 'custom' && d[c.choice] === undefined;});
+}
+export function confirmDifferenceDeletions(differences: DataDifference[], decisions: Record<string, Decision>, allowDelete: boolean) {
+  const next = {...decisions};
+  for (const d of differenceRemovals(differences, decisions)) next[d.id] = {...decisionFor(d, decisions), allowDelete};
+  return next;
+}
