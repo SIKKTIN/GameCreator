@@ -60,7 +60,7 @@ export function ArtAssets({ controller, sources, deletionReferences, selected, o
   const requirement = selected?.kind === 'requirement' ? store.requirements.find(r => r.id === selected.id) : undefined;
   const asset = selected?.kind === 'asset' ? store.assets.find(a => a.id === selected.id) : undefined;
   const issues = artIssues(store, sources);
-  const chooseMode = (kind: 'requirement' | 'asset') => { setMode(kind); setQuery(''); if (category === null) setCategory('all'); setStatus('all'); setRange('active'); setError(''); onSelect(null); };
+  const chooseMode = (kind: 'requirement' | 'asset') => { setMode(kind); setQuery(''); setStatus('all'); setRange('active'); setError(''); onSelect(null); };
   const navigate = (value: ArtSelection) => { setError(''); if (value) { setMode(value.kind); setCategory(artCategoryId(library, value.kind, value.id)); setQuery(''); setStatus('all'); setRange('all'); } onSelect(value); };
   const enter = (id: string) => { setCategory(id); setQuery(''); setStatus('all'); onSelect(null); };
   const home = () => { setCategory(null); setQuery(''); setStatus('all'); onSelect(null); };

@@ -384,6 +384,7 @@ function WorkspaceApp({ username, testSession, onLoadTest, onExitTest, preparing
   const [gameplaySource, setGameplaySource] = useState<{ kind: string; id: string } | undefined>();
   const [functionalSelection, setFunctionalSelection] = useState<FunctionalSelection>(null);
   const [artSelection, setArtSelection] = useState<ArtSelection>(null);
+  const [artHomeRevision, setArtHomeRevision] = useState(0);
 
   const engineConfig = testSession?.config ?? formalProject.config;
   const isNewProject = !testSession && formalProject.initialContent === 'empty';
@@ -529,7 +530,7 @@ function WorkspaceApp({ username, testSession, onLoadTest, onExitTest, preparing
       <WorkspaceSidebar picker={<ProjectSwitcher projects={projectOptions} teamNotice={teamNotice} currentId={testSession ? null : formalProject.id} currentName={project.name}
           testName={testSession ? testScenarios.find(item=>item.id===testSession.scenario)?.name : undefined}
           canAdd busy={preparingTest || registry.busy || registry.loading || gameplay.pending || functional.pending || functional.blocked || art.pending || art.blocked || core.pending || prototype.pending || tasks.pending || narrative.pending || maps.pending || schedule.pending || analysis.pending || framework.pending || developmentTools.pending || storyState.pending} onSelect={onSelectProject} onAdd={onAddProject} onDelete={onDeleteProject} onConnectTeam={onConnectTeam} onCreateTeam={onCreateTeam} onPublishProject={!testSession && !storageError ? onPublishProject : undefined} onImportPrototype={onImportPrototype} onImportProject={onImportProject} onExportProject={!testSession && !storageError ? onExportProject : undefined} onSaveAsProject={!testSession && !storageError ? onSaveAsProject : undefined} />} active={serverPage ? adminPageName??'服务器管理' : active}
-        mapEnabled={maps.store.enabled} storyEnabled={narrative.store.enabled} onNavigate={name => { if(canLeaveTeam()){onLeaveServer(); setRequestedSchedule(undefined); setRequestedTool(undefined); setActive(name);} }} onManageServer={onManageServer} onManageUsers={onManageUsers} footer={<>
+        mapEnabled={maps.store.enabled} storyEnabled={narrative.store.enabled} onNavigate={name => { if(canLeaveTeam()){onLeaveServer(); setRequestedSchedule(undefined); setRequestedTool(undefined); if (name === '素材资产') { setArtSelection(null); setArtHomeRevision(value => value + 1); } setActive(name);} }} onManageServer={onManageServer} onManageUsers={onManageUsers} footer={<>
         <button onClick={()=>{if(canLeaveTeam()){onLeaveServer();setActive('工作区设置');}}}><Settings2 size={17} />工作区设置</button><div className="user"><div className="avatar">G</div><span>{username}<small>本地项目</small></span></div>
       </>} />
 
@@ -615,7 +616,7 @@ function WorkspaceApp({ username, testSession, onLoadTest, onExitTest, preparing
           if (link.kind === 'story') { openStory(link.targetId); }
           else { setActiveDataset(link.targetId); setActive('数据配置'); }
         }} />}
-        {active === '素材资产' && <ArtAssets deletionReferences={artDeletionReferences} controller={art} sources={artSources} selected={artSelection} onSelect={value=>{leaveSearch();setArtSelection(value);}} onOpenGameplay={openGameplay} onOpenCapability={openCapability} />}
+        {active === '素材资产' && <ArtAssets key={artHomeRevision} deletionReferences={artDeletionReferences} controller={art} sources={artSources} selected={artSelection} onSelect={value=>{leaveSearch();setArtSelection(value);}} onOpenGameplay={openGameplay} onOpenCapability={openCapability} />}
         {active === '功能系统' && <FunctionalSystems workspaceId={dataKey} renderArtReferences={c => <ArtReferences controller={art} sources={artSources} kind="capability" targetId={c.id} onOpenRequirement={openArtRequirement} />} controller={functional} sources={functionalSources} selected={functionalSelection} onSelect={value=>{leaveSearch();setFunctionalSelection(value);}} onOpenGameplay={openGameplay} onOpenDataset={key => { setActiveDataset(key); setActive('数据配置'); }} />}
         {active === '故事文档' && (storyState.pending||storyState.blocked) && <div className="sl-notice" role="alert">{storyError}<button disabled={storyState.blocked} onClick={storyState.retry}>重试保存故事文档</button><button onClick={()=>{if(!storyState.pending||window.confirm('重新读取会放弃未保存的故事草稿。请先导出备份，再确认继续。'))storyState.reload();}}>重新读取故事文档</button><button onClick={()=>{const u=URL.createObjectURL(new Blob([JSON.stringify(storyDocs,null,2)],{type:'application/json'})),a=document.createElement('a');a.href=u;a.download='story-draft.json';a.click();URL.revokeObjectURL(u);}}>导出故事草稿</button></div>}
         {active === '故事文档' && (
