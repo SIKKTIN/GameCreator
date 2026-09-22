@@ -1,3 +1,4 @@
+import {validateProductionDocs,type ProductionDoc} from '../shared/material-production.mjs';
 import { materialPromptText, type MaterialGenerationPrompt } from './material-prompt.ts';
 import { validateArtLibrary, artLibrary, artCategoryId, artCategoryName, type ArtLibrary } from './art-library.ts';
 import { objectGeometry, spatialObjectLocation } from './spatial-layout.ts';
@@ -14,7 +15,7 @@ export type ArtFile = { id: string; name: string; size: number; mime: string; st
 export type ArtVersion = { id: string; name: string; notes: string; placeholder: boolean; review: typeof artReviewStatuses[number]; feedback: string; files: ArtFile[]; createdAt: string };
 export type ArtAsset = { id: string; name: string; description: string; versions: ArtVersion[]; adoptedVersionId: string; archived: boolean; createdAt: string; updatedAt: string };
 export type ArtLink = { id: string; requirementId: string; assetId: string; note: string };
-export type ArtStore = { library?: ArtLibrary; schema: 1; requirements: ArtRequirement[]; assets: ArtAsset[]; links: ArtLink[] };
+export type ArtStore = { productionDocs?: ProductionDoc[]; library?: ArtLibrary; schema: 1; requirements: ArtRequirement[]; assets: ArtAsset[]; links: ArtLink[] };
 export type ArtSources = { designs: GameplayDesign[]; functional: FunctionalStore };
 export const emptyArtAssets = (): ArtStore => ({ schema: 1, requirements: [], assets: [], links: [] });
 export function createArtRequirement(name: string): ArtRequirement {
@@ -43,6 +44,7 @@ export function validateArtAssets(value: unknown): ArtStore {
       list(a.versions, v => strings(v, ['name', 'notes', 'feedback']) && typeof v.placeholder === 'boolean' && artReviewStatuses.includes(v.review as ArtVersion['review']) && date(v.createdAt) &&
         list(v.files, f => strings(f, ['name', 'mime', 'storagePath']) && !!(f.storagePath as string).trim() && typeof f.size === 'number' && Number.isSafeInteger(f.size) && f.size >= 0))) ||
     !list(value.links, l => strings(l, ['requirementId', 'assetId', 'note']))) throw new Error('素材资产存档格式异常，已停止写入');
+  validateProductionDocs(value.productionDocs);
   if (Object.prototype.hasOwnProperty.call(value, 'library')) validateArtLibrary(value.library, value as unknown as ArtStore);
   return value as ArtStore;
 }
@@ -255,6 +257,15 @@ export function artAssetsMarkdown(store: ArtStore, sources: ArtSources): string 
   }
   const lost = store.links.filter(l => !store.requirements.some(r => r.id === l.requirementId) && !store.assets.some(a => a.id === l.assetId));
   if (lost.length) lines.push('### 两端失效的资产关联', '', ...lost.map(l => `- 需求 ${l.requirementId} → 资产 ${l.assetId}；${text(l.note)}`), '');
+  if(store.productionDocs?.length){
+    lines.push('### 制作方案','');
+    for(const doc of store.productionDocs){
+      lines.push('#### '+text(doc.title),'','- 文档 ID：'+doc.id,'- 分类：'+text(doc.category||'未分类'),
+        '- 关联需求：'+(doc.requirementIds.map(id=>store.requirements.find(r=>r.id===id)?.name||'失效引用 '+id).join('、')||'无'),
+        '- 关联资产：'+(doc.assetIds.map(id=>store.assets.find(a=>a.id===id)?.name||'失效引用 '+id).join('、')||'无'),'',
+        doc.content.replace(/material-image:([a-f0-9-]{36}\.[a-z0-9]{1,12})/g,'../media/$1'),'');
+    }
+  }
   const issues = artIssues(store, sources);
   if (issues.length) lines.push('### 素材引用与审核检查', '', ...issues.map(i => '- ' + i), '');
   return lines.join('\n');

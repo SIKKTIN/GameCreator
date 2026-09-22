@@ -1,3 +1,4 @@
+import {MaterialProductionDocs} from './MaterialProductionDocs';
 import { useArtCardDeletion } from './ArtCardDeletion';
 import type { ArtItemTarget } from './art-deletion';
 import { MaterialPromptEditor } from './MaterialPromptEditor';
@@ -40,6 +41,8 @@ function adoptedAssetText(asset: ArtAsset) { const version = asset.versions.find
 
 export function ArtAssets({ controller, sources, deletionReferences, selected, onSelect, onOpenGameplay, onOpenCapability }: Props) {
   const { store, blocked } = controller;
+  const [showPlans,setShowPlans]=useState(false),[productionBusy,setProductionBusy]=useState(false);
+  useEffect(()=>{if(selected)setShowPlans(false);},[selected?.kind,selected?.id]);
   const deletion = useArtCardDeletion(controller, deletionReferences, target => {
     if (selected?.kind === target.kind && selected.id === target.id) onSelect(null);
   });
@@ -66,10 +69,12 @@ export function ArtAssets({ controller, sources, deletionReferences, selected, o
   const patchRequirement = (changes: Partial<ArtRequirement>) => { if (requirement) apply(current => ({ ...current, requirements: current.requirements.map(r => r.id === requirement.id ? { ...r, ...changes, updatedAt: timestamp() } : r) })); };
   const patchAsset = (changes: Partial<ArtAsset>) => { if (asset) apply(current => ({ ...current, assets: current.assets.map(a => a.id === asset.id ? { ...a, ...changes, updatedAt: timestamp() } : a) })); };
   return <section className="ar-module al-module" aria-label="素材资产工作区">
+    <div className="ar-module-tabs ar-top-tabs" role="tablist" aria-label="素材模块分页">{([['requirement', '制作需求'], ['asset', '资产文件']] as const).map(([kind, label]) => <button key={kind} role="tab" disabled={productionBusy} aria-selected={!showPlans&&mode === kind} onClick={() => {setShowPlans(false);chooseMode(kind);}}>{kind === 'requirement' ? <Palette size={16} /> : <ImageIcon size={16} />}{label}<small>{(kind === 'requirement' ? store.requirements : store.assets).filter(i=>inRange(i.archived)).length}</small></button>)}<button role="tab" aria-selected={showPlans} onClick={()=>setShowPlans(true)}>制作方案<small>{store.productionDocs?.length||0}</small></button></div>
+    {showPlans?<><MaterialProductionDocs onBusy={setProductionBusy} controller={controller} onOpen={(kind,id)=>{setShowPlans(false);navigate({kind,id});}}/>{controller.error&&<p className="ar-error" role="alert">{controller.error}</p>}</>:<>
     <div className="gl-heading"><nav className="gl-breadcrumb" aria-label="素材分类路径"><button onClick={home}><FolderOpen size={16}/>素材分类</button>{category !== null && <><ArrowRight size={14}/><span>{category === 'all' ? '全部分类' : artCategoryName(library, category)}</span></>}</nav><div className="gp-actions"><button className="gp-secondary" disabled={blocked} onClick={()=>setManaging(true)}>管理分类</button>{category === null && <><button className="gp-secondary" disabled={blocked} onClick={()=>openCreate('asset')}><Plus size={15}/>新建素材资产</button><button className="primary" disabled={blocked} onClick={()=>openCreate('requirement')}><Plus size={15}/>新建素材需求</button></>}</div></div>
     {controller.error && <p className="ar-error" role="alert">{controller.error}</p>}
     {category === null ? <><div className="gl-toolbar"><label className="gp-search"><Search size={16}/><input type="search" aria-label="搜索全部素材内容" placeholder="搜索需求、资产、分类或交付文件…" value={query} onChange={e=>setQuery(e.target.value)}/></label><label>显示范围<select aria-label="素材内容范围" value={range} onChange={e=>setRange(e.target.value)}><option value="active">有效条目</option><option value="archived">已归档</option><option value="all">全部条目</option></select></label><button className="gp-secondary" onClick={()=>enter('all')}>查看全部内容</button></div><ArtCategoryHome cardBindings={deletion.bind} store={store} query={query} range={range} onEnter={enter} onSelect={(kind,id)=>navigate({kind,id})} onManage={()=>setManaging(true)} blocked={blocked}/></> : <>
-    <div className="ar-module-heading"><div><h2>{category === 'all' ? '全部素材内容' : artCategoryName(library, category)}</h2><p className="gp-muted">需求说明要做什么，资产保留实际交付与版本。</p></div><div className="ar-module-tabs" role="tablist" aria-label="素材模块分页">{([['requirement', '制作需求'], ['asset', '资产文件']] as const).map(([kind, label]) => <button key={kind} role="tab" aria-selected={mode === kind} onClick={() => chooseMode(kind)}>{kind === 'requirement' ? <Palette size={16} /> : <ImageIcon size={16} />}{label}<small>{(kind === 'requirement' ? store.requirements : store.assets).filter(i=>inRange(i.archived) && (category === 'all' || artCategoryId(library,kind,i.id) === category)).length}</small></button>)}</div></div>
+    <div className="ar-module-heading"><div><h2>{category === 'all' ? '全部素材内容' : artCategoryName(library, category)}</h2><p className="gp-muted">需求说明要做什么，资产保留实际交付与版本。</p></div></div>
     <div className="gp-workspace ar-workspace">
       <div className="gp-library ar-library"><div className="gp-library-heading"><h2>{mode === 'requirement' ? '需求目录' : '资产目录'}</h2><button className="gp-icon" aria-label={mode === 'requirement' ? '新建素材需求' : '新建素材资产'} disabled={blocked} onClick={() => openCreate(mode)}><Plus size={18} /></button></div>
         <label className="gp-search"><Search size={16} /><input type="search" aria-label="搜索素材内容" value={query} onChange={e => setQuery(e.target.value)} placeholder={mode === 'requirement' ? '搜索需求、说明或负责人…' : '搜索资产名称或说明…'} /></label>
@@ -90,6 +95,7 @@ export function ArtAssets({ controller, sources, deletionReferences, selected, o
     {deletion.overlay}
     {managing && <ArtCategoryManager store={store} blocked={blocked} apply={apply} onClose={()=>setManaging(false)}/>}
     <dialog className="gp-dialog" ref={dialog} aria-labelledby="ar-new-title"><form onSubmit={create}><div className="gp-card-heading"><div><span className="gp-kicker">NEW {newKind === 'requirement' ? 'REQUIREMENT' : 'ASSET'}</span><h2 id="ar-new-title">{newKind === 'requirement' ? '新建素材需求' : '新建素材资产'}</h2></div><button type="button" className="gp-icon" aria-label="关闭新建素材条目" onClick={() => dialog.current?.close()}><X size={18} /></button></div><p className="gp-muted">只需填写名称，其余内容可以逐步补充。</p><label className="gp-field">名称<input ref={input} aria-label={newKind === 'requirement' ? '新需求名称' : '新资产名称'} value={name} onChange={e => setName(e.target.value)} required /></label>{error && <p className="ar-error" role="alert">{error}</p>}<div className="gp-dialog-actions"><button type="button" className="gp-secondary" onClick={() => dialog.current?.close()}>取消</button><button type="submit" className="primary" disabled={blocked}>{newKind === 'requirement' ? '创建需求' : '创建资产'}</button></div></form></dialog>
+    </>}
   </section>;
 }
 function RequirementEditor({ requirement: r, controller, sources, apply, onChange, onOpenAsset, onOpenGameplay, onOpenCapability }: { requirement: ArtRequirement; controller: ArtController; sources: ArtSources; apply: Change; onChange: (changes: Partial<ArtRequirement>) => void; onOpenAsset: (id: string) => void; onOpenGameplay: Props['onOpenGameplay']; onOpenCapability: Props['onOpenCapability'] }) {

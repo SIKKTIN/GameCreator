@@ -29,8 +29,9 @@ export function externalArtReferences(target: ArtItemTarget, sources: ArtDeletio
 }
 
 export function artItemReferences(store: ArtStore, target: ArtItemTarget): string[] {
-  return target.kind === 'asset' ? store.links.filter(l => l.assetId === target.id).map(l =>
-    '素材需求 / ' + (store.requirements.find(r => r.id === l.requirementId)?.name || l.requirementId)) : [];
+  const docs=(store.productionDocs||[]).filter(d=>(target.kind==='asset'?d.assetIds:d.requirementIds).includes(target.id)).map(d=>'制作方案 / '+d.title);
+  return [...docs,...(target.kind === 'asset' ? store.links.filter(l => l.assetId === target.id).map(l =>
+    '素材需求 / ' + (store.requirements.find(r => r.id === l.requirementId)?.name || l.requirementId)) : [])];
 }
 
 /** Explicit card deletion is separate from edits, which still preserve immutable version history. */

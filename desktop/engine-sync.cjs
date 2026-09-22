@@ -136,6 +136,18 @@ function createEngineSync({artFiles,beforeWrite=async()=>{},beforeRebind=async()
     if(settings.documents) {
       for(const d of syncDocuments(input.document,settings.modules))desired.push({id:d.id,path:settings.docsDirectory+'/'+d.path,bytes:Buffer.from(d.content),kind:'document',label:d.id==='document:index'?'项目文档目录':input.document.sections.find(s=>'document:'+s.id===d.id)?.label||d.path,version:input.document.version});
     }
+    if(settings.documents&&settings.modules.includes('art')) {
+      const {validateProductionDocs}=await import('../shared/material-production.mjs');
+      const images=new Map();
+      for(const doc of validateProductionDocs(input.art?.productionDocs))for(const file of doc.images)if(doc.content.includes('material-image:'+file.storagePath))images.set(file.storagePath,file);
+      let imageBytes=0;
+      for(const file of images.values()){
+        const bytes=await artFiles.readBytes('project:'+ctx.projectId,file.storagePath);imageBytes+=bytes.length;
+        if(bytes.length!==file.size)throw new Error('制作方案图片大小与存档不符：'+file.name);
+        if(imageBytes>MAX_BYTES||desired.length>=4000)throw new Error('制作方案图片超过同步大小限制');
+        desired.push({id:'document:production-image:'+file.storagePath,path:settings.docsDirectory+'/media/'+file.storagePath,bytes,kind:'document',label:'制作方案插图 / '+file.name,version:input.document.version});
+      }
+    }
     let totalBytes=desired.reduce((n,f)=>n+f.bytes.length,0);
     if(totalBytes>MAX_BYTES)throw new Error('文档超过 256 MB，请缩小同步范围');
     if(settings.assets) {
