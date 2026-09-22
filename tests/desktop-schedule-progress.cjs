@@ -1,0 +1,76 @@
+const { _electron } = require(process.env.GAMECREATOR_PLAYWRIGHT_PATH || 'playwright');
+const fs = require('node:fs/promises'), path = require('node:path'), os = require('node:os'), assert = require('node:assert/strict');
+const { createWorkspaceStorage } = require('../desktop/test-workspaces.cjs');
+const root = path.resolve(__dirname, '..');
+(async () => {
+  const { preparePrototypeProject, writePrototypeProject } = await import('../src/prototype-import.ts');
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'gc-progress-ui-')), data = path.join(dir, 'data'), storage = createWorkspaceStorage(data);
+  const example = JSON.parse(await fs.readFile(path.join(root, 'examples/prototypes/plants-vs-zombies.json'), 'utf8'));
+  const prepared = preparePrototypeProject({ schema: 2, projects: [], activeId: '', mode: 'project' }, example, '植物原型任务进度'); writePrototypeProject(storage, prepared);
+  const second = { ...prepared.project, id: 'progress-other', name: '另一个进度项目' }; prepared.catalog.projects.push(second);
+  storage.setItem('gamecreator.projects.v1', JSON.stringify(prepared.catalog));
+  const key = 'gamecreator.workspace.v1:' + prepared.project.id + ':project-schedule', otherKey = 'gamecreator.workspace.v1:' + second.id + ':project-schedule', read = () => JSON.parse(storage.getItem(key));
+  const original = read(), a = original.tasks.find(t => t.kind === '设计' && !t.dependencyIds.length), b = original.tasks.find(t => t.kind === '程序'); assert.ok(a && b);
+  storage.setItem(otherKey, JSON.stringify(original)); const before = storage.getItem(key);
+  const env = { ...process.env, GAMECREATOR_DATA_DIR: data, GAMECREATOR_USER_DATA_DIR: path.join(dir, 'profile') }; delete env.ELECTRON_RUN_AS_NODE;
+  let app, page; const errors = [];
+  const button = name => page.getByRole('button', { name, exact: true }), tab = name => page.getByRole('tab', { name, exact: true }), field = name => page.getByLabel(name, { exact: true });
+  const node = name => page.getByRole('article', { name: '任务节点：' + name, exact: true });
+  async function launch() {
+    app = await _electron.launch({ executablePath: require('electron'), args: [path.join(root, 'desktop/main.cjs')], env });
+    page = await app.firstWindow(); page.setDefaultTimeout(15000); page.on('pageerror', e => errors.push(e.message));
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1580, 1080));
+    await button('进入本地工作区').click(); await button('项目排期').click(); await tab('任务进度').click();
+  }
+  try {
+    await launch(); await node(a.title).waitFor();
+    assert.equal(storage.getItem(key), before); assert.equal(await page.locator('.sp-node').count(), original.tasks.length);
+    assert.equal(await page.locator('.sp-edge').count(), original.tasks.reduce((n, t) => n + t.dependencyIds.length, 0));
+    assert.ok(await page.locator('.sp-lane').count() >= 4);
+    await button('查看任务进度：' + b.title).click(); await page.getByRole('region', { name: '选中任务进度' }).waitFor();
+    assert.ok((await page.locator('.sp-relations').innerText()).includes('前置交接')); assert.equal(storage.getItem(key), before);
+    await button('标记任务完成：' + a.title).click(); assert.equal(read().tasks.find(t => t.id === a.id).status, '已完成');
+    assert.deepEqual(read().tasks.find(t => t.id === a.id), { ...a, status: '已完成' }); assert.deepEqual(read().milestones, original.milestones);
+    assert.deepEqual(read().tasks.filter(t => t.id !== a.id), original.tasks.filter(t => t.id !== a.id));
+    assert.equal(await page.getByRole('progressbar', { name: '设计完成率', exact: true }).getAttribute('value'), '1');
+    await tab('任务列表').click(); assert.ok((await page.locator('.sch-table tr').filter({ hasText: a.title }).innerText()).includes('已完成'));
+    await tab('时间轴').click(); assert.ok((await button('排期条：' + a.title).getAttribute('class')).includes('sch-status-已完成'));
+    await tab('任务进度').click(); await button('重新打开任务：' + a.title).click(); assert.equal(read().tasks.find(t => t.id === a.id).status, '进行中');
+    await field('选中任务制作状态').selectOption('待验收'); assert.equal(read().tasks.find(t => t.id === a.id).status, '待验收');
+    await field('选中任务制作状态').selectOption('已完成');
+    await field('搜索制作任务').fill(a.title); assert.equal(await page.locator('.sp-node').count(), 1);
+    assert.equal(await page.getByRole('progressbar', { name: '岗位任务完成率', exact: true }).getAttribute('max'), String(original.tasks.length));
+    await field('搜索制作任务').fill(''); await field('任务进度岗位筛选').selectOption('程序');
+    assert.equal(await page.locator('.sp-lane').count(), 1); assert.equal(await page.locator('.sp-node').count(), original.tasks.filter(t => t.kind === '程序').length);
+    await field('制作状态筛选').selectOption('已完成'); await page.getByText('当前筛选下没有制作任务。调整岗位、搜索或状态筛选后查看。', { exact: true }).waitFor();
+    await field('制作状态筛选').selectOption('all'); await field('任务进度岗位筛选').selectOption('all');
+    await button('查看任务进度：' + b.title).click(); await button('编辑任务详情').click();
+    const details = page.getByRole('dialog', { name: '制作任务详情', exact: true }); assert.equal(await details.getByLabel('制作任务名称', { exact: true }).inputValue(), b.title);
+    await details.getByRole('button', { name: '关闭制作任务详情', exact: true }).click();
+    await button('清除进度节点选择').click(); await page.locator('.sp-scroll').scrollIntoViewIfNeeded();
+    await fs.mkdir(path.join(root, '.gamecreator/qa'), { recursive: true }); await page.screenshot({ path: path.join(root, '.gamecreator/qa/schedule-progress.png') });
+    const beforeZoom = storage.getItem(key); await button('适应宽度').click();
+    assert.ok(Number((await page.getByLabel('任务线路缩放比例', { exact: true }).innerText()).replace('%', '')) < 100);
+    assert.equal(await page.locator('.sp-scroll').evaluate(e => e.scrollWidth <= e.clientWidth + 2), true);
+    await page.screenshot({ path: path.join(root, '.gamecreator/qa/schedule-progress-overview.png') });
+    await button('原始大小').click(); assert.equal(storage.getItem(key), beforeZoom);
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1100, 900));
+    assert.equal(await page.locator('.sch-workspace').evaluate(e => e.scrollWidth <= e.clientWidth + 2), true);
+    assert.ok(await page.locator('.sp-scroll').evaluate(e => e.scrollWidth > e.clientWidth));
+    await page.screenshot({ path: path.join(root, '.gamecreator/qa/schedule-progress-narrow.png') });
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1580, 1080));
+
+    const saved = storage.getItem(key);
+    await app.evaluate(({ ipcMain }, key) => { globalThis.progressHandler = ipcMain.listeners('workspace-storage')[0]; ipcMain.removeAllListeners('workspace-storage'); ipcMain.on('workspace-storage', (e, request) => { if (request?.operation === 'set' && request.key === key) e.returnValue = { ok: false, error: '模拟进度保存失败' }; else globalThis.progressHandler(e, request); }); }, key);
+    await button('标记任务完成：' + b.title).click(); await button('重试保存排期').waitFor(); assert.equal(storage.getItem(key), saved);
+    assert.ok((await page.locator('.sp-footer').innerText()).includes('草稿未保存')); assert.equal(await page.locator('.ps-trigger').isDisabled(), true);
+    await app.evaluate(({ ipcMain }) => { ipcMain.removeAllListeners('workspace-storage'); ipcMain.on('workspace-storage', globalThis.progressHandler); });
+    await button('重试保存排期').click(); assert.equal(read().tasks.find(t => t.id === b.id).status, '已完成');
+    const final = storage.getItem(key); assert.equal(storage.getItem(otherKey), JSON.stringify(original));
+    await app.close(); app = null; await launch(); await button('重新打开任务：' + a.title).waitFor(); await button('重新打开任务：' + b.title).waitFor(); assert.equal(storage.getItem(key), final);
+    await page.locator('.ps-trigger').click(); await page.getByRole('menuitemradio', { name: /另一个进度项目/ }).click(); await button('项目排期').click(); await tab('任务进度').click(); await button('标记任务完成：' + a.title).waitFor();
+    assert.equal(storage.getItem(key), final); assert.equal(storage.getItem(otherKey), JSON.stringify(original)); assert.deepEqual(errors, []);
+    console.log('PASS schedule progress: real prototype role lanes/dependencies, completion/reopen, shared list/timeline, filters, details, narrow scrolling, save failure/retry, restart and project isolation.');
+  } catch (error) { if (page && !page.isClosed()) console.error((await page.locator('body').innerText()).slice(-7000)); throw error; }
+  finally { if (app) await app.close(); assert.equal(path.dirname(dir), path.resolve(os.tmpdir())); assert.ok(path.basename(dir).startsWith('gc-progress-ui-')); await fs.rm(dir, { recursive: true, force: true }); }
+})().catch(error => { console.error(error); process.exitCode = 1; });
