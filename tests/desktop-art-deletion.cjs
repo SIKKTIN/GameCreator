@@ -22,18 +22,18 @@ const root = path.resolve(__dirname, '..');
   const env = { ...process.env, GAMECREATOR_DATA_DIR: data, GAMECREATOR_USER_DATA_DIR: path.join(dir, 'profile') }; delete env.ELECTRON_RUN_AS_NODE;
   let app, page; const errors = [], read = () => JSON.parse(storage.getItem(key));
   const button = name => page.getByRole('button', { name, exact: true }), field = name => page.getByLabel(name, { exact: true });
-  const card = (name, kind = 'asset') => button('打开素材' + (kind === 'asset' ? '资产' : '需求') + '：' + name);
+  const card = (name, kind = 'asset') => button('打开素材条目：'+name);
   const dialog = () => page.getByRole('dialog', { name: /^删除素材/ });
   async function launch() {
     app = await _electron.launch({ executablePath: require('electron'), args: [path.join(root, 'desktop/main.cjs')], env });
     page = await app.firstWindow(); page.setDefaultTimeout(15000); page.on('pageerror', e => errors.push(e.message));
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1500, 980));
     await button('进入本地工作区').click(); await button('素材资产').click(); await button('查看全部内容').click();
-    await page.getByRole('tab', { name: /^资产文件/ }).click();
+
   }
   async function ask(locator, kind = 'asset') {
     await locator.click({ button: 'right' });
-    await page.getByRole('menuitem', { name: '删除素材' + (kind === 'asset' ? '资产' : '需求'), exact: true }).click();
+    await page.getByRole('menuitem', { name: '删除素材条目', exact: true }).click();
     await dialog().waitFor();
   }
   async function cancel() { await dialog().getByRole('button', { name: '取消', exact: true }).click(); }
@@ -46,12 +46,12 @@ const root = path.resolve(__dirname, '..');
     await card(unused.name).click({ button: 'right' }); await page.getByRole('menu').waitFor(); await field('搜索素材内容').click(); await page.getByRole('menu').waitFor({ state: 'hidden' });
 
     // A right click acts on its own card, without replacing the detail selection.
-    await ask(card(linked.name)); assert.ok((await dialog().innerText()).includes('素材需求 / 动画制作'));
-    assert.equal(await dialog().getByRole('button', { name: '确认删除', exact: true }).isDisabled(), true); await cancel();
+    await ask(card(requirement.name)); assert.ok((await dialog().innerText()).includes('独占的交付资源'));
+    assert.equal(await dialog().getByRole('button', { name: '确认删除', exact: true }).isDisabled(), false); await cancel();
     assert.equal(await field('资产名称').inputValue(), unused.name);
     await ask(card(referenced.name)); assert.ok((await dialog().innerText()).includes('原型设计 / 草坪 / 植物头像')); await cancel();
 
-    await field('素材内容范围').selectOption('all'); await ask(card(archived.name)); assert.ok((await dialog().innerText()).includes('1 个交付版本记录'));
+    await field('素材内容范围').selectOption('all'); await ask(card(archived.name)); assert.ok((await dialog().innerText()).includes('本地文件仍保留'));
     await fs.mkdir(path.join(root, '.gamecreator/qa'), { recursive: true }); await page.screenshot({ path: path.join(root, '.gamecreator/qa/art-card-delete-confirm.png') });
     await confirm(); assert.equal(await field('资产名称').inputValue(), unused.name); assert.ok(!read().assets.some(x => x.id === archived.id));
     assert.ok(await files.readBytes('project:' + a, imported[0].storagePath));
@@ -70,17 +70,16 @@ const root = path.resolve(__dirname, '..');
     // Search-result cards expose the same menu. Removing a requirement releases its asset.
     await button('素材分类').click(); await field('搜索全部素材内容').fill(requirement.name);
     await ask(page.locator('.ar-search-result'), 'requirement'); await confirm();
-    assert.equal(read().requirements.length, 0); assert.equal(read().links.length, 0); assert.ok(read().assets.some(x => x.id === linked.id));
+    assert.equal(read().requirements.length, 0); assert.equal(read().links.length, 0); assert.ok(!read().assets.some(x => x.id === linked.id));
     assert.equal(await page.locator('.ar-search-result').count(), 0);
-    await field('搜索全部素材内容').fill(linked.name); await ask(page.locator('.ar-search-result')); await confirm();
     assert.deepEqual(read().assets.map(x => x.id), [referenced.id]);
 
     // A newly added card is immediately deletable, and concurrent archive changes are not overwritten.
-    await button('新建素材资产').click(); const create = page.getByRole('dialog', { name: '新建素材资产', exact: true });
-    await create.getByLabel('新资产名称').fill('刚加的卡片'); await create.getByRole('button', { name: '创建资产', exact: true }).click();
+    await button('新建素材条目').click(); const create = page.getByRole('dialog', { name: '新建素材条目', exact: true });
+    await create.getByLabel('新素材名称').fill('刚加的卡片'); await create.getByRole('button', { name: '创建条目', exact: true }).click();
     await ask(card('刚加的卡片')); const beforeConflict = storage.getItem(key), concurrent = read(); concurrent.assets[0].description = '其他窗口的修改'; storage.setItem(key, JSON.stringify(concurrent));
     await dialog().getByRole('button', { name: '确认删除', exact: true }).click(); await dialog().getByRole('alert').waitFor();
-    assert.ok((await dialog().innerText()).includes('其他窗口')); assert.equal(read().assets.at(-1).name, '刚加的卡片');
+    assert.ok((await dialog().innerText()).includes('其他窗口')); assert.equal(read().requirements.at(-1).name, '刚加的卡片');
     storage.setItem(key, beforeConflict); await confirm(); assert.equal(await card('刚加的卡片').count(), 0);
     const final = storage.getItem(key); assert.equal(storage.getItem(otherKey), JSON.stringify(initial)); assert.equal(storage.getItem(prototypeKey), prototypeRaw);
     await app.close(); app = null; await launch(); assert.equal(storage.getItem(key), final); await card(referenced.name).waitFor();

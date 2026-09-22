@@ -29,10 +29,10 @@ export function useArtAssets(workspaceId: string, fileWorkspaceId = 'project:' +
     return persist(next);
   };
   const pending = !!saveError;
-  const remove = (target: ArtItemTarget, references: string[]) => {
+  const remove = (target: ArtItemTarget, references: string[], material=false) => {
     if (initial.error) throw new Error('素材存档暂不可读，请恢复后再删除');
     if (pending) throw new Error('请先保存尚未写入的素材修改，再删除');
-    const result = writeArtItemDeletion(workspaceStorage, key, committed.current, target, references);
+    const result = writeArtItemDeletion(workspaceStorage, key, committed.current, target, references, material);
     committed.current = result.raw; latest.current = result.store; setStore(result.store); setOperationError('');
   };
   useEffect(() => {

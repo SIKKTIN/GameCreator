@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { Trash2 } from 'lucide-react';
-import { artItemReferences, type ArtItemTarget } from './art-deletion';
+import { artItemReferences,materialDeletionReferences,materialDeletionTargets, type ArtItemTarget } from './art-deletion';
 import type { ArtController } from './useArtAssets';
 
 export type ArtCardBindings = (target: ArtItemTarget) => {
@@ -9,14 +9,14 @@ export type ArtCardBindings = (target: ArtItemTarget) => {
   onKeyDown: (event: KeyboardEvent<HTMLButtonElement>) => void;
 };
 
-export function useArtCardDeletion(controller: ArtController, externalReferences: (target: ArtItemTarget) => string[], onDeleted: (target: ArtItemTarget) => void) {
+export function useArtCardDeletion(controller: ArtController, externalReferences: (target: ArtItemTarget) => string[], onDeleted: (target: ArtItemTarget) => void, material=false) {
   const [menu, setMenu] = useState<{ target: ArtItemTarget; x: number; y: number } | null>(null);
   const [target, setTarget] = useState<ArtItemTarget | null>(null), [error, setError] = useState('');
   const menuRef = useRef<HTMLDivElement>(null), dialog = useRef<HTMLDialogElement>(null), cancel = useRef<HTMLButtonElement>(null);
   const origin = useRef<HTMLButtonElement | null>(null), fallback = useRef<HTMLInputElement | null>(null);
   const scrollPositions = useRef(new Map<Element, string>());
   const scrollPosition = (element: Element) => element.scrollLeft + ':' + element.scrollTop;
-  const label = (item: ArtItemTarget) => item.kind === 'asset' ? '素材资产' : '素材需求';
+  const label = (item: ArtItemTarget) => material?'素材条目':item.kind === 'asset' ? '素材资产' : '素材需求';
   const restoreFocus = () => requestAnimationFrame(() => (origin.current?.isConnected ? origin.current : fallback.current)?.focus());
   const close = () => { setTarget(null); setError(''); restoreFocus(); };
   const open = (item: ArtItemTarget, button: HTMLButtonElement, x: number, y: number) => {
@@ -51,13 +51,14 @@ export function useArtCardDeletion(controller: ArtController, externalReferences
   useEffect(() => { if (target) { dialog.current?.showModal(); cancel.current?.focus(); } }, [target]);
   const item = target ? controller.store[target.kind === 'asset' ? 'assets' : 'requirements'].find(i => i.id === target.id) : undefined;
   const versionCount = target?.kind === 'asset' ? controller.store.assets.find(a => a.id === target.id)?.versions.length || 0 : 0;
-  const references = target ? [...artItemReferences(controller.store, target), ...externalReferences(target)] : [];
+  const external=(t:ArtItemTarget)=>material?materialDeletionTargets(controller.store,t).flatMap(externalReferences):externalReferences(t);
+  const references = target ? [...(material?materialDeletionReferences(controller.store,target):artItemReferences(controller.store, target)), ...external(target)] : [];
   const blocked = controller.blocked ? '素材存档暂不可读，请恢复后再删除。' : controller.pending ? '请先保存尚未写入的素材修改，再删除。' : !item ? '素材条目不存在，请重新打开项目。' : '';
   const confirm = () => {
     if (!target || blocked) return;
     try {
       // Resolve again when confirming; the context-menu snapshot never authorizes a deletion.
-      controller.remove(target, externalReferences(target));
+      controller.remove(target, external(target),material);
       onDeleted(target); close();
     } catch (e) { setError('删除未完成：' + (e instanceof Error ? e.message : String(e))); }
   };
@@ -70,7 +71,7 @@ export function useArtCardDeletion(controller: ArtController, externalReferences
     {target && <dialog ref={dialog} className="gp-dialog ar-delete-dialog" aria-labelledby="ar-delete-title" onCancel={e => { e.preventDefault(); close(); }}>
       <h2 id="ar-delete-title">删除{label(target)}</h2>
       <p>确定删除“{item?.name || '此条目'}”？此操作无法撤销。</p>
-      {target.kind === 'asset' ? <p className="gp-muted">会移除资产卡片及其 {versionCount} 个交付版本记录；已导入的本地文件仍保留在项目文件夹中。</p> : <p className="gp-muted">会移除需求及其资产关联；关联资产和交付文件继续保留。</p>}
+      {material?<p className="gp-muted">会移除此条目及其独占的交付资源、版本记录；其他条目共用的资源继续保留。已导入的本地文件仍保留在项目文件夹中。</p>:target.kind === 'asset' ? <p className="gp-muted">会移除资产卡片及其 {versionCount} 个交付版本记录；已导入的本地文件仍保留在项目文件夹中。</p> : <p className="gp-muted">会移除需求及其资产关联；关联资产和交付文件继续保留。</p>}
       {!!references.length && <div className="ar-delete-references" role="alert"><strong>请先解除以下引用，再删除：</strong><ul>{references.map((r, i) => <li key={i}>{r}</li>)}</ul></div>}
       {blocked && <p className="ar-error" role="alert">{blocked}</p>}
       {error && <p className="ar-error" role="alert">{error}</p>}

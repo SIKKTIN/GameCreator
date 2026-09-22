@@ -129,8 +129,8 @@ const sectionProperties = [['gameplay', 'gameplay'], ['functional-systems', 'fun
     await click('枚举定义'); await page.getByRole('heading', { name: 'Const_QA.State', exact: true }).waitFor();
     await click('枚举管理'); await page.getByRole('tab', { name: /^枚举更新检测/ }).click();
     assert.equal(await page.getByRole('button', { name: '不同意 Const_QA.State.WORKING · 新增成员', exact: true }).getAttribute('aria-pressed'), 'true');
-    await click('素材资产'); await click('素材分类'); await click('查看全部内容'); await page.getByRole('tab', { name: /^资产文件/ }).click();
-    await click('打开素材资产：' + expectedArt.assets[0].name);
+    await click('素材资产'); await click('素材分类'); await click('查看全部内容');
+    await require('./material-ui-helper.cjs').openAsset(page,expectedArt,expectedArt.assets[0].id);
     await click('查看交付版本：v2 已审核正式素材');
     assert.equal(await page.getByLabel('版本审核状态', { exact: true }).inputValue(), '已通过');
     assert.equal(await page.getByLabel('版本审核反馈', { exact: true }).inputValue(), '原件和版本记录都需要随项目保留');
@@ -213,7 +213,7 @@ const sectionProperties = [['gameplay', 'gameplay'], ['functional-systems', 'fun
   }
   try {
     await fs.mkdir(artifacts, { recursive: true }); await launch();
-    await click('素材资产'); await click('素材分类'); await click('查看全部内容'); await page.getByRole('tab', { name: /^资产文件/ }).click(); await click('打开素材资产：' + fixture.artAssets.assets[0].name);
+    await click('素材资产'); await click('素材分类'); await click('查看全部内容');  await require('./material-ui-helper.cjs').openAsset(page,fixture.artAssets,fixture.artAssets.assets[0].id);
     await deliver('v1 灰盒素材', true); await click('采用此版本');
     await fs.writeFile(original, Buffer.from('BLENDER\0second delivery source bytes\0preserve both historical originals', 'utf8'));
     await deliver('v2 已审核正式素材', false);
@@ -242,8 +242,8 @@ const sectionProperties = [['gameplay', 'gameplay'], ['functional-systems', 'fun
     const secondId = await importProject(movedFolder, 'QA 迁入原型 B'); await verifyContent(secondId, 'QA 迁入原型 B', expectedArt);
     assert.notEqual(firstId, secondId); verified.push('relocated folder import with all modules, enum history and art originals', 'repeat imports use independent IDs');
     // Editing one imported copy must not change either the source or the second copy.
-    await chooseProject('QA 迁入原型 A'); await click('素材资产'); await click('素材分类'); await click('查看全部内容'); await page.getByRole('tab', { name: /^制作需求/ }).click();
-    await click('打开素材需求：' + expectedArt.requirements[0].name); await page.getByLabel('需求负责人', { exact: true }).fill('仅修改导入 A');
+    await chooseProject('QA 迁入原型 A'); await click('素材资产'); await click('素材分类'); await click('查看全部内容');
+    await click('打开素材条目：' + expectedArt.requirements[0].name); await page.getByLabel('需求负责人', { exact: true }).fill('仅修改导入 A');
     await waitUntil(() => read(firstId, 'art-assets').requirements[0].owner === '仅修改导入 A', 'imported edit not persisted');
     await verifyContent(secondId, 'QA 迁入原型 B', expectedArt);
     await app.close(); app = null; await launch(); assert.equal(catalog().activeId, firstId);

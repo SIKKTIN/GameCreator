@@ -52,10 +52,19 @@ export function removeArtItem(store: ArtStore, target: ArtItemTarget, externalRe
 }
 
 /** Build the deletion from the committed snapshot and publish it only after the write succeeds. */
-export function writeArtItemDeletion(storage: Pick<Storage, 'getItem' | 'setItem'>, key: string, expected: string | null, target: ArtItemTarget, externalReferences: string[] = []) {
+export function materialDeletionTargets(store:ArtStore,target:ArtItemTarget):ArtItemTarget[] {
+  if(target.kind==='asset')return [target];
+  return [target,...store.assets.filter(a=>store.links.some(l=>l.requirementId===target.id&&l.assetId===a.id)&&!store.links.some(l=>l.assetId===a.id&&l.requirementId!==target.id)).map(a=>({kind:'asset' as const,id:a.id}))];
+}
+export function materialDeletionReferences(store:ArtStore,target:ArtItemTarget) {
+  return materialDeletionTargets(store,target).flatMap(t=>artItemReferences(t.kind==='asset'&&target.kind==='requirement'?{...store,links:store.links.filter(l=>l.requirementId!==target.id)}:store,t));
+}
+export function writeArtItemDeletion(storage: Pick<Storage, 'getItem' | 'setItem'>, key: string, expected: string | null, target: ArtItemTarget, externalReferences: string[] = [], material=false) {
   const current = readArtAssets(storage, key);
   if (current.raw !== expected) throw new Error('素材存档已被其他窗口修改，请重新打开项目后再删除');
-  const store = removeArtItem(current.store, target, externalReferences), raw = JSON.stringify(store);
+  let store=current.store;
+  for(const item of material?materialDeletionTargets(store,target):[target])store=removeArtItem(store,item,externalReferences);
+  const raw = JSON.stringify(store);
   storage.setItem(key, raw);
   return { store, raw };
 }

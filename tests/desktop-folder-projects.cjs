@@ -51,12 +51,16 @@ const root=path.resolve(__dirname,'..');
     const current=await catalog(),active=current.projects.find(p=>p.id===current.activeId);assert.equal(active.folderPath,destination);
     const counts=await page.evaluate(id=>{const get=s=>JSON.parse(window.desktopClient.storage.getItem('gamecreator.workspace.v1:'+id+':'+s));return [get('gameplay').designs.length,get('art-assets').assets.length];},active.id);
     assert.ok(counts.every(n=>n>0));assert.ok((await fs.readdir(path.join(destination,'archives'))).length>=16);
+    const art=await page.evaluate(id=>window.desktopClient.storage.getItem('gamecreator.workspace.v1:'+id+':art-assets'),active.id);
+    await page.getByRole('button',{name:'素材资产',exact:true}).click();await page.getByRole('button',{name:'查看全部内容',exact:true}).click();
+    await require('./material-ui-helper.cjs').openAsset(page,JSON.parse(art),JSON.parse(art).assets[0].id);
+    assert.equal(await page.evaluate(id=>window.desktopClient.storage.getItem('gamecreator.workspace.v1:'+id+':art-assets'),active.id),art,'opening imported material items must preserve the project archive');
   }
   await page.locator('.ps-trigger').click();await fs.mkdir(path.join(root,'.gamecreator/qa'),{recursive:true});await page.screenshot({path:path.join(root,'.gamecreator/qa/folder-projects-success.png')});
   const last=(await catalog()).projects.find(p=>p.id===(JSON.parse(legacy.getItem('gamecreator.projects.v1'))).activeId);
   await app.close();app=null;const moved=last.folderPath+'-moved';await fs.rename(last.folderPath,moved);await launch();
   await page.getByText('项目文件夹暂时无法读取。',{exact:false}).waitFor();await setOpen(moved);await menu('打开项目');await idle();
   await page.locator('.project-info textarea').waitFor();assert.equal((await catalog()).projects.find(p=>p.id===last.id).folderPath,moved);
-  assert.deepEqual(errors,[]);console.log('PASS desktop project folders: migration, direct autosave, Ctrl+S, independent Save As, native reveal, remove/reopen, canceled/new creation, restart.');
+  assert.deepEqual(errors,[]);console.log('PASS desktop project folders: migration, direct autosave, Ctrl+S, independent Save As, native reveal, remove/reopen, canceled/new creation, five prototype material libraries, restart.');
  }catch(error){if(page){console.error((await page.locator('body').innerText()).slice(0,5500));await fs.mkdir(path.join(root,'.gamecreator/qa'),{recursive:true});await page.screenshot({path:path.join(root,'.gamecreator/qa/folder-projects.png')});}throw error;}finally{if(app)await app.close();assert.equal(path.dirname(dir),path.resolve(os.tmpdir()));assert.ok(path.basename(dir).startsWith('gc-folder-ui-'));await fs.rm(dir,{recursive:true,force:true});}
 })().catch(e=>{console.error(e);process.exitCode=1;});
