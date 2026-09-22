@@ -112,3 +112,11 @@
 .ds-comparison-summary+.ds-table-scroll{margin-top:12px}
 .ds-comparison button:focus-visible,.ds-comparison select:focus-visible,.ds-comparison summary:focus-visible{outline:2px solid #af96df;outline-offset:2px}
 
+
+.ds-batch-tools{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;margin:10px 0;background:#242030;border:1px solid #443951;border-radius:8px;font-size:12px}
+.ds-batch-selection,.ds-batch-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.data-sync .ds-batch-tools button{font-size:12px;min-height:30px;padding:5px 9px}
+.ds-batch-selection>span{color:#b8accb;font-variant-numeric:tabular-nums}
+.data-sync input.ds-batch-checkbox{display:inline-block;vertical-align:middle;flex:0 0 15px;width:15px;height:15px;margin:0 9px 0 0;padding:0;accent-color:#a88cda;cursor:pointer}
+.ds-batch-row{display:flex;align-items:center;gap:0}
+.ds-batch-tools>.ds-delete-confirm{flex-basis:100%;margin:0}

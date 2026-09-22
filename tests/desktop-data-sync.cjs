@@ -46,13 +46,45 @@ const root=path.resolve(__dirname,'..');
     assert.equal(await page.locator('.data-sync').evaluate(n=>n.scrollWidth>n.clientWidth+2),false);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),false);
     await card.screenshot({path:path.join(root,'.gamecreator/qa/data-sync-comparison-narrow.png')});
     await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setContentSize(1580,1080));
-    await card.getByRole('button',{name:'值差异全部采用引擎',exact:true}).click();
+    const valueBatch=page.getByRole('group',{name:'pvz_plants 值差异 批量操作',exact:true});
+    assert.equal(await valueBatch.getByRole('button',{name:'所选采用引擎文件',exact:true}).isDisabled(),true);
+    await field('pvz_plants 值差异 全选').check();await field('pvz_plants 值差异 选择 peashooter').uncheck();
+    assert.equal(await field('pvz_plants 值差异 全选').evaluate(e=>e.indeterminate),true);
+    await valueBatch.getByRole('button',{name:'所选采用引擎文件',exact:true}).click();
+    const headerBatch=page.getByRole('group',{name:'pvz_plants 字段结构差异 批量操作',exact:true});
+    await field('pvz_plants 字段结构差异 全选').check();await headerBatch.getByRole('button',{name:'所选采用引擎文件',exact:true}).click();
+    assert.equal(await field('pvz_plants 字段结构差异 确认所选删除').isChecked(),false);
+    await field('pvz_plants 字段结构差异 确认所选删除').check();
+    assert.equal(await field('pvz_plants cost 确认删除').isChecked(),true);
     await field('pvz_plants peashooter 批量处理').selectOption('local');
-    await button('pvz_plants sunflower hp GameCreator 差异详情').click();await field('pvz_plants rows/sunflower/hp 采用值').selectOption('custom');
+    await button('pvz_plants sunflower hp GameCreator 差异详情').click();
+    await field('pvz_plants 逐项处理 全选').check();await page.getByRole('group',{name:'pvz_plants 逐项处理 批量操作',exact:true}).getByRole('button',{name:'所选保留 GameCreator',exact:true}).click();
+    assert.equal(await field('pvz_plants rows/sunflower/hp 采用值').inputValue(),'local');
+    await field('pvz_plants rows/sunflower/hp 采用值').selectOption('custom');
     await field('pvz_plants rows/sunflower/hp 自定义 JSON 值').fill('{');await field('pvz_plants cost 确认删除').check();assert.equal(await button('应用导入（2）').isDisabled(),true);
     await field('pvz_plants rows/sunflower/hp 自定义 JSON 值').fill('325');await card.screenshot({path:path.join(root,'.gamecreator/qa/data-sync-comparison-custom.png')});
     await button('应用导入（2）').click();await page.getByText(/导入完成，已保存/).waitFor();
     const result=(await read()).data.datasets.pvz_plants;assert.equal(result[0].hp,'325');assert.equal(result[1].hp,'300');assert.equal(result[0].price,'50');assert.ok(result.every(row=>!Object.hasOwn(row,'cost')));assert.deepEqual(errors,[]);
+    // New/missing records: select a subset, explicitly confirm only their deletions,
+    // and leave both the unselected new record and the existing record untouched.
+    const records={...changed,rows:[changed.rows[0],...['new_a','new_b','new_c'].map(id=>({...changed.rows[0],id}))]};
+    await fs.writeFile(path.join(engine,'data/generated/pvz_plants.json'),JSON.stringify(records));await preview();await field('同步 pvz_plants').check();
+    const recordBatch=page.getByRole('group',{name:'pvz_plants 记录结构差异 批量操作',exact:true});
+    await field('pvz_plants peashooter 批量处理').selectOption('local');
+    await field('pvz_plants 记录结构差异 选择 new_a').check();await field('pvz_plants 记录结构差异 选择 new_b').check();
+    await recordBatch.getByRole('button',{name:'所选保留 GameCreator',exact:true}).click();
+    assert.equal(await field('pvz_plants new_c 批量处理').inputValue(),'remote');
+    assert.equal(await button('应用导入（2）').isDisabled(),true);
+    await field('pvz_plants 记录结构差异 确认所选删除').check();
+    assert.equal(await field('pvz_plants new_a 确认删除').isChecked(),true);assert.equal(await field('pvz_plants new_b 确认删除').isChecked(),true);
+    await recordBatch.getByRole('button',{name:'所选采用引擎文件',exact:true}).click();
+    await recordBatch.getByRole('button',{name:'所选保留 GameCreator',exact:true}).click();assert.equal(await field('pvz_plants 记录结构差异 确认所选删除').isChecked(),false);
+    await recordBatch.getByRole('button',{name:'选择待处理项',exact:true}).click();assert.equal(await field('pvz_plants 记录结构差异 选择 new_c').isChecked(),false);
+    await field('pvz_plants 记录结构差异 确认所选删除').check();
+    await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setContentSize(1100,900));assert.equal(await page.locator('.data-sync').evaluate(n=>n.scrollWidth>n.clientWidth+2),false);
+    await recordBatch.scrollIntoViewIfNeeded();await page.screenshot({path:path.join(root,'.gamecreator/qa/data-sync-batch-records.png')});
+    await button('应用导入（2）').click();await page.getByText(/导入完成，已保存/).waitFor();
+    const ids=(await read()).data.datasets.pvz_plants.map(r=>r.id);assert.ok(ids.includes('peashooter'));assert.ok(ids.includes('new_c'));assert.ok(!ids.includes('new_a'));assert.ok(!ids.includes('new_b'));assert.deepEqual(errors,[]);
     console.log('PASS desktop data sync: import/export, conflicts, automatic export, restart, header alignment, grouped missing fields, value matrix, batch/custom decisions, deletion confirmation and narrow layout.');
   }catch(e){if(page&&!page.isClosed())console.error((await page.locator('body').innerText()).slice(-8000));console.error(errors);throw e;}
   finally{if(app)await app.close();assert.equal(path.dirname(dir),path.resolve(os.tmpdir()));assert.ok(path.basename(dir).startsWith('gc-data-ui-'));await fs.rm(dir,{recursive:true,force:true});}
