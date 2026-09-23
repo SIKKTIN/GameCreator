@@ -25,8 +25,16 @@ function createDeveloperService({storage,vault}){
  function read(input){const {credential:k,member}=record(storage,input);if(k.revokedAt)throw new Error('已撤销令牌不能继续分发，请更换令牌');const secret=vault.get(input.projectId,k.id);verifySecret(secret,k);return{...secret,memberName:member.name};}
  function importSecret(input,secret){const {credential:k}=record(storage,input);if(k.revokedAt)throw new Error('已撤销令牌不能恢复使用');verifySecret(secret,k);vault.put(secret);return{credentialId:k.id};}
  function revoke(input){const state=load(storage,input,true),team=state.schedule.personnel,k=team?.credentials.find(k=>k.id===input.credentialId&&k.projectId===input.projectId);if(!k)throw new Error('令牌不存在或属于其他项目');save(storage,state,{...state.schedule,personnel:{...team,credentials:team.credentials.map(v=>v.id===k.id?{...v,revokedAt:v.revokedAt||new Date().toISOString()}:v)}});return{credentialId:k.id};}
+ function remove(input){
+  let state=load(storage,input,true);const key=state.schedule.personnel?.credentials.find(k=>k.id===input.credentialId&&k.projectId===input.projectId);if(!key)throw new Error('令牌不存在或属于其他项目');
+  // Revoke first: if either cleanup or the final save fails, the visible record stays disabled and deletion can be retried.
+  if(!key.revokedAt){revoke(input);state=load(storage,input);}
+  try{vault.remove(input.projectId,key.id);save(storage,state,{...state.schedule,personnel:{...state.schedule.personnel,credentials:state.schedule.personnel.credentials.filter(k=>k.id!==key.id)}});}
+  catch(error){throw new Error('令牌已撤销，但删除未完成，请重试。'+error.message);}
+  return{credentialId:key.id,deleted:true};
+ }
  function available(input){const {schedule}=load(storage,input);return Object.fromEntries((schedule.personnel?.credentials||[]).filter(k=>k.projectId===input.projectId).map(k=>[k.id,vault.has(input.projectId,k.id)]));}
- return{change,read,importSecret,revoke,available};
+ return{change,read,importSecret,revoke,remove,available};
 }
 function verifySecret(secret,key){if(!secret||![1,2].includes(secret.schema)||secret.projectId!==key.projectId||secret.memberId!==key.memberId||secret.credentialId!==key.id||typeof secret.privateKey!=='string'||secret.privateKey.length>1000)throw new Error('凭证身份与当前令牌不匹配');try{const privateKey=createPrivateKey({key:Buffer.from(secret.privateKey,'base64'),type:'pkcs8',format:'der'});if(privateKey.asymmetricKeyType!=='ed25519'||createPublicKey(privateKey).export({type:'spki',format:'der'}).toString('base64')!==key.publicKey)throw new Error();}catch{throw new Error('私有凭证与公开验证信息不匹配');}}
 function developerAllowed(schedule,member,task){const d=member.developer;if(!d)return false;const active=(schedule.personnel.positions||[]).filter(p=>p.active&&d.positionIds.includes(p.id));if(!active.length)return false;if(d.scope==='project')return true;const ids=task.positionIds??(schedule.personnel.positions||[]).filter(p=>p.taskKinds.includes(task.kind)).map(p=>p.id);return active.some(p=>ids.includes(p.id))&&(d.scope==='positions'||d.taskIds.includes(task.id));}

@@ -49,6 +49,7 @@ else {
     if(['create','update','rotate'].includes(operation))return api.change(operation,input);
     if(operation==='available')return api.available(input);
     if(operation==='revoke')return api.revoke(input);
+    if(operation==='delete')return api.remove(input);
     if(operation==='copy'){clipboard.writeText(JSON.stringify(api.read(input),null,2));return {copied:true};}
     if(operation==='download'){
       api.read(input);const result=await dialog.showSaveDialog(mainWindow,{title:'保存开发者凭证',defaultPath:'gamecreator-credential-'+String(input.credentialId).replace(/[^a-zA-Z0-9-]/g,'_')+'.json',filters:[{name:'JSON',extensions:['json']}]});

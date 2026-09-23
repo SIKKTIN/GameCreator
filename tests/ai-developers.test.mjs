@@ -54,3 +54,22 @@ test('legacy credential backup can be imported and recopied without replacing id
  f.service.importSecret(identity,secret);assert.deepEqual(f.service.read(identity),secret);assert.ok(verifyAiFeedback(signFeedback(f.draft(),secret),f.read()).verified);assert.throws(()=>verifyAiFeedback(signFeedback(f.draft({target:{kind:'task',id:'art-task'}}),secret),f.read()),/范围/);
  f.service.revoke({...identity,schedule:f.read()});assert.throws(()=>f.service.read(identity),/已撤销/);assert.equal(f.read().personnel.members.find(m=>m.id===member.id).name,'程序A');
 });
+
+test('deleting revoked and live credentials cleans only their secrets and preserves developer identity and work',async t=>{
+ const f=fixture(t),{credential,memberId}=await f.service.change('create',f.input({profile:{positionIds:['program'],taskIds:['program-task'],scope:'assigned',expiresAt:''}})),identity={projectId:f.projectId,credentialId:credential.id},secret=f.service.read(identity);
+ const next=await f.service.change('rotate',f.input({...identity,memberId})),latest={projectId:f.projectId,credentialId:next.credential.id},latestSecret=f.service.read(latest),before=f.read();
+ f.service.remove({...identity,schedule:before});assert.equal(f.vault.has(f.projectId,credential.id),false);assert.equal(f.read().personnel.credentials.length,1);assert.equal(f.service.read(latest).privateKey,latestSecret.privateKey);assert.deepEqual(f.read().personnel.members,before.personnel.members);assert.deepEqual(f.read().tasks,before.tasks);assert.throws(()=>f.service.read(identity),/不存在/);assert.throws(()=>verifyAiFeedback(signFeedback(f.draft(),secret),f.read()),/无效/);
+ f.service.remove({...latest,schedule:f.read()});assert.equal(f.vault.has(f.projectId,next.credential.id),false);assert.equal(f.read().personnel.credentials.length,0);assert.deepEqual(f.read().personnel.members,before.personnel.members);assert.throws(()=>verifyAiFeedback(signFeedback(f.draft(),latestSecret),f.read()),/无效/);
+ const reused=await f.service.change('create',f.input({memberId}));assert.equal(reused.memberId,memberId);assert.equal(f.read().personnel.members.length,1);assert.notEqual(reused.credential.id,next.credential.id);
+ // Historical credentials can be deleted even when no private copy is on this machine.
+ f.vault.remove(f.projectId,reused.credential.id);f.service.remove({projectId:f.projectId,credentialId:reused.credential.id,schedule:f.read()});assert.equal(f.read().personnel.credentials.length,0);
+});
+
+test('credential deletion rejects stale or foreign requests; cleanup failures remain revoked and retryable',async t=>{
+ const f=fixture(t),{credential}=await f.service.change('create',f.input()),input={projectId:f.projectId,credentialId:credential.id,schedule:f.read()},save=f.storage.setItem,remove=f.vault.remove;
+ assert.throws(()=>f.service.remove({...input,schedule:{...input.schedule,tasks:[]}}),/已变化/);assert.throws(()=>f.service.remove({...input,projectId:'other'}),/当前项目/);assert.ok(f.vault.has(f.projectId,credential.id));assert.equal(f.read().personnel.credentials[0].revokedAt,'');
+ f.storage.setItem=()=>{throw new Error('disk failure');};assert.throws(()=>f.service.remove(input),/disk failure/);assert.ok(f.vault.has(f.projectId,credential.id));assert.equal(f.read().personnel.credentials[0].revokedAt,'');f.storage.setItem=save;
+ f.vault.remove=()=>{throw new Error('cleanup failure');};assert.throws(()=>f.service.remove(input),/已撤销.*重试/);assert.ok(f.read().personnel.credentials[0].revokedAt);assert.ok(f.vault.has(f.projectId,credential.id));f.vault.remove=remove;
+ f.storage.setItem=()=>{throw new Error('disk failure');};assert.throws(()=>f.service.remove({...input,schedule:f.read()}),/已撤销.*重试/);assert.ok(f.read().personnel.credentials[0].revokedAt);assert.equal(f.vault.has(f.projectId,credential.id),false);f.storage.setItem=save;
+ f.service.remove({...input,schedule:f.read()});assert.equal(f.read().personnel.credentials.length,0);assert.equal(f.read().personnel.members.length,1);assert.throws(()=>f.service.remove({...input,schedule:f.read()}),/不存在/);
+});
