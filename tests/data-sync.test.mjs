@@ -221,14 +221,28 @@ test('reviewed imports upgrade declared primitive types without mutating stable 
   await f.put('stats',[{id:'a',hp:'ten'}]);const p=await f.preview();await f.apply(p,{selections:[{table:'stats',decisions:Object.fromEntries(p.rows[0].differences.map(d=>[d.id,{choice:'remote',allowDelete:true}]))}]});
   assert.equal(f.store().data.columns.stats[1].jsonType,'string');assert.equal(f.store().data.datasets.stats[0].hp,'ten');assert.equal((await f.preview('export')).rows[0].error,undefined);
 });
-test('enum constraints require matching engine declarations and export cannot silently remap keys',async t=>{
+test('inferred JSON does not invent constraints, explicit conflicting declarations and remapping remain blocked',async t=>{
   const f=await fixture(t);await f.put('stats',[{id:'a',kind:'normal'}]);await f.apply(await f.preview());let s=f.store();s.data.columns.stats[1]={key:'kind',label:'类别',type:'enum',options:['normal','elite']};s.revision++;f.set(s);
-  assert.match((await f.preview('export')).rows[0].error,/枚举或引用约束/);
+  assert.equal((await f.preview('export')).rows[0].error,undefined);
   const contract=schemaDocument(s).tables.stats.contract;await fs.mkdir(path.join(f.engine,'data/generated/_gamecreator'),{recursive:true});await fs.writeFile(path.join(f.engine,'data/generated/_gamecreator/engine-schema.json'),JSON.stringify({schema:1,kind:'gamecreator-engine-schema',tables:{stats:{contract}}}));
   assert.equal((await f.preview('export')).rows[0].error,undefined);assert.match((await f.preview('export',{mappings:{stats:{kind:'type'}}})).rows[0].error,/不能修改字段映射/);
+  contract.constraints.kind.options=['normal'];await fs.writeFile(path.join(f.engine,'data/generated/_gamecreator/engine-schema.json'),JSON.stringify({schema:1,kind:'gamecreator-engine-schema',tables:{stats:{contract}}}));
+  const mismatch=(await f.preview('export')).rows[0];assert.match(mismatch.error,/已声明.*kind/);assert.equal(mismatch.bound,true);
+  delete contract.constraints;await fs.writeFile(path.join(f.engine,'data/generated/_gamecreator/engine-schema.json'),JSON.stringify({schema:1,kind:'gamecreator-engine-schema',tables:{stats:{contract}}}));assert.equal((await f.preview('export')).rows[0].error,undefined);
+
 });
 test('failed snapshot writes preserve the previous stable version and development data',async t=>{
   const f=await fixture(t);await f.put('stats',[{id:'a',hp:10}]);await f.apply(await f.preview());let p=await f.preview('export');await f.api.dataPublish({token:p.token,version:'1',note:'first',verified:true});
   p=await f.preview('export');const before=f.storage.getItem(f.key),set=f.storage.setItem;f.storage.setItem=(key,value)=>{if(key===f.key)throw new Error('storage full');return set(key,value);};
   await assert.rejects(()=>f.api.dataPublish({token:p.token,version:'2',note:'second',verified:true}),/storage full/);assert.equal(f.storage.getItem(f.key),before);assert.equal((await f.get('stats'))[0].hp,10);
+});
+
+
+test('matching referenced data can sync and publish without a sidecar, while broken references still block writes',async t=>{
+  const f=await fixture(t);await f.put('targets',[{id:'t1',label:'target'}]);await f.put('events',[{id:'e1',target:'t1'}]);await f.apply(await f.preview());
+  let s=f.store();s.data.columns.events[1]={key:'target',label:'目标',type:'reference',reference:'targets'};s.revision++;f.set(s);
+  let p=await f.preview('export');assert.ok(p.rows.every(r=>!r.error&&!r.differences.length));await f.apply(p);
+  p=await f.preview('export');await f.api.dataPublish({token:p.token,version:'1',note:'references validated',verified:true});assert.equal(f.store().dataReleases.releases[0].version,'1');
+  await f.put('events',[{id:'e1',target:'missing'}]);p=await f.preview('export');const row=p.rows.find(r=>r.table==='events');
+  await assert.rejects(()=>f.apply(p,{selections:[{table:'events',decisions:Object.fromEntries(row.differences.map(d=>[d.id,{choice:'remote'}]))}]}),/引用/);assert.equal(f.store().data.datasets.events[0].target,'t1');
 });
