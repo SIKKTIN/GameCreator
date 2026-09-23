@@ -1,8 +1,8 @@
 export type FeedbackKind='task'|'tool'|'module';
 export type FeedbackIdentity={verified:true;memberId:string;credentialId:string;memberName:string;intent:'progress'|'review'|'propose'|'spec_change'|'project_change'};
-export type Feedback={reason?:string;impact?:string;intent?:'progress'|'review'|'propose'|'spec_change'|'project_change';identity?:{memberId:string;credentialId:string;signature:string};schema:1;projectId:string;engine:string;id:string;snapshotId:string;target:{kind:FeedbackKind;id:string};author:string;summary:string;evidence:string[];changes:Record<string,string>};
+export type Feedback={compatibility?:import('./project-standards.mjs').CompatibilityPlan;reason?:string;impact?:string;intent?:'progress'|'review'|'propose'|'spec_change'|'project_change';identity?:{memberId:string;credentialId:string;signature:string};schema:1;projectId:string;engine:string;id:string;snapshotId:string;target:{kind:FeedbackKind;id:string};author:string;summary:string;evidence:string[];changes:Record<string,string>};
 export type FeedbackRow={field:string;label:string;base:string;current:string;incoming:string;state:'updated'|'unchanged'|'conflict'};
-export type FeedbackReceipt={reason?:string;impact?:string;identity?:FeedbackIdentity;schema:1;id:string;projectId:string;engine:string;digest:string;snapshotId:string;target:Feedback['target'];title:string;at:string;outcome:'applied'|'dismissed';author:string;summary:string;evidence:string[];rows:FeedbackRow[];decisions:Record<string,'keep'|'feedback'>};
+export type FeedbackReceipt={compatibility?:import('./project-standards.mjs').CompatibilityPlan;reason?:string;impact?:string;identity?:FeedbackIdentity;schema:1;id:string;projectId:string;engine:string;digest:string;snapshotId:string;target:Feedback['target'];title:string;at:string;outcome:'applied'|'dismissed';author:string;summary:string;evidence:string[];rows:FeedbackRow[];decisions:Record<string,'keep'|'feedback'>};
 export const feedbackFields:Record<FeedbackKind,Record<string,string>>;
 export const feedbackIdPattern:RegExp;
 export const snapshotIdPattern:RegExp;

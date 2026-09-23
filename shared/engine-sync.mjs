@@ -27,7 +27,7 @@ export function syncSettings(input) {
 export function syncDocuments(document, modules) {
   if(!document||typeof document.projectName!=='string'||typeof document.version!=='string'||!Array.isArray(document.sections))throw new Error('项目文档无效');
   if(document.configDataPolicy!==undefined&&typeof document.configDataPolicy!=='string')throw new Error('配置数据规范格式无效');
-  const sections=document.sections.filter(s=>modules.includes(s.id));
+  const sections=document.sections.filter(s=>s.id==='standards'||modules.includes(s.id));
   const seen=new Set();
   for(const s of sections) {
     if(!/^[a-z][a-z-]*$/.test(s.id)||typeof s.body!=='string'||typeof s.label!=='string'||seen.has(s.id))throw new Error('模块文档无效');
@@ -36,7 +36,7 @@ export function syncDocuments(document, modules) {
   const header=`# ${document.projectName}\n\n> 项目版本：${document.version || '未填写'}\n> 由 GameCreator 同步，供开发查阅。\n\n`;
   return [
     {id:'document:index',path:'README.md',content:header+'## 模块目录\n\n'+sections.map(s=>`- [${s.label}](modules/${s.id}.md)`).join('\n')+(document.configDataPolicy?`\n- [配置数据管理与同步规范](${policySyncPath})`:'')+'\n'},
-    ...sections.map(s=>({id:'document:'+s.id,path:'modules/'+s.id+'.md',content:header+'[返回目录](../README.md)\n\n'+s.body+'\n'})),
+    ...sections.map(s=>({id:'document:'+s.id,path:'modules/'+s.id+'.md',content:header+'[返回目录](../README.md)\n\n'+(s.id!=='standards'&&seen.has('standards')?'更新项目前先读 [项目规范](standards.md)。\n\n':'')+s.body+'\n'})),
     ...(document.configDataPolicy?[{id:'document:config-data-policy',path:policySyncPath,content:header+'[返回目录](README.md)\n\n'+document.configDataPolicy}]:[]),
   ];
 }

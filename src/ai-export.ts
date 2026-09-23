@@ -1,3 +1,4 @@
+import {emptyProjectStandards,projectStandardsMarkdown,type ProjectStandardsStore} from './project-standards.ts';
 import {personnelMarkdown} from '../shared/ai-personnel.mjs';
 import {configDataPolicyMarkdown,policyExportPath} from '../shared/config-data-policy.mjs';
 import {emptyDevelopmentTools,developmentToolsMarkdown,type DevelopmentToolsStore} from './development-tools.ts';
@@ -26,10 +27,11 @@ const table = (headers: string[], rows: string[][]) => [
   `| ${headers.join(' | ')} |`, `| ${headers.map(() => '---').join(' | ')} |`, ...rows.map((row) => `| ${row.map((cell) => String(cell).replace(/\|/g, '\\|').replace(/\n/g, ' ')).join(' | ')} |`),
 ].join('\n');
 
-export function buildAiDocument(project: ExportProject, stories: ExportStory[], data: ProjectData, definitions: DatasetDef[], config: EngineConfig, registry: EnumRegistry, gameplay: GameplayDesign[] = [], functional: FunctionalStore = emptyFunctionalSystems(), art: ArtStore = emptyArtAssets(), core: GameplayCoreStore = emptyGameplayCore(), prototype: PrototypeDesignStore = emptyPrototypeDesign(), tasks: TaskFlowStore = emptyTaskFlows(), narrative: StoryOrchestrationStore = emptyStoryOrchestration(), maps: MapDesignStore = emptyMapDesign(), categories: GameplayCategory[] = [], schedule: ProjectScheduleStore = emptyProjectSchedule(), analysis: NumericalAnalysisStore = emptyNumericalAnalysis(), framework: ProgramFrameworkStore = emptyProgramFramework(), tools: DevelopmentToolsStore = emptyDevelopmentTools()) {
+export function buildAiDocument(project: ExportProject, stories: ExportStory[], data: ProjectData, definitions: DatasetDef[], config: EngineConfig, registry: EnumRegistry, gameplay: GameplayDesign[] = [], functional: FunctionalStore = emptyFunctionalSystems(), art: ArtStore = emptyArtAssets(), core: GameplayCoreStore = emptyGameplayCore(), prototype: PrototypeDesignStore = emptyPrototypeDesign(), tasks: TaskFlowStore = emptyTaskFlows(), narrative: StoryOrchestrationStore = emptyStoryOrchestration(), maps: MapDesignStore = emptyMapDesign(), categories: GameplayCategory[] = [], schedule: ProjectScheduleStore = emptyProjectSchedule(), analysis: NumericalAnalysisStore = emptyNumericalAnalysis(), framework: ProgramFrameworkStore = emptyProgramFramework(), tools: DevelopmentToolsStore = emptyDevelopmentTools(), standards: ProjectStandardsStore = emptyProjectStandards()) {
   const sections: AiSection[] = [];
   const add=(id:AiModuleId,body:string,empty=false)=>sections.push({id,label:aiModules.find(m=>m.id===id)!.label,body:body.trim()+(empty?'\n\n暂无内容。':'')});
   add('overview', ['## 项目概览','',`- 类型：${project.genre}`,`- 平台：${project.platform}`,`- 版本：${project.version}`,`- 状态：${project.status}`,'',project.description].join('\n'));
+  add('standards',projectStandardsMarkdown(standards));
   add('engine',['## 引擎配置','',table(['配置项','值'],[['引擎',config.engine],['工程目录',config.projectPath],['枚举目录',config.enumPath],['数据目录',config.dataPath],['输出格式',config.outputFormat],['自动同步',String(config.autoSync)]])].join('\n'));
   const scan=registry.scan;
   add('enum-versions',['## 稳定枚举版本','',`- 稳定版本：${registry.active?.id??'未建立'}`,`- 来源：${scan?scan.projectPath+'/'+scan.enumPath:'未配置'}`,`- 文件：${scan?.counts.files??0}`,`- 枚举组：${scan?.counts.groups??0}`,`- 成员：${scan?.counts.members??0}`,'','本章节记录已发布版本，未发布的枚举改动不计入配置依据。'].join('\n'));
@@ -63,7 +65,7 @@ export function buildAiDocument(project: ExportProject, stories: ExportStory[], 
 }
 
 export const aiModules = [
-  {id:'overview',label:'项目概览'}, {id:'schedule',label:'项目排期'}, {id:'personnel',label:'人员分配'}, {id:'core',label:'玩法核心'},
+  {id:'overview',label:'项目概览'}, {id:'standards',label:'项目规范'}, {id:'schedule',label:'项目排期'}, {id:'personnel',label:'人员分配'}, {id:'core',label:'玩法核心'},
   {id:'gameplay',label:'玩法设计'}, {id:'prototype',label:'原型设计'}, {id:'maps',label:'地图设计'},
   {id:'functional',label:'功能系统'}, {id:'development-tools',label:'开发工具'}, {id:'framework',label:'程序框架'}, {id:'art',label:'素材资产'}, {id:'stories',label:'故事文档'},
   {id:'narrative',label:'故事编排'}, {id:'data',label:'数据配置'}, {id:'enum-definitions',label:'枚举定义'},
@@ -82,10 +84,11 @@ export function buildAiMarkdown(...args:Parameters<typeof buildAiDocument>) {
 export function buildAiDocumentFiles(doc:AiDocument,names:AiExportNames) {
   const summaryName=markdownName(names.summaryName),paths=doc.sections.map(s=>'模块/'+markdownName(names.moduleNames[s.id]??s.label));
   const link=(text:string,path:string)=>`[${text}](<${path.split('/').map(encodeURIComponent).join('/')}>)`;
+  const standardsIndex=doc.sections.findIndex(s=>s.id==='standards'),standardsPath=paths[standardsIndex];
   const contents='## 模块文档目录\n\n'+doc.sections.map((s,i)=>'- '+link(s.label,paths[i])).join('\n')+(doc.configDataPolicy?'\n- '+link('配置数据管理与同步规范',policyExportPath):'')+'\n\n';
   return validateDocumentFiles({folderName:names.folderName,files:[
     {path:summaryName,content:heading(doc,'AI 项目上下文')+contents+doc.sections.map(s=>s.body).join('\n\n')+(doc.configDataPolicy?'\n\n'+doc.configDataPolicy:'')+'\n'},
-    ...doc.sections.map((s,i)=>({path:paths[i],content:heading(doc,s.label)+link('返回项目完整文档','../'+summaryName)+'\n\n'+s.body+'\n'})),
+    ...doc.sections.map((s,i)=>({path:paths[i],content:heading(doc,s.label)+link('返回项目完整文档','../'+summaryName)+'\n\n'+(standardsPath&&s.id!=='standards'?'更新项目前先读 '+link('项目规范',standardsPath.slice('模块/'.length))+'。\n\n':'')+s.body+'\n'})),
     ...(doc.configDataPolicy?[{path:policyExportPath,content:link('返回项目完整文档','../'+summaryName)+'\n\n'+doc.configDataPolicy}]:[]),
   ]});
 }

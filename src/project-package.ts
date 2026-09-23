@@ -1,3 +1,4 @@
+import {emptyProjectStandards,validateProjectStandards,type ProjectStandardsStore} from './project-standards.ts';
 import {emptyDevelopmentTools,validateDevelopmentTools,type DevelopmentToolsStore} from './development-tools.ts';
 import {validateEngineConfig,portableEngineConfig,validateEngineScanMetadata} from '../shared/engine-config.mjs';
 import {emptyProgramFramework,validateProgramFramework,type ProgramFrameworkStore} from './program-framework.ts';
@@ -26,6 +27,7 @@ export type ProjectPackageDocument = {
   schema: 1;
   project: { name: string; config: EngineConfig; defaultTablesVersion?: 1 };
   archives: {
+    'project-standards': ProjectStandardsStore;
     'development-tools': DevelopmentToolsStore;
     'program-framework': ProgramFrameworkStore;
     'numerical-analysis': NumericalAnalysisStore; 'project-schedule': ProjectScheduleStore; 'map-design': MapDesignStore; 'story-orchestration': StoryOrchestrationStore; 'task-flows': TaskFlowStore; gameplay: GameplayStore; 'gameplay-core': GameplayCoreStore; 'prototype-design': PrototypeDesignStore; 'functional-systems': FunctionalStore; 'art-assets': ArtStore;
@@ -41,7 +43,7 @@ export type PreparedProjectPackageImport = {
   catalog: ProjectCatalog; project: SavedProject; entries: { key: string; value: string }[]; defaultTablesVersion?: 1;
 };
 type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
-export const projectPackageSections = ['development-tools', 'program-framework', 'numerical-analysis', 'project-schedule', 'map-design', 'story-orchestration', 'task-flows', 'gameplay', 'gameplay-core', 'prototype-design', 'functional-systems', 'art-assets', 'definitions', 'stories', 'project', 'milestones', 'enum-versions'] as const;
+export const projectPackageSections = ['project-standards', 'development-tools', 'program-framework', 'numerical-analysis', 'project-schedule', 'map-design', 'story-orchestration', 'task-flows', 'gameplay', 'gameplay-core', 'prototype-design', 'functional-systems', 'art-assets', 'definitions', 'stories', 'project', 'milestones', 'enum-versions'] as const;
 const workspaceKey = (id: string, section: string) => section === 'enum-versions' ? 'gamecreator.enum-versions.v1:' + id : 'gamecreator.workspace.v1:' + id + ':' + section;
 const completedDefaultTableMigration = JSON.stringify({ schema: 1, state: 'done', removed: [] });
 const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
@@ -113,7 +115,7 @@ export function validateProjectPackage(value: unknown): ProjectPackageDocument {
   requireValid(typeof project.name === 'string' && !!project.name.trim() && record(project.config), '项目名称或引擎配置无效');
   requireValid(fields(project.config, ['engine', 'projectPath', 'enumPath', 'dataPath', 'outputFormat']) && typeof project.config.autoSync === 'boolean' && typeof project.config.backupBeforeSync === 'boolean', '引擎配置不完整');
   validateEngineConfig(project.config as EngineConfig);
-  requireValid(projectPackageSections.filter(section => section !== 'development-tools' && section !== 'program-framework' && section !== 'numerical-analysis' && section !== 'project-schedule' && section !== 'gameplay-core' && section !== 'prototype-design' && section !== 'task-flows' && section !== 'story-orchestration' && section !== 'map-design').every(section => Object.prototype.hasOwnProperty.call(archives, section)) && Object.keys(archives).every(key => [...projectPackageSections, 'data-view'].includes(key as typeof projectPackageSections[number])), '项目模块缺失或版本不受支持');
+  requireValid(projectPackageSections.filter(section => section !== 'project-standards' && section !== 'development-tools' && section !== 'program-framework' && section !== 'numerical-analysis' && section !== 'project-schedule' && section !== 'gameplay-core' && section !== 'prototype-design' && section !== 'task-flows' && section !== 'story-orchestration' && section !== 'map-design').every(section => Object.prototype.hasOwnProperty.call(archives, section)) && Object.keys(archives).every(key => [...projectPackageSections, 'data-view'].includes(key as typeof projectPackageSections[number])), '项目模块缺失或版本不受支持');
   const gameplay = validateGameplay(archives.gameplay);
   validateFunctionalSystems(archives['functional-systems']);
   const art = validateArtAssets(archives['art-assets']);
@@ -137,6 +139,7 @@ export function validateProjectPackage(value: unknown): ProjectPackageDocument {
   const normalized = structuredClone(value) as unknown as ProjectPackageDocument;
   normalized.archives['project-schedule'] = Object.prototype.hasOwnProperty.call(archives, 'project-schedule') ? structuredClone(validateProjectSchedule(archives['project-schedule'])) : scheduleFromMilestones(archives.milestones);
   normalized.archives['task-flows'] = Object.prototype.hasOwnProperty.call(archives, 'task-flows') ? structuredClone(validateTaskFlows(archives['task-flows'])) : emptyTaskFlows();
+  normalized.archives['project-standards'] = Object.prototype.hasOwnProperty.call(archives, 'project-standards') ? structuredClone(validateProjectStandards(archives['project-standards'])) : emptyProjectStandards();
   normalized.archives['development-tools'] = Object.prototype.hasOwnProperty.call(archives, 'development-tools') ? structuredClone(validateDevelopmentTools(archives['development-tools'])) : emptyDevelopmentTools();
   normalized.archives['program-framework'] = Object.prototype.hasOwnProperty.call(archives, 'program-framework') ? structuredClone(validateProgramFramework(archives['program-framework'])) : emptyProgramFramework();
   normalized.archives['numerical-analysis'] = Object.prototype.hasOwnProperty.call(archives, 'numerical-analysis') ? structuredClone(validateNumericalAnalysis(archives['numerical-analysis'])) : emptyNumericalAnalysis();
@@ -180,6 +183,7 @@ export function captureProjectPackage(storage: Pick<Storage, 'getItem'>, project
   const legacyMilestones = read('milestones', empty ? [] : initialMilestones);
   const archives = {
     'project-schedule': read('project-schedule', scheduleFromMilestones(legacyMilestones)),
+    'project-standards': read('project-standards', emptyProjectStandards()),
     'development-tools': read('development-tools', emptyDevelopmentTools()),
     'program-framework': read('program-framework', emptyProgramFramework()),
     'numerical-analysis': read('numerical-analysis', emptyNumericalAnalysis()),

@@ -8,6 +8,7 @@
     "build": "node scripts/build-framework-library.mjs --check && node scripts/build-project-content-model.mjs --check && tsc --noEmit && vite build",
     "framework:build": "node scripts/build-framework-library.mjs",
     "test:framework": "node --test tests/program-framework.test.mjs",
+    "test:standards": "node --test tests/project-standards.test.mjs tests/project-change-feedback.test.mjs",
     "test:data-sync": "node --test tests/data-sync.test.mjs",
     "preview": "vite preview",
     "desktop:build": "npm run build",

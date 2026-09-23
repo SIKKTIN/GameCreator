@@ -20,7 +20,7 @@ async function fixture(t,options={}){
  const fresh=()=>({projectId,config,settings:{documents:true,assets:false,collaboration:true,includePlaceholders:false,docsDirectory:'docs/gamecreator',assetsDirectory:'assets/gamecreator',modules:['schedule']},document:{projectName:project.name,version:'v1',sections:[{id:'schedule',label:'排期',body:'任务'}]},art:{assets:[],requirements:[]},collaboration:{schedule:read('project-schedule'),tools:read('development-tools')}});
  let snapshotId;async function sync(){const plan=await api.preview(fresh());if(plan.rows.some(r=>r.status!=='unchanged'))await api.apply({token:plan.token});snapshotId=JSON.parse(await fs.readFile(path.join(engine,'gamecreator/project.json'),'utf8')).snapshotId;}
  await sync();
- const draft=(intent,changes,target={kind:'task',id:task.id})=>({schema:1,projectId,engine:config.engine,id:randomUUID(),snapshotId,target,author:'开发者',summary:'修改建议',evidence:['原型验证结果'],reason:'原定义需要澄清',impact:'影响后续实现和测试用例',intent,changes});
+ const draft=(intent,changes,target={kind:'task',id:task.id})=>({schema:1,projectId,engine:config.engine,id:randomUUID(),snapshotId,target,author:'开发者',summary:'修改建议',evidence:['原型验证结果'],compatibility:{reuse:'保留现有条目和引用',modify:'修改说明',add:'无',archive:'无'},reason:'原定义需要澄清',impact:'影响后续实现和测试用例',intent,changes});
  const put=async value=>{await fs.writeFile(path.join(engine,'gamecreator/feedback',value.id+'.json'),JSON.stringify(value));return value;};
  const post=(intent,changes,target)=>put(signFeedback(draft(intent,changes,target),secret)),scan=()=>api.feedbackScan(fresh()),entry=async id=>(await scan()).entries.find(e=>e.feedback?.id===id),apply=(e,extra={})=>api.feedbackApply({token:e.token,...extra});
  return{dir,engine,storage,projectId,project,config,key,read,write,task,api,service,input,created,secret,fresh,sync,draft,put,post,scan,entry,apply};
@@ -60,6 +60,13 @@ test('interrupted project writes recover content and receipt once; completed tra
  const restarted=createEngineSync({storage:f.storage,artFiles:{}});assert.equal((await restarted.feedbackScan(f.fresh())).contentReload,true);assert.equal(f.read('project-schedule').feedbackHistory.length,1);assert.equal((await restarted.feedbackScan(f.fresh())).entries.find(e=>e.feedback?.id===v.id).state,'processed');assert.equal(f.read('project-schedule').feedbackHistory.length,1);await restarted.feedbackRepair(f.fresh());
 });
 test('producer defaults are explicit and other positions do not gain project writing',()=>{const team=defaultAiTeam();assert.ok(team.members.find(m=>m.roles.includes('制作管理')).permissions.includes('project_write'));assert.ok(team.members.filter(m=>!m.roles.includes('制作管理')).every(m=>!m.permissions.includes('project_write')));});
+
+test('new collaboration snapshots require compatibility plans and preserve them with signed review receipts',async t=>{
+ const f=await fixture(t),draft=f.draft('spec_change',{acceptance:'新的验收标准'});delete draft.compatibility;await f.put(signFeedback(draft,f.secret));assert.equal((await f.scan()).entries.find(e=>e.path.endsWith(draft.id+'.json')).state,'invalid');
+ assert.match(await fs.readFile(path.join(f.engine,'gamecreator/project-standards.md'),'utf8'),/先复用，再扩展/);assert.match(await fs.readFile(path.join(f.engine,'gamecreator/README.md'),'utf8'),/project-standards.md/);
+ const v=await f.post('spec_change',{description:'兼容已有模块的修改'}),entry=await f.entry(v.id);await f.apply(entry,{acceptProjectChange:true});assert.deepEqual(f.read('project-schedule').feedbackHistory[0].compatibility,v.compatibility);
+ const forbidden=await f.post('project_change',{'/notes':JSON.stringify('取消通用规则')},{kind:'module',id:'project-standards'});assert.equal((await f.scan()).entries.find(e=>e.path.endsWith(forbidden.id+'.json')).state,'invalid');
+});
 
 test('project changes preserve role-derived authority and derived acceptance, including enclosing object replacements',()=>{
  for(const field of ['kind','references','positionIds','assignment'])assert.throws(()=>assertContentChange('project-schedule',{},{},['/tasks/@task/'+field]),/单独管理|独立/);

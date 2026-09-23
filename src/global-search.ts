@@ -1,8 +1,9 @@
 /** A rebuildable, project-scoped index. Never reads disk, credentials or file contents. */
+import {projectStandardRules,standardModules} from '../shared/project-standards.mjs';
 import {frameworkLibrary} from '../shared/program-framework-library.mjs';
 export type SearchTarget = { module: string; id: string; parent?: string; kind?: string; scope?: string };
 export type SearchEntry = { key: string; title: string; path: string; body: string; archived: boolean; status: string; target: SearchTarget; refs: string[]; unavailable?: string };
-export type SearchSources = Partial<Record<'project'|'gameplay'|'core'|'functional'|'art'|'prototype'|'maps'|'stories'|'narrative'|'schedule'|'tasks'|'data'|'definitions'|'enums'|'analysis'|'framework'|'developmentTools', unknown>>;
+export type SearchSources = Partial<Record<'standards'|'project'|'gameplay'|'core'|'functional'|'art'|'prototype'|'maps'|'stories'|'narrative'|'schedule'|'tasks'|'data'|'definitions'|'enums'|'analysis'|'framework'|'developmentTools', unknown>>;
 type Row = Record<string, unknown>;
 const row = (v: unknown): Row => v && typeof v === 'object' && !Array.isArray(v) ? v as Row : {};
 const list = (v: unknown): Row[] => Array.isArray(v) ? v.map(row) : [];
@@ -30,6 +31,10 @@ export function buildSearchIndex(s: SearchSources): SearchEntry[] {
     out.push({key:targetKey(target),title:options.title || name(value) || '未命名条目',path:[module,options.path].filter(Boolean).join(' / '),body,archived:options.archived || value.archived === true,status:str(value.status),target,refs:references(value),unavailable:options.unavailable});
   }
   if(s.project) add('项目概览',row(s.project),{id:'project',title:str(row(s.project).name)||'项目基本信息'});
+  if(s.standards){
+    for(const r of projectStandardRules)add('项目规范',{...r,notes:row(row(s.standards).moduleNotes)[r.scope]},{kind:'rule',path:standardModules[r.scope]});
+    add('项目规范',{title:'本项目通用补充',notes:row(s.standards).notes},{id:'supplement',kind:'supplement'});
+  }
   if(s.framework){
     add('程序框架',{...row(s.framework),title:'项目采用方案',status:row(s.framework).enabled?'已采用':'未采用'},{id:'settings',kind:'settings'});
     for(const doc of frameworkLibrary.documents)add('程序框架',{id:doc.id,title:doc.title,content:doc.content,status:'内置规范'},{kind:'document',path:doc.group});

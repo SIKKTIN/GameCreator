@@ -1,0 +1,10 @@
+export type StandardScope='general'|'core'|'gameplay'|'functional'|'prototype'|'maps'|'tasks'|'narrative'|'stories'|'data'|'art'|'tools'|'schedule'|'personnel'|'framework'|'analysis';
+export type ProjectStandardsStore={schema:1;notes:string;moduleNotes:Partial<Record<Exclude<StandardScope,'general'>,string>>};
+export type CompatibilityPlan={reuse:string;modify:string;add:string;archive:string};
+export const standardModules:Record<StandardScope,string>;
+export const projectStandardRules:{id:string;scope:StandardScope;title:string;body:string;example:string}[];
+export const updateSteps:string[][];
+export function emptyProjectStandards():ProjectStandardsStore;
+export function validateProjectStandards(value:unknown):ProjectStandardsStore;
+export function projectStandardsMarkdown(store?:ProjectStandardsStore):string;
+export function validateCompatibility(value:unknown,required?:boolean):void;

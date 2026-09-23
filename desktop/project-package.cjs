@@ -1,5 +1,5 @@
-let validateMaterialDocumentFields, validateProductionDocs, validateDevelopmentTools;
-const productionReady=Promise.all([import('../shared/material-document.mjs').then(m=>{validateMaterialDocumentFields=m.validateMaterialDocumentFields;}),import('../shared/material-production.mjs').then(m=>{validateProductionDocs=m.validateProductionDocs;}),import('../shared/development-tools.mjs').then(m=>{validateDevelopmentTools=m.validateDevelopmentTools;})]);
+let validateProjectStandards, validateMaterialDocumentFields, validateProductionDocs, validateDevelopmentTools;
+const productionReady=Promise.all([import('../shared/project-standards.mjs').then(m=>{validateProjectStandards=m.validateProjectStandards;}),import('../shared/material-document.mjs').then(m=>{validateMaterialDocumentFields=m.validateMaterialDocumentFields;}),import('../shared/material-production.mjs').then(m=>{validateProductionDocs=m.validateProductionDocs;}),import('../shared/development-tools.mjs').then(m=>{validateDevelopmentTools=m.validateDevelopmentTools;})]);
 const {storyExtras}=require('../shared/story-document.cjs');
 // Portable project folders contain JSON archives and original art files, never executable imports.
 const path = require('node:path');
@@ -10,7 +10,7 @@ const { workspaceHash } = require('./art-files.cjs');
 
 const CATALOG_KEY = 'gamecreator.projects.v1';
 const SECTIONS = ['gameplay', 'functional-systems', 'art-assets', 'definitions', 'stories', 'project', 'milestones', 'enum-versions'];
-const OPTIONAL_SECTIONS = ['development-tools', 'program-framework', 'numerical-analysis', 'project-schedule', 'data-view', 'gameplay-core', 'prototype-design', 'task-flows', 'story-orchestration', 'map-design'];
+const OPTIONAL_SECTIONS = ['project-standards', 'development-tools', 'program-framework', 'numerical-analysis', 'project-schedule', 'data-view', 'gameplay-core', 'prototype-design', 'task-flows', 'story-orchestration', 'map-design'];
 const FILE_TOKEN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.[a-z0-9]{1,12}$/;
 const NEW_PROJECT = /^project-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_METADATA_BYTES = 20 * 1024 * 1024;
@@ -516,6 +516,7 @@ function validateProjectScheduleArchive(value) {
 function validateDocument(value) {
   if (!record(value) || value.schema !== 1 || !record(value.project) || typeof value.project.name !== 'string' || !value.project.name.trim() || value.project.name.length > 100 || !record(value.project.config) || !record(value.archives) || SECTIONS.some(section => !Object.hasOwn(value.archives, section)) || Object.keys(value.archives).some(section => ![...SECTIONS, ...OPTIONAL_SECTIONS].includes(section))) throw new Error('项目文件夹数据格式无效');
   if (value.project.defaultTablesVersion !== undefined && value.project.defaultTablesVersion !== 1) throw new Error('不支持的配置表默认值版本');
+  if (Object.hasOwn(value.archives, 'project-standards')) validateProjectStandards(value.archives['project-standards']);
   if (Object.hasOwn(value.archives, 'gameplay-core')) validateCoreArchive(value.archives['gameplay-core']);
   if (Object.hasOwn(value.archives, 'prototype-design')) validatePrototypeArchive(value.archives['prototype-design']);
   if (Object.hasOwn(value.archives, 'development-tools')) validateDevelopmentTools(value.archives['development-tools']);

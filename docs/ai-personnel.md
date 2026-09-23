@@ -52,6 +52,7 @@
 
 ```text
 gamecreator/
+├─ project-standards.md            通用规则与项目补充，更新前必读
 ├─ project-changes.md              需求建议与项目字段修改协议
 ├─ project.json
 ├─ context/
