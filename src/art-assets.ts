@@ -1,4 +1,5 @@
 import {validateProductionDocs,type ProductionDoc} from '../shared/material-production.mjs';
+import {validateMaterialDocumentFields} from '../shared/material-document.mjs';
 import { materialPromptText, type MaterialGenerationPrompt } from './material-prompt.ts';
 import { validateArtLibrary, artLibrary, artCategoryId, artCategoryName, type ArtLibrary } from './art-library.ts';
 import { objectGeometry, spatialObjectLocation } from './spatial-layout.ts';
@@ -10,10 +11,11 @@ export const artPriorities = ['普通', '高', '低'] as const;
 export const artRequirementStatuses = ['待制作', '制作中', '待审核', '需修改', '已通过'] as const;
 export const artReviewStatuses = ['待审核', '需修改', '已通过'] as const;
 export type ArtSource = { id: string; kind: 'gameplay' | 'capability'; targetId: string; sourceKind: 'design' | 'rule' | 'state' | 'event' | 'object'; sourceId: string; note: string };
-export type ArtRequirement = { generationPrompt?: MaterialGenerationPrompt; id: string; name: string; category: typeof artCategories[number]; description: string; specification: string; acceptance: string; owner: string; dueDate: string; priority: typeof artPriorities[number]; status: typeof artRequirementStatuses[number]; archived: boolean; sources: ArtSource[]; createdAt: string; updatedAt: string };
+export type MaterialDocumentFields={delivery?:{path:string;notes:string};scheduleProgress?:{taskIds:string[]}};
+export type ArtRequirement = MaterialDocumentFields & { generationPrompt?: MaterialGenerationPrompt; id: string; name: string; category: typeof artCategories[number]; description: string; specification: string; acceptance: string; owner: string; dueDate: string; priority: typeof artPriorities[number]; status: typeof artRequirementStatuses[number]; archived: boolean; sources: ArtSource[]; createdAt: string; updatedAt: string };
 export type ArtFile = { id: string; name: string; size: number; mime: string; storagePath: string };
 export type ArtVersion = { id: string; name: string; notes: string; placeholder: boolean; review: typeof artReviewStatuses[number]; feedback: string; files: ArtFile[]; createdAt: string };
-export type ArtAsset = { id: string; name: string; description: string; versions: ArtVersion[]; adoptedVersionId: string; archived: boolean; createdAt: string; updatedAt: string };
+export type ArtAsset = MaterialDocumentFields & { productionStatus?:ArtRequirement['status']; id: string; name: string; description: string; versions: ArtVersion[]; adoptedVersionId: string; archived: boolean; createdAt: string; updatedAt: string };
 export type ArtLink = { id: string; requirementId: string; assetId: string; note: string };
 export type ArtStore = { productionDocs?: ProductionDoc[]; library?: ArtLibrary; schema: 1; requirements: ArtRequirement[]; assets: ArtAsset[]; links: ArtLink[] };
 export type ArtSources = { designs: GameplayDesign[]; functional: FunctionalStore };
@@ -45,6 +47,7 @@ export function validateArtAssets(value: unknown): ArtStore {
         list(v.files, f => strings(f, ['name', 'mime', 'storagePath']) && !!(f.storagePath as string).trim() && typeof f.size === 'number' && Number.isSafeInteger(f.size) && f.size >= 0))) ||
     !list(value.links, l => strings(l, ['requirementId', 'assetId', 'note']))) throw new Error('素材资产存档格式异常，已停止写入');
   validateProductionDocs(value.productionDocs);
+  for(const item of [...value.requirements as ArtRequirement[],...value.assets as ArtAsset[]])validateMaterialDocumentFields(item);
   if (Object.prototype.hasOwnProperty.call(value, 'library')) validateArtLibrary(value.library, value as unknown as ArtStore);
   return value as ArtStore;
 }
@@ -111,10 +114,7 @@ export function validateArtMutation(previous: ArtStore, next: ArtStore): ArtStor
     if (linkPairs.has(pair)) throw new Error('同一素材需求与资产不能重复关联');
     linkPairs.add(pair);
   }
-  for (const requirement of next.requirements) if (requirement.status === '已通过') {
-    const readiness = artRequirementReadiness(requirement.id, next);
-    if (!readiness.ready) throw new Error('需求“' + requirement.name + '”不能保持已通过，请先调整需求状态：' + readiness.issues.join('；'));
-  }
+  // Production completion records work in the engine project. Historical file adoption is independent.
   return next;
 }
 export function writeArtAssets(storage: Pick<Storage, 'getItem' | 'setItem'>, key: string, expected: string | null, store: ArtStore): string {
@@ -172,7 +172,6 @@ export function artIssues(store: ArtStore, sources: ArtSources): string[] {
       if (seen.has(tuple)) issues.push('需求存在重复来源：' + requirement.name + ' / ' + artSourceText(source, sources));
       seen.add(tuple); issues.push(...sourceParts(source, sources).issues.map(i => requirement.name + '：' + i));
     }
-    if (requirement.status === '已通过') issues.push(...artRequirementReadiness(requirement.id, store).issues.map(i => '已通过需求“' + requirement.name + '”：' + i));
   }
   for (const asset of store.assets) {
     if (!asset.name.trim()) issues.push('有素材资产尚未命名');
@@ -200,25 +199,27 @@ const adoptedText = (asset: ArtAsset) => {
   const version = asset.versions.find(v => v.id === asset.adoptedVersionId);
   return version ? text(version.name) + ' [版本 ID：' + version.id + '] · ' + (version.placeholder ? '占位' : '正式') + ' · ' + version.review : asset.adoptedVersionId ? '采用版本已失效（' + asset.adoptedVersionId + '）' : '尚未采用';
 };
+const productionLabel=(status:string)=>status==='已通过'?'已完成':status==='待审核'?'待验收':status;
+const deliveryLines=(item:MaterialDocumentFields)=>['- 工程内交付路径：'+(item.delivery?.path||'待填写'),'- 交付与验证说明：'+(item.delivery?.notes||'待填写'),'- 关联美术任务 ID：'+(item.scheduleProgress?.taskIds.join('、')||'未关联，手动管理状态')];
 export function artReferencesMarkdown(kind: 'gameplay' | 'capability', id: string, store: ArtStore, sources: ArtSources): string {
   const requirements = store.requirements.filter(r => r.sources.some(s => s.kind === kind && s.targetId === id));
   const lines = ['#### 素材需求与资产', ''];
   if (!requirements.length) lines.push('暂无关联素材需求。');
   for (const requirement of requirements) {
-    lines.push(`- ${text(requirement.name)} [需求 ID：${requirement.id}] · ${requirement.status}${requirement.archived ? '（已归档）' : ''}`);
+    lines.push(`- ${text(requirement.name)} [需求 ID：${requirement.id}] · ${productionLabel(requirement.status)}${requirement.archived ? '（已归档）' : ''}`);
     for (const source of requirement.sources.filter(s => s.kind === kind && s.targetId === id)) lines.push('  - 来源：' + artSourceText(source, sources) + '；' + text(source.note));
     for (const link of store.links.filter(l => l.requirementId === requirement.id)) {
       const asset = store.assets.find(a => a.id === link.assetId);
-      lines.push('  - 资产：' + (asset ? text(asset.name) : '已失效') + ' [资产 ID：' + link.assetId + ']；' + (asset ? adoptedText(asset) : '关联已失效') + (asset?.archived ? '（资产已归档）' : ''));
+      lines.push('  - 资产：' + (asset ? text(asset.name) : '已失效') + ' [资产 ID：' + link.assetId + ']；' + (asset ? productionLabel(asset.productionStatus||'待制作') : '关联已失效') + (asset?.archived ? '（资产已归档）' : ''));
     }
   }
   return lines.join('\n') + '\n';
 }
 export function artAssetsMarkdown(store: ArtStore, sources: ArtSources): string {
-  const lines = ['## 素材资产', '', '> 需求与资产独立维护，一个资产可以服务多个需求。占位版本可用于原型，但不代表正式验收完成。', '', '### 素材需求', ''];
+  const lines = ['## 素材资产', '', '> 本模块提供素材制作文档。素材原文件直接生成在游戏工程中，按文档验收；关联美术任务的状态通过开发反馈或项目排期回写。全部关联美术任务完成后，素材同步完成，无需导入或采用图片版本。', '', '### 素材需求', ''];
   if (!store.requirements.length) lines.push('暂无素材需求。', '');
   for (const requirement of store.requirements) {
-    lines.push('#### ' + text(requirement.name), '', '- 需求 ID：' + requirement.id, '- 所属分类：' + artCategoryName(artLibrary(store), artCategoryId(artLibrary(store), 'requirement', requirement.id)), '- 分类：' + requirement.category, '- 状态：' + requirement.status + (requirement.archived ? '（已归档）' : ''), '- 优先级：' + requirement.priority, '- 负责人：' + text(requirement.owner), '- 截止日期：' + (requirement.dueDate || '未设置'), '', '需求说明：', text(requirement.description), '', '制作规格：', text(requirement.specification), '', '验收标准：', text(requirement.acceptance), '', '需求来源：');
+    lines.push('#### ' + text(requirement.name), '', '- 需求 ID：' + requirement.id, '- 所属分类：' + artCategoryName(artLibrary(store), artCategoryId(artLibrary(store), 'requirement', requirement.id)), '- 分类：' + requirement.category, '- 状态：' + productionLabel(requirement.status) + (requirement.archived ? '（已归档）' : ''), '- 优先级：' + requirement.priority, '- 负责人：' + text(requirement.owner), '- 截止日期：' + (requirement.dueDate || '未设置'), '', '需求说明：', text(requirement.description), '', '制作规格：', text(requirement.specification), '', '验收标准：', text(requirement.acceptance), '', '需求来源：');
     if (!requirement.sources.length) lines.push('- 尚未关联来源。');
     for (const source of requirement.sources) {
       const resolved = sourceParts(source, sources);
@@ -226,28 +227,27 @@ export function artAssetsMarkdown(store: ArtStore, sources: ArtSources): string 
       if (resolved.detail) lines.push('  需求上下文：' + resolved.detail);
     }
     if (requirement.generationPrompt) lines.push('', '素材生成提示词：', materialPromptText(requirement.generationPrompt) || '尚未填写', '');
-    lines.push('', '关联资产：');
+    lines.push('',...deliveryLines(requirement),'', '关联资产：');
     const links = store.links.filter(l => l.requirementId === requirement.id);
     if (!links.length) lines.push('- 暂无关联资产。');
     for (const link of links) {
       const asset = store.assets.find(a => a.id === link.assetId);
-      lines.push(`- ${asset ? text(asset.name) : '资产已失效'} [资产 ID：${link.assetId}]；${asset ? adoptedText(asset) : '无有效采用版本'}；用途：${text(link.note)}`);
+      lines.push(`- ${asset ? text(asset.name) : '资产已失效'} [资产 ID：${link.assetId}]；${asset ? productionLabel(asset.productionStatus||'待制作') : '关联已失效'}；用途：${text(link.note)}`);
     }
-    const readiness = artRequirementReadiness(requirement.id, store);
-    lines.push('', '正式版本就绪检查：' + (readiness.ready ? '关联资产全部采用了已通过的正式版本；需求最终状态仍由人工确认。' : readiness.issues.join('；')), '');
+    lines.push('');
   }
   lines.push('### 资产库', '');
   if (!store.assets.length) lines.push('暂无素材资产。', '');
   for (const asset of store.assets) {
-    lines.push('#### ' + text(asset.name), '', '- 资产 ID：' + asset.id, '- 所属分类：' + artCategoryName(artLibrary(store), artCategoryId(artLibrary(store), 'asset', asset.id)), '- 归档：' + (asset.archived ? '是' : '否'), '- 当前采用：' + adoptedText(asset), '', text(asset.description), '', '服务需求：');
+    lines.push('#### ' + text(asset.name), '', '- 资产 ID：' + asset.id, '- 所属分类：' + artCategoryName(artLibrary(store), artCategoryId(artLibrary(store), 'asset', asset.id)), '- 归档：' + (asset.archived ? '是' : '否'), '- 制作状态：' + productionLabel(asset.productionStatus||'待制作'), ...deliveryLines(asset), '- 历史采用记录：' + adoptedText(asset), '', text(asset.description), '', '服务需求：');
     const links = store.links.filter(l => l.assetId === asset.id);
     if (!links.length) lines.push('- 暂无关联需求。');
     for (const link of links) {
       const requirement = store.requirements.find(r => r.id === link.requirementId);
       lines.push(`- ${requirement ? text(requirement.name) : '需求已失效'} [需求 ID：${link.requirementId}]；${text(link.note)}`);
     }
-    lines.push('', '版本历史：');
-    if (!asset.versions.length) lines.push('- 尚未上传版本。');
+    lines.push('', '历史导入记录 / 版本历史（不作为完成前提）：');
+    if (!asset.versions.length) lines.push('- 无历史导入文件；请按工程交付说明在游戏工程内制作。');
     for (const version of asset.versions) {
       lines.push('', '##### ' + text(version.name), '', '- 版本 ID：' + version.id, '- 类型：' + (version.placeholder ? '占位版本' : '正式版本'), '- 审核：' + version.review, '- 采用：' + (asset.adoptedVersionId === version.id ? '是' : '否'), '- 创建时间：' + version.createdAt, '', '版本说明：' + text(version.notes), '', '审核反馈：' + text(version.feedback), '', '文件：');
       if (!version.files.length) lines.push('- 无文件。');

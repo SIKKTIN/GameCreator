@@ -1,3 +1,4 @@
+import {useMaterialProgressSync} from './useMaterialProgressSync';
 import {datasetReferences,removeDataset} from './dataset-deletion';
 import { DevelopmentTools } from './DevelopmentTools';
 import {DataSyncPanel,useAutomaticDataExport} from './DataSyncPanel';
@@ -423,6 +424,7 @@ function WorkspaceApp({ username, testSession, onLoadTest, onExitTest, preparing
   const [requestedTask,setRequestedTask] = useState<{id:string}>();
   const functional = useFunctionalSystems(dataKey);
   const art = useArtAssets(dataKey, testSession ? 'test:' + testSession.id : 'project:' + formalProject.id);
+  const materialProgressError=useMaterialProgressSync(schedule,art);
   useEffect(() => {
     const guard = (event: Event) => { if (gameplay.pending || functional.pending || art.pending || core.pending || prototype.pending || tasks.pending || narrative.pending || maps.pending || schedule.pending || analysis.pending || framework.pending || developmentTools.pending || storyState.pending) event.preventDefault(); };
     window.addEventListener(beforeLogoutEvent, guard);
@@ -582,6 +584,7 @@ function WorkspaceApp({ username, testSession, onLoadTest, onExitTest, preparing
         {storageError && !gameplay.error && !functional.error && !art.error && !core.error && !prototype.error && !tasks.error && !narrative.error && !maps.error && !schedule.error && !analysis.error && !framework.error && <p className="field-error" role="alert">{storageError}</p>}
         {gameplay.error && <div className="gp-save-error" role="alert"><span>{gameplay.error}{gameplay.pending && "。草稿保留在当前窗口，请重试保存后再切换项目。"}</span>{gameplay.pending && <button className="gp-secondary" onClick={gameplay.retry}>重试保存玩法</button>}</div>}
         {functional.error && <div className="gp-save-error" role="alert"><span>{functional.error}{functional.pending && '。草稿保留在当前窗口，请重试保存后再切换项目。'}</span>{functional.pending && <button className="gp-secondary" onClick={functional.retry}>重试保存功能系统</button>}</div>}
+        {materialProgressError&&<div className="gp-save-error" role="alert"><span>{materialProgressError}</span><button disabled={schedule.pending||art.pending} onClick={()=>schedule.reloadIfClean()}>重新读取素材排期</button></div>}
         {art.error && <div className="gp-save-error" role="alert"><span>{art.error}{art.pending && '。草稿保留在当前窗口，请重试保存后再切换项目。'}</span>{art.pending && <button className="gp-secondary" onClick={art.retry}>重试保存素材资产</button>}</div>}
         {core.error && <div className="gp-save-error" role="alert"><span>{core.error}{core.pending && '。草稿保留在当前窗口，请重试保存后再切换项目。'}</span>{core.pending && <button className="gp-secondary" onClick={core.retry}>重试保存玩法核心</button>}</div>}
         {prototype.error && active !== '原型设计' && <div className="gp-save-error" role="alert"><span>{prototype.error}</span><button onClick={() => setActive('原型设计')}>处理原型存档</button></div>}
@@ -645,7 +648,7 @@ function WorkspaceApp({ username, testSession, onLoadTest, onExitTest, preparing
           if (link.kind === 'story') { openStory(link.targetId); }
           else { setActiveDataset(link.targetId); setActive('数据配置'); }
         }} />}
-        {active === '素材资产' && <ArtAssets key={artHomeRevision} deletionReferences={artDeletionReferences} controller={art} sources={artSources} selected={artSelection} onSelect={value=>{leaveSearch();setArtSelection(value);}} onOpenGameplay={openGameplay} onOpenCapability={openCapability} />}
+        {active === '素材资产' && <ArtAssets schedule={schedule} onOpenTask={id=>{setRequestedSchedule({kind:"task",id});setActive("项目排期");}} key={artHomeRevision} deletionReferences={artDeletionReferences} controller={art} sources={artSources} selected={artSelection} onSelect={value=>{leaveSearch();setArtSelection(value);}} onOpenGameplay={openGameplay} onOpenCapability={openCapability} />}
         {active === '功能系统' && <FunctionalSystems workspaceId={dataKey} renderArtReferences={c => <ArtReferences controller={art} sources={artSources} kind="capability" targetId={c.id} onOpenRequirement={openArtRequirement} />} controller={functional} sources={functionalSources} selected={functionalSelection} onSelect={value=>{leaveSearch();setFunctionalSelection(value);}} onOpenGameplay={openGameplay} onOpenDataset={key => { setActiveDataset(key); setActive('数据配置'); }} />}
         {active === '故事文档' && (storyState.pending||storyState.blocked) && <div className="sl-notice" role="alert">{storyError}<button disabled={storyState.blocked} onClick={storyState.retry}>重试保存故事文档</button><button onClick={()=>{if(!storyState.pending||window.confirm('重新读取会放弃未保存的故事草稿。请先导出备份，再确认继续。'))storyState.reload();}}>重新读取故事文档</button><button onClick={()=>{const u=URL.createObjectURL(new Blob([JSON.stringify(storyDocs,null,2)],{type:'application/json'})),a=document.createElement('a');a.href=u;a.download='story-draft.json';a.click();URL.revokeObjectURL(u);}}>导出故事草稿</button></div>}
         {active === '故事文档' && (

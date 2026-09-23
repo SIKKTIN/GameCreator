@@ -9,3 +9,7 @@
 .mi-reuse{border:1px solid #483953;border-radius:10px;padding:18px}.mi-reuse>summary{cursor:pointer;color:#c6b0e2;font-size:13px}.mi-reuse>.gp-card{margin:18px 0}
 .mi-delivery-editor>.mi-resource-info{border:1px solid #483953;border-radius:10px;padding:18px}.mi-resource-info>summary{cursor:pointer;color:#c6b0e2}.mi-resource-info>.gp-card{margin-top:18px}
 .mi-detail-tabs button:disabled,.mi-module button:disabled{cursor:not-allowed}
+
+.mi-task-progress progress{width:100%;height:10px;accent-color:#79c5a4}.mi-task-list{display:grid;gap:16px;margin-top:20px}.mi-task-list article{border:1px solid #4b3c58;border-radius:10px;padding:18px;min-width:0}.mi-task-result{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.7}.mi-task-list .gp-card-heading{flex-wrap:wrap}.mi-task-list .gp-secondary{margin-top:12px}.mi-legacy-files{overflow-wrap:anywhere}.mi-project-delivery input{min-width:0;width:100%}
+
+.mi-task-list article>small{display:block}

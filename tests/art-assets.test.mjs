@@ -62,22 +62,16 @@ test('placeholder adoption supports prototypes but formal pending or empty versi
  const approved=structuredClone(store);approved.assets[0].adoptedVersionId=formal.id;writeArtAssets(storage,'key',raw,approved);assert.equal(readArtAssets(storage,'key').store.assets[0].adoptedVersionId,formal.id);assert.equal(asset.versions.length,2);
 });
 
-test('requirement approval requires every linked asset to adopt a reviewed formal version',()=>{
- const {store,requirement,formal}=fixture();let next=structuredClone(store);next.requirements[0].status='已通过';assert.throws(()=>validateArtMutation(store,next),/占位/);
- next.assets[0].adoptedVersionId=formal.id;assert.equal(artRequirementReadiness(requirement.id,next).ready,true);validateArtMutation(store,next);
- const other=createArtAsset('冲刺音画图标');next.assets.push(other);next.links.push({id:'other',requirementId:requirement.id,assetId:other.id,note:''});assert.equal(artRequirementReadiness(requirement.id,next).ready,false);assert.throws(()=>validateArtMutation(store,next),/尚未采用/);
- other.versions=[version('图标正式版',false,'已通过')];other.adoptedVersionId=other.versions[0].id;validateArtMutation(store,next);assert.equal(artRequirementReadiness(requirement.id,next).ready,true);
- const unlinked={...next,links:[]};assert.throws(()=>validateArtMutation(store,unlinked),/至少需要/);
+test('document completion does not require imported, linked or adopted files',()=>{
+ const {store,sources}=fixture(),next=structuredClone(store);next.requirements[0].status='已通过';validateArtMutation(store,next);
+ next.links=[];validateArtMutation(store,next);assert.equal(artIssues(next,sources).length,0);
+ const empty={...emptyArtAssets(),requirements:[createArtRequirement('工程内交付')]};const done=structuredClone(empty);done.requirements[0].status='已通过';validateArtMutation(empty,done);
 });
 
-test('changes cannot silently invalidate approved requirements shared by an asset',()=>{
- const {store,formal}=fixture(),second=createArtRequirement('首领战冲刺视觉');store.requirements.push(second);store.links.push({id:'second',requirementId:second.id,assetId:store.assets[0].id,note:'复用同一残影'});store.assets[0].adoptedVersionId=formal.id;store.requirements.forEach(r=>r.status='已通过');
- const {storage,raw}=commit(store);
- for(const mutate of [s=>{s.assets[0].adoptedVersionId='';},s=>{s.assets[0].adoptedVersionId=s.assets[0].versions[0].id;},s=>{s.links=s.links.slice(1);},s=>{const a=createArtAsset('未完成资产');s.assets.push(a);s.links.push({id:'new',requirementId:s.requirements[0].id,assetId:a.id,note:''});}]) {
-  const next=structuredClone(store);mutate(next);assert.throws(()=>writeArtAssets(storage,'key',raw,next),/先调整需求状态/);assert.equal(storage.getItem(),raw);
- }
- const oneDowngraded=structuredClone(store);oneDowngraded.requirements[0].status='需修改';oneDowngraded.assets[0].adoptedVersionId='';assert.throws(()=>writeArtAssets(storage,'key',raw,oneDowngraded),/首领战/);
- const allDowngraded=structuredClone(store);allDowngraded.requirements.forEach(r=>r.status='需修改');allDowngraded.assets[0].adoptedVersionId='';writeArtAssets(storage,'key',raw,allDowngraded);assert.equal(readArtAssets(storage,'key').store.assets[0].adoptedVersionId,'');
+test('historical adoption and resource reuse are independent from production completion',()=>{
+ const {store,formal}=fixture();store.assets[0].adoptedVersionId=formal.id;store.requirements[0].status='已通过';
+ const next=structuredClone(store);next.assets[0].adoptedVersionId='';next.links=[];validateArtMutation(store,next);
+ assert.equal(next.requirements[0].status,'已通过');assert.deepEqual(next.assets[0].versions,store.assets[0].versions);
 });
 
 test('adopted formal review cannot be withdrawn before canceling adoption',()=>{

@@ -48,12 +48,12 @@ const root = path.resolve(__dirname, '..');
     // A right click acts on its own card, without replacing the detail selection.
     await ask(card(requirement.name)); assert.ok((await dialog().innerText()).includes('独占的交付资源'));
     assert.equal(await dialog().getByRole('button', { name: '确认删除', exact: true }).isDisabled(), false); await cancel();
-    assert.equal(await field('资产名称').inputValue(), unused.name);
+    assert.equal(await field('资源名称').inputValue(), unused.name);
     await ask(card(referenced.name)); assert.ok((await dialog().innerText()).includes('原型设计 / 草坪 / 植物头像')); await cancel();
 
     await field('素材内容范围').selectOption('all'); await ask(card(archived.name)); assert.ok((await dialog().innerText()).includes('本地文件仍保留'));
     await fs.mkdir(path.join(root, '.gamecreator/qa'), { recursive: true }); await page.screenshot({ path: path.join(root, '.gamecreator/qa/art-card-delete-confirm.png') });
-    await confirm(); assert.equal(await field('资产名称').inputValue(), unused.name); assert.ok(!read().assets.some(x => x.id === archived.id));
+    await confirm(); assert.equal(await field('资源名称').inputValue(), unused.name); assert.ok(!read().assets.some(x => x.id === archived.id));
     assert.ok(await files.readBytes('project:' + a, imported[0].storagePath));
 
     // A failed write leaves both the card and detail intact; confirming again can retry.
@@ -65,7 +65,7 @@ const root = path.resolve(__dirname, '..');
     await dialog().getByRole('button', { name: '确认删除', exact: true }).click(); await dialog().getByRole('alert').waitFor();
     assert.ok((await dialog().innerText()).includes('模拟删除写入失败')); assert.equal(storage.getItem(key), saved); assert.equal(await card(unused.name).count(), 1);
     await app.evaluate(({ ipcMain }) => { ipcMain.removeAllListeners('workspace-storage'); ipcMain.on('workspace-storage', globalThis.deleteStorageHandler); });
-    await confirm(); assert.equal(await card(unused.name).count(), 0); assert.equal(await field('资产名称').count(), 0);
+    await confirm(); assert.equal(await card(unused.name).count(), 0); assert.equal(await field('资源名称').count(), 0);
 
     // Search-result cards expose the same menu. Removing a requirement releases its asset.
     await button('素材分类').click(); await field('搜索全部素材内容').fill(requirement.name);

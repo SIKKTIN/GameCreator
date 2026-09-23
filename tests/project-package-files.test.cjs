@@ -368,3 +368,17 @@ test('malformed prototype archives fail before any project folder is created',as
   await assert.rejects(f.export(),/原型设计存档格式无效/);assert.equal(await exists(f.directory),false);
  }
 });
+
+test('material delivery documents and task progress survive portable folders with legacy originals',async t=>{
+ const f=await fixture(t),art=f.document.archives['art-assets'],a=art.assets[0];
+ a.delivery={path:'assets/characters/',notes:'工程内验证完成'};a.productionStatus='已通过';a.scheduleProgress={taskIds:['art-task']};
+ await f.export();assert.deepEqual((await f.service.readFolder(f.directory)).document.archives['art-assets'],art);
+ assert.equal((await f.manifest()).files.filter(file=>file.path.startsWith('assets/')).length,2);
+});
+
+test('malformed material delivery metadata is rejected before project export writes anything',async t=>{
+ for(const value of [{delivery:{path:0,notes:''}},{productionStatus:'done'},{scheduleProgress:{taskIds:['x','x']}}]){
+  const f=await fixture(t);Object.assign(f.document.archives['art-assets'].assets[0],value);
+  await assert.rejects(f.export(),/素材/);assert.equal(await exists(f.directory),false);
+ }
+});

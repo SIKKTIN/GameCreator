@@ -1,5 +1,5 @@
-let validateProductionDocs, validateDevelopmentTools;
-const productionReady=Promise.all([import('../shared/material-production.mjs').then(m=>{validateProductionDocs=m.validateProductionDocs;}),import('../shared/development-tools.mjs').then(m=>{validateDevelopmentTools=m.validateDevelopmentTools;})]);
+let validateMaterialDocumentFields, validateProductionDocs, validateDevelopmentTools;
+const productionReady=Promise.all([import('../shared/material-document.mjs').then(m=>{validateMaterialDocumentFields=m.validateMaterialDocumentFields;}),import('../shared/material-production.mjs').then(m=>{validateProductionDocs=m.validateProductionDocs;}),import('../shared/development-tools.mjs').then(m=>{validateDevelopmentTools=m.validateDevelopmentTools;})]);
 const {storyExtras}=require('../shared/story-document.cjs');
 // Portable project folders contain JSON archives and original art files, never executable imports.
 const path = require('node:path');
@@ -479,6 +479,7 @@ function validateDocument(value) {
   if (!Array.isArray(art.requirements) || art.requirements.some(r => !record(r) || Object.hasOwn(r, 'generationPrompt') && (!record(r.generationPrompt) || typeof r.generationPrompt.prompt !== 'string' || typeof r.generationPrompt.negative !== 'string'))) throw new Error('素材生成提示词格式无效');
   // Shared schema validation also protects folder imports.
   validateProductionDocs(art.productionDocs);
+  for(const item of [...art.requirements,...art.assets])validateMaterialDocumentFields(item);
   return value;
 }
 

@@ -49,6 +49,15 @@ const root=path.resolve(__dirname,'..');
     next=await read(sk);assert.ok(batchTasks.slice(0,3).every(t=>next.tasks.find(n=>n.id===t.id).status==='进行中'));assert.equal(next.tasks.find(t=>t.id===batchTasks[3].id).status,'已完成');assert.equal(next.tasks.find(t=>t.id===task.id).status,'待验收');assert.deepEqual(next.milestones,schedule.milestones);assert.equal((await read(tk)).tools.find(t=>t.id===batchTool.id).status,'开发中');
     await page.locator('.ef-batch-summary').scrollIntoViewIfNeeded();await page.screenshot({path:path.join(root,'.gamecreator/qa/engine-feedback-batch.png')});await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setContentSize(1100,900));assert.equal(await page.locator('.ef-panel').evaluate(n=>n.scrollWidth>n.clientWidth+2),false);await page.screenshot({path:path.join(root,'.gamecreator/qa/engine-feedback-batch-narrow.png')});
     await app.close();app=null;await launch();await tab('开发反馈').click();await button('处理记录 8').waitFor();await button('待处理反馈 1').waitFor();await button('处理记录 8').click();assert.equal(await page.locator('.ef-panel .es-history').count(),8);assert.deepEqual(errors,[]);
+    // Artwork is completed in the engine and reported through its explicitly linked art task.
+    const artTask=next.tasks.find(t=>t.kind==='美术'&&t.references.some(r=>r.kind==='requirement'));
+    const ak='gamecreator.workspace.v1:'+id+':art-assets',reqId=artTask.references.find(r=>r.kind==='requirement').targetId;
+    await post({kind:'task',id:artTask.id},{status:'已完成',result:'assets/plants/ 与草坪资源已验证，原文件保留在工程内'},'美术制作已完成');
+    await scan();await button('待处理反馈 2').click();await page.getByRole('button',{name:/美术制作已完成/}).click();
+    await field('已核实交付与验收情况，接收“已完成 / 可使用”状态').check();await button('应用反馈').click();await page.getByText(/反馈已应用/).waitFor();
+    for(let i=0;i<120&&(await read(ak)).requirements.find(r=>r.id===reqId).status!=='已通过';i++)await new Promise(r=>setTimeout(r,30));
+    const material=(await read(ak)).requirements.find(r=>r.id===reqId);assert.equal(material.status,'已通过');
+    await button('素材资产').click();await button('查看全部内容').click();await button('打开素材条目：'+material.name).click();await tab('工程交付与进度').click();await page.getByText('assets/plants/ 与草坪资源已验证，原文件保留在工程内',{exact:true}).waitFor();assert.deepEqual(errors,[]);
     console.log('PASS desktop feedback: automatic load and immediate persistent history, history after read failure, batch tasks/tools, completion confirmation, conflict retention, restart, receipt repair and narrow layout.');
   }catch(e){if(page&&!page.isClosed())console.error((await page.locator('body').innerText()).slice(-7000));console.error(errors);throw e;}
   finally{if(app)await app.close();assert.equal(path.dirname(dir),path.resolve(os.tmpdir()));assert.ok(path.basename(dir).startsWith('gc-feedback-ui-'));await fs.rm(dir,{recursive:true,force:true});}

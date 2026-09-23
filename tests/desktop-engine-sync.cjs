@@ -11,7 +11,7 @@ const root=path.resolve(__dirname,'..');
  const id=prepared.project.id;prepared.project.config={engine:'godot-gdscript',projectPath:engine,enumPath:'.',dataPath:'data/generated',outputFormat:'json',autoSync:false,backupBeforeSync:true};storage.setItem('gamecreator.projects.v1',JSON.stringify(prepared.catalog));
  const source=path.join(dir,'plant.png');await fs.writeFile(source,Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/aV8AAAAASUVORK5CYII=','base64'));
  const files=await createArtFiles(data).importFiles('project:'+id,[source]),artKey='gamecreator.workspace.v1:'+id+':art-assets',art=JSON.parse(storage.getItem(artKey)),now=new Date().toISOString();
- art.assets.push({id:'sync-plant',name:'同步测试植物',description:'用于真实文件交付测试',versions:[{id:'delivery-v1',name:'交付第一版',notes:'',placeholder:false,review:'已通过',feedback:'',files,createdAt:now}],adoptedVersionId:'',archived:false,createdAt:now,updatedAt:now});storage.setItem(artKey,JSON.stringify(art));
+ art.assets.push({id:'sync-plant',name:'同步测试植物',description:'用于真实文件交付测试',versions:[{id:'delivery-v1',name:'交付第一版',notes:'',placeholder:false,review:'已通过',feedback:'',files,createdAt:now}],adoptedVersionId:'delivery-v1',archived:false,createdAt:now,updatedAt:now});storage.setItem(artKey,JSON.stringify(art));
  const folders=createFolderProjects({legacyStorage:storage,dataDirectory:data});
  const saved=folders.create(path.join(dir,'independent-project'),prepared.project,[],id);
  folders.storage.setItem('gamecreator.projects.v1',JSON.stringify({...prepared.catalog,projects:[saved]}));folders.close();
@@ -21,15 +21,12 @@ const root=path.resolve(__dirname,'..');
  async function check(){await tab('待同步变更').click();await button('检查同步变更').click();await page.locator('.es-summary').waitFor();}
  try {
    await launch();await tab('待同步变更').click();await button('检查同步变更').click();await page.locator('.es-summary').waitFor();
-   const pending=page.getByRole('region',{name:'未纳入同步的素材'});await pending.waitFor();assert.ok((await pending.innerText()).includes('同步测试植物'));
-   assert.equal(await page.locator('.es-change').filter({hasText:'同步测试植物'}).count(),0);
-   await pending.getByRole('button',{name:'查看并采用',exact:true}).click();
-   await page.getByText('此版本已审核通过，但尚未采用，不会同步到引擎。请点击上方“采用此版本”。',{exact:true}).waitFor();
-   await button('采用此版本').click();await button('取消采用').waitFor();
-   assert.equal(await page.evaluate(key=>JSON.parse(window.desktopClient.storage.getItem(key)).assets.find(a=>a.id==='sync-plant').adoptedVersionId,artKey),'delivery-v1');
-   // Return to engine sync after restarting: adoption must come from the independent folder, not memory.
-   await app.close();app=null;await launch();
-   await tab('同步配置').click();assert.equal(await page.getByRole('region',{name:'未纳入同步的素材'}).count(),0);
+   assert.equal(await page.locator('.es-change').filter({hasText:'同步测试植物'}).count(),0,'new sync defaults to documents only');
+   await tab('同步配置').click();assert.equal(await field('同步历史已采用素材').isChecked(),false);
+   await field('同步历史已采用素材').check();await button('保存同步配置').click();await page.getByText('同步配置已保存。',{exact:true}).waitFor();
+   // Explicit legacy file sync remains compatible and survives a restart.
+   await app.close();app=null;await launch();await tab('同步配置').click();assert.equal(await field('同步历史已采用素材').isChecked(),true);
+   assert.equal(await page.getByRole('region',{name:'未纳入同步的素材'}).count(),0);
 await field('文档目标目录').fill('res://design/reference');await field('素材目标目录').fill('art/delivery');await button('保存同步配置').click();await page.getByText('同步配置已保存。',{exact:true}).waitFor();assert.equal(await field('同步工程根目录').innerText(),engine);assert.equal(await field('文档最终写入位置').innerText(),engine+'/design/reference');assert.equal(await field('素材最终写入位置').innerText(),engine+'/art/delivery');
    await button('预览同步变更').click();await page.locator('.es-summary').waitFor();assert.ok((await page.locator('.es-changes').innerText()).includes('同步测试植物'));
    await fs.mkdir(path.join(root,'.gamecreator/qa'),{recursive:true});await page.screenshot({path:path.join(root,'.gamecreator/qa/engine-sync-preview.jpg'),type:'jpeg',quality:70,scale:'css'});

@@ -1,7 +1,7 @@
 import {policySyncPath} from './config-data-policy.mjs';
 import {validName} from './ai-document-files.mjs';
 
-export const defaultSyncSettings = {documents:true, assets:true, collaboration:true, includePlaceholders:true, docsDirectory:'docs/gamecreator', assetsDirectory:'assets/gamecreator', modules:[]};
+export const defaultSyncSettings = {documents:true, assets:false, collaboration:true, includePlaceholders:true, docsDirectory:'docs/gamecreator', assetsDirectory:'assets/gamecreator', modules:[]};
 export function syncPath(value) {
   if(typeof value!=='string')throw new Error('同步目录必须是工程内的相对路径');
   const result=value.trim().replace(/^res:\/\//,'').replaceAll('\\','/');
