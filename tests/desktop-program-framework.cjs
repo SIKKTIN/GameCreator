@@ -23,6 +23,8 @@ const root=path.resolve(__dirname,'..');
     await launch();await open();assert.equal(await page.getByText('这个工作区正在搭建中，你可以先从项目概览、故事文档和数据配置开始。').count(),0);
     assert.equal(await button('返回搜索结果').count(),0);
     assert.equal(await page.locator('.pf-doc-list button').count(),19);
+    assert.equal(await button('阅读框架规范：配置数据管理与同步规范').getByLabel('默认加入',{exact:true}).count(),1);
+    assert.equal(await button('阅读框架规范：架构总纲').getByLabel('本项目已采用',{exact:true}).count(),0);
     await page.locator('.pf-doc-list button').filter({hasText:'配置数据管理与同步规范'}).click();await page.getByRole('heading',{name:'配置数据管理与同步规范',exact:true}).waitFor();
     await button('阅读框架规范：架构总纲').click();assert.ok(await page.locator('.pf-markdown table').count()>0);assert.ok(await page.locator('.pf-markdown pre').count()>0);
     await field('搜索框架规范').fill('枪械');assert.ok(await page.locator('.pf-doc-list button').count()<19);await field('搜索框架规范').fill('不存在的搜索结果abcdef');await page.getByText('没有找到匹配文档，试试其他关键词。').waitFor();await field('搜索框架规范').fill('');
@@ -44,6 +46,8 @@ const root=path.resolve(__dirname,'..');
     // Global search opens the correct reader and ordinary navigation clears return context.
     await field('全局搜索入口').fill('Core 边界与公共机制');await button('打开全局搜索').click();await button('打开搜索结果：Core 边界与公共机制').click();await page.locator('.pf-markdown h1').filter({hasText:'Core 边界与公共机制'}).waitFor();assert.equal(await page.locator('.gsearch-return').count(),1);
     await button('阅读框架规范：数据与配置').click();assert.equal(await page.locator('.gsearch-return').count(),0);
+    assert.equal(await button('阅读框架规范：配置数据管理与同步规范').getByLabel('默认加入',{exact:true}).count(),1);
+    assert.equal(await button('阅读框架规范：架构总纲').getByLabel('本项目已采用',{exact:true}).count(),1);
     await page.screenshot({path:path.join(root,'.gamecreator/qa/program-framework-library.png')});
     await switchProject(b.name);await open();await projectTab();assert.equal(await field('采用内置通用框架').isChecked(),false);assert.equal(await field('程序框架项目约定').inputValue(),'');assert.equal(storage.getItem(key(b.id)),null);
     await switchProject(a.name);await open();await projectTab();await field('采用内置通用框架').uncheck();assert.equal(await field('采用存档与数据迁移').isChecked(),true);await field('采用内置通用框架').check();
