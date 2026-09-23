@@ -71,7 +71,7 @@ function createDataSync({storage,context,manifest,read,writeMeta,checked,locked,
         const differences=m.diffJson(l,r,baseline,input.direction);
         const fileCanonical=m.canonical(remote);
         rows.push({table,file,mapping,contract,shape:(r||l).shape,local:l,remote:r,differences,hash:digest(bytes),bound:!!baseline,localChanged:!!baseline&&m.stable(l)!==m.stable(baseline.local),engineChanged:!!baseline&&m.stable(r)!==m.stable(baseline.remote),fields:{local:l?.shape==='object'?Object.keys(l.value):store.data.columns[table]?.map(c=>c.key)||[],remote:fileCanonical?.shape==='object'?Object.keys(fileCanonical.value):[...new Set(Object.values(fileCanonical?.rows||{}).flatMap(Object.keys))]}});
-      } catch(e){rows.push({table,file,error:e.message});}
+      } catch(e){rows.push({table,file,error:e.message,bound:store.dataSync?.bindings?.[table]?.scope===scope(ctx),shape:store.data.jsonFormats?.[table]?.shape});}
     }
     const token=randomUUID(),now=Date.now();for(const [id,p] of plans)if(now-p.at>600000)plans.delete(id);if(plans.size>=8)plans.delete(plans.keys().next().value);
     plans.set(token,{ctx,raw,store:structuredClone(store),direction:input.direction,rows,at:now,declarationPath,declarationHash:digest(declarationBytes)});

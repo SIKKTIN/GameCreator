@@ -48,7 +48,12 @@ export function contractIssues(a,b) {
   if(a.shape!==b.shape)return ['JSON 根结构不符：'+a.shape+' / '+b.shape];
   if(a.shape==='object')nodeIssues(a.value,b.value,'对象',issues);
   else {nodeIssues(a.record,b.record,'记录',issues);nodeIssues(a.metadata,b.metadata,'元数据',issues);}
-  if(stable(a.constraints||{})!==stable(b.constraints||{}))issues.push('枚举或引用约束不符，请补充或更新引擎结构声明');
+  // Plain JSON contains values, not editor enum/reference metadata. Absence is unknown,
+  // not an explicit statement that the engine has no constraints.
+  if(Object.hasOwn(b,'constraints')&&stable(a.constraints||{})!==stable(b.constraints)){
+    const keys=[...new Set([...Object.keys(a.constraints||{}),...Object.keys(b.constraints||{})])].filter(k=>stable(a.constraints?.[k])!==stable(b.constraints?.[k]));
+    issues.push('引擎已声明的枚举或引用约束不符：'+keys.join('、'));
+  }
   return issues;
 }
 export function validateContract(c) {
