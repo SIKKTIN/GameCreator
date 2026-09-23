@@ -150,3 +150,17 @@ test('Godot documents stay visible and legacy ignore removal is reviewed, backed
  const p=await f.preview();assert.ok(p.warnings.some(w=>w.includes(ignore)));assert.equal(p.rows.find(r=>r.path===ignore).status,'removed');await assert.rejects(f.apply(p),/没有需要/);const result=await f.api.apply({token:p.token,removals:[ignore]});assert.equal(await fs.stat(path.join(f.engine,ignore)).catch(()=>null),null);assert.equal(await fs.readFile(path.join(result.backupDirectory,'files/0'),'utf8'),bytes);assert.ok((await f.preview()).rows.every(r=>r.status==='unchanged'));
  await fs.writeFile(path.join(f.engine,'docs/.gdignore'),'user ignore');const next=await f.preview();assert.ok(next.warnings.some(w=>w.includes('docs/.gdignore')));assert.equal(next.rows.some(r=>r.path==='docs/.gdignore'),false);assert.equal(await f.read('docs/.gdignore'),'user ignore');
 });
+
+
+test('configuration policy syncs without framework adoption, respects scope, directory changes and conflicts',async t=>{
+ const f=await fixture(t);const {configDataPolicyMarkdown}=await import('../shared/config-data-policy.mjs');
+ f.input.settings.modules=[];f.input.config.dataPath='balance/tables';f.input.config.outputFormat='json';
+ f.input.document.configDataPolicy=configDataPolicyMarkdown(f.input.config);
+ const target='docs/gamecreator/config-data-policy.md';let p=await f.preview();assert.ok(p.rows.some(r=>r.path===target&&r.status==='added'));await f.apply(p);
+ assert.match(await f.read(target),/balance\/tables/);assert.match(await f.read('docs/gamecreator/README.md'),/config-data-policy.md/);
+ assert.ok((await f.preview()).rows.every(r=>r.status==='unchanged'));
+ f.input.settings.documents=false;p=await f.preview();assert.equal(p.rows.length,0);assert.match(await f.read(target),/balance\/tables/);
+ f.input.settings.documents=true;f.input.config.dataPath='settings/rules';f.input.document.configDataPolicy=configDataPolicyMarkdown(f.input.config);
+ p=await f.preview();assert.equal(p.rows.find(r=>r.path===target).status,'updated');await f.apply(p);assert.match(await f.read(target),/settings\/rules/);
+ await fs.writeFile(path.join(f.engine,target),'manual edit');p=await f.preview();assert.equal(p.rows.find(r=>r.path===target).status,'conflict');await assert.rejects(f.apply(p),/处理所有冲突/);
+});

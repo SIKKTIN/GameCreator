@@ -77,3 +77,7 @@ JSON 中重复字段、重复 ID、无字符串 ID 的记录、非有限数字�
 - `src/DataSyncPanel.tsx`：导入导出审阅与自动导出；`src/JsonObjectEditor.tsx`：对象配置编辑。
 - `npm run test:data-sync`：模型与文件系统回归。
 - `node tests/desktop-data-sync.cjs`：隔离 Electron 项目的导入、编辑、冲突解决、导出、自动导出及重启验收。通过 `GAMECREATOR_PLAYWRIGHT_PATH` 指定 Playwright 安装位置。
+
+## 配置数据管理与同步规范
+
+通用规范可在“程序框架 → 开发规范”阅读。生成 AI 文档时附带 `模块/config-data-policy.md`，完整总文档同时包含正文；引擎文档同步时附带 `<文档目录>/config-data-policy.md`。文档包含当前项目保存的数据目录、格式与适用范围，无需采用 Package/Core。目录或格式更改后重新生成并预览同步；文档只记录约定，不自动移动文件或修改游戏加载代码。

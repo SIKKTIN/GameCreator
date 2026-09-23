@@ -139,7 +139,7 @@ function createEngineSync({artFiles,storage,beforeWrite=async()=>{},beforeRebind
     if(await read(ctx,META+'/data-pending.json'))throw new Error('请先在数据同步中恢复中断的同步');
     if(settings.collaboration)desired.push(...await feedback.documents(ctx,input,settings));
     if(settings.documents) {
-      for(const d of syncDocuments(input.document,settings.modules))desired.push({id:d.id,path:settings.docsDirectory+'/'+d.path,bytes:Buffer.from(d.content),kind:'document',label:d.id==='document:index'?'项目文档目录':input.document.sections.find(s=>'document:'+s.id===d.id)?.label||d.path,version:input.document.version});
+      for(const d of syncDocuments(input.document,settings.modules))desired.push({id:d.id,path:settings.docsDirectory+'/'+d.path,bytes:Buffer.from(d.content),kind:'document',label:d.id==='document:index'?'项目文档目录':d.id==='document:config-data-policy'?'配置数据管理与同步规范':input.document.sections.find(s=>'document:'+s.id===d.id)?.label||d.path,version:input.document.version});
     }
     if(settings.documents&&settings.modules.includes('art')) {
       const {validateProductionDocs}=await import('../shared/material-production.mjs');

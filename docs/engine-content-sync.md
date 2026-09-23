@@ -53,3 +53,7 @@
 - `npm run build` 后运行 `node tests/desktop-engine-sync.cjs`：隔离工程中验证桌面 UI、实际素材字节、文档内容、冲突决定、显式移除、记录、偏好重启恢复及窄窗口布局。
 - `node tests/desktop-engine-binding.cjs`：隔离工程中验证身份冲突、取消、过期检查、原清单备份、文件与历史保留、后续冲突检测、重启和不同引擎拦截。
 - Playwright 可通过 `GAMECREATOR_PLAYWRIGHT_PATH` 指定。所有测试使用临时工程，不会向用户已连接的游戏工程写入演示文件。
+
+## 配置数据管理与同步规范
+
+通用规范可在“程序框架 → 开发规范”阅读。生成 AI 文档时附带 `模块/config-data-policy.md`，完整总文档同时包含正文；引擎文档同步时附带 `<文档目录>/config-data-policy.md`。文档包含当前项目保存的数据目录、格式与适用范围，无需采用 Package/Core。目录或格式更改后重新生成并预览同步；文档只记录约定，不自动移动文件或修改游戏加载代码。
