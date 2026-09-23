@@ -1,3 +1,4 @@
+import {normalizePersonnelSchedule} from '../shared/ai-personnel.mjs';
 import { useEffect, useRef, useState } from 'react';
 import { workspaceStorage } from './workspace-storage';
 import {invalidateMilestoneAcceptance} from './schedule-acceptance';
@@ -26,7 +27,7 @@ export function useProjectSchedule(workspaceId: string, legacyDefaults: unknown[
   const update = (operation: (current: ProjectScheduleStore) => ProjectScheduleStore) => {
     if (loadError) return false;
     let next: ProjectScheduleStore;
-    try { next = validateProjectSchedule(invalidateMilestoneAcceptance(latest.current,operation(structuredClone(latest.current)))); }
+    try { next = validateProjectSchedule(invalidateMilestoneAcceptance(latest.current,normalizePersonnelSchedule(operation(structuredClone(latest.current))))); }
     catch (error) { setOperationError('项目排期更改未应用：' + String(error)); return false; }
     latest.current = next; setStore(next); setOperationError('');
     return persist(next);

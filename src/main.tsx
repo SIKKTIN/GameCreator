@@ -1,3 +1,4 @@
+import {AiPersonnel} from './AiPersonnel';
 import {useMaterialProgressSync} from './useMaterialProgressSync';
 import {datasetReferences,removeDataset} from './dataset-deletion';
 import { DevelopmentTools } from './DevelopmentTools';
@@ -592,6 +593,7 @@ function WorkspaceApp({ username, testSession, onLoadTest, onExitTest, preparing
         {narrative.error && active !== '故事编排' && active !== '工作区设置' && <div className="gp-save-error" role="alert"><span>{narrative.error}</span><button onClick={()=>setActive('工作区设置')}>处理故事存档</button></div>}
         {maps.error && active !== '地图设计' && active !== '工作区设置' && <div className="gp-save-error" role="alert"><span>{maps.error}</span><button onClick={()=>setActive('工作区设置')}>处理地图存档</button></div>}
         {schedule.error && active !== '项目排期' && <div className="gp-save-error" role="alert"><span>{schedule.error}</span><button onClick={() => setActive('项目排期')}>处理排期存档</button></div>}
+        {active === '人员分配' && <AiPersonnel testMode={!!testSession} toolHistory={developmentTools.store.feedbackHistory} controller={schedule} projectId={formalProject.id} onOpenTask={id=>{setRequestedSchedule({kind:'task',id});setActive('项目排期');}}/>}
         {active === '项目排期' && <ProjectSchedule controller={schedule} requested={requestedSchedule} sources={buildScheduleSources(gameplay.store.designs, functional.store, art.store, maps.store, prototype.store, developmentTools.store)} onOpenReference={ref => {
           if (ref.kind === 'gameplay') openGameplay(ref.targetId);
           else if (ref.kind === 'tool') { setRequestedTool({id:ref.targetId}); setActive('开发工具'); }
@@ -670,7 +672,7 @@ function WorkspaceApp({ username, testSession, onLoadTest, onExitTest, preparing
         {active === '枚举定义' && <EnumDefinitions registry={registry} />}
         {active === '枚举管理' && <EnumManager config={engineConfig} registry={registry} />}
         {active === '引擎设置' && <fieldset disabled={!!testSession} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>{testSession && <p>测试场景使用固定来源，请通过测试面板加载或重置场景。</p>}<EngineSyncPanel collaboration={{schedule:schedule.store,tools:developmentTools.store}} onFeedbackApplied={()=>{const s=schedule.reloadIfClean(),t=developmentTools.reloadIfClean();return s&&t;}} onOpenAsset={id=>{setArtSelection({kind:'asset',id});setActive('素材资产');}} projectId={formalProject.id} build={exportAiContext} art={art.store} blockedReason={aiExportBlocked} config={engineConfig} registry={registry} onPickDirectory={window.desktopClient?.pickProjectDirectory} setConfig={(next) => testSession ? Promise.resolve(false) : onConfigChange(next)} /></fieldset>}
-        {active !== '数据同步' && active !== '开发工具' && active !== '程序框架' && active !== '全局搜索' && active !== '数值分析' && active !== '项目排期' && active !== '地图设计' && active !== '工作区设置' && active !== '故事编排' && active !== '原型设计' && active !== '任务与流程' && active !== '项目概览' && active !== '玩法核心' && active !== '玩法设计' && active !== '功能系统' && active !== '素材资产' && active !== '故事文档' && active !== '数据配置' && active !== '枚举定义' && active !== '枚举管理' && active !== '引擎设置' && (
+        {active !== '人员分配' && active !== '数据同步' && active !== '开发工具' && active !== '程序框架' && active !== '全局搜索' && active !== '数值分析' && active !== '项目排期' && active !== '地图设计' && active !== '工作区设置' && active !== '故事编排' && active !== '原型设计' && active !== '任务与流程' && active !== '项目概览' && active !== '玩法核心' && active !== '玩法设计' && active !== '功能系统' && active !== '素材资产' && active !== '故事文档' && active !== '数据配置' && active !== '枚举定义' && active !== '枚举管理' && active !== '引擎设置' && (
           <section className="empty">
             <div className="empty-icon"><Layers size={34} /></div>
             <h2>{active}</h2>

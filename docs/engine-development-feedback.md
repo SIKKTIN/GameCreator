@@ -97,3 +97,8 @@ gamecreator/
 运行 `npm run test:engine-sync` 和 `npm run build`。桌面回归为 `node tests/desktop-engine-feedback.cjs`，可通过 `GAMECREATOR_PLAYWRIGHT_PATH` 指定 Playwright。
 
 测试使用临时工程和独立客户端配置，覆盖实际项目文件夹、上下文输出、三方字段冲突、验收选择、即时刷新、忽略记录、重复反馈、回执补写、保存失败、重启与窄窗口，不修改用户的游戏工程。
+
+
+## AI 身份与分工
+
+启用本地项目的“人员分配”后，工程会生成团队清单、成员工作说明和签名提交工具。AI 使用单独领取的凭证提交进度、验收结论或排期建议；读取和应用时都核对当前任务范围与权限。未签名旧反馈需逐条确认来源，不参与一键应用，无效签名不能绕过验证。详见 [AI 人员分配与凭证](ai-personnel.md)。

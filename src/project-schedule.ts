@@ -1,3 +1,4 @@
+import type {AiPersonnel,AiAssignment} from '../shared/ai-personnel.mjs';
 import { emptyDevelopmentTools, type DevelopmentToolsStore } from '../shared/development-tools.mjs';
 import type { GameplayDesign } from './gameplay.ts';
 import type { FunctionalStore } from './functional-systems.ts';
@@ -12,13 +13,14 @@ export const productionPriorities = ['低', '普通', '高', '紧急'] as const;
 export const scheduleReferenceLabels = { gameplay: '玩法文档', capability: '程序功能', tool: '开发工具', requirement: '素材需求', asset: '素材资产', map: '地图', prototype: '原型场景' };
 export type ScheduleReference = { kind: keyof typeof scheduleReferenceLabels; targetId: string };
 export type ProductionTask = {
+  assignment?:AiAssignment; proposals?:{id:string;memberId:string;text:string;at:string}[];
   id: string; title: string; description: string; kind: typeof productionKinds[number]; owner: string;
   status: typeof productionStatuses[number]; priority: typeof productionPriorities[number];
   start: string; end: string; actualStart: string; actualEnd: string; milestoneId: string;
   acceptance: string; result: string; dependencyIds: string[]; references: ScheduleReference[];
 };
 export type ProductionMilestone = { id: string; title: string; owner: string; due: string; description: string; acceptance: string; review: string; status: '计划中' | '进行中' | '已验收' };
-export type ProjectScheduleStore = { schema: 1; tasks: ProductionTask[]; milestones: ProductionMilestone[]; feedbackHistory?: FeedbackReceipt[] };
+export type ProjectScheduleStore = { personnel?:AiPersonnel; schema: 1; tasks: ProductionTask[]; milestones: ProductionMilestone[]; feedbackHistory?: FeedbackReceipt[] };
 export type ScheduleSources = Record<ScheduleReference['kind'], { id: string; name: string; status?: string; unavailable?: boolean }[]>;
 export type ScheduleIssue = { taskId?: string; milestoneId?: string; kind: 'blocked' | 'conflict' | 'overdue' | 'reference' | 'review'; message: string };
 export const emptyProjectSchedule = (): ProjectScheduleStore => ({ schema: 1, tasks: [], milestones: [] });
@@ -50,6 +52,17 @@ export function validateProjectSchedule(value: unknown): ProjectScheduleStore {
   const record = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
   const fields = (v: Record<string, unknown>, keys: string[]) => keys.every(k => typeof v[k] === 'string');
   const date = (v: unknown) => { if (v === '') return true; if (typeof v !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return false; const n = Date.parse(v + 'T00:00:00Z'); return Number.isFinite(n) && new Date(n).toISOString().slice(0, 10) === v; };
+  const bounded=(v:unknown,max=200):v is string=>typeof v==='string'&&v.length<=max;
+  const ids=(v:unknown,max=2000):v is string[]=>Array.isArray(v)&&v.length<=max&&v.every(x=>bounded(x)&&x.trim())&&new Set(v).size===v.length;
+  const permissions=(v:unknown)=>ids(v,3)&&(v as string[]).every(x=>['progress','review','propose'].includes(x));
+  const stamp=(v:unknown)=>bounded(v,50)&&Number.isFinite(Date.parse(v));
+  if(record(value)&&value.personnel!==undefined){
+    const p=value.personnel;
+    if(!record(p)||p.schema!==1||!Array.isArray(p.members)||p.members.length>200||!Array.isArray(p.credentials)||p.credentials.length>1000)return fail();
+    const seen=new Set(),names=new Set();
+    for(const m of p.members){if(!record(m)||!bounded(m.id)||!m.id.trim()||seen.has(m.id)||!bounded(m.name,100)||!m.name.trim()||names.has(m.name.trim().toLowerCase())||!ids(m.roles,20)||!m.roles.length||!bounded(m.duties,10000)||typeof m.active!=='boolean'||!['project','assigned'].includes(m.scope as string)||!permissions(m.permissions)||!stamp(m.createdAt))return fail();seen.add(m.id);names.add(m.name.trim().toLowerCase());}
+    const keys=new Set();for(const c of p.credentials){if(!record(c)||!bounded(c.id)||!c.id.trim()||keys.has(c.id)||!bounded(c.projectId,1200)||!c.projectId||!bounded(c.memberId)||!seen.has(c.memberId)||!bounded(c.name,100)||!c.name.trim()||!bounded(c.publicKey,200)||!c.publicKey.trim()||!permissions(c.permissions)||!ids(c.taskIds)||!stamp(c.createdAt)||!stamp(c.expiresAt)||(c.expiresAt as string)<=(c.createdAt as string)||!(c.revokedAt===''||stamp(c.revokedAt))||Object.prototype.hasOwnProperty.call(c,'privateKey'))return fail();keys.add(c.id);}
+  }
   const unique = new Set<string>();
   const id = (v: unknown) => { if (typeof v !== 'string' || !v.trim() || unique.has(v)) return false; unique.add(v); return true; };
   if (!record(value) || value.schema !== 1 || !Array.isArray(value.tasks) || !Array.isArray(value.milestones)) return fail();
@@ -59,6 +72,8 @@ export function validateProjectSchedule(value: unknown): ProjectScheduleStore {
       !['设计', '程序', '美术', '关卡', '测试', '其他'].includes(t.kind as string) || !['待开始', '进行中', '待验收', '已完成', '受阻'].includes(t.status as string) || !['低', '普通', '高', '紧急'].includes(t.priority as string) ||
       !['start', 'end', 'actualStart', 'actualEnd'].every(k => date(t[k])) || (t.start && t.end && (t.end as string) < (t.start as string)) || (t.actualStart && t.actualEnd && (t.actualEnd as string) < (t.actualStart as string)) ||
       !Array.isArray(t.dependencyIds) || t.dependencyIds.some(v => typeof v !== 'string' || !v.trim()) || new Set(t.dependencyIds).size !== t.dependencyIds.length || !Array.isArray(t.references)) return fail();
+    if(t.assignment!==undefined){const a=t.assignment;if(!record(a)||!bounded(a.primaryId)||!bounded(a.reviewerId)||!ids(a.collaboratorIds,200)||a.collaboratorIds.includes(a.primaryId))return fail();}
+    if(t.proposals!==undefined&&(!Array.isArray(t.proposals)||t.proposals.length>1000||t.proposals.some(p=>!record(p)||!bounded(p.id)||!bounded(p.memberId)||!bounded(p.text,30000)||!stamp(p.at))||new Set(t.proposals.map(p=>p.id)).size!==t.proposals.length))return fail();
     const refs = new Set<string>();
     for (const r of t.references) {
       if (!record(r) || !['gameplay', 'capability', 'requirement', 'asset', 'map', 'prototype', 'tool'].includes(r.kind as string) || typeof r.targetId !== 'string' || !r.targetId.trim()) return fail();
@@ -148,6 +163,8 @@ export function projectScheduleMarkdown(store: ProjectScheduleStore, sources?: S
   for (const m of store.milestones) lines.push('### 里程碑：' + m.title, '- 目标：' + (m.due || '未排期') + '；负责人：' + (m.owner || '未分配') + '；' + m.status, m.description, '- 验收条件：' + (m.acceptance || '待填写'), '- 验收记录：' + (m.review || '未填写'), '');
   for (const t of store.tasks) {
     lines.push('### 制作任务：' + t.title, '- ID：' + t.id, '- ' + t.kind + '；' + t.priority + '；' + t.status + '；负责人：' + (t.owner || '未分配'), '- 里程碑：' + (store.milestones.find(m => m.id === t.milestoneId)?.title || '未分组'), '- 计划：' + (t.start || '未定') + ' → ' + (t.end || '未定'), '- 实际：' + (t.actualStart || '未记录') + ' → ' + (t.actualEnd || '未记录'), t.description, '- 验收条件：' + (t.acceptance || '待填写'), '- 验收结果：' + (t.result || '未填写'), '- 前置任务：' + (t.dependencyIds.map(id => (store.tasks.find(d => d.id === id)?.title || '已失效') + ' [' + id + ']').join('、') || '无'));
+    if(t.assignment)lines.push('- AI 分配：主负责人 '+(t.assignment.primaryId||'未分配')+'；协作者 '+(t.assignment.collaboratorIds.join('、')||'无')+'；验收负责人 '+(t.assignment.reviewerId||'未指定'));
+    for(const p of t.proposals||[])lines.push('- AI 分工/排期建议 ['+p.memberId+']：'+p.text);
     for (const r of t.references) lines.push('- 来源：' + scheduleReferenceLabels[r.kind] + ' / ' + (sources ? scheduleReference(r, sources).label : r.targetId) + ' [' + r.targetId + ']');
     lines.push('');
   }

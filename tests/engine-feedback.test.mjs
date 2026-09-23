@@ -8,6 +8,7 @@ import {createRequire} from 'node:module';
 import {validateFeedback,feedbackDiff,mergeFeedback,validateFeedbackHistory,feedbackBatchItems} from '../shared/engine-feedback.mjs';
 import {createProductionTask,createProductionMilestone,validateProjectSchedule} from '../src/project-schedule.ts';
 import {createDevelopmentTool,validateDevelopmentTools} from '../shared/development-tools.mjs';
+import {defaultAiTeam,normalizePersonnelSchedule} from '../shared/ai-personnel.mjs';
 const require=createRequire(import.meta.url),{createEngineSync}=require('../desktop/engine-sync.cjs'),{createStorage}=require('../desktop/storage.cjs');
 const rawRead=(s,key)=>JSON.parse(s.getItem(key));
 async function fixture(t,options={}) {
@@ -37,6 +38,47 @@ async function batchFixture(t,options={}) {
   f.post=async(id,changes,kind='task')=>{const v=f.make(changes,kind);v.target.id=id;await f.put(v);return v;};
   f.batch=(entries,acceptCompletion=false)=>f.api.feedbackApplyBatch({tokens:entries.filter(e=>e.token).map(e=>e.token),acceptCompletion});return f;
 }
+
+async function aiFixture(t,options={}){
+ const f=await fixture(t,options),s=rawRead(f.storage,f.sk);s.personnel=defaultAiTeam();f.dev=s.personnel.members.find(m=>m.name==='程序A');f.producer=s.personnel.members[0];
+ s.tasks[0].assignment={primaryId:f.dev.id,collaboratorIds:[],reviewerId:f.producer.id};s.tasks[0].references=[{kind:'tool',targetId:'tool-a'}];f.storage.setItem(f.sk,JSON.stringify(normalizePersonnelSchedule(s)));
+ const {issueAiCredential}=require('../desktop/ai-credentials.cjs'),{signFeedback}=require('../shared/ai-feedback-client.cjs');
+ f.issue=(member=f.dev)=>issueAiCredential(f.storage,{projectId:f.input.projectId,memberId:member.id,name:'验收令牌',expiresAt:new Date(Date.now()+86400000).toISOString(),permissions:member.permissions,taskIds:[],schedule:rawRead(f.storage,f.sk)});
+ f.credential=f.issue();f.producerCredential=f.issue(f.producer);await f.sync();Object.assign(f.project,JSON.parse(await fs.readFile(path.join(f.engine,'gamecreator/project.json'),'utf8')));
+ f.signed=(changes,extra={},secret=f.credential.secret)=>signFeedback({...f.make(changes),...extra},secret);
+ return f;
+}
+
+test('AI context exports assignments and signing helper without secret; verified feedback uses bound name',async t=>{
+ const f=await aiFixture(t),team=JSON.parse(await fs.readFile(path.join(f.engine,'gamecreator/context/team.json'),'utf8'));assert.equal(team.members.length,6);
+ const tasks=JSON.parse(await fs.readFile(path.join(f.engine,'gamecreator/context/assignments.json'),'utf8'));assert.equal(tasks.tasks[0].assignment.primaryId,f.dev.id);
+ const helper=await fs.readFile(path.join(f.engine,'gamecreator/submit-feedback.cjs'),'utf8');assert.match(helper,/signFeedback/);
+ assert.match(await fs.readFile(path.join(f.engine,'gamecreator/members',f.dev.id+'.md'),'utf8'),/程序A/);
+ const snapshot=await fs.readFile(path.join(f.engine,'gamecreator/context/snapshots',f.project.snapshotId+'.json'),'utf8');assert.ok(!snapshot.includes(f.credential.secret.privateKey));assert.ok(!JSON.stringify(team).includes(f.credential.secret.privateKey));
+ const v=f.signed({status:'待验收',result:'工程开发完成'});await f.put(v);const entry=(await f.scan()).entries[0];assert.equal(entry.identity.memberName,'程序A');assert.equal(entry.legacy,false);
+ await f.apply(entry);const receipt=rawRead(f.storage,f.sk).feedbackHistory[0];assert.equal(receipt.author,'程序A');assert.equal(receipt.identity.memberId,f.dev.id);assert.equal((await f.scan()).entries[0].state,'processed');
+});
+
+test('AI suggestions append without replacing results; verified review still needs user acceptance',async t=>{
+ const f=await aiFixture(t),s=rawRead(f.storage,f.sk);s.tasks[0].result='原交付记录';f.storage.setItem(f.sk,JSON.stringify(s));
+ const p=f.signed({result:'建议拆分后续任务'},{intent:'propose'},f.producerCredential.secret);await f.put(p);const e=(await f.scan()).entries[0];assert.equal(e.rows[0].label,'排期与分配建议');await f.apply(e);
+ const next=rawRead(f.storage,f.sk);assert.equal(next.tasks[0].result,'原交付记录');assert.equal(next.tasks[0].status,s.tasks[0].status);assert.equal(next.tasks[0].proposals[0].text,'建议拆分后续任务');assert.deepEqual(next.tasks[0].assignment,s.tasks[0].assignment);
+ const review=f.signed({status:'已完成'},{intent:'review'},f.producerCredential.secret);await f.put(review);const current=(await f.scan()).entries.find(e=>e.feedback?.id===review.id);await assert.rejects(f.apply(current),/验收/);await f.apply(current,{acceptCompletion:true});assert.equal(rawRead(f.storage,f.sk).tasks[0].status,'已完成');
+});
+
+test('unsigned legacy feedback requires individual acknowledgement and is excluded from batch',async t=>{
+ const f=await aiFixture(t),old=f.make({status:'进行中'});await f.put(old);const entry=(await f.scan()).entries[0];assert.equal(entry.legacy,true);assert.equal(feedbackBatchItems([entry],true).ready.length,0);
+ await assert.rejects(f.apply(entry),/逐条确认/);const batch=await f.api.feedbackApplyBatch({tokens:[entry.token],acceptCompletion:true});assert.equal(batch.applied.length,0);assert.equal(batch.skipped.length,1);
+ await f.apply(entry,{acceptLegacy:true});assert.equal(rawRead(f.storage,f.sk).tasks[0].status,'进行中');assert.equal(rawRead(f.storage,f.sk).feedbackHistory[0].identity,undefined);
+});
+
+test('revoked AI credentials cannot pass batch or the final asynchronous commit boundary',async t=>{
+ let revoke=()=>{};const f=await aiFixture(t,{beforeFeedbackCommit:async()=>revoke()});
+ const v=f.signed({status:'开发中'},{target:{kind:'tool',id:'tool-a'}});await f.put(v);const entry=(await f.scan()).entries[0],before=f.storage.getItem(f.tk);
+ revoke=()=>{const s=rawRead(f.storage,f.sk);s.personnel.credentials[0].revokedAt=new Date().toISOString();f.storage.setItem(f.sk,JSON.stringify(s));};
+ await assert.rejects(f.apply(entry),/撤销/);assert.equal(f.storage.getItem(f.tk),before);
+ const batch=await f.api.feedbackApplyBatch({tokens:[entry.token],acceptCompletion:true});assert.equal(batch.applied.length,0);assert.match(batch.failed[0].reason,/撤销/);
+});
 test('collaboration produces readable context, stable snapshots and preserves feedback/history on scope changes',async t=>{
   const f=await fixture(t),readme=await fs.readFile(path.join(f.engine,'gamecreator/README.md'),'utf8');assert.match(readme,/待验收/);assert.match(readme,/单机工程/);
   const tasks=JSON.parse(await fs.readFile(path.join(f.engine,'gamecreator/context/tasks.json'),'utf8'));assert.equal(tasks.tasks[0].id,'task-a');

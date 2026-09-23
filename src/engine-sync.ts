@@ -6,7 +6,7 @@ import type {Feedback,FeedbackRow,FeedbackReceipt} from '../shared/engine-feedba
 import type {ProjectScheduleStore} from './project-schedule';
 import type {DevelopmentToolsStore} from './development-tools';
 export type CollaborationSource={schedule:ProjectScheduleStore;tools:DevelopmentToolsStore};
-export type FeedbackEntry={path:string;state:'pending'|'invalid'|'processed';feedback?:Feedback;title?:string;rows:FeedbackRow[];token?:string;error?:string;receipt?:FeedbackReceipt;designChanged?:boolean};
+export type FeedbackEntry={legacy?:boolean;identity?:import('../shared/engine-feedback.mjs').FeedbackIdentity;path:string;state:'pending'|'invalid'|'processed';feedback?:Feedback;title?:string;rows:FeedbackRow[];token?:string;error?:string;receipt?:FeedbackReceipt;designChanged?:boolean};
 export type FeedbackScan={root:string;entries:FeedbackEntry[];history:FeedbackReceipt[];missingReceipts:string[]};
 export type FeedbackApplyResult={receipt:FeedbackReceipt;warning:string};
 export type FeedbackBatchResult={applied:FeedbackApplyResult[];skipped:{path:string;reason:string}[];failed:{path:string;reason:string}[]};
@@ -18,7 +18,7 @@ export type SyncBinding={status:'unbound'|'current'|'project-mismatch'|'engine-m
 export type SyncPlan={token:string;root:string;rows:SyncRow[];warnings:string[];history:SyncHistory[]};
 export type EngineSyncAPI=import('./data-sync').DataSyncAPI&{
   feedbackScan:(input:SyncContext&{collaboration:CollaborationSource})=>Promise<FeedbackScan>;
-  feedbackApply:(input:{token:string;decisions:Record<string,'keep'|'feedback'>;dismiss:boolean;acceptCompletion:boolean})=>Promise<FeedbackApplyResult>;
+  feedbackApply:(input:{token:string;decisions:Record<string,'keep'|'feedback'>;dismiss:boolean;acceptCompletion:boolean;acceptLegacy?:boolean})=>Promise<FeedbackApplyResult>;
   feedbackApplyBatch:(input:{tokens:string[];acceptCompletion:boolean})=>Promise<FeedbackBatchResult>;
   feedbackRepair:(input:SyncContext)=>Promise<{count:number}>;
   binding:(input:SyncContext)=>Promise<SyncBinding>;

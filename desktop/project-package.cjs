@@ -434,6 +434,28 @@ function validateProjectScheduleArchive(value) {
     const date = (v) => { if (v === '')
         return true; if (typeof v !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(v))
         return false; const n = Date.parse(v + 'T00:00:00Z'); return Number.isFinite(n) && new Date(n).toISOString().slice(0, 10) === v; };
+    const bounded = (v, max = 200) => typeof v === 'string' && v.length <= max;
+    const ids = (v, max = 2000) => Array.isArray(v) && v.length <= max && v.every(x => bounded(x) && x.trim()) && new Set(v).size === v.length;
+    const permissions = (v) => ids(v, 3) && v.every(x => ['progress', 'review', 'propose'].includes(x));
+    const stamp = (v) => bounded(v, 50) && Number.isFinite(Date.parse(v));
+    if (record(value) && value.personnel !== undefined) {
+        const p = value.personnel;
+        if (!record(p) || p.schema !== 1 || !Array.isArray(p.members) || p.members.length > 200 || !Array.isArray(p.credentials) || p.credentials.length > 1000)
+            return fail();
+        const seen = new Set(), names = new Set();
+        for (const m of p.members) {
+            if (!record(m) || !bounded(m.id) || !m.id.trim() || seen.has(m.id) || !bounded(m.name, 100) || !m.name.trim() || names.has(m.name.trim().toLowerCase()) || !ids(m.roles, 20) || !m.roles.length || !bounded(m.duties, 10000) || typeof m.active !== 'boolean' || !['project', 'assigned'].includes(m.scope) || !permissions(m.permissions) || !stamp(m.createdAt))
+                return fail();
+            seen.add(m.id);
+            names.add(m.name.trim().toLowerCase());
+        }
+        const keys = new Set();
+        for (const c of p.credentials) {
+            if (!record(c) || !bounded(c.id) || !c.id.trim() || keys.has(c.id) || !bounded(c.projectId, 1200) || !c.projectId || !bounded(c.memberId) || !seen.has(c.memberId) || !bounded(c.name, 100) || !c.name.trim() || !bounded(c.publicKey, 200) || !c.publicKey.trim() || !permissions(c.permissions) || !ids(c.taskIds) || !stamp(c.createdAt) || !stamp(c.expiresAt) || c.expiresAt <= c.createdAt || !(c.revokedAt === '' || stamp(c.revokedAt)) || Object.prototype.hasOwnProperty.call(c, 'privateKey'))
+                return fail();
+            keys.add(c.id);
+        }
+    }
     const unique = new Set();
     const id = (v) => { if (typeof v !== 'string' || !v.trim() || unique.has(v))
         return false; unique.add(v); return true; };
@@ -447,6 +469,13 @@ function validateProjectScheduleArchive(value) {
             !['设计', '程序', '美术', '关卡', '测试', '其他'].includes(t.kind) || !['待开始', '进行中', '待验收', '已完成', '受阻'].includes(t.status) || !['低', '普通', '高', '紧急'].includes(t.priority) ||
             !['start', 'end', 'actualStart', 'actualEnd'].every(k => date(t[k])) || (t.start && t.end && t.end < t.start) || (t.actualStart && t.actualEnd && t.actualEnd < t.actualStart) ||
             !Array.isArray(t.dependencyIds) || t.dependencyIds.some(v => typeof v !== 'string' || !v.trim()) || new Set(t.dependencyIds).size !== t.dependencyIds.length || !Array.isArray(t.references))
+            return fail();
+        if (t.assignment !== undefined) {
+            const a = t.assignment;
+            if (!record(a) || !bounded(a.primaryId) || !bounded(a.reviewerId) || !ids(a.collaboratorIds, 200) || a.collaboratorIds.includes(a.primaryId))
+                return fail();
+        }
+        if (t.proposals !== undefined && (!Array.isArray(t.proposals) || t.proposals.length > 1000 || t.proposals.some(p => !record(p) || !bounded(p.id) || !bounded(p.memberId) || !bounded(p.text, 30000) || !stamp(p.at)) || new Set(t.proposals.map(p => p.id)).size !== t.proposals.length))
             return fail();
         const refs = new Set();
         for (const r of t.references) {

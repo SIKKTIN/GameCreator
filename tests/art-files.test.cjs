@@ -175,6 +175,7 @@ test('art IPC accepts only the trusted main frame and imports only native-dialog
     if (name === './project-locations.cjs') return {validateProjectLocation: () => {}};
     if (name === './ai-documents.cjs') return {createAiDocuments: () => ({})};
     if (name === './engine-sync.cjs') return {createEngineSync: () => ({})};
+    if (name === './ai-credentials.cjs') return require('../desktop/ai-credentials.cjs');
     if (name === './legacy-storage.cjs') return {migrateLegacy: () => {}};
     if (name === './collaboration-host.cjs') return require(path.join(__dirname, '../desktop', name));
     if (name === './folder-projects.cjs') return {createFolderProjects: ({legacyStorage}) => ({storage:legacyStorage,assetDirectory:()=>null,folder:()=>null,close:()=>{}})};

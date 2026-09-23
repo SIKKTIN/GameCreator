@@ -1,0 +1,17 @@
+import type {ProjectScheduleStore,ProductionTask} from '../src/project-schedule.ts';
+export type AiPermission='progress'|'review'|'propose';
+export type AiMember={id:string;name:string;roles:string[];duties:string;active:boolean;scope:'project'|'assigned';permissions:AiPermission[];createdAt:string};
+export type AiAssignment={primaryId:string;collaboratorIds:string[];reviewerId:string};
+export type AiCredential={id:string;projectId:string;memberId:string;name:string;publicKey:string;permissions:AiPermission[];taskIds:string[];createdAt:string;expiresAt:string;revokedAt:string};
+export type AiPersonnel={schema:1;members:AiMember[];credentials:AiCredential[]};
+export const aiRoles:string[];
+export const aiPermissionLabels:Record<AiPermission,string>;
+export function nextAiName(members:AiMember[],role:string):string;
+export function newAiMember(members:AiMember[],role?:string):AiMember;
+export function defaultAiTeam():AiPersonnel;
+export function taskAssignment(task:ProductionTask):AiAssignment;
+export function memberTasks(schedule:ProjectScheduleStore,id:string):ProductionTask[];
+export function normalizePersonnelSchedule(schedule:ProjectScheduleStore):ProjectScheduleStore;
+export function suggestAssignments(schedule:ProjectScheduleStore):{taskId:string;memberId:string;reason:string}[];
+export function applyAssignments(schedule:ProjectScheduleStore,assignments:{taskId:string;memberId:string}[]):ProjectScheduleStore;
+export function personnelMarkdown(schedule:ProjectScheduleStore,onlyMemberId?:string):string;

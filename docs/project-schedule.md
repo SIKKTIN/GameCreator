@@ -76,3 +76,8 @@
 团队数据在协作服务器的 `team.sqlite` 中，排期版本、历史和请求回执与其他模块一同备份。客户端草稿按服务器、账号和项目隔离；删除协作项目会清理服务端排期和历史，原本地项目与未提交草稿保留。升级服务器后需重新连接团队。
 
 验收联动与确认：`node --test tests/schedule-acceptance.test.mjs tests/team-schedule.test.cjs`；客户端 `node tests/desktop-schedule-acceptance.cjs`。
+
+
+## AI 人员分配
+
+本地项目可在侧栏“人员分配”维护 AI 成员、多岗位、职责与反馈权限。任务详情可指定主负责人、协作者和验收负责人；与人员模块使用同一份排期存档，改名保留身份与历史。团队服务器账号与 AI 人员配置独立；当前人员模块面向本地项目与外部引擎协作。详见 [AI 人员分配](ai-personnel.md)。

@@ -3,7 +3,7 @@ import { Search, CalendarDays, Map, Layers, Gamepad2, ListTree, Palette, BookOpe
 
 export const workspaceNavigation = [
   ['全局搜索', Search],
-  ['项目概览', Layers], ['项目排期', CalendarDays], ['玩法核心', Workflow], ['玩法设计', Gamepad2], ['原型设计', PanelsTopLeft], ['地图设计', Map], ['任务与流程', GitBranch], ['数值分析', BarChart3], ['功能系统', ListTree], ['开发工具', Wrench], ['素材资产', Palette], ['故事文档', BookOpen], ['故事编排', BookOpen],
+  ['项目概览', Layers], ['项目排期', CalendarDays], ['人员分配', Users], ['玩法核心', Workflow], ['玩法设计', Gamepad2], ['原型设计', PanelsTopLeft], ['地图设计', Map], ['任务与流程', GitBranch], ['数值分析', BarChart3], ['功能系统', ListTree], ['开发工具', Wrench], ['素材资产', Palette], ['故事文档', BookOpen], ['故事编排', BookOpen],
   ['程序框架', FileCode2], ['数据配置', Database], ['数据同步', Workflow], ['枚举定义', Tag], ['枚举管理', Tag], ['引擎设置', Settings2],
 ] as const;
 

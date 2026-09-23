@@ -9,6 +9,7 @@ const { createProjectPackages, safeProjectDirectoryName } = require('./project-p
 const { createCollaborationHost } = require('./collaboration-host.cjs');
 const { createAiDocuments } = require('./ai-documents.cjs');
 const { createFolderProjects } = require('./folder-projects.cjs');
+const {issueAiCredential}=require('./ai-credentials.cjs');
 const { createEngineSync } = require('./engine-sync.cjs');
 
 const root = path.resolve(__dirname, '..');
@@ -40,6 +41,7 @@ else {
         new URL(frame.url).origin === localServer?.url;
     } catch { return false; } // An IPC frame may detach while a native dialog is open.
   };
+  ipcMain.handle('ai-credential-issue',(event,input)=>{if(!trusted(event))throw new Error('不允许签发协作令牌');return issueAiCredential(storage,input);});
   ipcMain.handle('collaboration-host', async (event, operation) => {
     if (!trusted(event)) throw new Error('不允许管理本机服务器');
     if (!['status', 'start', 'stop'].includes(operation)) throw new Error('未知服务器管理操作');

@@ -242,6 +242,7 @@ test('project package IPC accepts only native-selected folders and window-owned 
     if (name === './project-locations.cjs') return {validateProjectLocation() {}};
     if (name === './ai-documents.cjs') return {createAiDocuments: () => ({})};
     if (name === './engine-sync.cjs') return {createEngineSync: () => ({})};
+    if (name === './ai-credentials.cjs') return require('../desktop/ai-credentials.cjs');
     if (name === './legacy-storage.cjs') return {migrateLegacy() {}};
     if (name === './collaboration-host.cjs') return require(path.join(__dirname, '../desktop', name));
     if (name === './folder-projects.cjs') return {createFolderProjects: ({legacyStorage}) => ({storage:legacyStorage,assetDirectory:()=>null,folder:()=>null,close:()=>{}})};
@@ -250,7 +251,7 @@ test('project package IPC accepts only native-selected folders and window-owned 
   vm.runInNewContext(fsSync.readFileSync(path.join(__dirname, '../desktop/main.cjs'), 'utf8') + '\nglobalThis.setPackageWindow = (window, server) => {mainWindow=window;localServer=server;};', context);
   const frame = {url: 'http://127.0.0.1:12345/'}, contents = {mainFrame: frame}, window = {webContents: contents}, server = {url: 'http://127.0.0.1:12345'};
   const trusted = {sender: contents, senderFrame: frame}; context.setPackageWindow(window, server);
-  for (const channel of ['project-package-export', 'project-package-choose-import', 'project-package-restore-assets', 'project-package-release']) {
+  for (const channel of ['project-package-export', 'project-package-choose-import', 'project-package-restore-assets', 'project-package-release', 'ai-credential-issue']) {
     for (const event of [{sender: {}, senderFrame: frame}, {sender: contents, senderFrame: {url: frame.url}}]) await assert.rejects(Promise.resolve().then(() => handlers.get(channel)(event, {})), /不允许/);
   }
   assert.equal(dialogs, 0); assert.deepEqual(calls, []);

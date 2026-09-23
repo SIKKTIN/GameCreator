@@ -1,3 +1,4 @@
+import {personnelMarkdown} from '../shared/ai-personnel.mjs';
 import {configDataPolicyMarkdown,policyExportPath} from '../shared/config-data-policy.mjs';
 import {emptyDevelopmentTools,developmentToolsMarkdown,type DevelopmentToolsStore} from './development-tools.ts';
 import { markdownName, validateDocumentFiles } from '../shared/ai-document-files.mjs';
@@ -39,6 +40,7 @@ export function buildAiDocument(project: ExportProject, stories: ExportStory[], 
   const functionalSources = { designs: gameplay, data, definitions };
   const artSources = { designs: gameplay, functional };
   add('schedule',projectScheduleMarkdown(schedule,buildScheduleSources(gameplay,functional,art,maps,prototype,tools)),!schedule.tasks.length&&!schedule.milestones.length);
+  add('personnel',personnelMarkdown(schedule));
   add('core',gameplayCoreMarkdown(core,gameplay),!core.graphs.length);
   add('prototype',prototypeMarkdown(prototype),!prototype.scenes.length);
   add('gameplay',gameplayMarkdown(gameplay,{stories,datasets:definitions},d=>gameplayFunctionalMarkdown(d.id,functional,functionalSources)+'\n'+artReferencesMarkdown('gameplay',d.id,art,artSources),categories),!gameplay.length);
@@ -61,7 +63,7 @@ export function buildAiDocument(project: ExportProject, stories: ExportStory[], 
 }
 
 export const aiModules = [
-  {id:'overview',label:'项目概览'}, {id:'schedule',label:'项目排期'}, {id:'core',label:'玩法核心'},
+  {id:'overview',label:'项目概览'}, {id:'schedule',label:'项目排期'}, {id:'personnel',label:'人员分配'}, {id:'core',label:'玩法核心'},
   {id:'gameplay',label:'玩法设计'}, {id:'prototype',label:'原型设计'}, {id:'maps',label:'地图设计'},
   {id:'functional',label:'功能系统'}, {id:'development-tools',label:'开发工具'}, {id:'framework',label:'程序框架'}, {id:'art',label:'素材资产'}, {id:'stories',label:'故事文档'},
   {id:'narrative',label:'故事编排'}, {id:'data',label:'数据配置'}, {id:'enum-definitions',label:'枚举定义'},
