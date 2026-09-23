@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { workspaceStorage } from './workspace-storage';
+import {invalidateMilestoneAcceptance} from './schedule-acceptance';
 import { emptyProjectSchedule, readProjectSchedule, validateProjectSchedule, writeProjectSchedule, type ProjectScheduleStore } from './project-schedule';
 
 // WorkspaceApp remounts by project ID. Failed writes retain the current draft.
@@ -25,7 +26,7 @@ export function useProjectSchedule(workspaceId: string, legacyDefaults: unknown[
   const update = (operation: (current: ProjectScheduleStore) => ProjectScheduleStore) => {
     if (loadError) return false;
     let next: ProjectScheduleStore;
-    try { next = validateProjectSchedule(operation(structuredClone(latest.current))); }
+    try { next = validateProjectSchedule(invalidateMilestoneAcceptance(latest.current,operation(structuredClone(latest.current)))); }
     catch (error) { setOperationError('项目排期更改未应用：' + String(error)); return false; }
     latest.current = next; setStore(next); setOperationError('');
     return persist(next);
@@ -45,7 +46,8 @@ export function useProjectSchedule(workspaceId: string, legacyDefaults: unknown[
     window.addEventListener('beforeunload', warn);
     return () => window.removeEventListener('beforeunload', warn);
   }, [pending]);
-  return { store, update, retry: () => persist(latest.current), reload, reloadIfClean:()=>!unsaved.current&&reload(), blocked: !!loadError, pending,
+  const isCurrent=()=>!loadError&&!unsaved.current&&workspaceStorage.getItem(key)===committed.current&&(committed.current!==null||workspaceStorage.getItem(legacyKey)===legacyRaw.current);
+  return { store, update, retry: () => persist(latest.current), reload, reloadIfClean:()=>!unsaved.current&&reload(), isCurrent, blocked: !!loadError, pending,
     error: loadError ? '项目排期存档读取失败，已停止写入：' + loadError : [saveError, operationError].filter(Boolean).join('；') };
 }
-export type ProjectScheduleController = Omit<ReturnType<typeof useProjectSchedule>,'reloadIfClean'>;
+export type ProjectScheduleController = Omit<ReturnType<typeof useProjectSchedule>,'reloadIfClean'|'isCurrent'>;

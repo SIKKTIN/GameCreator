@@ -17,11 +17,12 @@ export function validateDevelopmentTools(value) {
       !developmentToolKinds.includes(t.kind) || !developmentToolStatuses.includes(t.status) || !developmentToolPriorities.includes(t.priority) || typeof t.archived !== 'boolean' ||
       !Array.isArray(t.capabilityIds) || t.capabilityIds.some(id => typeof id !== 'string' || !id.trim() || id.length > 200) || new Set(t.capabilityIds).size !== t.capabilityIds.length) return fail();
     ids.add(t.id);
+    if(t.scheduleAcceptance!==undefined&&(!record(t.scheduleAcceptance)||!Array.isArray(t.scheduleAcceptance.taskIds)||!t.scheduleAcceptance.taskIds.length||t.scheduleAcceptance.taskIds.some(id=>typeof id!=='string'||!id.trim()||id.length>200)||new Set(t.scheduleAcceptance.taskIds).size!==t.scheduleAcceptance.taskIds.length))return fail();
   }
   return value;
 }
 export function developmentToolsMarkdown(store) {
-  const lines = ['## 开发工具', '', '> 面向制作人员的工具需求与交付记录。工具可用状态和制作任务完成状态分别维护。', ''];
+  const lines = ['## 开发工具', '', '> 面向制作人员的工具需求与交付记录。关联制作任务全部完成后同步为可使用；停用和归档工具保持原状态。', ''];
   for (const t of store.tools) {
     lines.push('### ' + (t.name || '未命名工具'), '- ID：' + t.id, '- 分类：' + t.kind + '；状态：' + t.status + '；优先级：' + t.priority + '；归档：' + (t.archived ? '是' : '否'), '- 负责人：' + (t.owner || '未分配'), '- 使用人员：' + (t.audience || '待填写'));
     for (const [key, label] of [['purpose', '用途'], ['scope', '功能范围'], ['environment', '运行环境与兼容性'], ['inputs', '输入'], ['outputs', '输出'], ['acceptance', '验收标准'], ['usage', '使用说明'], ['delivery', '交付位置与版本']]) lines.push('#### ' + label, t[key] || '待补充', '');

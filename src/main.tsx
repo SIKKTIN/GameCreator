@@ -2,6 +2,7 @@ import {datasetReferences,removeDataset} from './dataset-deletion';
 import { DevelopmentTools } from './DevelopmentTools';
 import {DataSyncPanel,useAutomaticDataExport} from './DataSyncPanel';
 import { useDevelopmentTools } from './useDevelopmentTools';
+import {useScheduleAcceptanceSync} from './useScheduleAcceptanceSync';
 import { supplementDevelopmentPlan, validateDevelopmentTools } from './development-tools';
 import { validateProjectSchedule } from './project-schedule';
 import pvzDevelopmentPlan from '../examples/development-tools/plants-vs-zombies.json';
@@ -412,6 +413,7 @@ function WorkspaceApp({ username, testSession, onLoadTest, onExitTest, preparing
   const narrative = useStoryOrchestration(dataKey);
   const framework = useProgramFramework(dataKey);
   const developmentTools = useDevelopmentTools(dataKey);
+  const acceptanceSyncError=useScheduleAcceptanceSync(schedule,developmentTools);
   const [requestedTool, setRequestedTool] = useState<{id:string}>();
   const maps = useMapDesign(dataKey, gameplay.store.designs);
   const [requestedPrototype,setRequestedPrototype] = useState('');
@@ -598,6 +600,7 @@ function WorkspaceApp({ username, testSession, onLoadTest, onExitTest, preparing
         }}/>}
         {active === '工作区设置' && <><StoryModuleSettings controller={narrative} onOpen={()=>setActive('故事编排')}/><MapModuleSettings controller={maps} onOpen={()=>setActive('地图设计')}/></>}
         {framework.error && active !== '程序框架' && <div className="gp-save-error" role="alert"><span>{framework.error}</span><button onClick={()=>setActive('程序框架')}>处理程序框架存档</button></div>}
+        {acceptanceSyncError&&<div className="gp-save-error" role="alert"><span>{acceptanceSyncError}</span><button disabled={schedule.pending||developmentTools.pending} onClick={()=>{schedule.reloadIfClean();developmentTools.reloadIfClean();}}>重新读取验收关联</button></div>}
         {developmentTools.error && active !== '开发工具' && <div className="gp-save-error" role="alert"><span>{developmentTools.error}</span><button onClick={()=>setActive('开发工具')}>处理开发工具存档</button></div>}
         {active === '开发工具' && <DevelopmentTools controller={developmentTools} schedule={schedule} functional={functional.store} referencesBlocked={functional.blocked||functional.pending} requested={requestedTool}
           onOpenCapability={openCapability} onOpenTask={id=>{setRequestedSchedule({kind:'task',id});setActive('项目排期');}}

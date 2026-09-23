@@ -102,7 +102,7 @@ export function EngineFeedbackPanel({projectId,config,collaboration,blockedReaso
         {entry.designChanged&&<p className="es-notice">目标的其他字段在导出后也有变化，请结合最新需求核对本次反馈。</p>}
         <div className="ef-diff">{entry.rows.map(r=><section className="ef-field" key={r.field}><header><b>{r.label}</b><span className={'es-state '+r.state}>{r.state==='conflict'?'双方均有修改':r.state==='unchanged'?'当前值已一致':'可更新'}</span></header><div className="ef-values"><div><small>导出时</small><p>{r.base||'（空）'}</p></div><div><small>GameCreator 当前</small><p>{r.current||'（空）'}</p></div><div><small>开发反馈</small><p>{r.incoming||'（空）'}</p></div></div>{r.state!=='unchanged'&&<label>处理方式<select aria-label={'反馈处理 '+r.label} disabled={busy} value={decisions[r.field]||(r.state==='conflict'?'':'feedback')} onChange={e=>setDecisions(d=>({...d,[r.field]:e.target.value as 'keep'|'feedback'}))}>{r.state==='conflict'&&<option value="">请选择</option>}<option value="feedback">采用反馈值</option><option value="keep">保留当前值</option></select></label>}</section>)}</div>
         {completing&&<label className="es-checkbox ef-confirm"><input type="checkbox" checked={confirmed} onChange={e=>setConfirmed(e.target.checked)} disabled={busy}/>已核实交付与验收情况，接收“已完成 / 可使用”状态</label>}
-        <p className="ef-hint">只处理上方字段；任务、工具和里程碑的状态分别维护。</p>
+        <p className="ef-hint">应用上方字段后，已完成的关联任务会同步工具验收；里程碑仍需在项目排期确认。</p>
         <div className="es-footer"><button className="gp-secondary" disabled={busy||!!blocked||!entry.token} onClick={()=>void apply(true)}>忽略本条反馈</button><button className="primary" disabled={busy||!!blocked||!entry.token||unresolved||!!completing&&!confirmed} onClick={()=>void apply(false)}><ArrowDownToLine size={16}/>应用反馈</button></div>
       </>}</article>
     </div>}

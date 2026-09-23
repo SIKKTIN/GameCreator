@@ -1,3 +1,4 @@
+import {invalidateMilestoneAcceptance} from './schedule-acceptance';
 import {usePublishSearch} from './GlobalSearch';
 import {useEffect,useRef,useState} from 'react';
 import {beforeLogoutEvent} from './auth';
@@ -48,7 +49,7 @@ export function TeamProjectSchedule({session,projectId,blocked,designs=[],onOpen
     finally{savingRef.current=false;++generation.current;if(alive.current)setSaving(false);}
   };
   usePublishSearch('schedule',response?.store,'schedule',syncError||(!loaded?'项目排期正在加载':''),!blocked&&loaded&&!!response);
-  const controller:ProjectScheduleController={store:draft.store,pending:dirty,blocked:readOnly||saving||!!initial.error,error:'',reload:()=>false,retry:()=>persist(current.current),update:operation=>{if(readOnly||savingRef.current||initial.error)return false;try{const next=validateProjectSchedule(operation(structuredClone(current.current.store)));change({...current.current,store:next});setError('');return true;}catch(e){setError((e as Error).message);return false;}}};
+  const controller:ProjectScheduleController={store:draft.store,pending:dirty,blocked:readOnly||saving||!!initial.error,error:'',reload:()=>false,retry:()=>persist(current.current),update:operation=>{if(readOnly||savingRef.current||initial.error)return false;try{const next=validateProjectSchedule(invalidateMilestoneAcceptance(current.current.store,operation(structuredClone(current.current.store))));change({...current.current,store:next});setError('');return true;}catch(e){setError((e as Error).message);return false;}}};
   const sources:ScheduleSources={gameplay:designs.map(d=>({id:d.id,name:d.title,status:d.status,unavailable:d.archived})),capability:[],tool:[],requirement:[],asset:[],map:[],prototype:[]};
   for(const r of draft.base.references)if(!sources[r.kind].some(s=>s.id===r.targetId))sources[r.kind].push({id:r.targetId,name:r.name,unavailable:true,status:r.kind==='gameplay'?'团队来源已删除':'来源模块尚未接入协作'});
   const exportDraft=()=>{const url=URL.createObjectURL(new Blob([JSON.stringify(current.current,null,2)],{type:'application/json'})),link=document.createElement('a');link.href=url;link.download='project-schedule-team-draft.json';link.click();window.setTimeout(()=>URL.revokeObjectURL(url),1000);};

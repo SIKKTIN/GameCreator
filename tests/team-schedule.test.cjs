@@ -17,6 +17,15 @@ async function fixture(run){
   const restart=async edit=>{await service.close();if(edit)dbop(edit);service=await createCollaborationServer({directory,port:0});};
   try{await run({req,admin,alice,bob,viewer,read,save,seed,grant,login,restart,dbop,get service(){return service;}});}finally{await service.close();assert.ok(path.resolve(directory).startsWith(path.resolve(prefix)));fs.rmSync(directory,{recursive:true,force:true});}
 }
+test('milestone confirmation rechecks current tasks and reopening invalidates review atomically',()=>fixture(async({seed,admin,viewer,read,save,req})=>{
+ let base=await seed(),next=structuredClone(base.store);next.milestones[0].status='已验收';next.milestones[0].review='不能提前验收';assert.equal((await save(admin,body(base,next))).status,409);
+ next=structuredClone(base.store);next.tasks.forEach(t=>t.status='已完成');assert.equal((await save(admin,body(base,next))).status,200);base=await read();
+ next=structuredClone(base.store);next.milestones[0].status='已验收';next.milestones[0].review='人工核验通过';assert.equal((await save(viewer,body(base,next))).status,403);assert.equal((await save(admin,body(base,next))).status,200);base=await read();
+ next=structuredClone(base.store);next.tasks[0].status='进行中';assert.equal((await save(admin,body(base,next))).status,200);const reopened=await read();assert.equal(reopened.store.milestones[0].status,'进行中');assert.equal(reopened.store.milestones[0].review,'人工核验通过');assert.equal(reopened.versions.mile,base.versions.mile+1);
+ assert.equal((await req('/projects/team-demo/overview',admin)).data.milestones[0].fields.status,'active');
+ next=structuredClone(base.store);next.milestones[0].review='迟到的重复签收';assert.equal((await save(admin,body(base,next))).status,409);
+}));
+
 test('schedule defaults to view; grants are per-project and legacy permission updates retain them',()=>fixture(async({req,admin,alice,bob,viewer,read,save,grant,seed,restart,login})=>{
   const base=await seed();for(const token of [alice,bob,viewer]){assert.equal((await read(token)).capabilities.schedule,'view');assert.equal((await save(token,{...body(base,base.store),role:'admin',capabilities:{schedule:'edit'}})).status,403);}
   assert.equal((await grant()).status,200);assert.equal((await read(bob)).capabilities.schedule,'edit');

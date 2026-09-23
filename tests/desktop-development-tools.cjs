@@ -37,7 +37,7 @@ const root = path.resolve(__dirname, '..');
     await button('删除').click(); await page.getByRole('status').filter({ hasText: '工具仍有关联排期' }).waitFor(); assert.equal(read().tools.length, 3);
     await create('资源校验助手'); await field('工具负责人').fill('工具程序'); await field('用途与目标').fill('统一检查资源命名'); await tab('交付与验收').click(); await field('验收标准').fill('异常资源可定位并导出问题清单'); await tab('开发排期').click(); await button('添加制作任务').click();
     assert.equal(await detail.getByLabel('制作任务名称', { exact: true }).inputValue(), '开发：资源校验助手'); assert.equal(await detail.getByLabel('任务负责人', { exact: true }).inputValue(), '工具程序'); await detail.getByLabel('制作状态', { exact: true }).selectOption('已完成');
-    await detail.getByRole('button').filter({ hasText: '开发工具 / 资源校验助手' }).click(); assert.equal(await field('工具状态').inputValue(), '待开发');
+    await detail.getByRole('button').filter({ hasText: '开发工具 / 资源校验助手' }).click(); assert.equal(await field('工具状态').inputValue(), '可使用');
     await button('归档').click(); await field('开发工具显示范围').selectOption('archived'); await button('选择开发工具：资源校验助手').click(); await button('恢复').click(); await field('开发工具显示范围').selectOption('active');
     await create('可删除的临时工具'); await button('选择开发工具：可删除的临时工具').click({ button: 'right' }); await page.getByRole('menuitem', { name: '删除工具', exact: true }).click(); assert.ok(!read().tools.some(t => t.name === '可删除的临时工具'));
     await page.keyboard.press('Control+k'); await field('搜索当前项目').fill('资源校验助手'); await button('打开搜索结果：资源校验助手').click(); assert.equal(await field('工具名称').inputValue(), '资源校验助手'); await page.getByRole('button', { name: /返回搜索结果/ }).click(); assert.equal(await field('搜索当前项目').inputValue(), '资源校验助手');
@@ -49,7 +49,7 @@ const root = path.resolve(__dirname, '..');
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1100, 900)); assert.ok(await page.locator('.dt-page').evaluate(e => e.scrollWidth <= e.clientWidth + 2)); await page.screenshot({ path: path.join(root, '.gamecreator/qa/development-tools-narrow.png') });
     const final = storage.getItem(key); await app.close(); app = null; await launch(); await button('选择开发工具：资源校验助手').click(); assert.equal(await field('工具负责人').inputValue(), '保留失败草稿'); assert.equal(storage.getItem(key), final);
     await page.locator('.ps-trigger').click(); await page.getByRole('menuitemradio', { name: /其他空白项目/ }).click(); await button('开发工具').click(); assert.equal(await page.locator('.dt-card').count(), 0); assert.equal(storage.getItem('gamecreator.workspace.v1:' + second.id + ':development-tools'), null); assert.equal(storage.getItem(key), final); assert.deepEqual(errors, []);
-    console.log('PASS development tools: sidebar order, safe/idempotent old-project supplement, editable requirements, schedule creation/navigation, separate statuses, archive/restore/context deletion, search return, failed-save recovery, restart and project isolation.');
+    console.log('PASS development tools: sidebar order, safe/idempotent old-project supplement, editable requirements, schedule creation/navigation, linked acceptance, archive/restore/context deletion, search return, failed-save recovery, restart and project isolation.');
   } catch (error) { if (page && !page.isClosed()) console.error((await page.locator('body').innerText()).slice(-6500)); throw error; }
   finally { if (app) await app.close(); assert.equal(path.dirname(dir), path.resolve(os.tmpdir())); await fs.rm(dir, { recursive: true, force: true }); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

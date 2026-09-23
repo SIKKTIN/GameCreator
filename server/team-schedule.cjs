@@ -1,5 +1,6 @@
 const {createHash,randomUUID}=require('node:crypto');
 const {emptyScheduleSnapshot,normalizeSchedulePublication,scheduleRecords,sameScheduleRecord,applyScheduleChanges,scheduleStructureErrors,legacyScheduleMilestone,overviewScheduleMilestone}=require('../src/team-schedule-model.ts');
+const {milestoneAcceptance,invalidateMilestoneAcceptance}=require('../src/schedule-acceptance.ts');
 
 function createScheduleStore(db,{fail,overview,gameplay}) {
   db.exec(`CREATE TABLE IF NOT EXISTS schedule_projects(project_id TEXT PRIMARY KEY REFERENCES projects(id),refs TEXT NOT NULL);
@@ -52,13 +53,20 @@ function createScheduleStore(db,{fail,overview,gameplay}) {
     for(const c of changes){const old=db.prepare('SELECT kind FROM schedule_records WHERE project_id=? AND id=?').get(project,c.id);if(old&&old.kind!==c.kind||current.store.milestones.some(m=>m.id===c.id)&&c.kind!=='milestone')fail(400,'不能更改排期记录类型');}
     let candidate;try{candidate=applyScheduleChanges(current.store,changes);}catch(e){fail(400,e.message);}
     candidate=normalize({store:candidate,references:current.references}).store;
+    for(const milestone of candidate.milestones) {
+      const state=milestoneAcceptance(candidate,milestone.id);
+      if(milestone.status==='已验收'&&current.store.milestones.find(m=>m.id===milestone.id)?.status!=='已验收'&&state.total&&!state.ready)conflict('里程碑任务尚未全部完成，请重新核对验收');
+    }
+    candidate=invalidateMilestoneAcceptance(current.store,candidate);
     const oldErrors=new Set(scheduleStructureErrors(current.store));
     if(scheduleStructureErrors(candidate).some(e=>!oldErrors.has(e)))conflict('前置任务或里程碑已变化，请核对依赖和删除范围');
     const oldRefs=new Set(current.store.tasks.flatMap(t=>t.references.map(r=>t.id+':'+r.kind+':'+r.targetId))),designs=new Set(gameplay.read(project).store.designs.filter(d=>!d.archived).map(d=>d.id));
     for(const t of candidate.tasks)for(const r of t.references)if(!oldRefs.has(t.id+':'+r.kind+':'+r.targetId)&&(r.kind!=='gameplay'||!designs.has(r.targetId)))fail(400,'新增排期关联只能选择当前团队中可用的玩法文档');
     const before=new Map(scheduleRecords(current.store).map(r=>[r.id,r])),after=new Map(scheduleRecords(candidate).map(r=>[r.id,r]));
-    const effective=changes.filter(c=>!sameScheduleRecord(before.get(c.id),after.get(c.id)));
-    if(effective.length){adopt(project,current,user);for(const c of effective)write(project,c.kind,c.id,after.get(c.id)??null,c.revision+1,user);overview.activity(project,user,'更新了项目排期：'+effective.length+' 项');}
+    const effective=[...changes];
+    for(const m of candidate.milestones)if(!effective.some(c=>c.id===m.id)&&!sameScheduleRecord(before.get(m.id),m))effective.push({id:m.id,kind:'milestone',revision:current.versions[m.id]??0});
+    const changed=effective.filter(c=>!sameScheduleRecord(before.get(c.id),after.get(c.id)));
+    if(changed.length){adopt(project,current,user);for(const c of changed)write(project,c.kind,c.id,after.get(c.id)??null,c.revision+1,user);overview.activity(project,user,'更新了项目排期：'+changed.length+' 项');}
     db.prepare('INSERT INTO schedule_operations VALUES(?,?,?,?)').run(project,user,input.requestId,signature);return read(project);
   };
   const updateLegacyMilestone=(project,id,input,user)=>{
