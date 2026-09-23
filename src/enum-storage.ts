@@ -1,3 +1,4 @@
+import {validateDataReleases} from '../shared/data-releases.mjs';
 import {validateEngineScanMetadata} from '../shared/engine-config.mjs';
 import {validateDataSync} from '../shared/data-sync.mjs';
 import { emptyStore, type VersionStore } from './enum-versions.ts';
@@ -46,6 +47,7 @@ export function readVersions(storage: StorageLike, key: string, initial: Project
   }
   value.snapshots.forEach(snapshot=>validateEngineScanMetadata(snapshot.scan));
   validateDataSync(value);
+  validateDataReleases(value);
   return value;
 }
 

@@ -1,3 +1,4 @@
+import {restoreDataRelease} from '../shared/data-releases.mjs';
 import {sameEngineSource,engineSourceKey} from '../shared/engine-config.mjs';
 import { logDebug } from './debug-log';
 import { workspaceStorage } from './workspace-storage';
@@ -127,6 +128,7 @@ export function useEnumRegistry(config: EngineConfig, initial: ProjectData, user
     busy: actionState.key === key && actionState.busy,
     error: (actionState.key === key ? actionState.error : '') || (scanState.key === sourceKey ? scanState.error : '') || loaded.error,
     refresh, publish,
+    restoreDataRelease: (id:string) => mutate(current => restoreDataRelease(current,id), '恢复配置版本到开发版'),
     reload: () => {
       if(actionState.busy||scanState.loading)return false;
       try { const next=upgradeApprovalReview(readVersions(workspaceStorage,key,initial));latest.current={key,store:next};setFrame({key,store:next});setActionState({key,busy:false,error:''});return true; }

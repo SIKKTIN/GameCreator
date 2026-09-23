@@ -120,3 +120,10 @@
 .data-sync input.ds-batch-checkbox{display:inline-block;vertical-align:middle;flex:0 0 15px;width:15px;height:15px;margin:0 9px 0 0;padding:0;accent-color:#a88cda;cursor:pointer}
 .ds-batch-row{display:flex;align-items:center;gap:0}
 .ds-batch-tools>.ds-delete-confirm{flex-basis:100%;margin:0}
+
+.ds-version-bar{margin-bottom:18px}.ds-version-bar .ds-tabs button:last-child{margin-left:auto}
+.ds-version-diff{margin:16px 0;padding:16px 20px;border:1px solid #40364c;border-radius:10px;color:#b8a7d0;background:#1b1724}
+.ds-version-diff p{font-size:13px;overflow-wrap:anywhere}.ds-version-diff small{display:block;margin-top:6px}
+.ds-stable{padding:24px;border:1px solid #40364c;border-radius:14px;background:#1b1724;min-width:0}
+.ds-stable .ds-table-scroll{margin-top:20px}.ds-stable pre{white-space:pre-wrap;overflow-wrap:anywhere}
+.ds-settings>label+label{margin-top:16px}
