@@ -23,19 +23,31 @@ const root=path.resolve(__dirname,'..');
   async function editManifest(value){await button('数据配置').click();await page.getByRole('button',{name:/manifest，/}).click();const row=page.locator('.json-object-field').filter({has:page.locator('code').filter({hasText:/^spawn_count$/})});await row.getByRole('button',{name:'编辑值',exact:true}).click();await field('编辑 spawn_count').fill(value);await row.getByRole('button',{name:'保存字段',exact:true}).click();}
   try {
     await launch();assert.equal(await field('数据配置子目录').inputValue(),'data/generated');await preview();assert.equal(await page.locator('.ds-file').count(),2);await button('应用导入（2）').click();await page.getByText(/导入完成，已保存/).waitFor();assert.deepEqual(Object.keys((await read()).data.datasets),['manifest','pvz_plants']);
-    await editManifest('17');await button('数据同步').click();await tab('导出').click();await preview();await button('应用导出（2）').click();await page.getByText(/导出完成，已保存/).waitFor();assert.equal(JSON.parse(await fs.readFile(path.join(engine,'data/generated/manifest.json'),'utf8')).spawn_count,17);assert.deepEqual(JSON.parse(await fs.readFile(path.join(engine,'data/generated/pvz_plants.json'),'utf8')),json);
+    await editManifest('17');await button('数据同步').click();await tab('同步配置').click();await preview();await button('应用同步（2）').click();await page.getByText(/同步配置完成，已保存/).waitFor();assert.equal(JSON.parse(await fs.readFile(path.join(engine,'data/generated/manifest.json'),'utf8')).spawn_count,17);assert.deepEqual(JSON.parse(await fs.readFile(path.join(engine,'data/generated/pvz_plants.json'),'utf8')),json);
+    // Field guide is not a runtime table; publishing captures an immutable data version.
+    await tab('开发字段说明').click();await button('导出开发版字段说明').click();await page.getByText(/已导出 2 张表的字段说明/).waitFor();
+    assert.equal(JSON.parse(await fs.readFile(path.join(engine,'data/generated/_gamecreator/development-schema.json'),'utf8')).tables.pvz_plants.contract.record.properties.cost.type,'number');
+    await tab('发布稳定版').click();await button('检查发布条件').click();await page.locator('.ds-file').first().waitFor();
+    await field('配置发布版本号').fill('0.1.0');await field('配置发布说明').fill('已验证原型配置运行');assert.equal(await button('发布为稳定版').isDisabled(),true);
+    await field('我已在引擎中验证当前开发版运行正常').check();await button('发布为稳定版').click();await page.getByText('稳定版 0.1.0 已发布，历史快照已保存。',{exact:true}).waitFor();
+    await button('数据配置').click();await page.getByRole('tab',{name:/^稳定版/}).click();await field('稳定版配置表').selectOption('manifest');
+    assert.equal(await page.locator('.ds-stable input,.ds-stable textarea').count(),0);assert.ok((await page.getByRole('region',{name:'稳定版配置',exact:true}).innerText()).includes('17'));
+    await fs.mkdir(path.join(root,'.gamecreator/qa'),{recursive:true});await page.screenshot({path:path.join(root,'.gamecreator/qa/data-stable-version.png')});
+    await tab('开发版').click();
     // Both sides change the same typed field; no write is allowed until a choice is made.
     await editManifest('18');await fs.writeFile(path.join(engine,'data/generated/manifest.json'),JSON.stringify({...manifest,spawn_count:19}));await button('数据同步').click();await preview();await field('同步 manifest').check();assert.equal(await button('应用导入（2）').isDisabled(),true);await button('manifest 对象配置 spawn_count GameCreator 差异详情').click();await field('manifest value/spawn_count 采用值').selectOption('remote');await button('应用导入（2）').click();await page.getByText(/导入完成，已保存/).waitFor();assert.equal((await read()).data.datasets.manifest.find(r=>r.id==='spawn_count').value,'19');
     // Auto export runs while the editor is open, without navigating back to sync.
-    await field('保存配置后自动导出已绑定文件').check();await button('保存同步设置').click();await page.getByText('数据同步设置已保存。',{exact:true}).waitFor();await editManifest('20');await page.getByText(/已自动导出 1 个配置文件/).waitFor();assert.equal(JSON.parse(await fs.readFile(path.join(engine,'data/generated/manifest.json'),'utf8')).spawn_count,20);
+    await field('保存配置后自动同步已绑定文件').check();await button('保存同步设置').click();await page.getByText('数据同步设置已保存。',{exact:true}).waitFor();await editManifest('20');await page.getByText(/已自动同步 1 个配置文件/).waitFor();assert.equal(JSON.parse(await fs.readFile(path.join(engine,'data/generated/manifest.json'),'utf8')).spawn_count,20);
     await button('数据同步').click();await preview();await fs.mkdir(path.join(root,'.gamecreator/qa'),{recursive:true});await page.locator('.ds-tabs').scrollIntoViewIfNeeded();await page.screenshot({path:path.join(root,'.gamecreator/qa/data-sync.png')});
     await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setContentSize(1100,900));assert.equal(await page.locator('.data-sync').evaluate(n=>n.scrollWidth>n.clientWidth+2),false);await page.screenshot({path:path.join(root,'.gamecreator/qa/data-sync-narrow.png')});
-    await app.close();app=null;await launch();assert.equal((await read()).data.datasets.manifest.find(r=>r.id==='spawn_count').value,'20');assert.ok((await read()).dataSync.history.length>=4);await button('数据配置').click();await page.getByRole('button',{name:/manifest，/}).click();await page.getByLabel('对象配置编辑器').waitFor();await page.screenshot({path:path.join(root,'.gamecreator/qa/data-sync-object.png')});assert.deepEqual(errors,[]);
+    await app.close();app=null;await launch();assert.equal((await read()).data.datasets.manifest.find(r=>r.id==='spawn_count').value,'20');assert.equal((await read()).dataReleases.releases[0].data.datasets.manifest.find(r=>r.id==='spawn_count').value,'17');assert.ok((await read()).dataSync.history.length>=4);await button('数据配置').click();await page.getByRole('button',{name:/manifest，/}).click();await page.getByLabel('对象配置编辑器').waitFor();await page.screenshot({path:path.join(root,'.gamecreator/qa/data-sync-object.png')});assert.deepEqual(errors,[]);
     // The schema review groups a missing column once, while the grid only shows
     // values for matching keys. Batch and custom decisions still persist exactly.
     await button('数据同步').click();
     const changed={...json,rows:json.rows.map(({cost,...row},i)=>({...row,price:cost,hp:400+i*100,name:i?row.name:'向日葵 · 新'}))};
     await fs.writeFile(path.join(engine,'data/generated/pvz_plants.json'),JSON.stringify(changed));await preview();
+    await tab('同步配置').click();await preview();await page.locator('.ds-file').filter({has:field('同步 pvz_plants')}).getByRole('alert').filter({hasText:'字段不符'}).waitFor();assert.equal(await field('同步 pvz_plants').isDisabled(),true);
+    await tab('从引擎导入').click();await preview();
     const card=page.locator('.ds-file').filter({has:field('同步 pvz_plants')});
     const structure=page.getByRole('table',{name:'pvz_plants 字段结构差异',exact:true}),grid=page.getByRole('table',{name:'pvz_plants 同名字段值差异',exact:true});
     assert.equal(await structure.locator('tbody tr').count(),2);assert.equal(await grid.locator('tbody tr').count(),4);
@@ -85,7 +97,7 @@ const root=path.resolve(__dirname,'..');
     await recordBatch.scrollIntoViewIfNeeded();await page.screenshot({path:path.join(root,'.gamecreator/qa/data-sync-batch-records.png')});
     await button('应用导入（2）').click();await page.getByText(/导入完成，已保存/).waitFor();
     const ids=(await read()).data.datasets.pvz_plants.map(r=>r.id);assert.ok(ids.includes('peashooter'));assert.ok(ids.includes('new_c'));assert.ok(!ids.includes('new_a'));assert.ok(!ids.includes('new_b'));assert.deepEqual(errors,[]);
-    console.log('PASS desktop data sync: import/export, conflicts, automatic export, restart, header alignment, grouped missing fields, value matrix, batch/custom decisions, deletion confirmation and narrow layout.');
+    console.log('PASS desktop data sync: import, schema guide, structure gates, immutable stable publication, automatic sync, restart, header alignment, grouped missing fields, value matrix, batch/custom decisions, deletion confirmation and narrow layout.');
   }catch(e){if(page&&!page.isClosed())console.error((await page.locator('body').innerText()).slice(-8000));console.error(errors);throw e;}
-  finally{if(app)await app.close();assert.equal(path.dirname(dir),path.resolve(os.tmpdir()));assert.ok(path.basename(dir).startsWith('gc-data-ui-'));await fs.rm(dir,{recursive:true,force:true});}
+  finally{if(app)await app.close();assert.equal(path.dirname(dir),path.resolve(os.tmpdir()));assert.ok(path.basename(dir).startsWith('gc-data-ui-'));await fs.rm(dir,{recursive:true,force:true,maxRetries:10,retryDelay:200});}
 })().catch(e=>{console.error(e);process.exitCode=1;});

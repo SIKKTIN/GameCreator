@@ -278,3 +278,15 @@ test('pending or corrupt default-table migrations cannot export a partially chan
     assert.deepEqual(source.storage.writes, []);
   }
 });
+
+
+test('stable configuration snapshots travel with the project and are not replaced by development data',()=>{
+  const {storage,project,catalog:current}=projectStorage();
+  updateArchive(storage,project,'enum-versions',store=>{
+    const snapshot={id:'config-release-test',at:'2026-09-23T00:00:00.000Z',version:'0.1.0',note:'验证通过',data:structuredClone(store.data),scan:null,connection:config};
+    store.dataReleases={schema:1,activeId:snapshot.id,releases:[snapshot]};
+    store.data.datasets={};store.data.columns={};delete store.data.jsonFormats;
+  });
+  const snapshot=captureProjectPackage(storage,project),imported=prepareProjectPackageImport(current,snapshot.document,'携带稳定版');writeProjectPackageImport(storage,imported);
+  const restored=JSON.parse(storage.getItem(key(imported.project.id,'enum-versions')));assert.deepEqual(restored.data.datasets,{});assert.ok(Object.keys(restored.dataReleases.releases[0].data.datasets).length>0);assert.equal(restored.dataReleases.releases[0].version,'0.1.0');
+});
