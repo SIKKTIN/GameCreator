@@ -21,8 +21,8 @@ const docFor=store=>buildAiDocument({name:'程序项目',genre:'',platform:'',ve
 
 test('bundled library is deterministic, complete and has portable internal links',()=>{
   execFileSync(process.execPath,['scripts/build-framework-library.mjs','--check'],{cwd:new URL('../',import.meta.url)});
-  assert.equal(frameworkLibrary.documents.length,18);
-  assert.equal(new Set(frameworkLibrary.documents.map(d=>d.id)).size,18);
+  assert.equal(frameworkLibrary.documents.length,19);
+  assert.equal(new Set(frameworkLibrary.documents.map(d=>d.id)).size,19);
   for(const d of frameworkLibrary.documents){
     assert.ok(d.content.startsWith('# '));assert.ok(!d.content.includes('E:/Project'));
     for(const [,href] of d.content.matchAll(/\]\(([^)\s]+)\)/g))if(!/^https?:/.test(href))assert.ok(resolveFrameworkLink(d.path,href),d.path+' -> '+href);
@@ -90,7 +90,7 @@ test('full AI, module Markdown and engine sync share adopted content without bro
 
 test('global search targets both project-specific notes and the bundled document reader',()=>{
   const entries=buildSearchIndex({framework:selected()});
-  assert.equal(entries.length,19);
+  assert.equal(entries.length,frameworkLibrary.documents.length+1);
   const settings=searchEntries(entries,'Planting 与 Inventory').find(r=>r.entry.target.kind==='settings');assert.ok(settings);
   assert.ok(searchEntries(entries,'枪械').some(r=>r.entry.target.module==='程序框架'&&r.entry.target.id==='oasis'));
   assert.equal(buildSearchIndex({}).some(e=>e.target.module==='程序框架'),false);

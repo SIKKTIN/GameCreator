@@ -1,3 +1,4 @@
+import {policyExportPath} from '../shared/config-data-policy.mjs';
 import {useEffect,useRef,useState} from 'react';
 import {CheckCircle2,FileText,FolderOpen,LoaderCircle,X} from 'lucide-react';
 import {aiModules,buildAiDocumentFiles,saveAiDocumentFiles,type AiDocument,type AiExportNames,type AiModuleId} from './ai-export';
@@ -40,7 +41,7 @@ export function AiExportDialog({projectId,projectName,modules,build,blockedReaso
   },[busy,choosing]);
   const enabledModules=aiModules.filter(m=>modules.includes(m.id));
   let validation='';
-  try {validateDocumentFiles({folderName:settings.folderName,files:[{path:markdownName(settings.summaryName),content:''},...enabledModules.map(m=>({path:'模块/'+markdownName(settings.moduleNames[m.id]??m.label),content:''}))]});}
+  try {validateDocumentFiles({folderName:settings.folderName,files:[{path:markdownName(settings.summaryName),content:''},...enabledModules.map(m=>({path:'模块/'+markdownName(settings.moduleNames[m.id]??m.label),content:''})),{path:policyExportPath,content:''}]});}
   catch(e){validation=(e as Error).message;}
   const patch=(next:Partial<Settings>)=>{setSettings(s=>({...s,...next}));setError('');};
   const choose=async()=>{
@@ -73,10 +74,11 @@ export function AiExportDialog({projectId,projectName,modules,build,blockedReaso
           <fieldset disabled={busy||choosing||loading} className="aie-fields">
             {desktop?<label className="aie-path">保存位置<span><input aria-label="AI 文档保存位置" value={settings.directory} onChange={e=>patch({directory:e.target.value})} placeholder="选择保存文档的文件夹"/><button type="button" onClick={()=>void choose()}><FolderOpen size={16}/>{choosing?'选择中…':'选择文件夹'}</button></span></label>:<p className="aie-notice">浏览器将下载 ZIP，解压后得到同样的文档文件夹。下载位置由浏览器设置决定。</p>}
             <div className="aie-grid"><label>输出文件夹名称<input aria-label="输出文件夹名称" value={settings.folderName} onChange={e=>patch({folderName:e.target.value})}/></label><label>总文档文件名<input aria-label="总文档文件名" value={settings.summaryName} onChange={e=>patch({summaryName:e.target.value})}/></label></div>
+            <p className="aie-notice">附带《配置数据管理与同步规范》，包含当前项目的数据目录与格式，独立于程序框架采用。</p>
             <div className="aie-files-heading"><h3>模块文档</h3><span>{enabledModules.length} 个模块 · 自动补齐 .md</span></div>
             <div className="aie-file-list">{enabledModules.map(m=><label key={m.id}><span>{m.label}</span><span className="aie-file-path">模块 /</span><input aria-label={m.label+'文档文件名'} value={settings.moduleNames[m.id]??m.label+'.md'} onChange={e=>patch({moduleNames:{...settings.moduleNames,[m.id]:e.target.value}})}/></label>)}</div>
           </fieldset>
-          <div className="aie-preview"><span>{desktop?'导出到':'下载文件'} · {enabledModules.length+1} 份文档</span><code>{location}</code><small>{desktop?'同名文件夹自动追加序号，保留历史导出。':'压缩包包含完整总文档和“模块”文件夹。'}</small></div>
+          <div className="aie-preview"><span>{desktop?'导出到':'下载文件'} · {enabledModules.length+2} 份文档</span><code>{location}</code><small>{desktop?'同名文件夹自动追加序号，保留历史导出。':'压缩包包含完整总文档和“模块”文件夹。'}</small></div>
           {(validation||blockedReason)&&<p className="aie-error" role="alert">{validation||blockedReason}</p>}
         </>}
         {error&&<p className="aie-error" role="alert">{error}</p>}

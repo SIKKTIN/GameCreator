@@ -21,15 +21,17 @@ const {createWorkspaceStorage}=require('../desktop/test-workspaces.cjs'),root=pa
     await field('AI 文档保存位置').evaluate((n,expected)=>{if(n.value!==expected)throw new Error('path not selected');},output);
     await field('输出文件夹名称').fill('首版 文档');await field('总文档文件名').fill('总览 自定义');await field('玩法设计文档文件名').fill('玩法 #规则 [一]');
     await field('项目概览文档文件名').fill('CON');assert.equal(await button('生成文档文件夹').isDisabled(),true);
-    await field('项目概览文档文件名').fill('项目排期.md');assert.ok((await dialog().innerText()).includes('文件名重复'));await field('项目概览文档文件名').fill('项目概览.md');
+    await field('项目概览文档文件名').fill('项目排期.md');assert.ok((await dialog().innerText()).includes('文件名重复'));await field('项目概览文档文件名').fill('config-data-policy.md');assert.ok((await dialog().innerText()).includes('文件名重复'));await field('项目概览文档文件名').fill('项目概览.md');
     assert.equal(await field('故事编排文档文件名').count(),0);assert.equal(await field('地图设计文档文件名').count(),0);
+    const moduleCount=await page.locator('.aie-file-list input').count();
     await fs.mkdir(path.join(root,'.gamecreator/qa'),{recursive:true});await page.screenshot({path:path.join(root,'.gamecreator/qa/ai-document-export-settings.png')});
     // A failed write leaves the settings available for retry.
     const notDirectory=path.join(dir,'不是目录.txt');await fs.writeFile(notDirectory,'原文件');await field('AI 文档保存位置').fill(notDirectory);await button('生成文档文件夹').click();await dialog().getByRole('alert').waitFor();assert.equal(await fs.readFile(notDirectory,'utf8'),'原文件');
     await field('AI 文档保存位置').fill(output);await generate();
     const first=path.join(output,'首版 文档'),summary=await fs.readFile(path.join(first,'总览 自定义.md'),'utf8');
     assert.ok(summary.includes(pvz.name)||summary.includes('文档测试A'));assert.ok(summary.includes('豌豆'));assert.ok(summary.includes(encodeURIComponent('玩法 #规则 [一].md')));
-    assert.equal((await fs.readdir(path.join(first,'模块'))).length,15);assert.ok((await fs.readFile(path.join(first,'模块','玩法 #规则 [一].md'),'utf8')).includes('返回项目完整文档'));
+    assert.equal((await fs.readdir(path.join(first,'模块'))).length,moduleCount+1);assert.ok((await fs.readFile(path.join(first,'模块','玩法 #规则 [一].md'),'utf8')).includes('返回项目完整文档'));
+    assert.match(await fs.readFile(path.join(first,'模块/config-data-policy.md'),'utf8'),/当前项目目录约定/);assert.match(summary,/配置数据管理与同步规范/);
     await app.evaluate(({shell})=>{shell.openPath=async directory=>{globalThis.aiRevealed=directory;return '';};});await button('打开文件夹').click();assert.equal(await app.evaluate(()=>globalThis.aiRevealed),first);
     await page.screenshot({path:path.join(root,'.gamecreator/qa/ai-document-export-success.png')});await button('完成').click();
     await open();assert.equal(await field('AI 文档保存位置').inputValue(),output);assert.equal(await field('总文档文件名').inputValue(),'总览 自定义');assert.equal(await field('玩法设计文档文件名').inputValue(),'玩法 #规则 [一]');await generate();assert.ok((await dialog().innerText()).includes('首版 文档 (1)'));assert.equal(await fs.readFile(path.join(first,'总览 自定义.md'),'utf8'),summary);await button('完成').click();
@@ -42,7 +44,7 @@ const {createWorkspaceStorage}=require('../desktop/test-workspaces.cjs'),root=pa
     await web.getByLabel('输出文件夹名称',{exact:true}).fill('浏览器 中文');
     const zip=path.join(dir,'browser.zip');await app.evaluate(({session},filename)=>{globalThis.aiDownload=new Promise((resolve,reject)=>{session.defaultSession.once('will-download',(_e,item)=>{item.setSavePath(filename);item.once('done',(_event,state)=>state==='completed'?resolve(item.getSavePath()):reject(new Error(state)));});});},zip);
     await web.getByRole('button',{name:'生成文档文件夹',exact:true}).click();assert.equal(await app.evaluate(()=>globalThis.aiDownload),zip);
-    const names=JSON.parse(execFileSync('python',['-c',"import zipfile,json,sys;z=zipfile.ZipFile(sys.argv[1]);assert z.testzip() is None;print(json.dumps(z.namelist()))",zip],{encoding:'utf8'}));assert.equal(names.length,16);assert.ok(names.includes('浏览器 中文/模块/玩法设计.md'));
+    const names=JSON.parse(execFileSync('python',['-c',"import zipfile,json,sys;z=zipfile.ZipFile(sys.argv[1]);assert z.testzip() is None;print(json.dumps(z.namelist()))",zip],{encoding:'utf8'}));assert.equal(names.length,moduleCount+2);assert.ok(names.includes('浏览器 中文/模块/config-data-policy.md'));assert.ok(names.includes('浏览器 中文/模块/玩法设计.md'));
     assert.deepEqual(errors,[]);console.log('PASS AI document export: custom paths/names, cancellation, validation/retry, real Markdown folders, duplicate preservation, remembered project settings, optional modules, reveal and real browser ZIP download.');
   } catch(e){if(page&&!page.isClosed())console.error((await page.locator('body').innerText()).slice(-2200));throw e;}
   finally {if(app)await app.close();assert.equal(path.dirname(dir),path.resolve(os.tmpdir()));assert.ok(path.basename(dir).startsWith('gc-ai-desktop-'));await fs.rm(dir,{recursive:true,force:true});}

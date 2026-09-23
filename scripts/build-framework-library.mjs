@@ -13,6 +13,7 @@ const entries=[
   ['lifecycle','基础规范/06_依赖与生命周期.md','基础规范','base'],
   ['testing','开发规范/01_开发测试与调试.md','开发规范','base'],
   ['review','开发规范/02_评审与交付检查.md','开发规范','base'],
+  ['config-data-policy','开发规范/03_配置数据管理与同步规范.md','开发规范','reference'],
   ['save','可选扩展/01_存档与数据迁移.md','可选扩展','extension'],
   ['state','可选扩展/02_数据注册与集中管理.md','可选扩展','extension'],
   ['assembly','可选扩展/03_模块声明与自动装配.md','可选扩展','extension'],
