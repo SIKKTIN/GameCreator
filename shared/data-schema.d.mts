@@ -1,0 +1,14 @@
+import type {ProjectData} from '../src/data-model';
+import type {EnumScan} from '../src/engine';
+import type {VersionStore} from '../src/enum-versions';
+import type {Json} from './data-sync.mjs';
+export type Node={type:string;properties?:Record<string,Node>;required?:string[];items?:Node};
+export type Contract={shape:string;value?:Node;record?:Node;metadata?:Node;constraints?:Record<string,unknown>};
+export function inferNode(values:Json[]):Node;
+export function jsonContract(json:Json|undefined,mapping?:Record<string,string>):Contract|null;
+export function developmentContract(data:ProjectData,table:string,scan?:EnumScan|null,mapping?:Record<string,string>):Contract;
+export function contractIssues(a:Contract|null,b:Contract|null):string[];
+export function validateContract(c:unknown):void;
+export function validateAgainst(json:Json,c:Contract,mapping?:Record<string,string>):void;
+export function checkStructure(data:ProjectData,table:string,remote:Json|undefined,scan?:EnumScan|null,mapping?:Record<string,string>,declaration?:Contract):{issues:string[];contract:Contract};
+export function schemaDocument(store:VersionStore,context?:Record<string,unknown>):{schema:number;kind:string;revision:number;instructions:string;tables:Record<string,{contract:Contract;fields:ProjectData['columns'][string];mapping:Record<string,string>}>};

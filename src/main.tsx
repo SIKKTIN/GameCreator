@@ -1,3 +1,4 @@
+import {DataVersions} from './DataVersions';
 import {AiPersonnel} from './AiPersonnel';
 import {useMaterialProgressSync} from './useMaterialProgressSync';
 import {datasetReferences,removeDataset} from './dataset-deletion';
@@ -665,9 +666,9 @@ function WorkspaceApp({ username, testSession, onLoadTest, onExitTest, preparing
         )}
         {analysis.error && <div className="gp-save-error" role="alert"><span>{analysis.error}</span>{analysis.pending && <button onClick={analysis.retry}>重试保存数值分析</button>}<button onClick={()=>{const url=URL.createObjectURL(new Blob([JSON.stringify(analysis.store,null,2)],{type:'application/json'}));const link=document.createElement('a');link.href=url;link.download='numerical-analysis-draft.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}}>下载数值分析草稿</button><button onClick={()=>{if(window.confirm('重新读取会放弃当前未保存修改。可先下载草稿备份，是否继续？'))analysis.reload();}}>重新读取数值分析存档</button></div>}
         {active === '数值分析' && (registry.loading || registry.busy || registry.error || narrative.blocked || narrative.pending ? <p role="alert">来源数据尚未就绪，请先处理配置或故事存档：{registry.error || narrative.error}</p> : <NumericalAnalysis controller={analysis} sources={{data:currentData,narrative:narrative.store}} definitions={definitions} designs={gameplay.store.designs} onOpenDataset={key=>{setActiveDataset(key);setActive('数据配置');}} onOpenGameplay={id=>openGameplay(id)}/>)}
-        {active === '数据配置' && <DataConfiguration key={dataKey} workspaceKey={dataKey} data={currentData}
+        {active === '数据配置' && <DataVersions key={dataKey} registry={registry} onOpenSync={()=>setActive('数据同步')}><DataConfiguration key={dataKey} workspaceKey={dataKey} data={currentData}
           onChange={(next) => registry.updateData(next)}
-          definitions={definitions} activeDataset={currentDataset} setActiveDataset={id=>{leaveSearch();setActiveDataset(id);}} registry={registry} onCreateTable={createDataset} onDeleteTable={deleteDataset} deletionReferences={datasetDeletionReferences} deletionBlocked={datasetDeletionBlocked} />}
+          definitions={definitions} activeDataset={currentDataset} setActiveDataset={id=>{leaveSearch();setActiveDataset(id);}} registry={registry} onCreateTable={createDataset} onDeleteTable={deleteDataset} deletionReferences={datasetDeletionReferences} deletionBlocked={datasetDeletionBlocked} /></DataVersions>}
         {active === '数据同步' && <DataSyncPanel projectId={formalProject.id} config={engineConfig} setConfig={onConfigChange} registry={registry} blocked={!!testSession} onOpenTable={name=>{setActiveDataset(name);setActive('数据配置');}}/>}
         {active === '枚举定义' && <EnumDefinitions registry={registry} />}
         {active === '枚举管理' && <EnumManager config={engineConfig} registry={registry} />}

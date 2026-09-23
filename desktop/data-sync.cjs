@@ -4,7 +4,7 @@ const {randomUUID}=require('node:crypto');
 const META='.gamecreator-sync',PENDING=META+'/data-pending.json';
 const LIMIT=8*1024*1024;
 function createDataSync({storage,context,manifest,read,writeMeta,checked,locked,hash,beforeDataWrite=async()=>{}}) {
-  const plans=new Map(),model=()=>import('../shared/data-sync.mjs');
+  const plans=new Map(),model=()=>import('../shared/data-sync.mjs'),schemas=()=>import('../shared/data-schema.mjs'),releases=()=>import('../shared/data-releases.mjs');
   const key=ctx=>'gamecreator.enum-versions.v1:'+ctx.projectId;
   const digest=b=>b===null?null:hash(b);
   const comparable=p=>path.resolve(p).replace(/\\/g,'/').toLowerCase();
@@ -36,7 +36,7 @@ function createDataSync({storage,context,manifest,read,writeMeta,checked,locked,
   async function dataPreview(input) {
     const ctx=await setup(input),m=await model(),{raw,store}=load(ctx,input.store);
     if(m.stable(store)!==m.stable(input.store))throw new Error('配置已被其他操作更新，请重新读取配置后预览');
-    m.validateDataSync(store);
+    m.validateDataSync(store);(await releases()).validateDataReleases(store);
     if(!['import','export'].includes(input.direction))throw new Error('同步方向无效');
     const directory=path.dirname(await checked(ctx,ctx.directory+'/.probe'));
     const names=(await fs.readdir(directory).catch(e=>{if(e.code==='ENOENT')return [];throw e;})).filter(n=>/\.json$/i.test(n)).sort();
@@ -47,6 +47,10 @@ function createDataSync({storage,context,manifest,read,writeMeta,checked,locked,
     const tables=new Set(input.direction==='import'?files.keys():Object.keys(store.data.datasets));
     if(input.direction==='import')for(const [table,b] of Object.entries(store.dataSync?.bindings||{}))if(b.scope===scope(ctx))tables.add(table);
     if(tables.size>200)throw new Error('一次最多预览 200 张配置表');
+    const schema=await schemas(),declarationPath=ctx.directory+'/_gamecreator/engine-schema.json';
+    const declarationBytes=input.direction==='export'?await smallRead(ctx,declarationPath):null;
+    let declarations;
+    if(declarationBytes){declarations=m.parseJson(declarationBytes.toString('utf8'));if(declarations.schema!==1||declarations.kind!=='gamecreator-engine-schema'||!m.record(declarations.tables))throw new Error('引擎结构声明无效；development-schema.json 不能直接作为已适配证明');}
     const rows=[];let total=0;
     for(const table of tables) {
       const filename=files.get(table)||table+'.json',file=ctx.directory+'/'+filename;
@@ -55,29 +59,34 @@ function createDataSync({storage,context,manifest,read,writeMeta,checked,locked,
         const remote=bytes?m.parseJson(bytes.toString('utf8')):undefined;
         if(remote===undefined&&input.direction==='import'){rows.push({table,file,error:'文件缺失，保留本地配置；不会自动删除'});continue;}
         const b=store.dataSync?.bindings?.[table],binding=b?.scope===scope(ctx)?b:undefined;
-        const mapping=m.validateMapping(input.mappings?.[table]||binding?.mapping||store.data.jsonFormats?.[table]?.mapping||{});
-        const local=m.toJson(store.data,table,mapping,scanOf(store),store.data.jsonFormats?.[table]?undefined:remote);
+        const savedMapping=binding?.mapping||store.data.jsonFormats?.[table]?.mapping||{};
+        if(input.direction==='export'&&input.mappings?.[table]&&m.stable(input.mappings[table])!==m.stable(savedMapping))throw new Error('同步配置不能修改字段映射，请先通过引擎导入确认映射');
+        const mapping=m.validateMapping(input.direction==='import'?(input.mappings?.[table]||savedMapping):savedMapping);
+        const local=m.toJson(store.data,table,mapping,scanOf(store),input.direction==='import'&&!store.data.jsonFormats?.[table]?remote:undefined);
         const l=m.canonical(local,mapping),r=m.canonical(remote,mapping);
-        if(l&&r&&l.shape!==r.shape)throw new Error('JSON 根结构已变化，请使用另一文件名导入并检查');
+        if(l&&r&&l.shape!==r.shape)throw new Error((input.direction==='export'?'字段不符，禁止同步：':'')+'JSON 根结构已变化，请使用另一文件名导入并检查');
+        let contract;
+        if(input.direction==='export'){let check;try{check=schema.checkStructure(store.data,table,remote,scanOf(store),mapping,declarations?.tables?.[table]?.contract);}catch(e){throw new Error('字段不符，禁止同步：'+e.message);}if(check.issues.length)throw new Error('字段不符，禁止同步：'+check.issues.join('；'));contract=check.contract;}
         const baseline=binding&&m.stable(binding.mapping)===m.stable(mapping)?binding.baseline:undefined;
         const differences=m.diffJson(l,r,baseline,input.direction);
         const fileCanonical=m.canonical(remote);
-        rows.push({table,file,mapping,shape:(r||l).shape,local:l,remote:r,differences,hash:digest(bytes),bound:!!baseline,localChanged:!!baseline&&m.stable(l)!==m.stable(baseline.local),engineChanged:!!baseline&&m.stable(r)!==m.stable(baseline.remote),fields:{local:l?.shape==='object'?Object.keys(l.value):store.data.columns[table]?.map(c=>c.key)||[],remote:fileCanonical?.shape==='object'?Object.keys(fileCanonical.value):[...new Set(Object.values(fileCanonical?.rows||{}).flatMap(Object.keys))]}});
+        rows.push({table,file,mapping,contract,shape:(r||l).shape,local:l,remote:r,differences,hash:digest(bytes),bound:!!baseline,localChanged:!!baseline&&m.stable(l)!==m.stable(baseline.local),engineChanged:!!baseline&&m.stable(r)!==m.stable(baseline.remote),fields:{local:l?.shape==='object'?Object.keys(l.value):store.data.columns[table]?.map(c=>c.key)||[],remote:fileCanonical?.shape==='object'?Object.keys(fileCanonical.value):[...new Set(Object.values(fileCanonical?.rows||{}).flatMap(Object.keys))]}});
       } catch(e){rows.push({table,file,error:e.message});}
     }
     const token=randomUUID(),now=Date.now();for(const [id,p] of plans)if(now-p.at>600000)plans.delete(id);if(plans.size>=8)plans.delete(plans.keys().next().value);
-    plans.set(token,{ctx,raw,store:structuredClone(store),direction:input.direction,rows,at:now});
+    plans.set(token,{ctx,raw,store:structuredClone(store),direction:input.direction,rows,at:now,declarationPath,declarationHash:digest(declarationBytes)});
     return {token,rows,history:store.dataSync?.history||[],directory:path.join(ctx.root,ctx.directory)};
   }
   async function assertPlan(plan) {
     active(plan.ctx);
+    if(plan.direction==='export'&&digest(await smallRead(plan.ctx,plan.declarationPath))!==plan.declarationHash)throw new Error('引擎结构声明已改变，请重新预览');
     if(storage.getItem(key(plan.ctx))!==plan.raw)throw new Error('预览后配置已改变，请重新读取并预览');
     if((await manifest(plan.ctx)).hash!==plan.ctx.ownerHash)throw new Error('工程同步归属或文件清单已变化，请重新预览');
     if(await read(plan.ctx,PENDING)||await read(plan.ctx,META+'/pending.json'))throw new Error('存在中断的同步，请先恢复');
   }
   async function validateJournal(ctx,j) {
     if(j?.schema!==1||j.projectId!==ctx.projectId||j.engine!==ctx.engine||j.scope!==scope(ctx)||!/^[-a-f0-9]{36}$/.test(j.id)||!Array.isArray(j.ops)||!(j.oldRaw===null||typeof j.oldRaw==='string')||typeof j.newRaw!=='string')throw new Error('恢复记录无效或属于其他连接');
-    const m=await model();m.validateDataSync(JSON.parse(j.newRaw));
+    const m=await model();m.validateDataSync(JSON.parse(j.newRaw));(await releases()).validateDataReleases(JSON.parse(j.newRaw));
     for(const op of j.ops){if(op.path!==ctx.directory+'/'+path.posix.basename(op.path)||!/\.json$/i.test(op.path)||op.backup!==META+'/data-history/'+j.id+'/'+path.posix.basename(op.path)||!(/^[a-f0-9]{64}$/.test(op.after))||!(op.before===null||/^[a-f0-9]{64}$/.test(op.before)))throw new Error('恢复文件路径或摘要无效');m.tableName(path.posix.basename(op.path));}
   }
   async function rollback(ctx,j) {
@@ -106,7 +115,14 @@ function createDataSync({storage,context,manifest,read,writeMeta,checked,locked,
         const value=m.resolveDiff(row.local,row.differences,decisions);
         if(!value)throw new Error('不支持删除整个配置文件；本地表与工程文件保持保留');
         const json=m.fromCanonical(value,row.mapping);
+        if(p.direction==='export') (await schemas()).validateAgainst(json,row.contract,row.mapping);
+        const columns=next.data.columns[row.table];
+        if(p.direction==='import'&&value.shape!=='object'&&columns){
+          // Explicitly reviewed engine imports may upgrade a declared JSON type.
+          next.data.columns[row.table]=columns.map(col=>{const types=[...new Set(Object.values(value.rows).filter(r=>Object.hasOwn(r,col.key)).map(r=>m.jsonType(r[col.key])))];return col.jsonType&&col.type!=='enum'&&types.length===1?{...col,jsonType:types[0]}:col;});
+        }
         next.data=m.toData(next.data,row.table,json,row.mapping,scanOf(next));
+        if(p.direction==='export')next.data.columns[row.table]=columns;
         next.dataSync.bindings[row.table]={scope:scope(ctx),mapping:row.mapping,baseline:{local:value,...(p.direction==='export'?{remote:value}:row.remote?{remote:row.remote}:{})}};
         if(p.direction==='export')writes.push({path:row.file,bytes:Buffer.from(JSON.stringify(json,null,2)+'\n'),before:row.hash});
         chosen.push(row);
@@ -146,6 +162,36 @@ function createDataSync({storage,context,manifest,read,writeMeta,checked,locked,
   async function dataUndo(input) {
     const ctx=await setup(input);return locked(ctx,async()=>{const {store}=load(ctx);const entry=store.dataSync?.history?.[0];if(!entry||entry.scope!==scope(ctx))throw new Error('当前连接没有可恢复的记录');const bytes=await read(ctx,META+'/data-history/'+entry.id+'/transaction.json');if(!bytes)throw new Error('备份不存在');const j=JSON.parse(bytes);await validateJournal(ctx,j);if(storage.getItem(key(ctx))!==j.newRaw)throw new Error('同步后配置已编辑，不能一键回退；请使用备份人工比较');await writeMeta(ctx,PENDING,JSON.stringify({...j,undo:true}));try{await rollback(ctx,j);await fs.unlink(await checked(ctx,PENDING));return {message:'已恢复上次同步前的配置和工程文件'};}catch(e){throw new Error('回退未完成，请恢复中断同步：'+e.message);}});
   }
-  return {dataPreview,dataApply,dataRecover,dataUndo,dataRelease:token=>plans.delete(token)};
+  async function dataSchemaExport(input) {
+    const ctx=await setup(input),m=await model(),schema=await schemas();
+    return locked(ctx,async()=>{
+      const {raw,store}=load(ctx,input.store);if(m.stable(store)!==m.stable(input.store))throw new Error('开发版已变化，请重新读取');
+      m.validateDataSync(store);(await releases()).validateDataReleases(store);
+      const document=schema.schemaDocument(store,{projectId:ctx.projectId,engine:ctx.engine,directory:ctx.directory});
+      const file=ctx.directory+'/_gamecreator/development-schema.json',bytes=Buffer.from(JSON.stringify(document,null,2)+'\n');
+      if(bytes.length>LIMIT)throw new Error('字段说明超过 8 MB');
+      const previous=await smallRead(ctx,file);
+      if(previous)await writeMeta(ctx,META+'/schema-history/'+randomUUID()+'.json',previous);
+      active(ctx);if(storage.getItem(key(ctx))!==raw)throw new Error('导出期间开发版已变化，请重试');
+      if(digest(await smallRead(ctx,file))!==digest(previous))throw new Error('字段说明被其他操作修改，请重试');
+      if(ctx.ownerHash===null){await writeMeta(ctx,META+'/manifest.json',JSON.stringify({schema:1,projectId:ctx.projectId,engine:ctx.engine,files:[],history:[]}));}
+      if(await read(ctx,META+'/.gdignore')===null)await writeMeta(ctx,META+'/.gdignore','# GameCreator data sync backups.\n');
+      await writeMeta(ctx,file,bytes);
+      return {path:path.join(ctx.root,file),tables:Object.keys(document.tables).length};
+    });
+  }
+  async function dataPublish({token,version,note,verified}) {
+    const p=plans.get(token);if(!p||p.direction!=='export'||Date.now()-p.at>600000)throw new Error('请先检查发布条件，预览已过期');
+    return locked(p.ctx,async()=>{
+      await assertPlan(p);
+      if(!p.rows.length||p.rows.some(r=>r.error||r.differences?.length))throw new Error('开发版与引擎尚未完全一致，请先解决字段差异并同步配置');
+      for(const row of p.rows)if(digest(await smallRead(p.ctx,row.file))!==row.hash)throw new Error('验证后引擎数据已变化，请重新检查');
+      const next=(await releases()).publishData(p.store,{id:randomUUID(),at:new Date().toISOString(),version,note,verified,connection:JSON.parse(p.ctx.configRaw)});
+      next.revision++;(await releases()).validateDataReleases(next);await assertPlan(p);
+      storage.setItem(key(p.ctx),JSON.stringify(next));plans.delete(token);
+      return {version:next.dataReleases.releases[0].version};
+    });
+  }
+  return {dataPreview,dataApply,dataRecover,dataUndo,dataSchemaExport,dataPublish,dataRelease:token=>plans.delete(token)};
 }
 module.exports={createDataSync};
