@@ -1,5 +1,7 @@
 import {validateProductionDocs,type ProductionDoc} from '../shared/material-production.mjs';
 import {validateMaterialDocumentFields} from '../shared/material-document.mjs';
+import {validateArtStyle,validateStyleItem,validateStyleMutation,type ArtStyle,type StyledItem} from '../shared/art-style.mjs';
+import {artStyleMarkdown,itemStyleMarkdown,productionStyleMarkdown} from './art-style.ts';
 import { materialPromptText, type MaterialGenerationPrompt } from './material-prompt.ts';
 import { validateArtLibrary, artLibrary, artCategoryId, artCategoryName, type ArtLibrary } from './art-library.ts';
 import { objectGeometry, spatialObjectLocation } from './spatial-layout.ts';
@@ -11,13 +13,13 @@ export const artPriorities = ['普通', '高', '低'] as const;
 export const artRequirementStatuses = ['待制作', '制作中', '待审核', '需修改', '已通过'] as const;
 export const artReviewStatuses = ['待审核', '需修改', '已通过'] as const;
 export type ArtSource = { id: string; kind: 'gameplay' | 'capability'; targetId: string; sourceKind: 'design' | 'rule' | 'state' | 'event' | 'object'; sourceId: string; note: string };
-export type MaterialDocumentFields={delivery?:{path:string;notes:string};scheduleProgress?:{taskIds:string[]}};
+export type MaterialDocumentFields=StyledItem & {delivery?:{path:string;notes:string};scheduleProgress?:{taskIds:string[]}};
 export type ArtRequirement = MaterialDocumentFields & { generationPrompt?: MaterialGenerationPrompt; id: string; name: string; category: typeof artCategories[number]; description: string; specification: string; acceptance: string; owner: string; dueDate: string; priority: typeof artPriorities[number]; status: typeof artRequirementStatuses[number]; archived: boolean; sources: ArtSource[]; createdAt: string; updatedAt: string };
 export type ArtFile = { id: string; name: string; size: number; mime: string; storagePath: string };
 export type ArtVersion = { id: string; name: string; notes: string; placeholder: boolean; review: typeof artReviewStatuses[number]; feedback: string; files: ArtFile[]; createdAt: string };
 export type ArtAsset = MaterialDocumentFields & { productionStatus?:ArtRequirement['status']; id: string; name: string; description: string; versions: ArtVersion[]; adoptedVersionId: string; archived: boolean; createdAt: string; updatedAt: string };
 export type ArtLink = { id: string; requirementId: string; assetId: string; note: string };
-export type ArtStore = { productionDocs?: ProductionDoc[]; library?: ArtLibrary; schema: 1; requirements: ArtRequirement[]; assets: ArtAsset[]; links: ArtLink[] };
+export type ArtStore = { style?: ArtStyle; productionDocs?: ProductionDoc[]; library?: ArtLibrary; schema: 1; requirements: ArtRequirement[]; assets: ArtAsset[]; links: ArtLink[] };
 export type ArtSources = { designs: GameplayDesign[]; functional: FunctionalStore };
 export const emptyArtAssets = (): ArtStore => ({ schema: 1, requirements: [], assets: [], links: [] });
 export function createArtRequirement(name: string): ArtRequirement {
@@ -47,7 +49,8 @@ export function validateArtAssets(value: unknown): ArtStore {
         list(v.files, f => strings(f, ['name', 'mime', 'storagePath']) && !!(f.storagePath as string).trim() && typeof f.size === 'number' && Number.isSafeInteger(f.size) && f.size >= 0))) ||
     !list(value.links, l => strings(l, ['requirementId', 'assetId', 'note']))) throw new Error('素材资产存档格式异常，已停止写入');
   validateProductionDocs(value.productionDocs);
-  for(const item of [...value.requirements as ArtRequirement[],...value.assets as ArtAsset[]])validateMaterialDocumentFields(item);
+  validateArtStyle(value.style);
+  for(const item of [...value.requirements as ArtRequirement[],...value.assets as ArtAsset[]]){validateMaterialDocumentFields(item);validateStyleItem(item);}
   if (Object.prototype.hasOwnProperty.call(value, 'library')) validateArtLibrary(value.library, value as unknown as ArtStore);
   return value as ArtStore;
 }
@@ -79,6 +82,7 @@ const immutableVersion = (version: ArtVersion) => { const { review: _review, fee
 // Separate semantic rejection from a persistence failure so an invalid approval never becomes an unsaved draft.
 export function validateArtMutation(previous: ArtStore, next: ArtStore): ArtStore {
   validateArtAssets(next);
+  validateStyleMutation(previous.style,next.style);
   for (const requirement of previous.requirements) {
     const changed = next.requirements.find(r => r.id === requirement.id);
     if (!changed) throw new Error('素材需求保留历史，请使用归档');
@@ -216,7 +220,7 @@ export function artReferencesMarkdown(kind: 'gameplay' | 'capability', id: strin
   return lines.join('\n') + '\n';
 }
 export function artAssetsMarkdown(store: ArtStore, sources: ArtSources): string {
-  const lines = ['## 素材资产', '', '> 本模块提供素材制作文档。素材原文件直接生成在游戏工程中，按文档验收；关联美术任务的状态通过开发反馈或项目排期回写。全部关联美术任务完成后，素材同步完成，无需导入或采用图片版本。', '', '### 素材需求', ''];
+  const lines = ['## 素材资产', '', '> 本模块提供素材制作文档。素材原文件直接生成在游戏工程中，按文档验收；关联美术任务的状态通过开发反馈或项目排期回写。全部关联美术任务完成后，素材同步完成，无需导入或采用图片版本。', '', artStyleMarkdown(store), '', '### 素材需求', ''];
   if (!store.requirements.length) lines.push('暂无素材需求。', '');
   for (const requirement of store.requirements) {
     lines.push('#### ' + text(requirement.name), '', '- 需求 ID：' + requirement.id, '- 所属分类：' + artCategoryName(artLibrary(store), artCategoryId(artLibrary(store), 'requirement', requirement.id)), '- 分类：' + requirement.category, '- 状态：' + productionLabel(requirement.status) + (requirement.archived ? '（已归档）' : ''), '- 优先级：' + requirement.priority, '- 负责人：' + text(requirement.owner), '- 截止日期：' + (requirement.dueDate || '未设置'), '', '需求说明：', text(requirement.description), '', '制作规格：', text(requirement.specification), '', '验收标准：', text(requirement.acceptance), '', '需求来源：');
@@ -227,6 +231,7 @@ export function artAssetsMarkdown(store: ArtStore, sources: ArtSources): string 
       if (resolved.detail) lines.push('  需求上下文：' + resolved.detail);
     }
     if (requirement.generationPrompt) lines.push('', '素材生成提示词：', materialPromptText(requirement.generationPrompt) || '尚未填写', '');
+    lines.push('',itemStyleMarkdown(store,'requirement',requirement.id),'');
     lines.push('',...deliveryLines(requirement),'', '关联资产：');
     const links = store.links.filter(l => l.requirementId === requirement.id);
     if (!links.length) lines.push('- 暂无关联资产。');
@@ -246,7 +251,7 @@ export function artAssetsMarkdown(store: ArtStore, sources: ArtSources): string 
       const requirement = store.requirements.find(r => r.id === link.requirementId);
       lines.push(`- ${requirement ? text(requirement.name) : '需求已失效'} [需求 ID：${link.requirementId}]；${text(link.note)}`);
     }
-    lines.push('', '历史导入记录 / 版本历史（不作为完成前提）：');
+    lines.push('',itemStyleMarkdown(store,'asset',asset.id),'', '历史导入记录 / 版本历史（不作为完成前提）：');
     if (!asset.versions.length) lines.push('- 无历史导入文件；请按工程交付说明在游戏工程内制作。');
     for (const version of asset.versions) {
       lines.push('', '##### ' + text(version.name), '', '- 版本 ID：' + version.id, '- 类型：' + (version.placeholder ? '占位版本' : '正式版本'), '- 审核：' + version.review, '- 采用：' + (asset.adoptedVersionId === version.id ? '是' : '否'), '- 创建时间：' + version.createdAt, '', '版本说明：' + text(version.notes), '', '审核反馈：' + text(version.feedback), '', '文件：');
@@ -263,7 +268,7 @@ export function artAssetsMarkdown(store: ArtStore, sources: ArtSources): string 
       lines.push('#### '+text(doc.title),'','- 文档 ID：'+doc.id,'- 分类：'+text(doc.category||'未分类'),
         '- 关联需求：'+(doc.requirementIds.map(id=>store.requirements.find(r=>r.id===id)?.name||'失效引用 '+id).join('、')||'无'),
         '- 关联资产：'+(doc.assetIds.map(id=>store.assets.find(a=>a.id===id)?.name||'失效引用 '+id).join('、')||'无'),'',
-        doc.content.replace(/material-image:([a-f0-9-]{36}\.[a-z0-9]{1,12})/g,'../media/$1'),'');
+        productionStyleMarkdown(store,doc),'',doc.content.replace(/material-image:([a-f0-9-]{36}\.[a-z0-9]{1,12})/g,'../media/$1'),'');
     }
   }
   const issues = artIssues(store, sources);

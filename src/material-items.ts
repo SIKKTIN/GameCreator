@@ -9,7 +9,7 @@ export function materialItems(store:ArtStore):MaterialItem[] {
     kind,id:source.id,key:kind+':'+source.id,name:source.name,description:source.description,categoryId:artCategoryId(library,kind,source.id),archived:source.archived,
     status:requirement?.status||(source as ArtAsset).productionStatus||'待制作',owner:requirement?.owner||'',dueDate:requirement?.dueDate||'',requirement,assets,
     files:assets.reduce((n,a)=>n+a.versions.reduce((s,v)=>s+v.files.length,0),0),versions:assets.reduce((n,a)=>n+a.versions.length,0),
-    searchText:[source.name,source.description,source.delivery?.path,source.delivery?.notes,requirement?.owner,requirement?.specification,requirement?.generationPrompt?.prompt,...assets.flatMap(a=>[a.name,a.description,a.delivery?.path,a.delivery?.notes,...a.versions.flatMap(v=>[v.name,...v.files.map(f=>f.name)])])].join(' ').toLocaleLowerCase(),
+    searchText:[source.name,source.description,source.styleException?.requirements,source.styleException?.reason,source.delivery?.path,source.delivery?.notes,requirement?.owner,requirement?.specification,requirement?.generationPrompt?.prompt,...assets.flatMap(a=>[a.name,a.description,a.delivery?.path,a.delivery?.notes,...a.versions.flatMap(v=>[v.name,...v.files.map(f=>f.name)])])].join(' ').toLocaleLowerCase(),
   });
   const items=store.requirements.map(r=>build('requirement',r,store.assets.filter(a=>store.links.some(l=>l.requirementId===r.id&&l.assetId===a.id)).sort((a,b)=>Number(artCategoryId(library,'asset',b.id)===artCategoryId(library,'requirement',r.id))-Number(artCategoryId(library,'asset',a.id)===artCategoryId(library,'requirement',r.id))),r));
   // A differently classified standalone resource keeps its original category. Shared deliveries stay in each using item.
@@ -34,7 +34,7 @@ export function addMaterialDelivery(store:ArtStore,requirementId:string,name?:st
 export function addMaterialRequirements(store:ArtStore,assetId:string) {
   const asset=store.assets.find(a=>a.id===assetId);if(!asset||asset.archived)throw new Error('素材条目不存在或已归档');
   const created=newMaterialItem(store,asset.name,artCategoryId(artLibrary(store),'asset',asset.id));
-  const requirement=created.store.requirements.find(r=>r.id===created.target.id)!;requirement.description=asset.description;requirement.status=asset.productionStatus||'待制作';if(asset.delivery)requirement.delivery={...asset.delivery};
+  const requirement=created.store.requirements.find(r=>r.id===created.target.id)!;requirement.description=asset.description;requirement.status=asset.productionStatus||'待制作';if(asset.delivery)requirement.delivery={...asset.delivery};if(asset.styleException)requirement.styleException=structuredClone(asset.styleException);if(asset.styleReview)requirement.styleReview=structuredClone(asset.styleReview);
   return {...created,store:{...created.store,links:[...created.store.links,{id:crypto.randomUUID(),requirementId:requirement.id,assetId:asset.id,note:''}]}};
 }
 export function assignMaterialCategory(store:ArtStore,target:MaterialTarget,categoryId:string) {

@@ -1,3 +1,4 @@
+import {itemStyleMarkdown} from './art-style';
 import {materialStatusLabel} from './material-progress';
 import { MaterialPromptEditor } from './MaterialPromptEditor';
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
@@ -48,7 +49,7 @@ export function RequirementEditor({ requirement: r, controller, sources, apply, 
       <TextField label="制作规格" value={r.specification} onChange={specification => onChange({ specification })} placeholder="尺寸、比例、格式、透明背景、动画帧数或引擎限制等。" />
       <TextField label="素材验收标准" value={r.acceptance} onChange={acceptance => onChange({ acceptance })} placeholder="如何判断这份交付满足需求？" />
     </fieldset></section>
-    <MaterialPromptEditor requirement={r} categoryName={artCategoryName(artLibrary(controller.store), artCategoryId(artLibrary(controller.store), 'requirement', r.id))} disabled={disabled} onChange={generationPrompt=>onChange({generationPrompt})}/>
+    <MaterialPromptEditor styleContext={itemStyleMarkdown(controller.store,'requirement',r.id)} requirement={r} categoryName={artCategoryName(artLibrary(controller.store), artCategoryId(artLibrary(controller.store), 'requirement', r.id))} disabled={disabled} onChange={generationPrompt=>onChange({generationPrompt})}/>
     {!unified&&<RequirementSources requirement={r} sources={sources} disabled={disabled} onChange={value => onChange({ sources: value })} onOpenGameplay={onOpenGameplay} onOpenCapability={onOpenCapability} />}
     {!unified&&<RequirementAssets requirement={r} store={controller.store} disabled={disabled} apply={apply} onOpenAsset={onOpenAsset} />}
   </>;

@@ -371,6 +371,14 @@ test('malformed prototype archives fail before any project folder is created',as
  }
 });
 
+test('portable folders retain art style baselines and review records and reject malformed style before writes',async t=>{
+  const f=await fixture(t),{emptyArtStyle,confirmArtStyle,reviewArtStyle}=await import('../shared/art-style.mjs'),art=f.document.archives['art-assets'];
+  art.style=emptyArtStyle();art.style.draft.direction='纸片剪影';art.style=confirmArtStyle(art.style,'建立项目基准');art.requirements[0].styleReview=reviewArtStyle(art.style,art.requirements[0],'');
+  f.storage.setItem(archiveKey(f.id,'art-assets'),JSON.stringify(art));f.args.expectedEntries=f.args.expectedEntries.map(e=>({...e,value:f.storage.getItem(e.key)}));
+  await f.export();const reopened=await f.service.readFolder(f.directory);assert.deepEqual(reopened.document.archives['art-assets'],art);
+  art.style.draft.palette=[{id:'p',name:'invalid',color:'red',usage:''}];const malformed=path.join(f.output,'invalid');await assert.rejects(f.service.exportFolder({...f.args,directory:malformed}),/美术风格/);assert.equal(await exists(malformed),false);
+});
+
 test('material delivery documents and task progress survive portable folders with legacy originals',async t=>{
  const f=await fixture(t),art=f.document.archives['art-assets'],a=art.assets[0];
  a.delivery={path:'assets/characters/',notes:'工程内验证完成'};a.productionStatus='已通过';a.scheduleProgress={taskIds:['art-task']};

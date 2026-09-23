@@ -60,6 +60,7 @@ export function buildSearchIndex(s: SearchSources): SearchEntry[] {
   for(const v of list(fs.capabilities)) {const owner=systems.find(x=>x.id===v.systemId);add('功能系统',v,{kind:'capability',path:name(owner||{}),archived:owner?.archived===true});}
   for(const tool of list(row(s.developmentTools).tools)) add('开发工具',tool,{kind:'tool'});
   const art=row(s.art), library=row(art.library), artCategories=list(library.categories);
+  if(s.art)add('素材资产',{...row(art.style),title:'美术风格',status:list(row(art.style).versions).length?'已确认基准':'待确定'},{id:'style',kind:'style'});
   for(const [field,kind] of [['requirements','requirement'],['assets','asset']] as const) for(const v of list(art[field])) {
     const category=artCategories.find(c=>c.id===row(library[field])[str(v.id)]);
     add('素材资产',v,{kind,path:name(category||{})||str(v.category)||'未分类'});

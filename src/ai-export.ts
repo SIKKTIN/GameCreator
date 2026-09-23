@@ -48,7 +48,7 @@ export function buildAiDocument(project: ExportProject, stories: ExportStory[], 
   add('gameplay',gameplayMarkdown(gameplay,{stories,datasets:definitions},d=>gameplayFunctionalMarkdown(d.id,functional,functionalSources)+'\n'+artReferencesMarkdown('gameplay',d.id,art,artSources),categories),!gameplay.length);
   add('functional',functionalSystemsMarkdown(functional,functionalSources,c=>artReferencesMarkdown('capability',c.id,art,artSources)),!functional.systems.length&&!functional.capabilities.length);
   add('development-tools',developmentToolsMarkdown(tools),!tools.tools.length);
-  add('art',artAssetsMarkdown(art,artSources),!art.requirements.length&&!art.assets.length);
+  add('art',artAssetsMarkdown(art,artSources),!art.requirements.length&&!art.assets.length&&!art.productionDocs?.length&&!art.style);
   add('tasks',taskFlowsMarkdown(tasks,{designs:gameplay,capabilities:functional.capabilities.map(c=>({...c,archived:c.archived||!!functional.systems.find(s=>s.id===c.systemId)?.archived})),stories,assets:art.assets,definitions,data}),!tasks.tasks.length);
   if(narrative.enabled)add('narrative',storyOrchestrationMarkdown(narrative),!narrative.stories.length&&!narrative.characters?.length);
   if(maps.enabled)add('maps',mapMarkdown(maps,gameplay),!maps.maps.length);

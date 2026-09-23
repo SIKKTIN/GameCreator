@@ -1464,6 +1464,87 @@ function validateMaterialDocumentFields(item) {
 }
 
 //#endregion
+//#region shared/art-style.mjs
+const artStyleFields = {
+	direction: "整体风格",
+	mood: "目标氛围",
+	view: "视角与比例",
+	rendering: "表现方式",
+	shape: "轮廓与描边",
+	lighting: "明暗与光照",
+	texture: "材质与细节",
+	ui: "字体与界面",
+	motion: "动画与特效",
+	avoid: "应避免的表现"
+};
+const object = (v) => !!v && typeof v === "object" && !Array.isArray(v);
+const text$1 = (v, max = 4e3) => typeof v === "string" && v.length <= max;
+const date = (v) => typeof v === "string" && Number.isFinite(Date.parse(v));
+const exact = (v, keys) => object(v) && Object.keys(v).every((k) => keys.includes(k));
+const list = (xs, max, check) => Array.isArray(xs) && xs.length <= max && new Set(xs.map((x) => x?.id)).size === xs.length && xs.every((x) => object(x) && text$1(x.id, 200) && !!x.id.trim() && ![
+	"__proto__",
+	"constructor",
+	"prototype"
+].includes(x.id) && check(x));
+function validateStyleDefinition(v) {
+	if (!exact(v, [
+		...Object.keys(artStyleFields),
+		"palette",
+		"references",
+		"categories"
+	]) || Object.keys(artStyleFields).some((k) => !text$1(v[k])) || !list(v.palette, 32, (x) => exact(x, [
+		"id",
+		"name",
+		"color",
+		"usage"
+	]) && text$1(x.name, 200) && text$1(x.usage, 1e3) && (x.color === "" || typeof x.color === "string" && /^#[0-9a-f]{6}$/i.test(x.color))) || !list(v.references, 30, (x) => exact(x, [
+		"id",
+		"title",
+		"source",
+		"take",
+		"avoid"
+	]) && text$1(x.title, 200) && [
+		"source",
+		"take",
+		"avoid"
+	].every((k) => text$1(x[k], 2e3))) || !list(v.categories, 100, (x) => exact(x, ["id", "rules"]) && text$1(x.rules, 6e3))) throw new Error("美术风格定义无效，请检查字段、色值和分类补充");
+	return v;
+}
+function validateArtStyle(v) {
+	if (v === void 0) return;
+	if (!exact(v, [
+		"schema",
+		"draft",
+		"versions"
+	]) || v.schema !== 1 || !Array.isArray(v.versions) || v.versions.length > 50) throw new Error("美术风格存档格式无效");
+	validateStyleDefinition(v.draft);
+	for (const [i, version] of v.versions.entries()) {
+		if (!exact(version, [
+			"revision",
+			"at",
+			"note",
+			"definition"
+		]) || version.revision !== i + 1 || !date(version.at) || !text$1(version.note, 2e3) || !version.note.trim()) throw new Error("美术风格版本记录无效");
+		validateStyleDefinition(version.definition);
+		if (!version.definition.direction.trim()) throw new Error("已确认的风格必须明确整体方向");
+	}
+}
+function validateStyleItem(item) {
+	if (item.styleException !== void 0 && (!exact(item.styleException, ["requirements", "reason"]) || !text$1(item.styleException.requirements, 3e3) || !text$1(item.styleException.reason, 3e3))) throw new Error("素材风格特殊要求格式无效");
+	if (item.styleReview !== void 0) {
+		const r = item.styleReview;
+		if (!exact(r, [
+			"revision",
+			"categoryId",
+			"at",
+			"exception"
+		]) || !Number.isSafeInteger(r.revision) || r.revision < 1 || !text$1(r.categoryId, 200) || !date(r.at)) throw new Error("素材风格复核记录无效");
+		validateStyleItem({ styleException: r.exception });
+		if (!r.exception) throw new Error("风格复核缺少特殊要求快照");
+	}
+}
+
+//#endregion
 //#region src/art-library.ts
 function validateArtLibrary(value, store) {
 	const object = (x) => !!x && typeof x === "object" && !Array.isArray(x);
@@ -1571,7 +1652,11 @@ function validateArtAssets(value) {
 		"note"
 	]))) throw new Error("素材资产存档格式异常，已停止写入");
 	validateProductionDocs(value.productionDocs);
-	for (const item of [...value.requirements, ...value.assets]) validateMaterialDocumentFields(item);
+	validateArtStyle(value.style);
+	for (const item of [...value.requirements, ...value.assets]) {
+		validateMaterialDocumentFields(item);
+		validateStyleItem(item);
+	}
 	if (Object.prototype.hasOwnProperty.call(value, "library")) validateArtLibrary(value.library, value);
 	return value;
 }
