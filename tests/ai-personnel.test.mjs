@@ -7,7 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {spawnSync} from 'node:child_process';
-import {defaultAiTeam,newAiMember,nextAiName,applyAssignments,suggestAssignments,normalizePersonnelSchedule,personnelMarkdown} from '../shared/ai-personnel.mjs';
+import {defaultAiTeam,newAiMember,nextAiName,applyAssignments,suggestAssignments,normalizePersonnelSchedule,personnelMarkdown,defaultWorkTeam,positionsOf,positionTasks,workAssignees,credentialMarkdown} from '../shared/ai-personnel.mjs';
 import {createProductionTask,validateProjectSchedule} from '../src/project-schedule.ts';
 const require=createRequire(import.meta.url),{issueAiCredential,verifyAiFeedback}=require('../desktop/ai-credentials.cjs'),{signFeedback}=require('../shared/ai-feedback-client.cjs'),{validateProjectScheduleArchive}=require('../desktop/project-package.cjs');
 function fixture(){const data=new Map(),storage={getItem:k=>data.get(k)??null,setItem:(k,v)=>data.set(k,v)},projectId='ai-team',sk='gamecreator.workspace.v1:'+projectId+':project-schedule';storage.setItem('gamecreator.projects.v1',JSON.stringify({activeId:projectId,projects:[{id:projectId}]}));const personnel=defaultAiTeam(),developer=personnel.members.find(m=>m.name==='程序A'),reviewer=personnel.members.find(m=>m.name==='测试A'),producer=personnel.members[0],task={...createProductionTask('实现种植'),assignment:{primaryId:developer.id,collaboratorIds:[],reviewerId:reviewer.id}},schedule=normalizePersonnelSchedule({schema:1,personnel,tasks:[task,{...createProductionTask('其他开发'),id:'other'}],milestones:[]});const read=()=>JSON.parse(storage.getItem(sk));storage.setItem(sk,JSON.stringify(schedule));const issue=(member=developer,extra={})=>issueAiCredential(storage,{projectId,memberId:member.id,name:'测试凭证',expiresAt:new Date(Date.now()+86400000).toISOString(),permissions:member.permissions,taskIds:[],schedule:read(),...extra});const draft=(extra={})=>({schema:1,projectId,engine:'godot-gdscript',id:randomUUID(),snapshotId:'f'.repeat(64),target:{kind:'task',id:task.id},author:'伪造姓名',summary:'工作进度',evidence:['验证通过'],changes:{status:'待验收',result:'工作已完成'},...extra});return{storage,read,sk,developer,reviewer,producer,task,schedule,issue,draft};}
@@ -51,6 +51,23 @@ test('failed persistence does not issue a credential; retry succeeds without dup
  assert.throws(()=>f.issue(),/disk unavailable/);assert.equal(f.storage.getItem(f.sk),before);
  f.storage.setItem=save;const {secret}=f.issue();assert.equal(f.read().personnel.credentials.length,1);
  assert.equal(verifyAiFeedback(signFeedback(f.draft(),secret),f.read()).verified,true);
+});
+test('positions group work without multiplying executor names; explicit job allocation creates identity atomically',async()=>{
+ const f=fixture(),legacy=f.read(),s={...structuredClone(legacy),personnel:defaultWorkTeam()};delete s.tasks[0].assignment;s.tasks[0].owner='';s.tasks[1].kind='美术';f.storage.setItem(f.sk,JSON.stringify(s));
+ assert.deepEqual(positionsOf(s).map(p=>p.name),['制作人','策划','程序','美术','测试','音效']);assert.equal(s.personnel.members.length,0);
+ assert.equal(positionTasks(s,'program').length,1);assert.equal(positionTasks(legacy,'program').length,2);assert.equal(legacy.personnel.members.length,6);
+ const input={projectId:'ai-team',executorName:'战斗与资源助手',name:'本轮交付',permissions:['progress'],positionIds:['program','art'],taskIds:[s.tasks[0].id,'other'],workDescription:'完成程序与素材接入',expiresAt:new Date(Date.now()+86400000).toISOString(),schedule:s};
+ const save=f.storage.setItem;f.storage.setItem=()=>{throw new Error('disk unavailable');};await assert.rejects(issueAiCredential(f.storage,input),/disk unavailable/);assert.deepEqual(f.read(),s);f.storage.setItem=save;
+ const {secret,credential}=await issueAiCredential(f.storage,input),next=f.read();assert.equal(next.personnel.members.length,1);assert.deepEqual(next.tasks,s.tasks);assert.equal(next.personnel.members[0].name,input.executorName);assert.equal(workAssignees(next,s.tasks[0].id,'ai-team').length,1);
+ for(const task of next.tasks){const feedback=signFeedback(f.draft({target:{kind:'task',id:task.id}}),secret);assert.equal(verifyAiFeedback(feedback,next).memberName,input.executorName);}
+ assert.match(credentialMarkdown(next,credential),/完成程序与素材接入/);assert.ok(!JSON.stringify(next).includes(secret.privateKey));validateProjectSchedule(next);validateProjectScheduleArchive(next);
+ const newTask={...createProductionTask('新加程序工作'),id:'new'};next.tasks.push(newTask);assert.throws(()=>verifyAiFeedback(signFeedback(f.draft({target:{kind:'task',id:'new'}}),secret),next),/范围/);
+ next.tasks[0].positionIds=['qa'];assert.throws(()=>verifyAiFeedback(signFeedback(f.draft(),secret),next),/范围/);next.tasks[0].positionIds=['program'];next.personnel.positions.find(p=>p.id==='program').active=false;assert.throws(()=>verifyAiFeedback(signFeedback(f.draft(),secret),next),/范围/);
+ assert.equal(verifyAiFeedback(signFeedback(f.draft({target:{kind:'task',id:'other'}}),secret),next).verified,true);
+ await assert.rejects(issueAiCredential(f.storage,{...input,schedule:f.read()}),/唯一/);
+ await assert.rejects(issueAiCredential(f.storage,{...input,executorName:'超范围',positionIds:['program'],schedule:f.read()}),/具体工作/);
+ const reused=await issueAiCredential(f.storage,{...input,memberId:secret.memberId,schedule:f.read(),taskIds:[s.tasks[0].id]});assert.equal(f.read().personnel.members.length,1);assert.equal(reused.secret.memberId,secret.memberId);
+ const bad=f.read();bad.personnel.credentials[0].taskIds=[];assert.throws(()=>validateProjectSchedule(bad));assert.throws(()=>validateProjectScheduleArchive(bad));
 });
 test('exported signing helper publishes complete feedback without overwriting a prior submission',()=>{
  const f=fixture(),{secret}=f.issue(),root=fs.mkdtempSync(path.join(os.tmpdir(),'gc-ai-cli-'));

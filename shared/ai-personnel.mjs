@@ -8,4 +8,34 @@ export const memberTasks=(schedule,id)=>schedule.tasks.filter(t=>{const a=taskAs
 export function normalizePersonnelSchedule(schedule){if(!schedule.personnel)return schedule;return {...schedule,tasks:schedule.tasks.map(t=>{const member=schedule.personnel.members.find(m=>m.id===t.assignment?.primaryId);return member&&t.owner!==member.name?{...t,owner:member.name}:t;})};}
 export function suggestAssignments(schedule){const members=schedule.personnel?.members.filter(m=>m.active)||[],roles={设计:'策划',程序:'程序开发',美术:'美术',关卡:'关卡设计',测试:'测试'};return schedule.tasks.filter(t=>!t.assignment?.primaryId).flatMap(t=>{const named=members.filter(m=>m.name===t.owner.trim()),matching=members.filter(m=>m.roles.includes(roles[t.kind]));const matches=t.owner.trim()?named:matching;return matches.length===1?[{taskId:t.id,memberId:matches[0].id,reason:t.owner.trim()?'负责人姓名完全匹配':'岗位与制作方向匹配'}]:[];});}
 export function applyAssignments(schedule,assignments){const members=schedule.personnel?.members||[];return normalizePersonnelSchedule({...schedule,tasks:schedule.tasks.map(t=>{const choice=assignments.find(a=>a.taskId===t.id);if(!choice||t.assignment?.primaryId||!members.some(m=>m.id===choice.memberId&&m.active))return t;return {...t,assignment:{...taskAssignment(t),primaryId:choice.memberId,collaboratorIds:taskAssignment(t).collaboratorIds.filter(id=>id!==choice.memberId)}};})});}
-export function personnelMarkdown(schedule,onlyMemberId){const people=schedule.personnel?.members||[],members=onlyMemberId?people.filter(m=>m.id===onlyMemberId):people;const lines=['## AI 人员分配','','岗位可兼任，任务按固定成员 ID 分配。反馈权限以 GameCreator 当前授权为准。',''];if(!members.length)lines.push('尚未建立 AI 开发团队。');for(const m of members){lines.push('### '+m.name,'','- 成员 ID：'+m.id,'- 岗位：'+m.roles.join('、'),'- 状态：'+(m.active?'启用':'停用'),'- 职责：'+(m.duties||'待填写'),'- 权限：'+m.permissions.map(p=>aiPermissionLabels[p]).join('、'),'- 范围：'+(m.scope==='project'?'项目任务':'分配给自己的任务'),'','分配任务：');for(const t of memberTasks(schedule,m.id)){const a=taskAssignment(t);lines.push('- '+t.title+' ['+t.id+'] · '+t.status+' · '+(a.primaryId===m.id?'主负责人':a.reviewerId===m.id?'验收负责人':'协作者'), '  - 前置任务：'+(t.dependencyIds.join('、')||'无'),'  - 关联内容：'+(t.references.map(r=>r.kind+':'+r.targetId).join('、')||'无'),'  - 验收标准：'+(t.acceptance||'待填写'));}if(!memberTasks(schedule,m.id).length)lines.push('- 暂未分配任务。');lines.push('');}return lines.join('\n');}
+export function personnelMarkdown(schedule,onlyMemberId){
+ const people=schedule.personnel?.members||[],members=onlyMemberId?people.filter(m=>m.id===onlyMemberId):people;
+ const lines=[...(onlyMemberId?[]:[positionsMarkdown(schedule),'']),'## AI 执行者与协作分配',''];
+ if(!members.length)lines.push('尚未签发执行者凭证。到协作令牌中命名 AI 并选择工作。');
+ for(const m of members){lines.push('### '+m.name,'- 成员 ID：'+m.id,'- 状态：'+(m.active?'启用':'停用'));const keys=(schedule.personnel?.credentials||[]).filter(k=>k.memberId===m.id);for(const key of keys)lines.push('',credentialMarkdown(schedule,key));const legacy=memberTasks(schedule,m.id);if(legacy.length)lines.push('历史成员任务：',...legacy.map(t=>'- '+t.title+' ['+t.id+'] · '+t.status));if(!keys.length&&!legacy.length)lines.push('暂无工作分配。');lines.push('');}
+ return lines.join('\n');
+}
+
+// Positions describe work; members are execution identities created when issuing credentials.
+export function defaultAiPositions(){return [
+ ['producer','制作人',[],'控制版本范围、统筹分工、审查交付；提出排期与分配建议。'],
+ ['planning','策划',['设计','关卡'],'维护玩法规则、数值、关卡与验收要求。'],
+ ['program','程序',['程序'],'实现功能、接入工程并开发制作工具。'],
+ ['art','美术',['美术'],'按制作文档完成角色、场景、动画与 UI 素材。'],
+ ['qa','测试',['测试'],'验证功能、记录问题并进行回归检查。'],
+ ['audio','音效',[],'制作音效、音乐与音频接入说明。'],
+ ].map(([id,name,taskKinds,duties])=>({id,name,taskKinds,duties,active:true}));}
+export function positionsOf(schedule){return schedule.personnel?.positions??defaultAiPositions();}
+export function defaultWorkTeam(){return {schema:1,positions:defaultAiPositions(),members:[],credentials:[]};}
+export function taskPositionIds(schedule,task){return task.positionIds??positionsOf(schedule).filter(p=>p.taskKinds.includes(task.kind)).map(p=>p.id);}
+export function positionTasks(schedule,positionId){return schedule.tasks.filter(t=>taskPositionIds(schedule,t).includes(positionId));}
+export function credentialTasks(schedule,key){return key.positionIds?schedule.tasks.filter(t=>key.taskIds.includes(t.id)):memberTasks(schedule,key.memberId).filter(t=>!key.taskIds.length||key.taskIds.includes(t.id));}
+export function workAssignees(schedule,taskId,projectId){
+ const team=schedule.personnel,task=schedule.tasks.find(t=>t.id===taskId);if(!team||!task)return [];
+ const positionIds=taskPositionIds(schedule,task),positions=positionsOf(schedule),a=taskAssignment(task);
+ return team.credentials.filter(k=>!k.revokedAt&&Date.parse(k.expiresAt)>Date.now()&&(!projectId||k.projectId===projectId)&&team.members.some(m=>m.id===k.memberId&&m.active)&&
+ (k.positionIds?k.taskIds.includes(taskId)&&k.positionIds.some(id=>positionIds.includes(id)&&positions.some(p=>p.id===id&&p.active)):
+ (!k.taskIds.length||k.taskIds.includes(taskId))&&[a.primaryId,a.reviewerId,...a.collaboratorIds].includes(k.memberId)));
+}
+export function positionsMarkdown(schedule){const lines=['## 岗位与工作内容',''];for(const p of positionsOf(schedule)){lines.push('### '+p.name,'- 岗位 ID：'+p.id,'- 职责：'+p.duties,'- 状态：'+(p.active?'启用':'停用'));const tasks=positionTasks(schedule,p.id);for(const t of tasks)lines.push('- '+t.title+' ['+t.id+'] · '+t.status);if(!tasks.length)lines.push('- 暂无工作任务，可在岗位详情中选择任务。');lines.push('');}return lines.join('\n');}
+export function credentialMarkdown(schedule,key){const member=schedule.personnel?.members.find(m=>m.id===key.memberId);return ['# '+(member?.name||key.name)+' · 工作分配','', '- 执行者 ID：'+key.memberId,'- 令牌 ID：'+key.id,'- 绑定项目：'+key.projectId,'- 撤销记录：'+(key.revokedAt||'未撤销'),'- 岗位：'+(key.positionIds||[]).map(id=>positionsOf(schedule).find(p=>p.id===id)?.name||id).join('、'),'- 工作说明：'+(key.workDescription||member?.duties||'见下方任务'),'- 反馈权限：'+key.permissions.map(p=>aiPermissionLabels[p]).join('、'),'- 有效期：'+key.expiresAt,'','## 已分配任务',...credentialTasks(schedule,key).flatMap(t=>['### '+t.title,'- ID：'+t.id,'- 当前状态：'+t.status,'- 内容：'+t.description,'- 前置任务：'+(t.dependencyIds.join('、')||'无'),'- 验收要求：'+(t.acceptance||'待补充')]),'','只提交获准任务的反馈。私有凭证由管理者单独交付；提交方式见 ../README.md。'].join('\n');}

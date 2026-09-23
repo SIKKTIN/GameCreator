@@ -2,8 +2,9 @@ import type {ProjectScheduleStore,ProductionTask} from '../src/project-schedule.
 export type AiPermission='progress'|'review'|'propose';
 export type AiMember={id:string;name:string;roles:string[];duties:string;active:boolean;scope:'project'|'assigned';permissions:AiPermission[];createdAt:string};
 export type AiAssignment={primaryId:string;collaboratorIds:string[];reviewerId:string};
-export type AiCredential={id:string;projectId:string;memberId:string;name:string;publicKey:string;permissions:AiPermission[];taskIds:string[];createdAt:string;expiresAt:string;revokedAt:string};
-export type AiPersonnel={schema:1;members:AiMember[];credentials:AiCredential[]};
+export type AiPosition={id:string;name:string;duties:string;active:boolean;taskKinds:string[]};
+export type AiCredential={positionIds?:string[];workDescription?:string;id:string;projectId:string;memberId:string;name:string;publicKey:string;permissions:AiPermission[];taskIds:string[];createdAt:string;expiresAt:string;revokedAt:string};
+export type AiPersonnel={positions?:AiPosition[];schema:1;members:AiMember[];credentials:AiCredential[]};
 export const aiRoles:string[];
 export const aiPermissionLabels:Record<AiPermission,string>;
 export function nextAiName(members:AiMember[],role:string):string;
@@ -15,3 +16,13 @@ export function normalizePersonnelSchedule(schedule:ProjectScheduleStore):Projec
 export function suggestAssignments(schedule:ProjectScheduleStore):{taskId:string;memberId:string;reason:string}[];
 export function applyAssignments(schedule:ProjectScheduleStore,assignments:{taskId:string;memberId:string}[]):ProjectScheduleStore;
 export function personnelMarkdown(schedule:ProjectScheduleStore,onlyMemberId?:string):string;
+
+export function defaultAiPositions():AiPosition[];
+export function defaultWorkTeam():AiPersonnel;
+export function positionsOf(schedule:ProjectScheduleStore):AiPosition[];
+export function taskPositionIds(schedule:ProjectScheduleStore,task:ProductionTask):string[];
+export function positionTasks(schedule:ProjectScheduleStore,positionId:string):ProductionTask[];
+export function credentialTasks(schedule:ProjectScheduleStore,key:AiCredential):ProductionTask[];
+export function workAssignees(schedule:ProjectScheduleStore,taskId:string,projectId?:string):AiCredential[];
+export function positionsMarkdown(schedule:ProjectScheduleStore):string;
+export function credentialMarkdown(schedule:ProjectScheduleStore,key:AiCredential):string;

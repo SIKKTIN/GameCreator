@@ -442,6 +442,17 @@ function validateProjectScheduleArchive(value) {
         const p = value.personnel;
         if (!record(p) || p.schema !== 1 || !Array.isArray(p.members) || p.members.length > 200 || !Array.isArray(p.credentials) || p.credentials.length > 1000)
             return fail();
+        if (p.positions !== undefined) {
+            if (!Array.isArray(p.positions) || p.positions.length > 100)
+                return fail();
+            const positionIds = new Set(), positionNames = new Set();
+            for (const r of p.positions) {
+                if (!record(r) || !bounded(r.id) || !r.id.trim() || positionIds.has(r.id) || !bounded(r.name, 100) || !r.name.trim() || positionNames.has(r.name.trim().toLowerCase()) || !bounded(r.duties, 10000) || typeof r.active !== 'boolean' || !ids(r.taskKinds, 6) || r.taskKinds.some(k => !['设计', '程序', '美术', '关卡', '测试', '其他'].includes(k)))
+                    return fail();
+                positionIds.add(r.id);
+                positionNames.add(r.name.trim().toLowerCase());
+            }
+        }
         const seen = new Set(), names = new Set();
         for (const m of p.members) {
             if (!record(m) || !bounded(m.id) || !m.id.trim() || seen.has(m.id) || !bounded(m.name, 100) || !m.name.trim() || names.has(m.name.trim().toLowerCase()) || !ids(m.roles, 20) || !m.roles.length || !bounded(m.duties, 10000) || typeof m.active !== 'boolean' || !['project', 'assigned'].includes(m.scope) || !permissions(m.permissions) || !stamp(m.createdAt))
@@ -452,6 +463,8 @@ function validateProjectScheduleArchive(value) {
         const keys = new Set();
         for (const c of p.credentials) {
             if (!record(c) || !bounded(c.id) || !c.id.trim() || keys.has(c.id) || !bounded(c.projectId, 1200) || !c.projectId || !bounded(c.memberId) || !seen.has(c.memberId) || !bounded(c.name, 100) || !c.name.trim() || !bounded(c.publicKey, 200) || !c.publicKey.trim() || !permissions(c.permissions) || !ids(c.taskIds) || !stamp(c.createdAt) || !stamp(c.expiresAt) || c.expiresAt <= c.createdAt || !(c.revokedAt === '' || stamp(c.revokedAt)) || Object.prototype.hasOwnProperty.call(c, 'privateKey'))
+                return fail();
+            if (c.positionIds !== undefined && (!ids(c.positionIds, 100) || !c.positionIds.length || !c.taskIds.length || !bounded(c.workDescription, 10000)))
                 return fail();
             keys.add(c.id);
         }
@@ -469,6 +482,8 @@ function validateProjectScheduleArchive(value) {
             !['设计', '程序', '美术', '关卡', '测试', '其他'].includes(t.kind) || !['待开始', '进行中', '待验收', '已完成', '受阻'].includes(t.status) || !['低', '普通', '高', '紧急'].includes(t.priority) ||
             !['start', 'end', 'actualStart', 'actualEnd'].every(k => date(t[k])) || (t.start && t.end && t.end < t.start) || (t.actualStart && t.actualEnd && t.actualEnd < t.actualStart) ||
             !Array.isArray(t.dependencyIds) || t.dependencyIds.some(v => typeof v !== 'string' || !v.trim()) || new Set(t.dependencyIds).size !== t.dependencyIds.length || !Array.isArray(t.references))
+            return fail();
+        if (t.positionIds !== undefined && !ids(t.positionIds, 100))
             return fail();
         if (t.assignment !== undefined) {
             const a = t.assignment;

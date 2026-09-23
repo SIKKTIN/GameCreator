@@ -8,7 +8,7 @@ import {createRequire} from 'node:module';
 import {validateFeedback,feedbackDiff,mergeFeedback,validateFeedbackHistory,feedbackBatchItems} from '../shared/engine-feedback.mjs';
 import {createProductionTask,createProductionMilestone,validateProjectSchedule} from '../src/project-schedule.ts';
 import {createDevelopmentTool,validateDevelopmentTools} from '../shared/development-tools.mjs';
-import {defaultAiTeam,normalizePersonnelSchedule} from '../shared/ai-personnel.mjs';
+import {defaultAiTeam,defaultWorkTeam,normalizePersonnelSchedule} from '../shared/ai-personnel.mjs';
 const require=createRequire(import.meta.url),{createEngineSync}=require('../desktop/engine-sync.cjs'),{createStorage}=require('../desktop/storage.cjs');
 const rawRead=(s,key)=>JSON.parse(s.getItem(key));
 async function fixture(t,options={}) {
@@ -57,6 +57,18 @@ test('AI context exports assignments and signing helper without secret; verified
  const snapshot=await fs.readFile(path.join(f.engine,'gamecreator/context/snapshots',f.project.snapshotId+'.json'),'utf8');assert.ok(!snapshot.includes(f.credential.secret.privateKey));assert.ok(!JSON.stringify(team).includes(f.credential.secret.privateKey));
  const v=f.signed({status:'待验收',result:'工程开发完成'});await f.put(v);const entry=(await f.scan()).entries[0];assert.equal(entry.identity.memberName,'程序A');assert.equal(entry.legacy,false);
  await f.apply(entry);const receipt=rawRead(f.storage,f.sk).feedbackHistory[0];assert.equal(receipt.author,'程序A');assert.equal(receipt.identity.memberId,f.dev.id);assert.equal((await f.scan()).entries[0].state,'processed');
+});
+test('named work credentials export exact briefs and batch only their selected work across positions',async t=>{
+ const f=await fixture(t),s=rawRead(f.storage,f.sk);s.personnel=defaultWorkTeam();s.tasks[0].references=[{kind:'tool',targetId:'tool-a'}];s.tasks.push({...createProductionTask('制作资源'),id:'art-work',kind:'美术'});f.storage.setItem(f.sk,JSON.stringify(s));
+ const {issueAiCredential}=require('../desktop/ai-credentials.cjs'),{signFeedback}=require('../shared/ai-feedback-client.cjs');
+ const {secret,credential}=await issueAiCredential(f.storage,{projectId:f.input.projectId,executorName:'跨岗位执行助手',name:'本轮工作',positionIds:['program','art'],taskIds:['task-a','art-work'],workDescription:'交付工具和测试资源',permissions:['progress'],expiresAt:new Date(Date.now()+86400000).toISOString(),schedule:s});
+ await f.sync();Object.assign(f.project,JSON.parse(await fs.readFile(path.join(f.engine,'gamecreator/project.json'),'utf8')));
+ const brief=await fs.readFile(path.join(f.engine,'gamecreator/assignments',credential.id+'.md'),'utf8');assert.match(brief,/交付工具和测试资源/);assert.match(brief,/art-work/);assert.ok(!brief.includes(secret.privateKey));
+ for(const id of ['task-a','art-work'])await f.put(signFeedback({...f.make({status:'待验收'}),target:{kind:'task',id}},secret));
+ const scan=await f.scan();assert.equal(scan.entries.filter(e=>e.identity?.verified).length,2);
+ const batch=await f.api.feedbackApplyBatch({tokens:scan.entries.map(e=>e.token)});assert.equal(batch.applied.length,2);assert.ok(rawRead(f.storage,f.sk).tasks.every(t=>t.status==='待验收'));
+ const next=rawRead(f.storage,f.sk);next.personnel.positions.find(p=>p.id==='program').active=false;f.storage.setItem(f.sk,JSON.stringify(next));
+ await f.put(signFeedback(f.make({status:'开发中'},'tool'),secret));const blocked=(await f.scan()).entries.find(e=>e.state==='invalid');assert.match(blocked.error,/任务范围/);
 });
 
 test('AI suggestions append without replacing results; verified review still needs user acceptance',async t=>{

@@ -594,7 +594,7 @@ function WorkspaceApp({ username, testSession, onLoadTest, onExitTest, preparing
         {maps.error && active !== '地图设计' && active !== '工作区设置' && <div className="gp-save-error" role="alert"><span>{maps.error}</span><button onClick={()=>setActive('工作区设置')}>处理地图存档</button></div>}
         {schedule.error && active !== '项目排期' && <div className="gp-save-error" role="alert"><span>{schedule.error}</span><button onClick={() => setActive('项目排期')}>处理排期存档</button></div>}
         {active === '人员分配' && <AiPersonnel testMode={!!testSession} toolHistory={developmentTools.store.feedbackHistory} controller={schedule} projectId={formalProject.id} onOpenTask={id=>{setRequestedSchedule({kind:'task',id});setActive('项目排期');}}/>}
-        {active === '项目排期' && <ProjectSchedule controller={schedule} requested={requestedSchedule} sources={buildScheduleSources(gameplay.store.designs, functional.store, art.store, maps.store, prototype.store, developmentTools.store)} onOpenReference={ref => {
+        {active === '项目排期' && <ProjectSchedule projectId={formalProject.id} controller={schedule} requested={requestedSchedule} sources={buildScheduleSources(gameplay.store.designs, functional.store, art.store, maps.store, prototype.store, developmentTools.store)} onOpenReference={ref => {
           if (ref.kind === 'gameplay') openGameplay(ref.targetId);
           else if (ref.kind === 'tool') { setRequestedTool({id:ref.targetId}); setActive('开发工具'); }
           else if (ref.kind === 'capability') openCapability(ref.targetId);

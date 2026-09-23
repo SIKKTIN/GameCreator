@@ -51,9 +51,10 @@ function createEngineFeedback({storage,context,manifest,read,writeMeta,checked,l
       ['receipts/README.md','反馈处理回执目录','# 处理回执\n\nGameCreator 应用或忽略反馈后在此写入回执。回执可重新生成，请勿手动修改。\n'],
     ];
     if(source.schedule.personnel){
-      const {personnelMarkdown}=await import('../shared/ai-personnel.mjs');
+      const {personnelMarkdown,positionsOf,credentialMarkdown}=await import('../shared/ai-personnel.mjs');
       const team=source.schedule.personnel;
-      files.push(['context/team.json','AI 团队与授权',json({schema:1,projectId:ctx.projectId,members:team.members,credentials:team.credentials.map(({publicKey,...c})=>c)})],['context/assignments.json','任务分配清单',json({schema:1,projectId:ctx.projectId,tasks:source.schedule.tasks.map(t=>({id:t.id,title:t.title,owner:t.owner,assignment:t.assignment||null}))})],['submit-feedback.cjs','AI 反馈签名工具',await fs.readFile(path.join(__dirname,'../shared/ai-feedback-client.cjs'))]);
+      files.push(['context/team.json','AI 团队与授权',json({schema:1,projectId:ctx.projectId,positions:positionsOf(source.schedule),members:team.members,credentials:team.credentials.map(({publicKey,...c})=>c)})],['context/assignments.json','任务分配清单',json({schema:1,projectId:ctx.projectId,tasks:source.schedule.tasks.map(t=>({id:t.id,title:t.title,owner:t.owner,positionIds:t.positionIds||null,assignment:t.assignment||null,workCredentials:team.credentials.filter(k=>k.positionIds&&k.taskIds.includes(t.id)).map(k=>({credentialId:k.id,memberId:k.memberId,revokedAt:k.revokedAt,expiresAt:k.expiresAt}))}))})],['submit-feedback.cjs','AI 反馈签名工具',await fs.readFile(path.join(__dirname,'../shared/ai-feedback-client.cjs'))]);
+      for(const key of team.credentials.filter(k=>k.positionIds&&k.projectId===ctx.projectId))files.push(['assignments/'+encodeURIComponent(key.id)+'.md',key.name+'工作分配',credentialMarkdown(source.schedule,key)]);
       for(const member of team.members.filter(m=>m.active))files.push(['members/'+encodeURIComponent(member.id)+'.md',member.name+'工作说明',personnelMarkdown(source.schedule,member.id)+'\n\n先阅读 ../README.md 和 ../context/tasks.json。完成任务后使用私有协作凭证签名反馈；凭证由管理者单独交付，不在此目录中。\n']);
     }
     return files.map(([file,label,content])=>({id:'collaboration:'+file,path:ROOT+'/'+file,bytes:Buffer.isBuffer(content)?content:Buffer.from(content),kind:'collaboration',label,version:''}));
