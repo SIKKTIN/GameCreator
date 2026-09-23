@@ -2,7 +2,7 @@
 const fs=require('node:fs'),path=require('node:path'),{createPrivateKey,sign,randomUUID}=require('node:crypto');
 const canonical=value=>Array.isArray(value)?'['+value.map(canonical).join(',')+']':value&&typeof value==='object'?'{'+Object.keys(value).sort().map(k=>JSON.stringify(k)+':'+canonical(value[k])).join(',')+'}':JSON.stringify(value);
 function signFeedback(draft,credential){
- if(credential.schema!==1||!credential.memberId||!credential.credentialId||credential.projectId!==draft.projectId||Date.parse(credential.expiresAt)<=Date.now())throw new Error('凭证属于其他项目、格式无效或已过期');
+ if(![1,2].includes(credential.schema)||!credential.memberId||!credential.credentialId||credential.projectId!==draft.projectId||credential.schema===1&&Date.parse(credential.expiresAt)<=Date.now())throw new Error('凭证属于其他项目、格式无效或已过期');
  const feedback={...draft,id:draft.id||randomUUID(),author:credential.memberName,intent:draft.intent||'progress',identity:{memberId:credential.memberId,credentialId:credential.credentialId}};
  const privateKey=createPrivateKey({key:Buffer.from(credential.privateKey,'base64'),type:'pkcs8',format:'der'});if(privateKey.asymmetricKeyType!=='ed25519')throw new Error('签名密钥格式无效');
  feedback.identity.signature=sign(null,Buffer.from(canonical(feedback)),privateKey).toString('base64');return feedback;

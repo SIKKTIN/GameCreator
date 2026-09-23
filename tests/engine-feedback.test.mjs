@@ -71,6 +71,18 @@ test('named work credentials export exact briefs and batch only their selected w
  await f.put(signFeedback(f.make({status:'开发中'},'tool'),secret));const blocked=(await f.scan()).entries.find(e=>e.state==='invalid');assert.match(blocked.error,/任务范围/);
 });
 
+test('persistent developer context exports current scope and rechecks changed authority at final feedback commit',async t=>{
+ let change=async()=>{};const f=await fixture(t,{beforeFeedbackCommit:async()=>change()}),s=rawRead(f.storage,f.sk);s.personnel=defaultWorkTeam();s.tasks[0].references=[{kind:'tool',targetId:'tool-a'}];f.storage.setItem(f.sk,JSON.stringify(s));
+ const {createDeveloperService}=require('../desktop/ai-developers.cjs'),{signFeedback}=require('../shared/ai-feedback-client.cjs'),secrets=new Map();
+ const service=createDeveloperService({storage:f.storage,vault:{put:v=>secrets.set(v.credentialId,v),get:(_p,id)=>secrets.get(id),remove:(_p,id)=>secrets.delete(id)}}),input=()=>({projectId:f.input.projectId,schedule:rawRead(f.storage,f.sk),name:'持续开发助手',duties:'维护工具',active:true,permissions:['progress'],profile:{positionIds:['program'],taskIds:[],scope:'positions',expiresAt:''}});
+ const created=await service.change('create',input()),secret=service.read({projectId:f.input.projectId,credentialId:created.credential.id});await f.sync();Object.assign(f.project,JSON.parse(await fs.readFile(path.join(f.engine,'gamecreator/project.json'),'utf8')));
+ const context=JSON.parse(await fs.readFile(path.join(f.engine,'gamecreator/context/team.json'),'utf8'));assert.equal(context.members[0].developer.scope,'positions');assert.ok(!JSON.stringify(context).includes(secret.privateKey));
+ const brief=await fs.readFile(path.join(f.engine,'gamecreator/assignments',created.credential.id+'.md'),'utf8');assert.match(brief,/包含后续任务/);assert.match(brief,/暂无具体任务/);
+ const v=signFeedback(f.make({status:'开发中'},'tool'),secret);await f.put(v);const entry=(await f.scan()).entries[0];assert.ok(entry.identity.verified);const before=f.storage.getItem(f.tk);
+ change=()=>service.change('update',{...input(),memberId:created.memberId,active:false});await assert.rejects(f.apply(entry),/停用/);assert.equal(f.storage.getItem(f.tk),before);
+ change=async()=>{};await service.change('update',{...input(),memberId:created.memberId});const fresh=(await f.scan()).entries.find(e=>e.feedback?.id===v.id);await f.apply(fresh);assert.equal(rawRead(f.storage,f.tk).tools[0].status,'开发中');assert.equal(rawRead(f.storage,f.tk).feedbackHistory[0].identity.memberId,created.memberId);
+});
+
 test('AI suggestions append without replacing results; verified review still needs user acceptance',async t=>{
  const f=await aiFixture(t),s=rawRead(f.storage,f.sk);s.tasks[0].result='原交付记录';f.storage.setItem(f.sk,JSON.stringify(s));
  const p=f.signed({result:'建议拆分后续任务'},{intent:'propose'},f.producerCredential.secret);await f.put(p);const e=(await f.scan()).entries[0];assert.equal(e.rows[0].label,'排期与分配建议');await f.apply(e);

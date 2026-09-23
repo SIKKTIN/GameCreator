@@ -1,4 +1,5 @@
 const {generateKeyPairSync,createPublicKey,verify,randomUUID}=require('node:crypto');
+const {developerAllowed}=require('./ai-developers.cjs');
 const {validateProjectScheduleArchive}=require('./project-package.cjs');
 const canonical=value=>Array.isArray(value)?'['+value.map(canonical).join(',')+']':value&&typeof value==='object'?'{'+Object.keys(value).sort().map(k=>JSON.stringify(k)+':'+canonical(value[k])).join(',')+'}':JSON.stringify(value);
 function feedbackSigningText(feedback){const copy=structuredClone(feedback);if(copy.identity)delete copy.identity.signature;return canonical(copy);}
@@ -37,14 +38,14 @@ async function issueWorkCredential(storage,input){
 }
 function verifyAiFeedback(feedback,schedule,now=Date.now()){
  const team=schedule.personnel;if(!feedback.identity){if(feedback.intent&&feedback.intent!=='progress')throw new Error('验收或分工建议需要 AI 签名凭证');return team?.members.length?{verified:false,legacy:true}:undefined;}
- const {memberId,credentialId,signature}=feedback.identity,member=team?.members.find(m=>m.id===memberId),key=team?.credentials.find(c=>c.id===credentialId);
- if(!member?.active||!key||key.memberId!==memberId||key.projectId!==feedback.projectId||key.revokedAt||Date.parse(key.expiresAt)<=now||Date.parse(key.createdAt)>now)throw new Error('AI 令牌无效、已过期、已撤销或成员已停用');
+ const {memberId,credentialId,signature}=feedback.identity,member=team?.members.find(m=>m.id===memberId),key=team?.credentials.find(c=>c.id===credentialId);const expiry=key?.persistent?member?.developer?.expiresAt:key?.expiresAt;
+ if(!member?.active||!key||key.memberId!==memberId||key.projectId!==feedback.projectId||key.revokedAt||expiry&&Date.parse(expiry)<=now||Date.parse(key.createdAt)>now)throw new Error('AI 令牌无效、已过期、已撤销或成员已停用');
  let valid=false;try{const publicKey=createPublicKey({key:Buffer.from(key.publicKey,'base64'),type:'spki',format:'der'});valid=publicKey.asymmetricKeyType==='ed25519'&&typeof signature==='string'&&/^[A-Za-z0-9+/]{86}==$/.test(signature)&&verify(null,Buffer.from(feedbackSigningText(feedback)),publicKey,Buffer.from(signature,'base64'));}catch{}
  if(!valid)throw new Error('AI 反馈签名无效，内容或身份可能已改变');
- const intent=feedback.intent||'progress';if(!member.permissions.includes(intent)||!key.permissions.includes(intent))throw new Error('此 AI 令牌没有提交该类反馈的权限');
+ const intent=feedback.intent||'progress';if(!member.permissions.includes(intent)||!key.persistent&&!key.permissions.includes(intent))throw new Error('此 AI 令牌没有提交该类反馈的权限');
  const assigned=t=>{const a=t.assignment||{};return intent==='review'?a.reviewerId===memberId:a.primaryId===memberId||(a.collaboratorIds||[]).includes(memberId)||(intent==='propose'&&a.reviewerId===memberId);};
  const tasks=feedback.target.kind==='task'?schedule.tasks.filter(t=>t.id===feedback.target.id):schedule.tasks.filter(t=>t.references.some(r=>r.kind==='tool'&&r.targetId===feedback.target.id));
- const allowed=t=>key.positionIds?key.taskIds.includes(t.id)&&team.positions?.some(p=>p.active&&key.positionIds.includes(p.id)&&(t.positionIds?t.positionIds.includes(p.id):p.taskKinds.includes(t.kind))):(member.scope==='project'||assigned(t))&&(!key.taskIds.length||key.taskIds.includes(t.id));
+ const allowed=t=>key.persistent?developerAllowed(schedule,member,t):key.positionIds?key.taskIds.includes(t.id)&&team.positions?.some(p=>p.active&&key.positionIds.includes(p.id)&&(t.positionIds?t.positionIds.includes(p.id):p.taskKinds.includes(t.kind))):(member.scope==='project'||assigned(t))&&(!key.taskIds.length||key.taskIds.includes(t.id));
  if(!tasks.some(allowed))throw new Error('反馈目标不在此 AI 当前获准的任务范围内');
  const fields=Object.keys(feedback.changes);
  if(intent==='propose'&&(feedback.target.kind!=='task'||fields.length!==1||fields[0]!=='result'))throw new Error('分配与排期建议只能提交任务的 result 说明');

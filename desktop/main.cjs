@@ -1,5 +1,5 @@
 const path = require('node:path');
-const { app, BrowserWindow, shell, ipcMain, session, dialog } = require('electron');
+const { app, BrowserWindow, shell, ipcMain, session, dialog, clipboard, safeStorage } = require('electron');
 const { createDesktopServer } = require('./server.cjs');
 const { createWorkspaceStorage, prepareTestWorkspace } = require('./test-workspaces.cjs');
 const { validateProjectLocation } = require('./project-locations.cjs');
@@ -41,6 +41,24 @@ else {
         new URL(frame.url).origin === localServer?.url;
     } catch { return false; } // An IPC frame may detach while a native dialog is open.
   };
+  let developerService;
+  const developers=()=>developerService??=require('./ai-developers.cjs').createDeveloperService({storage,vault:require('./ai-credential-vault.cjs').createCredentialVault({directory:path.join(app.getPath('userData'),'ai-credential-vault'),safeStorage})});
+  ipcMain.handle('ai-developer',async(event,operation,input)=>{
+    if(!trusted(event))throw new Error('不允许管理开发者凭证');
+    const api=developers();
+    if(['create','update','rotate'].includes(operation))return api.change(operation,input);
+    if(operation==='available')return api.available(input);
+    if(operation==='revoke')return api.revoke(input);
+    if(operation==='copy'){clipboard.writeText(JSON.stringify(api.read(input),null,2));return {copied:true};}
+    if(operation==='download'){
+      api.read(input);const result=await dialog.showSaveDialog(mainWindow,{title:'保存开发者凭证',defaultPath:'gamecreator-credential-'+String(input.credentialId).replace(/[^a-zA-Z0-9-]/g,'_')+'.json',filters:[{name:'JSON',extensions:['json']}]});
+      if(result.canceled||!result.filePath)return null;if(!trusted(event))throw new Error('原工作区已关闭');const secret=api.read(input);require('node:fs').writeFileSync(result.filePath,JSON.stringify(secret,null,2)+'\n',{mode:0o600});return {saved:true};
+    }
+    if(operation==='import'){
+      const result=await dialog.showOpenDialog(mainWindow,{title:'导入已保存的开发者凭证',properties:['openFile'],filters:[{name:'JSON',extensions:['json']}]});if(result.canceled||!result.filePaths.length)return null;if(!trusted(event))throw new Error('原工作区已关闭');const fs=require('node:fs'),file=result.filePaths[0];if(fs.statSync(file).size>32768)throw new Error('凭证文件过大');return api.importSecret(input,JSON.parse(fs.readFileSync(file,'utf8').replace(/^\uFEFF/,'')));
+    }
+    throw new Error('未知开发者操作');
+  });
   ipcMain.handle('ai-credential-issue',(event,input)=>{if(!trusted(event))throw new Error('不允许签发协作令牌');return issueAiCredential(storage,input);});
   ipcMain.handle('collaboration-host', async (event, operation) => {
     if (!trusted(event)) throw new Error('不允许管理本机服务器');

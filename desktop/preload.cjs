@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld('desktopClient', {
     stop: () => ipcRenderer.invoke('collaboration-host', 'stop'),
   },
   storage: { getItem: key => storageRequest('get', key), setItem: (key, value) => storageRequest('set', key, value), info: key => storageRequest('info', key) },
+  developerCredentials:(operation,input)=>ipcRenderer.invoke('ai-developer',operation,input),
   issueAiCredential:input=>ipcRenderer.invoke('ai-credential-issue',input),
   artFiles: {
     importFiles: workspaceId => ipcRenderer.invoke('art-files-import', workspaceId),

@@ -1,9 +1,10 @@
 import type {ProjectScheduleStore,ProductionTask} from '../src/project-schedule.ts';
 export type AiPermission='progress'|'review'|'propose';
-export type AiMember={id:string;name:string;roles:string[];duties:string;active:boolean;scope:'project'|'assigned';permissions:AiPermission[];createdAt:string};
+export type AiDeveloperProfile={positionIds:string[];taskIds:string[];scope:'assigned'|'positions'|'project';expiresAt:string};
+export type AiMember={developer?:AiDeveloperProfile;id:string;name:string;roles:string[];duties:string;active:boolean;scope:'project'|'assigned';permissions:AiPermission[];createdAt:string};
 export type AiAssignment={primaryId:string;collaboratorIds:string[];reviewerId:string};
 export type AiPosition={id:string;name:string;duties:string;active:boolean;taskKinds:string[]};
-export type AiCredential={positionIds?:string[];workDescription?:string;id:string;projectId:string;memberId:string;name:string;publicKey:string;permissions:AiPermission[];taskIds:string[];createdAt:string;expiresAt:string;revokedAt:string};
+export type AiCredential={persistent?:true;positionIds?:string[];workDescription?:string;id:string;projectId:string;memberId:string;name:string;publicKey:string;permissions:AiPermission[];taskIds:string[];createdAt:string;expiresAt:string;revokedAt:string};
 export type AiPersonnel={positions?:AiPosition[];schema:1;members:AiMember[];credentials:AiCredential[]};
 export const aiRoles:string[];
 export const aiPermissionLabels:Record<AiPermission,string>;
@@ -26,3 +27,8 @@ export function credentialTasks(schedule:ProjectScheduleStore,key:AiCredential):
 export function workAssignees(schedule:ProjectScheduleStore,taskId:string,projectId?:string):AiCredential[];
 export function positionsMarkdown(schedule:ProjectScheduleStore):string;
 export function credentialMarkdown(schedule:ProjectScheduleStore,key:AiCredential):string;
+
+export type DeveloperInput={projectId:string;credentialId?:string;memberId?:string;schedule?:ProjectScheduleStore;name?:string;duties?:string;permissions?:AiPermission[];active?:boolean;profile?:AiDeveloperProfile};
+export function credentialExpiry(schedule:ProjectScheduleStore,key:AiCredential):string;
+export function credentialState(schedule:ProjectScheduleStore,key:AiCredential,projectId:string):string;
+export function developerMayAccess(schedule:ProjectScheduleStore,member:AiMember,task:ProductionTask):boolean;

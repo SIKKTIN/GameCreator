@@ -455,16 +455,25 @@ function validateProjectScheduleArchive(value) {
         }
         const seen = new Set(), names = new Set();
         for (const m of p.members) {
-            if (!record(m) || !bounded(m.id) || !m.id.trim() || seen.has(m.id) || !bounded(m.name, 100) || !m.name.trim() || names.has(m.name.trim().toLowerCase()) || !ids(m.roles, 20) || !m.roles.length || !bounded(m.duties, 10000) || typeof m.active !== 'boolean' || !['project', 'assigned'].includes(m.scope) || !permissions(m.permissions) || !stamp(m.createdAt))
+            if (!record(m) || !bounded(m.id) || !m.id.trim() || seen.has(m.id) || !bounded(m.name, 100) || !m.name.trim() || names.has(m.name.trim().toLowerCase()) || !ids(m.roles, 100) || !m.roles.length || !bounded(m.duties, 10000) || typeof m.active !== 'boolean' || !['project', 'assigned'].includes(m.scope) || !permissions(m.permissions) || !stamp(m.createdAt))
                 return fail();
+            if (m.developer !== undefined) {
+                const d = m.developer;
+                if (!record(d) || !ids(d.positionIds, 100) || !d.positionIds.length || !ids(d.taskIds) || !['assigned', 'positions', 'project'].includes(d.scope) || !(d.expiresAt === '' || stamp(d.expiresAt)))
+                    return fail();
+            }
             seen.add(m.id);
             names.add(m.name.trim().toLowerCase());
         }
         const keys = new Set();
         for (const c of p.credentials) {
-            if (!record(c) || !bounded(c.id) || !c.id.trim() || keys.has(c.id) || !bounded(c.projectId, 1200) || !c.projectId || !bounded(c.memberId) || !seen.has(c.memberId) || !bounded(c.name, 100) || !c.name.trim() || !bounded(c.publicKey, 200) || !c.publicKey.trim() || !permissions(c.permissions) || !ids(c.taskIds) || !stamp(c.createdAt) || !stamp(c.expiresAt) || c.expiresAt <= c.createdAt || !(c.revokedAt === '' || stamp(c.revokedAt)) || Object.prototype.hasOwnProperty.call(c, 'privateKey'))
+            if (!record(c) || !bounded(c.id) || !c.id.trim() || keys.has(c.id) || !bounded(c.projectId, 1200) || !c.projectId || !bounded(c.memberId) || !seen.has(c.memberId) || !bounded(c.name, 100) || !c.name.trim() || !bounded(c.publicKey, 200) || !c.publicKey.trim() || !permissions(c.permissions) || !ids(c.taskIds) || !stamp(c.createdAt) || !(c.persistent === true ? (c.expiresAt === '' || stamp(c.expiresAt)) : (stamp(c.expiresAt) && Date.parse(c.expiresAt) > Date.parse(c.createdAt))) || !(c.revokedAt === '' || stamp(c.revokedAt)) || Object.prototype.hasOwnProperty.call(c, 'privateKey'))
                 return fail();
-            if (c.positionIds !== undefined && (!ids(c.positionIds, 100) || !c.positionIds.length || !c.taskIds.length || !bounded(c.workDescription, 10000)))
+            if (c.persistent !== undefined && c.persistent !== true)
+                return fail();
+            if (c.persistent === true && !p.members.some(m => record(m) && m.id === c.memberId && record(m.developer)))
+                return fail();
+            if (c.positionIds !== undefined && (!ids(c.positionIds, 100) || !c.positionIds.length || c.persistent !== true && !c.taskIds.length || !bounded(c.workDescription, 10000)))
                 return fail();
             keys.add(c.id);
         }
