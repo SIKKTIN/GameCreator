@@ -1,3 +1,4 @@
+import {configDataPolicyMarkdown,policyExportPath} from '../shared/config-data-policy.mjs';
 import {emptyDevelopmentTools,developmentToolsMarkdown,type DevelopmentToolsStore} from './development-tools.ts';
 import { markdownName, validateDocumentFiles } from '../shared/ai-document-files.mjs';
 import {emptyProgramFramework,programFrameworkMarkdown,type ProgramFrameworkStore} from './program-framework.ts';
@@ -56,7 +57,7 @@ export function buildAiDocument(project: ExportProject, stories: ExportStory[], 
   for (const definition of definitions) { const rows = (data.datasets[definition.key] ?? []).map((record) => definition.columns.map((column) => String(record[column.key] ?? ''))); lines.push(`### ${definition.label}`, '', table(definition.columns.map((column) => column.label), rows), ''); }
   add('data',lines.join('\n'),!definitions.length);
   sections.sort((a,b)=>aiModules.findIndex(m=>m.id===a.id)-aiModules.findIndex(m=>m.id===b.id));
-  return {projectName:project.name,version:project.version,generatedAt:new Date().toISOString(),sections};
+  return {projectName:project.name,version:project.version,generatedAt:new Date().toISOString(),sections,configDataPolicy:configDataPolicyMarkdown(config)};
 }
 
 export const aiModules = [
@@ -69,20 +70,21 @@ export const aiModules = [
 ] as const;
 export type AiModuleId = typeof aiModules[number]['id'];
 export type AiSection = {id:AiModuleId;label:string;body:string};
-export type AiDocument = {projectName:string;version:string;generatedAt:string;sections:AiSection[]};
+export type AiDocument = {projectName:string;version:string;generatedAt:string;sections:AiSection[];configDataPolicy?:string};
 export type AiExportNames = {folderName:string;summaryName:string;moduleNames:Partial<Record<AiModuleId,string>>};
 const heading=(doc:AiDocument,title:string)=>`# ${doc.projectName}：${title}\n\n> 项目版本：${doc.version||'未填写'}\n> 生成时间：${doc.generatedAt}\n> 本文件由 GameCreator 本地客户端生成，供 AI 检索和协作使用。\n\n`;
 export function buildAiMarkdown(...args:Parameters<typeof buildAiDocument>) {
   const doc=buildAiDocument(...args);
-  return heading(doc,'AI 项目上下文')+doc.sections.map(s=>s.body).join('\n\n')+'\n';
+  return heading(doc,'AI 项目上下文')+doc.sections.map(s=>s.body).join('\n\n')+(doc.configDataPolicy?'\n\n'+doc.configDataPolicy:'')+'\n';
 }
 export function buildAiDocumentFiles(doc:AiDocument,names:AiExportNames) {
   const summaryName=markdownName(names.summaryName),paths=doc.sections.map(s=>'模块/'+markdownName(names.moduleNames[s.id]??s.label));
   const link=(text:string,path:string)=>`[${text}](<${path.split('/').map(encodeURIComponent).join('/')}>)`;
-  const contents='## 模块文档目录\n\n'+doc.sections.map((s,i)=>'- '+link(s.label,paths[i])).join('\n')+'\n\n';
+  const contents='## 模块文档目录\n\n'+doc.sections.map((s,i)=>'- '+link(s.label,paths[i])).join('\n')+(doc.configDataPolicy?'\n- '+link('配置数据管理与同步规范',policyExportPath):'')+'\n\n';
   return validateDocumentFiles({folderName:names.folderName,files:[
-    {path:summaryName,content:heading(doc,'AI 项目上下文')+contents+doc.sections.map(s=>s.body).join('\n\n')+'\n'},
+    {path:summaryName,content:heading(doc,'AI 项目上下文')+contents+doc.sections.map(s=>s.body).join('\n\n')+(doc.configDataPolicy?'\n\n'+doc.configDataPolicy:'')+'\n'},
     ...doc.sections.map((s,i)=>({path:paths[i],content:heading(doc,s.label)+link('返回项目完整文档','../'+summaryName)+'\n\n'+s.body+'\n'})),
+    ...(doc.configDataPolicy?[{path:policyExportPath,content:link('返回项目完整文档','../'+summaryName)+'\n\n'+doc.configDataPolicy}]:[]),
   ]});
 }
 export async function saveAiDocumentFiles(bundle:ReturnType<typeof buildAiDocumentFiles>,directory:string) {
