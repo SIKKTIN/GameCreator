@@ -28,7 +28,7 @@ const root=path.resolve(__dirname,'..');
     const f=await post({kind:'task',id:task.id},{status:'待验收',actualStart:'2026-09-22',result:'动画预览实现完成，等待验收'},'动画预览任务提交验收');
     await button('引擎设置').click();await tab('开发反馈').click();await field('反馈处理 任务状态').waitFor();assert.equal(await button('应用反馈').isDisabled(),true);await field('反馈处理 任务状态').selectOption('feedback');
     await fs.mkdir(path.join(root,'.gamecreator/qa'),{recursive:true});await page.screenshot({path:path.join(root,'.gamecreator/qa/engine-feedback.png')});await page.locator('.ef-field').first().scrollIntoViewIfNeeded();await page.screenshot({path:path.join(root,'.gamecreator/qa/engine-feedback-diff.png')});
-    await button('应用反馈').click();await page.getByText(/反馈已应用，排期和开发工具已刷新/).waitFor();let next=await read(sk);assert.equal(next.tasks.find(t=>t.id===task.id).status,'待验收');assert.deepEqual(next.milestones,schedule.milestones);assert.equal((await read(tk)).tools.find(t=>t.id===tool.id).status,'待开发');
+    await button('应用反馈').click();await page.getByText(/反馈已应用，项目内容已刷新/).waitFor();let next=await read(sk);assert.equal(next.tasks.find(t=>t.id===task.id).status,'待验收');assert.deepEqual(next.milestones,schedule.milestones);assert.equal((await read(tk)).tools.find(t=>t.id===tool.id).status,'待开发');
     await button('处理记录 1').waitFor();await page.getByText('没有待处理反馈',{exact:true}).waitFor();
     await button('项目排期').click();await tab('任务列表').click();assert.match(await page.getByRole('row').filter({hasText:task.title}).innerText(),/待验收/);
     await button('引擎设置').click();await tab('开发反馈').click();await button('处理记录 1').waitFor();await page.getByText('没有待处理反馈',{exact:true}).waitFor();

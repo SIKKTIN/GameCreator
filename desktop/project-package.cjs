@@ -436,7 +436,7 @@ function validateProjectScheduleArchive(value) {
         return false; const n = Date.parse(v + 'T00:00:00Z'); return Number.isFinite(n) && new Date(n).toISOString().slice(0, 10) === v; };
     const bounded = (v, max = 200) => typeof v === 'string' && v.length <= max;
     const ids = (v, max = 2000) => Array.isArray(v) && v.length <= max && v.every(x => bounded(x) && x.trim()) && new Set(v).size === v.length;
-    const permissions = (v) => ids(v, 3) && v.every(x => ['progress', 'review', 'propose'].includes(x));
+    const permissions = (v) => ids(v, 5) && v.every(x => ['progress', 'review', 'propose', 'spec_change', 'project_write'].includes(x));
     const stamp = (v) => bounded(v, 50) && Number.isFinite(Date.parse(v));
     if (record(value) && value.personnel !== undefined) {
         const p = value.personnel;

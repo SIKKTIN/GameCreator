@@ -2,15 +2,16 @@ import {useEffect,useMemo,useRef,useState} from 'react';
 import {ArrowDownToLine,CheckCircle2,MessageSquare,RefreshCw} from 'lucide-react';
 import type {EngineConfig} from './engine';
 import type {CollaborationSource,FeedbackEntry,FeedbackScan,FeedbackApplyResult} from './engine-sync';
-import {feedbackBatchItems,validateFeedbackHistory,type FeedbackReceipt} from '../shared/engine-feedback.mjs';
+import {feedbackIntentLabels,feedbackBatchItems,validateFeedbackHistory,type FeedbackReceipt} from '../shared/engine-feedback.mjs';
 import {beforeLogoutEvent} from './auth';
 import './engine-feedback.css';
 
-type Props={projectId:string;config:EngineConfig;collaboration:CollaborationSource;blockedReason:string;onApplied:()=>boolean};
+type Props={projectId:string;config:EngineConfig;collaboration:CollaborationSource;blockedReason:string;onApplied:(reloadContent?:boolean)=>boolean};
 export function EngineFeedbackPanel({projectId,config,collaboration,blockedReason,onApplied}:Props) {
   const api=window.desktopClient?.engineSync;
   const [scan,setScan]=useState<FeedbackScan>(),[selected,setSelected]=useState(''),[decisions,setDecisions]=useState<Record<string,'keep'|'feedback'>>({});
   const [legacyConfirmed,setLegacyConfirmed]=useState(false),[confirmed,setConfirmed]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[view,setView]=useState('pending');
+  const [changeConfirmed,setChangeConfirmed]=useState(false);
   const [batchConfirmed,setBatchConfirmed]=useState(false),[batchReport,setBatchReport]=useState<{path:string;reason:string}[]>([]);
   const [recent,setRecent]=useState<FeedbackReceipt[]>([]),[refresh,setRefresh]=useState(0);
   const running=useRef(false),alive=useRef(true),tokens=useRef<string[]>([]),queued=useRef(false);
@@ -22,7 +23,7 @@ export function EngineFeedbackPanel({projectId,config,collaboration,blockedReaso
   },[source]);
   const history=[...new Map([...(scan?.history||[]),...localHistory,...recent].filter(r=>r.projectId===projectId&&r.engine===config.engine).map(r=>[r.id,r])).values()].sort((a,b)=>b.at.localeCompare(a.at));
   // Invalidate reviewed tokens, but keep visible history and the previous list while reading.
-  const invalidate=()=>{for(const token of tokens.current)void api?.release(token);tokens.current=[];setScan(s=>s?{...s,entries:s.entries.map(e=>({...e,token:undefined}))}:s);setDecisions({});setConfirmed(false);setLegacyConfirmed(false);setBatchConfirmed(false);};
+  const invalidate=()=>{for(const token of tokens.current)void api?.release(token);tokens.current=[];setScan(s=>s?{...s,entries:s.entries.map(e=>({...e,token:undefined}))}:s);setDecisions({});setConfirmed(false);setChangeConfirmed(false);setLegacyConfirmed(false);setBatchConfirmed(false);};
   useEffect(()=>{alive.current=true;return()=>{alive.current=false;for(const token of tokens.current)void api?.release(token);};},[]);
   useEffect(()=>{
     const guard=(e:Event)=>{if(running.current)e.preventDefault();};
@@ -38,7 +39,7 @@ export function EngineFeedbackPanel({projectId,config,collaboration,blockedReaso
   const readFeedback=(manual=true)=>run(async()=>{
     if(!api)return;const request=latest.current;invalidate();if(manual)setBatchReport([]);
     const result=await api.feedbackScan({projectId,config,collaboration:request.collaboration});
-    if(!alive.current||latest.current.source!==request.source||latest.current.blocked){for(const e of result.entries)if(e.token)void api.release(e.token);if(alive.current&&!latest.current.blocked)queued.current=true;return;}
+    if(result.contentReload){onApplied(true);return;}if(!alive.current||latest.current.source!==request.source||latest.current.blocked){for(const e of result.entries)if(e.token)void api.release(e.token);if(alive.current&&!latest.current.blocked)queued.current=true;return;}
     tokens.current=result.entries.flatMap(e=>e.token?[e.token]:[]);setScan(result);
     const pending=result.entries.filter(e=>e.state!=='processed');setSelected(current=>pending.some(e=>e.path===current)?current:pending.find(e=>e.state==='pending')?.path||pending[0]?.path||'');
   },manual);
@@ -50,7 +51,7 @@ export function EngineFeedbackPanel({projectId,config,collaboration,blockedReaso
     void readFeedback(false);
   },[source,blocked,refresh]);
   const entry=scan?.entries.find(e=>e.path===selected);
-  const choose=(e:FeedbackEntry)=>{setSelected(e.path);setDecisions({});setConfirmed(false);setLegacyConfirmed(false);setNotice('');};
+  const choose=(e:FeedbackEntry)=>{setSelected(e.path);setDecisions({});setConfirmed(false);setChangeConfirmed(false);setLegacyConfirmed(false);setNotice('');};
   const recordResults=(results:FeedbackApplyResult[])=>{
     if(!alive.current)return;
     const receipts=results.map(r=>r.receipt);setRecent(old=>[...new Map([...old,...receipts].map(r=>[r.id,r])).values()]);
@@ -61,8 +62,8 @@ export function EngineFeedbackPanel({projectId,config,collaboration,blockedReaso
   const apply=(dismiss:boolean)=>run(async()=>{
     if(!api||!entry?.token)return;
     try{
-      const result=await api.feedbackApply({token:entry.token,decisions,dismiss,acceptCompletion:confirmed,acceptLegacy:legacyConfirmed});recordResults([result]);
-      if(alive.current)setNotice((dismiss?'反馈已忽略，开发内容保持原样。':'反馈已应用，排期和开发工具已刷新。')+(result.warning?' '+result.warning:''));
+      const result=await api.feedbackApply({token:entry.token,decisions,dismiss,acceptCompletion:confirmed,acceptLegacy:legacyConfirmed,acceptProjectChange:changeConfirmed});recordResults([result]);
+      if(entry.feedback?.intent==='project_change'&&!dismiss)onApplied(true);if(alive.current)setNotice((dismiss?'反馈已忽略，开发内容保持原样。':'反馈已应用，项目内容已刷新。')+(result.warning?' '+result.warning:''));
     }finally{onApplied();queued.current=true;}
   });
   const applyBatch=()=>run(async()=>{
@@ -92,21 +93,21 @@ export function EngineFeedbackPanel({projectId,config,collaboration,blockedReaso
     {!!batchReport.length&&<details className="es-notice ef-batch-report"><summary>查看保留或失败的反馈 · {batchReport.length} 条</summary>{batchReport.map(r=><p key={r.path}><b>{scan?.entries.find(e=>e.path===r.path)?.title||r.path}</b>：{r.reason}</p>)}</details>}
     {view==='history'?<div>
       {!history.length&&<p className="es-notice">尚无处理记录。</p>}
-      {history.map(r=><details className="es-history" key={r.id}><summary><span className={'es-state '+(r.outcome==='applied'?'added':'unchanged')}>{r.outcome==='applied'?'已应用':'已忽略'}</span><b>{r.title}</b><span>{new Date(r.at).toLocaleString()}</span></summary><p>{r.author} · {r.summary}</p><code>{r.id}</code>{r.evidence.map((v,i)=><p className="ef-text" key={i}>{v}</p>)}{r.rows.map(row=><p className="ef-text" key={row.field}>{row.label}：{r.decisions[row.field]==='keep'?'保留 '+(row.current||'空值'):(row.current||'空值')+' → '+(row.incoming||'空值')}</p>)}</details>)}
+      {history.map(r=><details className="es-history" key={r.id}><summary><span className={'es-state '+(r.outcome==='applied'?'added':'unchanged')}>{r.identity?.intent==='spec_change'?(r.outcome==='applied'?'已采纳':'已拒绝'):(r.outcome==='applied'?'已应用':'已忽略')}</span><b>{r.title}</b><span>{new Date(r.at).toLocaleString()}</span></summary><p>{r.author} · {r.summary}</p>{r.reason&&<p>修改原因：{r.reason} · 影响：{r.impact}</p>}<code>{r.id}</code>{r.evidence.map((v,i)=><p className="ef-text" key={i}>{v}</p>)}{r.rows.map(row=><p className="ef-text" key={row.field}>{row.label}：{r.decisions[row.field]==='keep'?'保留 '+(row.current||'空值'):(row.current||'空值')+' → '+(row.incoming||'空值')}</p>)}</details>)}
     </div>:!scan?<div className="es-empty"><MessageSquare size={36}/><h3>{busy?'正在读取开发反馈…':'尚未读取到工程反馈'}</h3><p>支持任务状态、实际日期、开发结果，以及工具状态、使用说明与交付位置。</p></div>:!pending.length?<div className="es-empty"><CheckCircle2 size={36}/><h3>没有待处理反馈</h3><p>新反馈放入工程目录后，点击“读取开发反馈”。已处理的更新不会重复应用。</p></div>:<div className="ef-workbench">
       <nav className="ef-list" aria-label="反馈目录">{pending.map(e=><button key={e.path} className={selected===e.path?'active':''} onClick={()=>choose(e)} disabled={busy}><span className={'es-state '+(e.state==='invalid'?'conflict':e.rows.some(r=>r.state==='conflict')?'updated':'added')}>{e.state==='invalid'?'需修正':e.rows.some(r=>r.state==='conflict')?'存在冲突':'待处理'}</span><b>{e.title||e.path.split('/').pop()}</b><small>{e.feedback?.summary||e.error}</small></button>)}</nav>
       <article className="ef-detail">{entry?.state==='invalid'?<><h3>反馈无法接收</h3><p className="es-error">{entry.error}</p><code>{entry.path}</code><p>按协作说明修正文件后重新读取。已处理的反馈需要使用新的更新编号。</p></>:entry?.feedback&&<>
-        <div className="es-section-heading"><div><span className="es-state">{entry.feedback.target.kind==='task'?'制作任务':'开发工具'}</span><h3>{entry.title}</h3><p>{entry.identity?.memberName||entry.feedback.author} · {entry.feedback.summary}</p></div></div>
-        {entry.identity&&<p className="es-success">已验证 AI 身份：{entry.identity.memberName} · {entry.identity.intent==='review'?'验收结论':entry.identity.intent==='propose'?'分工/排期建议':'制作进度'}</p>}
+        <div className="es-section-heading"><div><span className="es-state">{entry.feedback.target.kind==='module'?'项目内容':entry.feedback.target.kind==='task'?'制作任务':'开发工具'}</span><h3>{entry.title}</h3><p>{entry.identity?.memberName||entry.feedback.author} · {entry.feedback.summary}</p></div></div>
+        {entry.identity&&<p className="es-success">已验证 AI 身份：{entry.identity.memberName} · {feedbackIntentLabels[entry.identity.intent]}</p>}
         {entry.legacy&&<label className="es-checkbox"><input type="checkbox" checked={legacyConfirmed} onChange={e=>setLegacyConfirmed(e.target.checked)}/>已核实旧版未签名反馈来源，仅本条允许应用</label>}
-        {entry.feedback.intent==='propose'&&<p className="es-notice">本条作为排期与分配建议记录在任务详情，不覆盖制作结果、日期或人员分配。</p>}
+        {['spec_change','project_change'].includes(entry.feedback.intent||'')&&<div className="es-notice"><p>{entry.feedback.intent==='spec_change'?'需求与验收变更建议：提交时保留原需求，确认采纳后才修改任务说明或验收标准。':'正式项目修改：按字段更新项目内容，保留人员授权和历史记录。'}</p><p>修改原因：{entry.feedback.reason}</p><p>影响说明：{entry.feedback.impact}</p><label><input type="checkbox" aria-label="已评估变更内容与影响" checked={changeConfirmed} disabled={busy} onChange={e=>setChangeConfirmed(e.target.checked)}/>已评估变更内容与影响</label></div>}{entry.feedback.intent==='propose'&&<p className="es-notice">本条作为排期与分配建议记录在任务详情，不覆盖制作结果、日期或人员分配。</p>}
         <code>{entry.path}</code>
         {!!entry.feedback.evidence.length&&<details open className="ef-evidence"><summary>开发依据 / 测试结果</summary>{entry.feedback.evidence.map((v,i)=><p className="ef-text" key={i}>{v}</p>)}</details>}
         {entry.designChanged&&<p className="es-notice">目标的其他字段在导出后也有变化，请结合最新需求核对本次反馈。</p>}
         <div className="ef-diff">{entry.rows.map(r=><section className="ef-field" key={r.field}><header><b>{r.label}</b><span className={'es-state '+r.state}>{r.state==='conflict'?'双方均有修改':r.state==='unchanged'?'当前值已一致':'可更新'}</span></header><div className="ef-values"><div><small>导出时</small><p>{r.base||'（空）'}</p></div><div><small>GameCreator 当前</small><p>{r.current||'（空）'}</p></div><div><small>开发反馈</small><p>{r.incoming||'（空）'}</p></div></div>{r.state!=='unchanged'&&<label>处理方式<select aria-label={'反馈处理 '+r.label} disabled={busy} value={decisions[r.field]||(r.state==='conflict'?'':'feedback')} onChange={e=>setDecisions(d=>({...d,[r.field]:e.target.value as 'keep'|'feedback'}))}>{r.state==='conflict'&&<option value="">请选择</option>}<option value="feedback">采用反馈值</option><option value="keep">保留当前值</option></select></label>}</section>)}</div>
         {completing&&<label className="es-checkbox ef-confirm"><input type="checkbox" checked={confirmed} onChange={e=>setConfirmed(e.target.checked)} disabled={busy}/>已核实交付与验收情况，接收“已完成 / 可使用”状态</label>}
         <p className="ef-hint">应用上方字段后，已完成的关联任务会同步工具验收与美术素材进度；里程碑仍需在项目排期确认。</p>
-        <div className="es-footer"><button className="gp-secondary" disabled={busy||!!blocked||!entry.token} onClick={()=>void apply(true)}>忽略本条反馈</button><button className="primary" disabled={busy||!!blocked||!entry.token||unresolved||entry.legacy&&!legacyConfirmed||!!completing&&!confirmed} onClick={()=>void apply(false)}><ArrowDownToLine size={16}/>应用反馈</button></div>
+        <div className="es-footer"><button className="gp-secondary" disabled={busy||!!blocked||!entry.token} onClick={()=>void apply(true)}>{entry.feedback.intent==='spec_change'?'拒绝此变更建议':'忽略本条反馈'}</button><button className="primary" disabled={busy||!!blocked||!entry.token||unresolved||entry.legacy&&!legacyConfirmed||!!completing&&!confirmed||['spec_change','project_change'].includes(entry.feedback.intent||'')&&!changeConfirmed} onClick={()=>void apply(false)}><ArrowDownToLine size={16}/>{entry.feedback.intent==='spec_change'?'采纳并修改需求':'应用反馈'}</button></div>
       </>}</article>
     </div>}
   </section>;

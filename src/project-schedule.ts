@@ -54,7 +54,7 @@ export function validateProjectSchedule(value: unknown): ProjectScheduleStore {
   const date = (v: unknown) => { if (v === '') return true; if (typeof v !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return false; const n = Date.parse(v + 'T00:00:00Z'); return Number.isFinite(n) && new Date(n).toISOString().slice(0, 10) === v; };
   const bounded=(v:unknown,max=200):v is string=>typeof v==='string'&&v.length<=max;
   const ids=(v:unknown,max=2000):v is string[]=>Array.isArray(v)&&v.length<=max&&v.every(x=>bounded(x)&&x.trim())&&new Set(v).size===v.length;
-  const permissions=(v:unknown)=>ids(v,3)&&(v as string[]).every(x=>['progress','review','propose'].includes(x));
+  const permissions=(v:unknown)=>ids(v,5)&&(v as string[]).every(x=>['progress','review','propose','spec_change','project_write'].includes(x));
   const stamp=(v:unknown)=>bounded(v,50)&&Number.isFinite(Date.parse(v));
   if(record(value)&&value.personnel!==undefined){
     const p=value.personnel;

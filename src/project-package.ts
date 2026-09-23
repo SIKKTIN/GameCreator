@@ -151,6 +151,7 @@ export function validateProjectPackage(value: unknown): ProjectPackageDocument {
 
 /** Capture every raw value once; the desktop writer rechecks these before publishing the folder. */
 export function captureProjectPackage(storage: Pick<Storage, 'getItem'>, project: SavedProject): ProjectPackageSnapshot {
+  const pendingChange=storage.getItem('gamecreator.workspace.v1:'+project.id+':project-change-journal');if(pendingChange&&pendingChange!=='null')throw new Error('项目修改未完成，请先在开发反馈中重新读取恢复');
   const catalogRaw = storage.getItem(PROJECT_CATALOG_KEY);
   if (catalogRaw !== null) {
     const catalog = validateCatalog(JSON.parse(catalogRaw));

@@ -1,7 +1,7 @@
 export const aiRoles=['制作管理','策划','程序开发','美术','动画','UI','测试','音效','音乐','开发工具','关卡设计'];
-export const aiPermissionLabels={progress:'提交制作进度',review:'提交验收结论',propose:'提交排期与分配建议'};
+export const aiPermissionLabels={progress:'提交制作进度',review:'提交验收结论',propose:'提交排期与分配建议',spec_change:'提交需求与验收变更建议',project_write:'修改项目内容与排期'};
 export function nextAiName(members,role){const base={'制作管理':'制作人','策划':'策划','程序开发':'程序','美术':'美术','测试':'测试','音效':'音效'}[role]||role;const names=new Set(members.map(m=>m.name));if(base==='制作人'&&!names.has(base))return base;for(let i=0;;i++){let n=i+1,s='';while(n){n--;s=String.fromCharCode(65+n%26)+s;n=Math.floor(n/26);}if(!names.has(base+s))return base+s;}}
-export function newAiMember(members,role='程序开发'){return {id:crypto.randomUUID(),name:nextAiName(members,role),roles:[role],duties:'',active:true,scope:role==='制作管理'?'project':'assigned',permissions:role==='制作管理'?['review','propose']:role==='测试'?['progress','review']:['progress'],createdAt:new Date().toISOString()};}
+export function newAiMember(members,role='程序开发'){return {id:crypto.randomUUID(),name:nextAiName(members,role),roles:[role],duties:'',active:true,scope:role==='制作管理'?'project':'assigned',permissions:role==='制作管理'?['review','propose','spec_change','project_write']:role==='测试'?['progress','review']:['progress'],createdAt:new Date().toISOString()};}
 export function defaultAiTeam(){const duties={制作管理:'控制版本范围、统筹分工、审查交付；提出排期与分配建议。',策划:'维护玩法规则、数值、关卡与验收要求。',程序开发:'实现功能、接入工程并开发制作工具。',美术:'按制作文档完成角色、场景、动画与 UI 素材。',测试:'验证功能、记录问题并进行回归检查。',音效:'制作音效、音乐与音频接入说明。'};return {schema:1,members:Object.entries(duties).map(([role,duties])=>({...newAiMember([],role),duties})),credentials:[]};}
 export const taskAssignment=t=>t.assignment||{primaryId:'',collaboratorIds:[],reviewerId:''};
 export const memberTasks=(schedule,id)=>schedule.tasks.filter(t=>{const a=taskAssignment(t);return a.primaryId===id||a.reviewerId===id||a.collaboratorIds.includes(id);});

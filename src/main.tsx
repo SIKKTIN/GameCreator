@@ -350,6 +350,7 @@ function WorkspaceController() {
 }
 
 function ProjectDataUpgrade(props: ComponentProps<typeof WorkspaceApp>) {
+  const [contentRevision,setContentRevision]=useState(0);
   const upgrade = () => {
     try {
       if (!props.testSession) migrateUnusedDefaultTables(workspaceStorage, props.formalProject);
@@ -364,12 +365,12 @@ function ProjectDataUpgrade(props: ComponentProps<typeof WorkspaceApp>) {
     <ProjectSwitcher projects={props.projectOptions} currentId={props.formalProject.id} currentName={props.formalProject.name}
       canAdd busy={props.preparingTest} onSelect={props.onSelectProject} onAdd={props.onAddProject} onDelete={props.onDeleteProject} onImportProject={props.onImportProject} onImportPrototype={props.onImportPrototype} />
   </main>;
-  return <WorkspaceApp {...props} />;
+  return <WorkspaceApp key={contentRevision} {...props} contentReload={contentRevision>0} onContentReload={()=>setContentRevision(v=>v+1)} />;
 }
 
 const initialTestProject = { ...initialProject, name: '枚举测试工作区' };
-function WorkspaceApp({ username, testSession, onLoadTest, onExitTest, preparingTest, testError, formalProject, projectOptions, onSelectProject, onAddProject, onDeleteProject, onConfigChange, onRenameProject, onConnectTeam, onCreateTeam, onPublishProject, teamNotice, onImportPrototype, onImportProject, onExportProject, onSaveAsProject, serverPage, onManageServer, onLeaveServer, adminPageName, onManageUsers }: {
-  onImportProject?: () => void; onExportProject?: () => void; onSaveAsProject?: () => void;
+function WorkspaceApp({ contentReload,onContentReload,username, testSession, onLoadTest, onExitTest, preparingTest, testError, formalProject, projectOptions, onSelectProject, onAddProject, onDeleteProject, onConfigChange, onRenameProject, onConnectTeam, onCreateTeam, onPublishProject, teamNotice, onImportPrototype, onImportProject, onExportProject, onSaveAsProject, serverPage, onManageServer, onLeaveServer, adminPageName, onManageUsers }: {
+  contentReload?:boolean;onContentReload?:()=>void;onImportProject?: () => void; onExportProject?: () => void; onSaveAsProject?: () => void;
   teamNotice?: string;
   onPublishProject: () => void;
   formalProject: SavedProject; projectOptions: SwitchableProject[]; onConnectTeam: () => void; onCreateTeam?: () => void; onImportPrototype: () => void;
@@ -380,7 +381,7 @@ function WorkspaceApp({ username, testSession, onLoadTest, onExitTest, preparing
   onExitTest: () => void; preparingTest: boolean; testError: string;
 } & ServerModuleNavigation) {
   useEffect(()=>{const save=(event:KeyboardEvent)=>{if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='s'){event.preventDefault();if(!testSession&&!preparingTest)onExportProject?.();}};window.addEventListener('keydown',save);return()=>window.removeEventListener('keydown',save);},[onExportProject,testSession,preparingTest]);
-  const [active, setActiveModule] = useState(testSession ? '枚举管理' : '项目概览');
+  const [active, setActiveModule] = useState(contentReload?'引擎设置':testSession ? '枚举管理' : '项目概览');
   const [searchNavigation, setSearchNavigation] = useState(0);
   const leaveSearch = () => setSearchNavigation(n => n + 1);
   const setActive = (name: string) => { leaveSearch(); setActiveModule(name); };
@@ -672,7 +673,7 @@ function WorkspaceApp({ username, testSession, onLoadTest, onExitTest, preparing
         {active === '数据同步' && <DataSyncPanel projectId={formalProject.id} config={engineConfig} setConfig={onConfigChange} registry={registry} blocked={!!testSession} onOpenTable={name=>{setActiveDataset(name);setActive('数据配置');}}/>}
         {active === '枚举定义' && <EnumDefinitions registry={registry} />}
         {active === '枚举管理' && <EnumManager config={engineConfig} registry={registry} />}
-        {active === '引擎设置' && <fieldset disabled={!!testSession} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>{testSession && <p>测试场景使用固定来源，请通过测试面板加载或重置场景。</p>}<EngineSyncPanel collaboration={{schedule:schedule.store,tools:developmentTools.store}} onFeedbackApplied={()=>{const s=schedule.reloadIfClean(),t=developmentTools.reloadIfClean();return s&&t;}} onOpenAsset={id=>{setArtSelection({kind:'asset',id});setActive('素材资产');}} projectId={formalProject.id} build={exportAiContext} art={art.store} blockedReason={aiExportBlocked} config={engineConfig} registry={registry} onPickDirectory={window.desktopClient?.pickProjectDirectory} setConfig={(next) => testSession ? Promise.resolve(false) : onConfigChange(next)} /></fieldset>}
+        {active === '引擎设置' && <fieldset disabled={!!testSession} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>{testSession && <p>测试场景使用固定来源，请通过测试面板加载或重置场景。</p>}<EngineSyncPanel initialFeedback={contentReload} collaboration={{schedule:schedule.store,tools:developmentTools.store}} onFeedbackApplied={(reloadContent=false)=>{if(reloadContent){onContentReload?.();return true;}const s=schedule.reloadIfClean(),t=developmentTools.reloadIfClean();return s&&t;}} onOpenAsset={id=>{setArtSelection({kind:'asset',id});setActive('素材资产');}} projectId={formalProject.id} build={exportAiContext} art={art.store} blockedReason={aiExportBlocked} config={engineConfig} registry={registry} onPickDirectory={window.desktopClient?.pickProjectDirectory} setConfig={(next) => testSession ? Promise.resolve(false) : onConfigChange(next)} /></fieldset>}
         {active !== '人员分配' && active !== '数据同步' && active !== '开发工具' && active !== '程序框架' && active !== '全局搜索' && active !== '数值分析' && active !== '项目排期' && active !== '地图设计' && active !== '工作区设置' && active !== '故事编排' && active !== '原型设计' && active !== '任务与流程' && active !== '项目概览' && active !== '玩法核心' && active !== '玩法设计' && active !== '功能系统' && active !== '素材资产' && active !== '故事文档' && active !== '数据配置' && active !== '枚举定义' && active !== '枚举管理' && active !== '引擎设置' && (
           <section className="empty">
             <div className="empty-icon"><Layers size={34} /></div>

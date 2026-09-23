@@ -1,3 +1,4 @@
+const {readContent,commitContent,recoverContent,assertNoPendingContent,validateContentArchive}=require('./project-changes.cjs');
 const {verifyAiFeedback}=require('./ai-credentials.cjs');
 const fs=require('node:fs/promises');
 const path=require('node:path');
@@ -37,7 +38,7 @@ function createEngineFeedback({storage,context,manifest,read,writeMeta,checked,l
   }
   async function documents(ctx,input,settings) {
     const source=await sources(ctx,input.collaboration),{stableFeedbackJson,collaborationReadme}=await model();
-    const snapshot={schema:1,projectId:ctx.projectId,engine:ctx.engine,...source};
+    const {projectContentModules}=await import('../shared/project-changes.mjs'),content={};for(const module of Object.keys(projectContentModules)){const state=readContent(storage,ctx.projectId,module);content[module]=structuredClone(state.value);if(module==='project-schedule'){delete content[module].personnel;delete content[module].feedbackHistory;}if(module==='development-tools')delete content[module].feedbackHistory;} const snapshot={schema:1,projectId:ctx.projectId,engine:ctx.engine,...source,content};
     const bytes=Buffer.from(stableFeedbackJson(snapshot)),snapshotId=hash(bytes);
     const project={schema:1,projectId:ctx.projectId,projectName:input.document.projectName,engine:ctx.engine,snapshotId,documents:settings.docsDirectory,assets:settings.assetsDirectory};
     const json=v=>JSON.stringify(v,null,2)+'\n';
@@ -47,9 +48,11 @@ function createEngineFeedback({storage,context,manifest,read,writeMeta,checked,l
       ['context/tools.json','工具开发上下文',json({schema:1,projectId:ctx.projectId,snapshotId,...source.tools})],
       ['context/snapshots/'+snapshotId+'.json','开发反馈比较基准',bytes],
       ['README.md','开发协作说明',collaborationReadme(project)],
-      ['feedback/README.md','反馈提交目录','# 开发反馈\n\n将 UTF-8 JSON 反馈放在本目录。每个文件一项任务或工具，每次使用新的 UUID。格式见 [协作说明](../README.md)。\n'],
+      ['project-changes.md','需求与项目修改说明',(await import('../shared/project-feedback-guide.mjs')).projectFeedbackGuide(project)],
+      ['feedback/README.md','反馈提交目录','# 开发反馈\n\n将 UTF-8 JSON 反馈放在本目录。每个文件一项任务、工具或项目模块，每次使用新的 UUID。格式见 [协作说明](../README.md)。\n'],
       ['receipts/README.md','反馈处理回执目录','# 处理回执\n\nGameCreator 应用或忽略反馈后在此写入回执。回执可重新生成，请勿手动修改。\n'],
     ];
+    for(const [module,value] of Object.entries(content))files.push(['context/content/'+module+'.json',projectContentModules[module]+'可修改内容',json({module,value})]);
     if(source.schedule.personnel){
       const {personnelMarkdown,positionsOf,credentialMarkdown}=await import('../shared/ai-personnel.mjs');
       const team=source.schedule.personnel;
@@ -82,12 +85,13 @@ function createEngineFeedback({storage,context,manifest,read,writeMeta,checked,l
     if(!bytes||hash(bytes)!==feedback.snapshotId||hash(bytes)!==entry.hash)throw new Error('反馈比较基准缺失或已被修改');
     const base=JSON.parse(bytes);
     if(base.projectId!==ctx.projectId||base.engine!==ctx.engine)throw new Error('反馈快照属于其他项目或引擎');
-    return records(feedback.target.kind==='task'?base.schedule:base.tools,feedback.target.kind).find(t=>t.id===feedback.target.id);
+    if(feedback.target.kind==='module'){if(!base.content||!Object.hasOwn(base.content,feedback.target.id))throw new Error('此快照没有项目内容，请重新同步后提交');return base.content[feedback.target.id];}return records(feedback.target.kind==='task'?base.schedule:base.tools,feedback.target.kind).find(t=>t.id===feedback.target.id);
   }
   function receiptOf(states,ctx,id) {return states.flatMap(s=>s.value.feedbackHistory||[]).find(r=>r.projectId===ctx.projectId&&r.id===id);}
   const titleOf=(record,feedback)=>record?.title||record?.name||feedback.target.id;
   async function feedbackScan(input) {
     const ctx=await context(input);active(ctx);const m=await established(ctx),{validateFeedback,feedbackDiff,stableFeedbackJson,feedbackIdPattern}=await model();
+    if(recoverContent(storage,ctx.projectId))return{root:ctx.root,entries:[],history:[],missingReceipts:[],contentReload:true};
     // Compare with the mounted editor, so a background write cannot silently discard a draft.
     await sources(ctx,input.collaboration);
     const states=[await load(ctx,'task'),await load(ctx,'tool')];
@@ -104,12 +108,12 @@ function createEngineFeedback({storage,context,manifest,read,writeMeta,checked,l
         if(name!==feedback.id+'.json')throw new Error('文件名必须为反馈更新编号加 .json');
         const receipt=receiptOf(states,ctx,feedback.id);
         if(receipt){if(receipt.digest!==digest)throw new Error('此更新编号已处理，但文件内容被修改；请使用新的更新编号');entries.push({path:file,feedback,title:receipt.title,rows:[],state:'processed',receipt});continue;}
-        const state=states[feedback.target.kind==='task'?0:1],current=records(state.value,feedback.target.kind).find(t=>t.id===feedback.target.id),base=await baseline(ctx,m,feedback);
+        const state=feedback.target.kind==='module'?readContent(storage,ctx.projectId,feedback.target.id):states[feedback.target.kind==='task'?0:1],current=feedback.target.kind==='module'?state.value:records(state.value,feedback.target.kind).find(t=>t.id===feedback.target.id),base=await baseline(ctx,m,feedback);
         const identity=verifyAiFeedback(feedback,states[0].value);
-        const rows=feedback.intent==='propose'?[{field:'result',label:'排期与分配建议',base:'',current:'',incoming:feedback.changes.result,state:'updated'}]:feedbackDiff(feedback,base,current);
-        const omitProgress=v=>Object.fromEntries(Object.entries(v).filter(([k])=>!Object.hasOwn(feedback.changes,k)));
+        const {projectChangeRows,applyProjectRows}=await import('../shared/project-changes.mjs');const rows=feedback.target.kind==='module'?projectChangeRows(feedback,base,current):feedback.intent==='propose'?[{field:'result',label:'排期与分配建议',base:'',current:'',incoming:feedback.changes.result,state:'updated'}]:feedbackDiff(feedback,base,current);
+        if(feedback.target.kind==='module'){const candidate=applyProjectRows(feedback.target.id,current,rows,Object.fromEntries(rows.map(r=>[r.field,'feedback'])));validateContentArchive(feedback.target.id,candidate);} const omitProgress=v=>Object.fromEntries(Object.entries(v).filter(([k])=>!Object.hasOwn(feedback.changes,k)));
         const designChanged=stableFeedbackJson(omitProgress(base))!==stableFeedbackJson(omitProgress(current));
-        const token=randomUUID();plans.set(token,{ctx,m,feedback,digest,path:file,raw:state.raw,rows,base,current,legacy:!!identity?.legacy,created:Date.now()});
+        const token=randomUUID();plans.set(token,{ctx,m,feedback,digest,path:file,raw:state.raw,rows,base,current,authorityRaw:states[0].raw,legacy:!!identity?.legacy,created:Date.now()});
         entries.push({path:file,feedback,title:titleOf(current,feedback),rows,state:'pending',token,designChanged,legacy:!!identity?.legacy,identity:identity?.verified?identity:undefined});
       }catch(e){entries.push({path:file,state:'invalid',error:e.message,rows:[]});}
     }
@@ -128,24 +132,27 @@ function createEngineFeedback({storage,context,manifest,read,writeMeta,checked,l
     const p=plans.get(token);if(!p||Date.now()-p.created>600000)throw new Error('反馈预览已过期，请重新读取');
     return p;
   }
-  async function commitFeedback(token,p,{decisions={},dismiss=false,acceptCompletion=false,acceptLegacy=false},expectedRaw=p.raw) {
+  async function commitFeedback(token,p,{decisions={},dismiss=false,acceptCompletion=false,acceptLegacy=false,acceptProjectChange=false},expectedRaw=p.raw) {
     review(token);
-    if(!decisions||typeof decisions!=='object'||Array.isArray(decisions)||Object.entries(decisions).some(([k,v])=>!p.rows.some(r=>r.field===k)||!['keep','feedback'].includes(v))||typeof dismiss!=='boolean'||typeof acceptCompletion!=='boolean'||typeof acceptLegacy!=='boolean')throw new Error('反馈处理选择无效');
+    assertNoPendingContent(storage,p.ctx.projectId);
+    if(!decisions||typeof decisions!=='object'||Array.isArray(decisions)||Object.entries(decisions).some(([k,v])=>!p.rows.some(r=>r.field===k)||!['keep','feedback'].includes(v))||typeof dismiss!=='boolean'||typeof acceptCompletion!=='boolean'||typeof acceptLegacy!=='boolean'||typeof acceptProjectChange!=='boolean')throw new Error('反馈处理选择无效');
     const {ctx,feedback}=p,{mergeFeedback,validateFeedbackHistory}=await model();
     active(ctx);
     if((await established(ctx)).hash!==p.m.hash)throw new Error('工程同步记录已变化，请重新读取反馈');
     const bytes=await smallRead(ctx,p.path);if(!bytes||hash(bytes)!==p.digest)throw new Error('反馈文件在预览后发生变化，请重新读取');
     await baseline(ctx,p.m,feedback);
+    if(feedback.target.kind==='module'){const result=await commitProjectChange(p,{decisions,dismiss,acceptProjectChange});plans.delete(token);return result;}
     const other=await load(ctx,feedback.target.kind==='task'?'tool':'task'),state=await load(ctx,feedback.target.kind);
     if(receiptOf([state,other],ctx,feedback.id))throw new Error('此反馈已经处理，请重新读取');
     if(state.raw!==expectedRaw)throw new Error('项目内容在预览后发生变化，请重新读取反馈');
     const authority=feedback.target.kind==='task'?state:other;
     const identity=verifyAiFeedback(feedback,authority.value);
     if(identity?.legacy&&!dismiss&&!acceptLegacy)throw new Error('旧版未签名反馈需要逐条确认来源');
+    if(feedback.intent==='spec_change'&&!dismiss&&!acceptProjectChange)throw new Error('请先评估需求与验收变更影响，再采纳建议');
     const next=structuredClone(state.value),list=records(next,feedback.target.kind),index=list.findIndex(t=>t.id===feedback.target.id);
     if(index<0)throw new Error('反馈目标已删除');
     if(!dismiss){if(feedback.intent==='propose'){if(decisions.result!=='keep')list[index]={...list[index],proposals:[...(list[index].proposals||[]),{id:feedback.id,memberId:identity.memberId,text:feedback.changes.result,at:new Date().toISOString()}]};}else list[index]=mergeFeedback(list[index],p.rows,decisions,acceptCompletion);}
-    const receipt={schema:1,id:feedback.id,projectId:ctx.projectId,engine:ctx.engine,digest:p.digest,snapshotId:feedback.snapshotId,target:feedback.target,title:titleOf(p.current,feedback),at:new Date().toISOString(),outcome:dismiss?'dismissed':'applied',author:identity?.verified?identity.memberName:feedback.author,...(identity?.verified?{identity}:{}),summary:feedback.summary,evidence:feedback.evidence,rows:p.rows,decisions:Object.fromEntries(p.rows.map(r=>[r.field,dismiss?'keep':decisions[r.field]||'feedback']))};
+    const receipt={schema:1,id:feedback.id,projectId:ctx.projectId,engine:ctx.engine,digest:p.digest,snapshotId:feedback.snapshotId,target:feedback.target,title:titleOf(p.current,feedback),at:new Date().toISOString(),outcome:dismiss?'dismissed':'applied',author:identity?.verified?identity.memberName:feedback.author,...(identity?.verified?{identity}:{}),summary:feedback.summary,evidence:feedback.evidence,...(feedback.reason?{reason:feedback.reason,impact:feedback.impact}:{}),rows:p.rows,decisions:Object.fromEntries(p.rows.map(r=>[r.field,dismiss?'keep':decisions[r.field]||'feedback']))};
     if((next.feedbackHistory?.length||0)>=10000)throw new Error('此模块已有 10000 条反馈记录，请整理项目后再接收');
     next.feedbackHistory=[...(next.feedbackHistory||[]),receipt];
     validateFeedbackHistory(next.feedbackHistory,feedback.target.kind);
@@ -167,6 +174,28 @@ function createEngineFeedback({storage,context,manifest,read,writeMeta,checked,l
     catch(e){warning='项目已保存，工程回执写入失败；请点击“补写回执”。'+e.message;}
     return {receipt,warning,serialized};
   }
+  async function commitProjectChange(p,{decisions,dismiss,acceptProjectChange}){
+    const {ctx,feedback}=p,{applyProjectRows,projectContentModules}=await import('../shared/project-changes.mjs'),{validateFeedbackHistory}=await model();
+    if(!dismiss&&!acceptProjectChange)throw new Error('请核对项目修改的内容与影响后确认应用');
+    const authority=await load(ctx,'task'),state=readContent(storage,ctx.projectId,feedback.target.id);
+    if(authority.raw!==p.authorityRaw||state.raw!==p.raw)throw new Error('项目内容或授权在预览后已变化，请重新读取');
+    const identity=verifyAiFeedback(feedback,authority.value),candidate=dismiss?state.value:applyProjectRows(feedback.target.id,state.value,p.rows,decisions);
+    if(feedback.target.id==='enum-versions'&&!dismiss&&JSON.stringify(candidate)!==JSON.stringify(state.value))candidate.revision=state.value.revision+1;validateContentArchive(feedback.target.id,candidate);
+    const receipt={schema:1,id:feedback.id,projectId:ctx.projectId,engine:ctx.engine,digest:p.digest,snapshotId:feedback.snapshotId,target:feedback.target,title:projectContentModules[feedback.target.id],at:new Date().toISOString(),outcome:dismiss?'dismissed':'applied',author:identity.memberName,identity,summary:feedback.summary,evidence:feedback.evidence,reason:feedback.reason,impact:feedback.impact,rows:p.rows,decisions:Object.fromEntries(p.rows.map(r=>[r.field,dismiss?'keep':decisions[r.field]||'feedback']))};
+    const schedule=structuredClone(feedback.target.id==='project-schedule'?candidate:authority.value);
+    schedule.feedbackHistory=[...(schedule.feedbackHistory||[]),receipt];validateFeedbackHistory(schedule.feedbackHistory,'task');validateProjectScheduleArchive(schedule);
+    const scheduleRaw=JSON.stringify(schedule),contentRaw=JSON.stringify(candidate);
+    if(Buffer.byteLength(JSON.stringify(receipt))>LIMIT||Buffer.byteLength(scheduleRaw)>20*1024*1024||Buffer.byteLength(contentRaw)>20*1024*1024)throw new Error('项目修改或处理记录超过大小限制');
+    await beforeFeedbackCommit();active(ctx);
+    const bytes=await smallRead(ctx,p.path);if(!bytes||hash(bytes)!==p.digest)throw new Error('项目修改反馈在应用前发生变化');
+    active(ctx);
+    if(storage.getItem(key(ctx,'task'))!==authority.raw||storage.getItem(state.key)!==state.raw)throw new Error('项目内容或授权在应用前已变化');
+    verifyAiFeedback(feedback,JSON.parse(storage.getItem(key(ctx,'task'))));
+    const entries=feedback.target.id==='project-schedule'||dismiss?[{module:'project-schedule',before:authority.raw,after:scheduleRaw}]:[{module:feedback.target.id,before:state.raw,after:contentRaw},{module:'project-schedule',before:authority.raw,after:scheduleRaw}];
+    commitContent(storage,ctx.projectId,entries);
+    let warning='';try{await writeMeta(ctx,ROOT+'/receipts/'+feedback.id+'.json',JSON.stringify(receipt,null,2)+'\n');}catch(error){warning='项目已保存，工程回执待补写。'+error.message;}
+    return{receipt,warning,serialized:scheduleRaw};
+  }
   async function feedbackApply(input) {
     const p=review(input?.token);
     const {serialized,...result}=await locked(p.ctx,()=>commitFeedback(input.token,p,input));return result;
@@ -177,7 +206,8 @@ function createEngineFeedback({storage,context,manifest,read,writeMeta,checked,l
     // Every token must come from the same reviewed project and archive generation.
     for(const {p} of items) {
       if(p.ctx.root!==first.ctx.root||p.ctx.projectId!==first.ctx.projectId||p.ctx.engine!==first.ctx.engine||p.m.hash!==first.m.hash)throw new Error('批量反馈不属于同一项目或同步版本，请重新读取');
-      const kind=p.feedback.target.kind;
+      const kind=p.feedback.target.kind==='module'?'task':p.feedback.target.kind;
+      if(p.feedback.target.kind==='module')continue;
       if(expected.has(kind)&&expected.get(kind)!==p.raw)throw new Error('批量反馈的项目快照不一致，请重新读取');
       expected.set(kind,p.raw);
     }

@@ -13,10 +13,10 @@ import {workspaceStorage} from './workspace-storage';
 import {beforeLogoutEvent} from './auth';
 import './engine-sync.css';
 
-type Props={projectId:string;config:EngineConfig;setConfig:(next:EngineConfig)=>Promise<boolean>|boolean;registry:EnumRegistry;onPickDirectory?:()=>Promise<string|null>;build:()=>AiDocument;art:ArtStore;collaboration:CollaborationSource;onFeedbackApplied:()=>boolean;blockedReason:string;onOpenAsset?:(id:string)=>void};
+type Props={projectId:string;config:EngineConfig;setConfig:(next:EngineConfig)=>Promise<boolean>|boolean;registry:EnumRegistry;onPickDirectory?:()=>Promise<string|null>;build:()=>AiDocument;art:ArtStore;collaboration:CollaborationSource;initialFeedback?:boolean;onFeedbackApplied:(reloadContent?:boolean)=>boolean;blockedReason:string;onOpenAsset?:(id:string)=>void};
 const labels={added:'新增',updated:'更新',removed:'待移除',unchanged:'无变化',conflict:'冲突'};
 export function EngineSyncPanel(props:Props) {
-  const [tab,setTab]=useState('connection'),[connectionDirty,setConnectionDirty]=useState(false);
+  const [tab,setTab]=useState(props.initialFeedback?'feedback':'connection'),[connectionDirty,setConnectionDirty]=useState(false);
   return <section className="engine-hub" aria-label="引擎与同步">
     <div className="engine-hub-intro"><div><span>ENGINE & CONTENT</span><h2>连接工程，交付项目内容。</h2><p>制作文档由 GameCreator 交付，素材、场景与程序在工程中完成，通过反馈回写进度。</p></div><FolderSync size={30}/></div>
     <div className="engine-hub-tabs" role="tablist" aria-label="引擎与同步分页">{([['connection','工程连接',Settings2],['settings','同步配置',FileText],['preview','待同步变更',FolderSync],['feedback','开发反馈',RefreshCw],['history','同步记录',History]] as const).map(([key,label,Icon])=><button key={key as string} role="tab" aria-selected={tab===key} onClick={()=>setTab(key as string)}><Icon size={16}/>{label as string}</button>)}</div>
