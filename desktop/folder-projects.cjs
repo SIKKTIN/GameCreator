@@ -196,6 +196,7 @@ function createFolderProjects({ legacyStorage, dataDirectory }) {
       }
       writeHeader(temporary, clean);
       fs.writeFileSync(path.join(temporary, 'README.md'), '# GameCreator 项目\n\n在 GameCreator 中选择“打开项目”并选择本文件夹。修改自动保存。\n搬迁时复制整个文件夹，包含 archives 和 assets。引擎工程是独立的交付目标。\n');
+      require('./project-authoring.cjs').writeCollaborationFiles(temporary,clean,output,true);
       assertSnapshot(expectedEntries);
       fs.renameSync(temporary, directory);
       acquire(directory);

@@ -13,7 +13,8 @@ for(const slug of ['plants-vs-zombies','stardew-valley','hollow-knight','disco-e
   test(slug+': shared sections retain all content in the full and separate documents',async()=>{
     const e=JSON.parse(await fs.readFile(new URL('../examples/prototypes/'+slug+'.json',import.meta.url),'utf8')),before=JSON.stringify(e);
     const doc=buildAiDocument(...args(e)),bundle=buildAiDocumentFiles(doc,{folderName:'设计资料',summaryName:'完整 内容（终稿）',moduleNames:{gameplay:'玩法 #规则 [v1]'}});
-    assert.equal(bundle.files.length,doc.sections.length+2);assert.equal(bundle.files[0].path,'完整 内容（终稿）.md');
+    assert.equal(bundle.files.length,doc.sections.length+3);assert.equal(bundle.files[0].path,'完整 内容（终稿）.md');
+    assert.ok(bundle.files.find(f=>f.path==='GAMECREATOR_GUIDE.md').content.includes('project_write'));
     assert.equal(doc.sections.some(s=>s.id==='narrative'),!!e.storyOrchestration?.enabled);assert.equal(doc.sections.some(s=>s.id==='maps'),!!e.mapDesign?.enabled);
     for(const [i,section] of doc.sections.entries()) {
       assert.ok(bundle.files[0].content.includes(section.body));assert.ok(bundle.files[i+1].content.endsWith(section.body+'\n'));

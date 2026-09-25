@@ -41,6 +41,9 @@ else {
         new URL(frame.url).origin === localServer?.url;
     } catch { return false; } // An IPC frame may detach while a native dialog is open.
   };
+  let authoring;
+  const projectAuthoring=()=>authoring??=require('./project-authoring.cjs').createProjectAuthoring({storage,folders});
+  ipcMain.handle('project-authoring',(event,operation,input)=>{if(!trusted(event))throw new Error('不允许访问项目编写');return projectAuthoring().run(operation,input);});
   let developerService;
   const developers=()=>developerService??=require('./ai-developers.cjs').createDeveloperService({storage,vault:require('./ai-credential-vault.cjs').createCredentialVault({directory:path.join(app.getPath('userData'),'ai-credential-vault'),safeStorage})});
   ipcMain.handle('ai-developer',async(event,operation,input)=>{
@@ -70,7 +73,11 @@ else {
     try {
       if (!trusted(event)) throw new Error('不允许访问本地存档');
       if (request?.operation === 'get') event.returnValue = { ok: true, value: storage.getItem(request.key) };
-      else if (request?.operation === 'set') { storage.setItem(request.key, request.value); event.returnValue = { ok: true }; }
+      else if (request?.operation === 'set') {
+        const active=JSON.parse(storage.getItem('gamecreator.projects.v1')||'null')?.activeId;
+        if(active&&(request.key==='gamecreator.projects.v1'||require('./folder-projects.cjs').owned(request.key,active)))require('./project-changes.cjs').assertNoPendingContent(storage,active);
+        storage.setItem(request.key, request.value); event.returnValue = { ok: true };
+      }
       else if (request?.operation === 'info') event.returnValue = { ok: true, value: storage.info(request.key) };
       else throw new Error('未知存档操作');
     } catch (error) { event.returnValue = { ok: false, error: error.message }; }

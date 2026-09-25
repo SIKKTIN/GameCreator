@@ -1,0 +1,26 @@
+const {_electron}=require(process.env.GAMECREATOR_PLAYWRIGHT_PATH||'playwright');
+const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
+const {fixture,initialOperations}=require('./authoring-fixture.cjs');
+const {createStorage}=require('../desktop/storage.cjs');
+const root=path.resolve(__dirname,'..');
+(async()=>{
+ const f=await fixture(),archives=createStorage(path.join(f.project.folderPath,'archives'));f.folders.close();
+ const env={...process.env,GAMECREATOR_DATA_DIR:path.join(f.root,'data'),GAMECREATOR_USER_DATA_DIR:path.join(f.root,'profile')};delete env.ELECTRON_RUN_AS_NODE;
+ let app,page;const errors=[],button=name=>page.getByRole('button',{name,exact:true}),tab=name=>page.getByRole('tab',{name,exact:true}),field=name=>page.getByLabel(name,{exact:true});
+ const stored=m=>JSON.parse(archives.getItem(m==='enum-versions'?'gamecreator.enum-versions.v1:'+f.project.id:'gamecreator.workspace.v1:'+f.project.id+':'+m)||'null');
+ async function launch(){app=await _electron.launch({executablePath:require('electron'),args:[path.join(root,'desktop/main.cjs')],env});page=await app.firstWindow();page.setDefaultTimeout(20000);page.on('pageerror',e=>errors.push(e.message));await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setContentSize(1520,1020));await button('进入本地工作区').click();}
+ try{
+  await launch();await button('使用说明').click();await page.getByRole('heading',{name:'从零设计原型',exact:true}).waitFor();await tab('权限说明').click();await field('查看开发者权限').selectOption(f.memberId);assert.equal(await page.locator('.ug-grants .allowed').count(),17);
+  await button('人员分配').click();await tab('协作令牌').click();await field('开发者名称').fill('文档助手');await field('开发者岗位：策划').check();assert.equal(await field('开发者权限：project_write').isChecked(),false);await field('开发者权限：project_write').check();assert.equal(await field('项目模块权限：项目概览').isChecked(),false);await field('项目模块权限：项目概览').check();await button('创建开发者并生成令牌').click();await page.getByRole('article',{name:'开发者令牌：文档助手'}).waitFor();assert.deepEqual(stored('project-schedule').personnel.members.find(m=>m.name==='文档助手').developer.projectModules,['project']);
+  await button('使用说明').click();await tab('项目编写').click();await button('更新协作文件').click();await page.getByRole('status').filter({hasText:'协作文件已更新'}).waitFor();
+  const p=f.draft(initialOperations());f.submit(p);await button('读取设计提交').click();await page.getByRole('heading',{name:p.summary,exact:true}).waitFor();assert.equal(await button('应用整批变更').isEnabled(),true);await page.locator('.ug-workspace details').first().locator('summary').click();
+  fs.mkdirSync(path.join(root,'.gamecreator/qa'),{recursive:true});await page.screenshot({path:path.join(root,'.gamecreator/qa/project-authoring.png')});await button('应用整批变更').click();await tab('处理记录 · 1').waitFor();assert.equal(stored('project-schedule').tasks.length,1);await tab('处理记录 · 1').click();await page.getByRole('heading',{name:p.summary,exact:true}).waitFor();
+  await button('项目概览').click();await page.getByText('一个可验证玩法与交付的最小原型。',{exact:true}).waitFor();await button('功能系统').click();await page.getByText('新系统',{exact:true}).first().waitFor();
+  await button('使用说明').click();await tab('项目编写').click();await button('更新协作文件').click();await page.getByRole('status').filter({hasText:'协作文件已更新'}).waitFor();const conflict=f.draft([{id:'description',module:'project',op:'set',path:'/description',value:'批准后的新说明'},{id:'rename',module:'project',op:'set',path:'/name',value:'新设计项目'}]);f.submit(conflict);
+  await page.evaluate(id=>{const s=window.desktopClient.storage,k='gamecreator.workspace.v1:'+id+':project',v=JSON.parse(s.getItem(k));s.setItem(k,JSON.stringify({...v,description:'并发修改的说明'}));},f.project.id);
+  await button('读取设计提交').click();await field('冲突处理：description').waitFor();assert.equal(await button('应用整批变更').isDisabled(),true);await field('冲突处理：description').selectOption('proposal');await button('重新检查选择').click();await button('应用整批变更').click();await tab('处理记录 · 2').waitFor();assert.equal(stored('project').description,'批准后的新说明');await page.getByRole('button',{name:/新设计项目/}).first().waitFor();
+  await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setContentSize(1040,850));assert.ok(await page.locator('.usage-guide').evaluate(el=>el.scrollWidth<=el.clientWidth+2));await app.close();app=null;
+  await launch();await button('使用说明').click();await tab('处理记录 · 2').waitFor();await tab('项目编写').click();await button('读取设计提交').click();await page.getByText('待处理提交 · 0',{exact:true}).waitFor();assert.deepEqual(errors,[]);
+  console.log('PASS authoring UI: empty engine-independent project, module grants, all-module creation, preview/application, refresh, three-way conflict, receipt, restart and responsive layout.');
+ }catch(e){if(page&&!page.isClosed())console.error((await page.locator('body').innerText()).slice(-7000));throw e;}finally{if(app)await app.close();f.close();}
+})().catch(e=>{console.error(e);process.exitCode=1;});

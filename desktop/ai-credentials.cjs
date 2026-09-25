@@ -8,6 +8,7 @@ function issueAiCredential(storage,input){
  const {projectId,memberId,name,expiresAt,permissions,taskIds=[],schedule:expected}=input||{};
  const catalog=JSON.parse(storage.getItem('gamecreator.projects.v1')||'null');
  if(typeof projectId!=='string'||catalog?.activeId!==projectId||!catalog.projects.some(p=>p.id===projectId))throw new Error('请在当前项目生成协作令牌');
+ require('./project-changes.cjs').assertNoPendingContent(storage,projectId);
  const key='gamecreator.workspace.v1:'+projectId+':project-schedule',raw=storage.getItem(key),schedule=validateProjectScheduleArchive(JSON.parse(raw||'null'));
  if(canonical(schedule)!==canonical(expected))throw new Error('排期或人员已变化，请重新读取后生成令牌');
  const member=schedule.personnel?.members.find(m=>m.id===memberId);if(!member?.active)throw new Error('AI 成员不存在或已停用');
@@ -23,6 +24,7 @@ async function issueWorkCredential(storage,input){
  const {projectId,memberId,executorName,name,expiresAt,permissions,taskIds,positionIds,workDescription='',schedule:expected}=input;
  const catalog=JSON.parse(storage.getItem('gamecreator.projects.v1')||'null');
  if(typeof projectId!=='string'||catalog?.activeId!==projectId||!catalog.projects.some(p=>p.id===projectId))throw new Error('请在当前项目生成协作令牌');
+ require('./project-changes.cjs').assertNoPendingContent(storage,projectId);
  const key='gamecreator.workspace.v1:'+projectId+':project-schedule',raw=storage.getItem(key),schedule=validateProjectScheduleArchive(JSON.parse(raw||'null'));
  if(canonical(schedule)!==canonical(expected))throw new Error('岗位或排期已变化，请重新读取后生成令牌');
  const positions=positionsOf(schedule),unique=(v,max)=>Array.isArray(v)&&v.length>0&&v.length<=max&&new Set(v).size===v.length;
@@ -43,7 +45,7 @@ function verifyAiFeedback(feedback,schedule,now=Date.now()){
  let valid=false;try{const publicKey=createPublicKey({key:Buffer.from(key.publicKey,'base64'),type:'spki',format:'der'});valid=publicKey.asymmetricKeyType==='ed25519'&&typeof signature==='string'&&/^[A-Za-z0-9+/]{86}==$/.test(signature)&&verify(null,Buffer.from(feedbackSigningText(feedback)),publicKey,Buffer.from(signature,'base64'));}catch{}
  if(!valid)throw new Error('AI 反馈签名无效，内容或身份可能已改变');
  const intent=feedback.intent||'progress',permission=intent==='project_change'?'project_write':intent;if(!member.permissions.includes(permission)||!key.persistent&&!key.permissions.includes(permission))throw new Error('此 AI 令牌没有提交该类反馈的权限');
- if(intent==='project_change'){if(feedback.target.kind!=='module')throw new Error('正式项目修改必须指定项目模块');if(!key.persistent||member.developer?.scope!=='project'||!team.positions?.some(p=>p.active&&member.developer.positionIds.includes(p.id)))throw new Error('正式项目修改需要项目范围及 project_write 权限');return {verified:true,memberId,credentialId,memberName:member.name,intent};} const assigned=t=>{const a=t.assignment||{};return intent==='review'?a.reviewerId===memberId:a.primaryId===memberId||(a.collaboratorIds||[]).includes(memberId)||(['propose','spec_change'].includes(intent)&&a.reviewerId===memberId);};
+ if(intent==='project_change'){if(member.developer?.projectModules&&!member.developer.projectModules.includes(feedback.target?.id))throw new Error('此 AI 没有该模块的项目修改权限');if(feedback.target.kind!=='module')throw new Error('正式项目修改必须指定项目模块');if(!key.persistent||member.developer?.scope!=='project'||!team.positions?.some(p=>p.active&&member.developer.positionIds.includes(p.id)))throw new Error('正式项目修改需要项目范围及 project_write 权限');return {verified:true,memberId,credentialId,memberName:member.name,intent};} const assigned=t=>{const a=t.assignment||{};return intent==='review'?a.reviewerId===memberId:a.primaryId===memberId||(a.collaboratorIds||[]).includes(memberId)||(['propose','spec_change'].includes(intent)&&a.reviewerId===memberId);};
  const tasks=feedback.target.kind==='task'?schedule.tasks.filter(t=>t.id===feedback.target.id):schedule.tasks.filter(t=>t.references.some(r=>r.kind==='tool'&&r.targetId===feedback.target.id));
  const allowed=t=>key.persistent?developerAllowed(schedule,member,t):key.positionIds?key.taskIds.includes(t.id)&&team.positions?.some(p=>p.active&&key.positionIds.includes(p.id)&&(t.positionIds?t.positionIds.includes(p.id):p.taskKinds.includes(t.kind))):(member.scope==='project'||assigned(t))&&(!key.taskIds.length||key.taskIds.includes(t.id));
  if(!tasks.some(allowed))throw new Error('反馈目标不在此 AI 当前获准的任务范围内');

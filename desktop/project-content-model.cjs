@@ -92,6 +92,28 @@ const emptyDevelopmentTools = () => ({
 	schema: 1,
 	tools: []
 });
+function createDevelopmentTool(name) {
+	if (typeof name !== "string" || !name.trim()) throw new Error("请填写工具名称");
+	return {
+		id: crypto.randomUUID(),
+		name: name.trim(),
+		kind: "调试验证",
+		status: "待开发",
+		priority: "普通",
+		owner: "",
+		audience: "",
+		purpose: "",
+		scope: "",
+		inputs: "",
+		outputs: "",
+		environment: "",
+		acceptance: "",
+		usage: "",
+		delivery: "",
+		capabilityIds: [],
+		archived: false
+	};
+}
 function validateDevelopmentTools(value) {
 	const record = (v) => !!v && typeof v === "object" && !Array.isArray(v);
 	const fail = () => {
@@ -121,6 +143,40 @@ function validateDevelopmentTools(value) {
 
 //#endregion
 //#region src/project-schedule.ts
+function createProductionTask(title) {
+	if (!title.trim()) throw new Error("请填写制作任务名称");
+	return {
+		id: crypto.randomUUID(),
+		title: title.trim(),
+		description: "",
+		kind: "程序",
+		owner: "",
+		status: "待开始",
+		priority: "普通",
+		start: "",
+		end: "",
+		actualStart: "",
+		actualEnd: "",
+		milestoneId: "",
+		acceptance: "",
+		result: "",
+		dependencyIds: [],
+		references: []
+	};
+}
+function createProductionMilestone(title) {
+	if (!title.trim()) throw new Error("请填写里程碑名称");
+	return {
+		id: crypto.randomUUID(),
+		title: title.trim(),
+		owner: "",
+		due: "",
+		description: "",
+		acceptance: "",
+		review: "",
+		status: "计划中"
+	};
+}
 function isScheduleDate(date) {
 	const n = Date.parse(date + "T00:00:00Z");
 	return /^\d{4}-\d{2}-\d{2}$/.test(date) && Number.isFinite(n) && new Date(n).toISOString().slice(0, 10) === date;
@@ -147,6 +203,10 @@ function validateProjectSchedule(value) {
 		"project_write"
 	].includes(x));
 	const stamp = (v) => bounded(v, 50) && Number.isFinite(Date.parse(v));
+	if (record(value) && value.authoringHistory !== void 0) {
+		const history = value.authoringHistory;
+		if (!Array.isArray(history) || history.length > 1e4 || history.some((r) => !record(r) || !bounded(r.id, 100) || !/^\w[\w-]{7,99}$/.test(r.id) || !bounded(r.digest, 64) || !/^[a-f0-9]{64}$/.test(r.digest) || !bounded(r.summary, 4e3) || !stamp(r.at) || !bounded(r.memberName, 100) || !ids(r.modules, 30)) || new Set(history.map((r) => r.id)).size !== history.length) return fail();
+	}
 	if (record(value) && value.personnel !== void 0) {
 		const p = value.personnel;
 		if (!record(p) || p.schema !== 1 || !Array.isArray(p.members) || p.members.length > 200 || !Array.isArray(p.credentials) || p.credentials.length > 1e3) return fail();
@@ -171,7 +231,25 @@ function validateProjectSchedule(value) {
 			if (!record(m) || !bounded(m.id) || !m.id.trim() || seen.has(m.id) || !bounded(m.name, 100) || !m.name.trim() || names.has(m.name.trim().toLowerCase()) || !ids(m.roles, 100) || !m.roles.length || !bounded(m.duties, 1e4) || typeof m.active !== "boolean" || !["project", "assigned"].includes(m.scope) || !permissions(m.permissions) || !stamp(m.createdAt)) return fail();
 			if (m.developer !== void 0) {
 				const d = m.developer;
-				if (!record(d) || !ids(d.positionIds, 100) || !d.positionIds.length || !ids(d.taskIds) || ![
+				if (!record(d) || !ids(d.positionIds, 100) || !d.positionIds.length || !ids(d.taskIds) || d.projectModules !== void 0 && (!ids(d.projectModules, 30) || d.projectModules.some((k) => ![
+					"project",
+					"project-schedule",
+					"gameplay",
+					"gameplay-core",
+					"prototype-design",
+					"task-flows",
+					"numerical-analysis",
+					"functional-systems",
+					"development-tools",
+					"art-assets",
+					"stories",
+					"story-orchestration",
+					"map-design",
+					"program-framework",
+					"definitions",
+					"enum-versions",
+					"project-standards"
+				].includes(k))) || ![
 					"assigned",
 					"positions",
 					"project"
@@ -444,12 +522,79 @@ function validateStoryExtras(v) {
 }
 
 //#endregion
+//#region src/story-characters.ts
+const characterColors = [
+	"#a78bfa",
+	"#67c8ce",
+	"#e6ad73",
+	"#ed92b2",
+	"#8fca93",
+	"#8ca9e9"
+];
+function createStoryCharacter(name, index = 0) {
+	return {
+		id: crypto.randomUUID(),
+		name,
+		description: "",
+		role: "",
+		faction: "",
+		background: "",
+		motivation: "",
+		personality: "",
+		speech: "",
+		color: characterColors[index % characterColors.length],
+		portrait: null,
+		position: {
+			x: 140 + index % 3 * 290,
+			y: 100 + Math.floor(index / 3) * 170
+		}
+	};
+}
+
+//#endregion
 //#region src/story-orchestration.ts
 const emptyStoryOrchestration = () => ({
 	schema: 1,
 	enabled: false,
 	stories: []
 });
+function createNarrative(title) {
+	if (!title.trim()) throw new Error("请填写故事名称");
+	const sceneId = crypto.randomUUID(), nodeId = crypto.randomUUID();
+	return {
+		id: crypto.randomUUID(),
+		title: title.trim(),
+		summary: "",
+		archived: false,
+		entryId: nodeId,
+		source: "",
+		taskIds: [],
+		scenes: [{
+			id: sceneId,
+			title: "开场",
+			chapter: "第一章",
+			description: ""
+		}],
+		actors: [],
+		variables: [],
+		nodes: [{
+			id: nodeId,
+			sceneId,
+			title: "故事开场",
+			kind: "narration",
+			speakerId: "",
+			text: "",
+			outcome: "",
+			taskStatus: "unchanged",
+			taskIds: []
+		}],
+		choices: [],
+		checks: [],
+		clockId: "",
+		timeLimit: 0,
+		interrupts: []
+	};
+}
 /** Shape validation is separate from design completeness. Broken draft references are retained for repair. */
 function validateStoryOrchestration(value) {
 	const fail = () => {
@@ -591,6 +736,19 @@ const emptyNumericalAnalysis = () => ({
 	schema: 1,
 	plans: []
 });
+const newAnalysisPlan = (name = "新建分析") => ({
+	id: crypto.randomUUID(),
+	name,
+	notes: "",
+	gameplayId: "",
+	parameters: [],
+	metrics: [],
+	variants: [],
+	snapshots: [],
+	batch: null,
+	sweep: null,
+	check: null
+});
 function validateNumericalAnalysis(value) {
 	const fail = () => {
 		throw new Error("数值分析存档格式异常，已停止写入");
@@ -705,6 +863,38 @@ const emptyMapDesign = () => ({
 	maps: [],
 	connections: []
 });
+function createDesignMap(name = "新地图") {
+	return {
+		id: crypto.randomUUID(),
+		name,
+		region: "",
+		description: "",
+		perspective: "top",
+		view: "grid",
+		x: 0,
+		y: 0,
+		rows: 12,
+		columns: 20,
+		cellSize: 1,
+		unit: "格",
+		sourceDesignId: "",
+		roomId: "",
+		sourceVisible: true,
+		sourceLocked: true,
+		layers: [
+			"地形",
+			"障碍",
+			"装饰",
+			"交互"
+		].map((name) => ({
+			id: crypto.randomUUID(),
+			name,
+			visible: true,
+			locked: false
+		})),
+		objects: []
+	};
+}
 function validateMapDesign(value) {
 	const fail = () => {
 		throw new Error("地图设计存档格式无效");
@@ -891,11 +1081,46 @@ const emptyPrototypeDesign = () => ({
 	entryId: "",
 	scenes: []
 });
+const createPrototypeScene = (name = "新场景") => ({
+	id: crypto.randomUUID(),
+	name,
+	description: "",
+	width: 960,
+	height: 540,
+	background: "#151622",
+	view: "free",
+	sourceDesignId: "",
+	roomId: "",
+	coreNodeId: "",
+	elements: []
+});
+const createPrototypeElement = (kind, index = 0) => ({
+	id: crypto.randomUUID(),
+	kind,
+	name: prototypeKinds[kind],
+	text: kind === "button" ? "继续" : prototypeKinds[kind],
+	x: 80 + index % 6 * 24,
+	y: 80 + index % 6 * 24,
+	width: kind === "text" ? 320 : 180,
+	height: kind === "text" ? 60 : 52,
+	color: kind === "button" ? "#7258d9" : kind === "text" ? "#e9e3f3" : "#597d93",
+	fontSize: 22,
+	visible: true,
+	sourceObjectId: "",
+	assetId: "",
+	versionId: "",
+	fileId: "",
+	action: {
+		kind: "none",
+		targetId: "",
+		condition: ""
+	}
+});
 const record$3 = (v) => !!v && typeof v === "object" && !Array.isArray(v);
 const strings$1 = (v, keys) => keys.every((k) => typeof v[k] === "string");
 const number = (v, min, max) => typeof v === "number" && Number.isFinite(v) && v >= min && v <= max;
 const color = (v) => typeof v === "string" && /^#[0-9a-f]{6}$/i.test(v);
-const has$1 = (v, k) => typeof k === "string" && Object.prototype.hasOwnProperty.call(v, k);
+const has$2 = (v, k) => typeof k === "string" && Object.prototype.hasOwnProperty.call(v, k);
 /** Broken references remain repairable drafts; malformed archives are never overwritten. */
 function validatePrototypeDesign(value) {
 	const fail = () => {
@@ -924,7 +1149,7 @@ function validatePrototypeDesign(value) {
 				"assetId",
 				"versionId",
 				"fileId"
-			]) || !has$1(prototypeKinds, e.kind) || !number(e.x, -1e4, 1e4) || !number(e.y, -1e4, 1e4) || !number(e.width, 1, 1e4) || !number(e.height, 1, 1e4) || !number(e.fontSize, 8, 150) || !color(e.color) || typeof e.visible !== "boolean" || !record$3(e.action) || !has$1(prototypeActions, e.action.kind) || !strings$1(e.action, ["targetId", "condition"]) || e.action.mapConnectionId !== void 0 && typeof e.action.mapConnectionId !== "string" || e.action.mapReverse !== void 0 && typeof e.action.mapReverse !== "boolean") return fail();
+			]) || !has$2(prototypeKinds, e.kind) || !number(e.x, -1e4, 1e4) || !number(e.y, -1e4, 1e4) || !number(e.width, 1, 1e4) || !number(e.height, 1, 1e4) || !number(e.fontSize, 8, 150) || !color(e.color) || typeof e.visible !== "boolean" || !record$3(e.action) || !has$2(prototypeActions, e.action.kind) || !strings$1(e.action, ["targetId", "condition"]) || e.action.mapConnectionId !== void 0 && typeof e.action.mapConnectionId !== "string" || e.action.mapReverse !== void 0 && typeof e.action.mapReverse !== "boolean") return fail();
 			unique(e);
 		}
 	}
@@ -958,6 +1183,36 @@ const emptyTaskFlows = () => ({
 	schema: 1,
 	tasks: []
 });
+function createTask(title) {
+	if (!title.trim()) throw new Error("请填写任务名称");
+	return {
+		id: crypto.randomUUID(),
+		title: title.trim(),
+		kind: "主线",
+		scope: "单次",
+		summary: "",
+		archived: false,
+		status: "草稿",
+		prerequisiteIds: [],
+		prerequisiteMode: "all",
+		availability: "",
+		startId: "",
+		stages: [],
+		transitions: [],
+		references: []
+	};
+}
+function createTaskStage(kind = "objective") {
+	return {
+		id: crypto.randomUUID(),
+		title: kind === "objective" ? "新阶段" : kind === "success" ? "完成任务" : "任务失败",
+		kind,
+		description: "",
+		mode: "all",
+		objectives: [],
+		result: ""
+	};
+}
 /** Validate storage shape; incomplete and stale references remain editable design drafts. */
 function validateTaskFlows(value) {
 	const invalid = () => {
@@ -1051,6 +1306,13 @@ const coreNodeKinds = [
 	"decision",
 	"exit"
 ];
+const coreNodeLabels = {
+	entry: "入口",
+	activity: "活动",
+	module: "循环模块",
+	decision: "分支判断",
+	exit: "结束"
+};
 const emptyGameplayCore = () => ({
 	schema: 1,
 	rootId: "root",
@@ -1062,6 +1324,19 @@ const emptyGameplayCore = () => ({
 		edges: []
 	}]
 });
+function createCoreNode(kind, title = coreNodeLabels[kind], x = 120, y = 120) {
+	if (!coreNodeKinds.includes(kind) || !Number.isFinite(x) || !Number.isFinite(y)) throw new Error("玩法节点类型或位置无效");
+	return {
+		id: crypto.randomUUID(),
+		kind,
+		title: title.trim(),
+		description: "",
+		x,
+		y,
+		childGraphId: "",
+		gameplayIds: []
+	};
+}
 function validateGameplayCore(value) {
 	const invalid = () => {
 		throw new Error("玩法核心存档格式异常，已停止写入");
@@ -1176,7 +1451,7 @@ const emptyStage = () => ({
 		events: []
 	}
 });
-const has = (o, k) => typeof k === "string" && Object.prototype.hasOwnProperty.call(o, k);
+const has$1 = (o, k) => typeof k === "string" && Object.prototype.hasOwnProperty.call(o, k);
 const num = (n, min, max, integer = false) => typeof n === "number" && Number.isFinite(n) && n >= min && n <= max && (!integer || Number.isInteger(n));
 function validateStage(value) {
 	const object = (x) => !!x && typeof x === "object" && !Array.isArray(x);
@@ -1191,7 +1466,7 @@ function validateStage(value) {
 		});
 	};
 	const s = value.space, t = value.timeline;
-	if (!object(s) || !num(s.rows, 1, 30, true) || !num(s.columns, 1, 40, true) || !num(s.cellSize, .001, 1e4) || !strings(s, ["unit", "description"]) || !list(s.objects, (o) => strings(o, ["name", "notes"]) && has(stageKinds, o.kind) && has(stageColors, o.color) && [
+	if (!object(s) || !num(s.rows, 1, 30, true) || !num(s.columns, 1, 40, true) || !num(s.cellSize, .001, 1e4) || !strings(s, ["unit", "description"]) || !list(s.objects, (o) => strings(o, ["name", "notes"]) && has$1(stageKinds, o.kind) && has$1(stageColors, o.color) && [
 		"cell",
 		"left",
 		"right"
@@ -1206,7 +1481,7 @@ function validateStage(value) {
 		"radius",
 		"ring",
 		"sector"
-	].includes(o.rangeShape) && num(o.row, 1, 30, true) && num(o.column, 1, 40, true) && num(o.width, 1, 40, true) && num(o.height, 1, 30, true) && num(o.range, 0, 100), 300) || !object(t) || !num(t.duration, 1, 86400) || !strings(t, ["clock", "spaceOwnerId"]) || !list(t.tracks, (r) => strings(r, ["name"]) && has(stageColors, r.color), 30) || !list(t.events, (e) => strings(e, [
+	].includes(o.rangeShape) && num(o.row, 1, 30, true) && num(o.column, 1, 40, true) && num(o.width, 1, 40, true) && num(o.height, 1, 30, true) && num(o.range, 0, 100), 300) || !object(t) || !num(t.duration, 1, 86400) || !strings(t, ["clock", "spaceOwnerId"]) || !list(t.tracks, (r) => strings(r, ["name"]) && has$1(stageColors, r.color), 30) || !list(t.events, (e) => strings(e, [
 		"trackId",
 		"name",
 		"objectId",
@@ -1243,6 +1518,30 @@ const emptyStructure = () => ({
 		states: [],
 		transitions: []
 	}
+});
+const createRule = () => ({
+	id: crypto.randomUUID(),
+	name: "",
+	trigger: "",
+	mode: "all",
+	conditions: [],
+	actions: [],
+	otherwise: []
+});
+const createState = () => ({
+	id: crypto.randomUUID(),
+	name: "",
+	description: "",
+	kind: "normal"
+});
+const createTransition = () => ({
+	id: crypto.randomUUID(),
+	fromId: "",
+	toId: "",
+	event: "",
+	condition: "",
+	action: "",
+	priority: 100
 });
 function validateStructure(value) {
 	const object = (x) => !!x && typeof x === "object" && !Array.isArray(x);
@@ -1283,6 +1582,30 @@ const emptyGameplay = () => ({
 	schema: 3,
 	designs: []
 });
+function createGameplay(title) {
+	if (!title.trim()) throw new Error("请输入玩法名称");
+	const now = (/* @__PURE__ */ new Date()).toISOString();
+	return {
+		...emptyStructure(),
+		...emptyStage(),
+		id: crypto.randomUUID(),
+		title: title.trim(),
+		summary: "",
+		experience: "",
+		rules: "",
+		winCondition: "",
+		loseCondition: "",
+		status: "草稿",
+		archived: false,
+		loop: [],
+		prototype: [],
+		deferred: "",
+		checks: [],
+		links: [],
+		createdAt: now,
+		updatedAt: now
+	};
+}
 function validateGameplay(value) {
 	const fail = () => {
 		throw new Error("玩法存档格式异常，已停止写入");
@@ -1370,6 +1693,42 @@ const emptyFunctionalSystems = () => ({
 	dependencies: [],
 	usages: []
 });
+function createFunctionalSystem(name) {
+	if (!name.trim()) throw new Error("请输入系统名称");
+	const now = (/* @__PURE__ */ new Date()).toISOString();
+	return {
+		id: crypto.randomUUID(),
+		name: name.trim(),
+		purpose: "",
+		boundary: "",
+		archived: false,
+		createdAt: now,
+		updatedAt: now
+	};
+}
+function createCapability(systemId, name) {
+	if (!systemId.trim()) throw new Error("请选择所属系统");
+	if (!name.trim()) throw new Error("请输入功能名称");
+	const now = (/* @__PURE__ */ new Date()).toISOString();
+	return {
+		id: crypto.randomUUID(),
+		systemId,
+		name: name.trim(),
+		purpose: "",
+		input: "",
+		conditions: "",
+		process: "",
+		output: "",
+		failure: "",
+		state: "",
+		acceptance: "",
+		status: "待开发",
+		archived: false,
+		configRefs: [],
+		createdAt: now,
+		updatedAt: now
+	};
+}
 function validateFunctionalSystems(value) {
 	const record = (x) => !!x && typeof x === "object" && !Array.isArray(x);
 	const strings = (x, keys) => keys.every((k) => typeof x[k] === "string");
@@ -1477,15 +1836,26 @@ const artStyleFields = {
 	motion: "动画与特效",
 	avoid: "应避免的表现"
 };
-const object = (v) => !!v && typeof v === "object" && !Array.isArray(v);
+const object$1 = (v) => !!v && typeof v === "object" && !Array.isArray(v);
 const text$1 = (v, max = 4e3) => typeof v === "string" && v.length <= max;
 const date = (v) => typeof v === "string" && Number.isFinite(Date.parse(v));
-const exact = (v, keys) => object(v) && Object.keys(v).every((k) => keys.includes(k));
-const list = (xs, max, check) => Array.isArray(xs) && xs.length <= max && new Set(xs.map((x) => x?.id)).size === xs.length && xs.every((x) => object(x) && text$1(x.id, 200) && !!x.id.trim() && ![
+const exact = (v, keys) => object$1(v) && Object.keys(v).every((k) => keys.includes(k));
+const list = (xs, max, check) => Array.isArray(xs) && xs.length <= max && new Set(xs.map((x) => x?.id)).size === xs.length && xs.every((x) => object$1(x) && text$1(x.id, 200) && !!x.id.trim() && ![
 	"__proto__",
 	"constructor",
 	"prototype"
 ].includes(x.id) && check(x));
+const emptyStyleDefinition = () => ({
+	...Object.fromEntries(Object.keys(artStyleFields).map((k) => [k, ""])),
+	palette: [],
+	references: [],
+	categories: []
+});
+const emptyArtStyle = () => ({
+	schema: 1,
+	draft: emptyStyleDefinition(),
+	versions: []
+});
 function validateStyleDefinition(v) {
 	if (!exact(v, [
 		...Object.keys(artStyleFields),
@@ -1546,6 +1916,40 @@ function validateStyleItem(item) {
 
 //#endregion
 //#region src/art-library.ts
+const defaults = [
+	"角色",
+	"敌人与首领",
+	"场景",
+	"道具",
+	"动画",
+	"特效",
+	"UI",
+	"图标",
+	"音频"
+];
+/** Derive legacy organization without modifying documents, versions or storage on read. */
+function artLibrary(store) {
+	if (store.library) return store.library;
+	const categories = defaults.map((name, i) => ({
+		id: "art-category-" + i,
+		name,
+		description: "管理" + name + "相关的制作需求与交付资产。"
+	}));
+	const requirements = {}, assets = {};
+	for (const r of store.requirements) {
+		const name = /音效|音乐|声音预算/.test(r.name) ? "音频" : r.category === "角色" && /僵尸|首领|守卫|敌|爬行虫|守碑虫|残影/.test(r.name) ? "敌人与首领" : r.category;
+		requirements[r.id] = categories.find((c) => c.name === name)?.id || "";
+	}
+	for (const a of store.assets) {
+		const ids = [...new Set(store.links.filter((l) => l.assetId === a.id).map((l) => requirements[l.requirementId] || ""))];
+		assets[a.id] = ids.length === 1 ? ids[0] : "";
+	}
+	return {
+		categories,
+		requirements,
+		assets
+	};
+}
 function validateArtLibrary(value, store) {
 	const object = (x) => !!x && typeof x === "object" && !Array.isArray(x);
 	const fail = () => {
@@ -1603,6 +2007,40 @@ const emptyArtAssets = () => ({
 	assets: [],
 	links: []
 });
+function createArtRequirement(name) {
+	if (!name.trim()) throw new Error("请输入素材需求名称");
+	const now = (/* @__PURE__ */ new Date()).toISOString();
+	return {
+		id: crypto.randomUUID(),
+		name: name.trim(),
+		category: "其他",
+		description: "",
+		specification: "",
+		acceptance: "",
+		owner: "",
+		dueDate: "",
+		priority: "普通",
+		status: "待制作",
+		archived: false,
+		sources: [],
+		createdAt: now,
+		updatedAt: now
+	};
+}
+function createArtAsset(name) {
+	if (!name.trim()) throw new Error("请输入素材资产名称");
+	const now = (/* @__PURE__ */ new Date()).toISOString();
+	return {
+		id: crypto.randomUUID(),
+		name: name.trim(),
+		description: "",
+		versions: [],
+		adoptedVersionId: "",
+		archived: false,
+		createdAt: now,
+		updatedAt: now
+	};
+}
 function validateArtAssets(value) {
 	const record = (x) => !!x && typeof x === "object" && !Array.isArray(x);
 	const strings = (x, keys) => keys.every((k) => typeof x[k] === "string");
@@ -2622,7 +3060,668 @@ function captureProjectPackage(storage, project) {
 }
 
 //#endregion
+//#region shared/project-changes.mjs
+const projectContentModules = {
+	project: "项目概览",
+	"project-schedule": "项目排期",
+	gameplay: "玩法设计",
+	"gameplay-core": "玩法核心",
+	"prototype-design": "原型设计",
+	"task-flows": "任务与流程",
+	"numerical-analysis": "数值分析",
+	"functional-systems": "功能系统",
+	"development-tools": "开发工具",
+	"art-assets": "素材文档",
+	stories: "故事文档",
+	"story-orchestration": "故事编排",
+	"map-design": "地图设计",
+	"program-framework": "程序框架",
+	definitions: "数据表定义",
+	"enum-versions": "开发配置数据"
+};
+
+//#endregion
+//#region shared/project-authoring.mjs
+const authoringModules = {
+	...projectContentModules,
+	"project-standards": "项目规范"
+};
+const canonical = (v) => Array.isArray(v) ? "[" + v.map(canonical).join(",") + "]" : v && typeof v === "object" ? "{" + Object.keys(v).sort().map((k) => JSON.stringify(k) + ":" + canonical(v[k])).join(",") + "}" : JSON.stringify(v);
+const object = (v) => !!v && typeof v === "object" && !Array.isArray(v);
+const same = (a, b) => canonical(a) === canonical(b);
+const has = (v, k) => Object.hasOwn(v, k);
+const unsafe = /* @__PURE__ */ new Set(["__proto__", "constructor"]);
+function moduleGrants(member) {
+	return member?.permissions?.includes("project_write") && member.developer?.scope === "project" ? member.developer.projectModules ?? Object.keys(authoringModules) : [];
+}
+function validModuleGrants(v) {
+	return v === void 0 || Array.isArray(v) && v.length <= Object.keys(authoringModules).length && new Set(v).size === v.length && v.every((k) => has(authoringModules, k));
+}
+const escape = (s) => String(s).replace(/~/g, "~0").replace(/\//g, "~1");
+function parts(path) {
+	if (typeof path !== "string" || path.length > 1500 || !path.startsWith("/")) throw new Error("操作路径必须是 /字段 或 /列表/@ID/字段");
+	const p = path.slice(1).split("/").map((s) => {
+		if (/~(?![01])/u.test(s)) throw new Error("路径转义无效");
+		return s.replace(/~1/g, "/").replace(/~0/g, "~");
+	});
+	if (p.some((s) => !s || unsafe.has(s) || s.startsWith("@") && unsafe.has(s.slice(1)))) throw new Error("路径包含保留名称");
+	return p;
+}
+function location(root, path) {
+	const p = parts(path);
+	let parent = root;
+	for (let i = 0; i < p.length; i++) {
+		let key = p[i];
+		if (Array.isArray(parent)) {
+			if (!key.startsWith("@")) throw new Error("列表必须使用 @ID / @key 定位，不支持数组下标");
+			const matches = parent.flatMap((x, n) => object(x) && String(x.id ?? x.key) === key.slice(1) ? [n] : []);
+			if (matches.length > 1) throw new Error("条目标识重复");
+			key = matches[0] ?? parent.length;
+		} else if (!object(parent)) throw new Error("路径的父级不存在：" + path);
+		if (i === p.length - 1) return {
+			parent,
+			key,
+			exists: has(parent, key),
+			value: parent[key]
+		};
+		if (!has(parent, key)) throw new Error("路径的父级不存在：" + path);
+		parent = parent[key];
+	}
+}
+function safeJson(v, depth = 0) {
+	if (depth > 60) throw new Error("提交内容嵌套过深");
+	if (v && typeof v === "object") for (const [k, x] of Object.entries(v)) {
+		if (unsafe.has(k)) throw new Error("提交包含保留名称");
+		safeJson(x, depth + 1);
+	}
+}
+function validateAuthoringProposal(p) {
+	safeJson(p);
+	if (!object(p) || p.schema !== 1 || p.format !== "gamecreator-content-change" || p.intent !== "project_change" || p.target?.kind !== "module" || !has(authoringModules, p.target.id) || typeof p.id !== "string" || !/^\w[\w-]{7,99}$/.test(p.id) || typeof p.projectId !== "string" || !p.projectId || typeof p.snapshotId !== "string" || !/^[a-f0-9]{64}$/.test(p.snapshotId) || typeof p.summary !== "string" || !p.summary.trim() || p.summary.length > 4e3 || !object(p.compatibility) || [
+		"reuse",
+		"modify",
+		"add",
+		"archive"
+	].some((k) => typeof p.compatibility[k] !== "string" || !p.compatibility[k].trim() || p.compatibility[k].length > 1e4) || !Array.isArray(p.operations) || !p.operations.length || p.operations.length > 500) throw new Error("设计提交格式无效，请使用当前项目的提交模板");
+	const seen = /* @__PURE__ */ new Set();
+	for (const op of p.operations) {
+		if (!object(op) || typeof op.id !== "string" || !op.id || op.id.length > 100 || seen.has(op.id) || !has(authoringModules, op.module) || ![
+			"add",
+			"set",
+			"remove"
+		].includes(op.op) || op.op !== "remove" && !has(op, "value")) throw new Error("设计操作无效或编号重复");
+		parts(op.path);
+		seen.add(op.id);
+	}
+	for (let i = 0; i < p.operations.length; i++) for (let j = i + 1; j < p.operations.length; j++) {
+		const a = p.operations[i], b = p.operations[j];
+		if (a.module === b.module && (a.path === b.path || a.path.startsWith(b.path + "/") || b.path.startsWith(a.path + "/"))) throw new Error("同一提交不能包含重叠路径，请合并为一个条目修改");
+	}
+	return p;
+}
+function mutate(root, op) {
+	const at = location(root, op.path);
+	if (op.op === "remove") {
+		if (!at.exists) throw new Error("要删除的条目不存在：" + op.path);
+		if (Array.isArray(at.parent)) at.parent.splice(at.key, 1);
+		else delete at.parent[at.key];
+		return;
+	}
+	if (op.op === "add" && at.exists) throw new Error("新增标识已经存在：" + op.path);
+	if (op.op === "set" && !at.exists) throw new Error("要修改的字段不存在，请使用 add：" + op.path);
+	if (Array.isArray(at.parent)) {
+		const expected = parts(op.path).at(-1).slice(1);
+		if (!object(op.value) || String(op.value.id ?? op.value.key) !== expected) throw new Error("新增或替换条目的 ID / key 必须与路径一致");
+	}
+	at.parent[at.key] = structuredClone(op.value);
+}
+const lockedKeys = /* @__PURE__ */ new Set([
+	"personnel",
+	"authoringHistory",
+	"feedbackHistory",
+	"proposals",
+	"assignment",
+	"positionIds",
+	"specChanges",
+	"snapshots",
+	"releases",
+	"reviews",
+	"activeId",
+	"candidateId",
+	"dataReleases",
+	"dataSync",
+	"versions",
+	"styleReview",
+	"adoptedVersionId",
+	"images",
+	"files",
+	"storagePath",
+	"revision",
+	"scheduleProgress",
+	"scheduleAcceptance"
+]);
+const empty$1 = (v) => v === void 0 || v === null || v === "" || v === false || v === 0 || Array.isArray(v) && !v.length || object(v) && !Object.keys(v).length;
+function locked(module, path, key) {
+	if (lockedKeys.has(key)) return true;
+	if (module === "project-schedule" && [
+		"status",
+		"actualStart",
+		"actualEnd",
+		"result",
+		"review"
+	].includes(key)) return true;
+	if (module === "development-tools" && [
+		"status",
+		"usage",
+		"delivery"
+	].includes(key)) return true;
+	if (module === "functional-systems" && key === "status") return true;
+	if (module === "art-assets" && [
+		"status",
+		"productionStatus",
+		"delivery"
+	].includes(key)) return true;
+	if (module === "gameplay" && [
+		"status",
+		"done",
+		"actual",
+		"result"
+	].includes(key)) return true;
+	return false;
+}
+function initial(module, key, value) {
+	if (empty$1(value)) return true;
+	if (key === "status") return (module === "project-schedule" ? ["待开始", "计划中"] : module === "development-tools" ? ["待开发"] : module === "functional-systems" ? ["待开发"] : module === "art-assets" ? ["待制作", "草稿"] : ["草稿"]).includes(value);
+	if (key === "productionStatus") return value === "待制作";
+	if (module === "gameplay" && key === "result") return value === "未测试";
+	return false;
+}
+function protect(module, before, after, path = "") {
+	if (module === "definitions" || module === "enum-versions" && path === "/data") return;
+	if (Array.isArray(before) || Array.isArray(after)) {
+		const a = before || [], b = after || [];
+		if (!Array.isArray(a) || !Array.isArray(b)) throw new Error("不能替换集合的数据类型");
+		const records = [...a, ...b].filter(object);
+		if (records.length && records.every((x) => has(x, "id") || has(x, "key"))) {
+			const key = (x) => String(x.id ?? x.key);
+			if (new Set(b.map(key)).size !== b.length) throw new Error("新增条目标识重复");
+			const am = new Map(a.map((x) => [key(x), x])), bm = new Map(b.map((x) => [key(x), x]));
+			for (const id of /* @__PURE__ */ new Set([...am.keys(), ...bm.keys()])) protect(module, am.get(id), bm.get(id), path + "/@" + escape(id));
+		} else for (let i = 0; i < Math.max(a.length, b.length); i++) protect(module, a[i], b[i], path + "/" + i);
+		return;
+	}
+	if (!object(before) && !object(after)) return;
+	const a = before || {}, b = after || {};
+	for (const k of /* @__PURE__ */ new Set([...Object.keys(a), ...Object.keys(b)])) {
+		if ((k === "id" || k === "schema" || k === "key") && before && after && has(a, k) && !same(a[k], b[k])) throw new Error("已有条目标识和格式版本不可修改：" + path + "/" + k);
+		if (locked(module, path, k)) {
+			if (before && after && !same(a[k], b[k]) || !before && !initial(module, k, b[k]) || !after && !initial(module, k, a[k])) throw new Error("此字段由进度、验收、人员或历史流程维护：" + path + "/" + k);
+		} else protect(module, a[k], b[k], path + "/" + escape(k));
+	}
+}
+function assertAuthoringChange(module, before, after) {
+	if (!has(authoringModules, module)) throw new Error("不支持的内容模块");
+	if (module === "enum-versions") {
+		const strip = (v) => {
+			const x = { ...v };
+			delete x.data;
+			return x;
+		};
+		if (!same(strip(before), strip(after))) throw new Error("只能修改开发配置表，不能改写发布及枚举历史");
+	}
+	if (module === "project-schedule") {
+		for (const task of before.tasks) if (["已完成", "待验收"].includes(task.status)) {
+			const next = after.tasks.find((t) => t.id === task.id);
+			if (next && !same(task.references, next.references)) throw new Error("已有验收成果的任务不能改绑交付对象，请为新增内容创建独立任务");
+		}
+	}
+	protect(module, before, after);
+}
+function authoringPreview(p, base, current, decisions = {}) {
+	validateAuthoringProposal(p);
+	const incoming = structuredClone(base), next = structuredClone(current), rows = [];
+	for (const op of p.operations) {
+		mutate(incoming[op.module], op);
+		const b = location(base[op.module], op.path), c = location(current[op.module], op.path), n = location(incoming[op.module], op.path);
+		const state = c.exists === n.exists && same(c.value, n.value) ? "unchanged" : c.exists === b.exists && same(c.value, b.value) ? "updated" : "conflict";
+		rows.push({
+			id: op.id,
+			module: op.module,
+			path: op.path,
+			op: op.op,
+			state,
+			base: b.exists ? JSON.stringify(b.value, null, 2) : "（不存在）",
+			current: c.exists ? JSON.stringify(c.value, null, 2) : "（不存在）",
+			incoming: n.exists ? JSON.stringify(n.value, null, 2) : "（删除）"
+		});
+		if (state === "unchanged" || decisions[op.id] === "keep") continue;
+		if (state === "conflict" && !["keep", "proposal"].includes(decisions[op.id])) continue;
+		const effective = {
+			...op,
+			op: op.op === "remove" ? "remove" : c.exists ? "set" : "add"
+		};
+		mutate(next[op.module], effective);
+	}
+	const modules = [...new Set(p.operations.map((o) => o.module))];
+	for (const m of modules) {
+		assertAuthoringChange(m, base[m], incoming[m]);
+		assertAuthoringChange(m, current[m], next[m]);
+	}
+	return {
+		rows,
+		next,
+		incoming,
+		unresolved: rows.filter((r) => r.state === "conflict" && !["keep", "proposal"].includes(decisions[r.id])).length
+	};
+}
+
+//#endregion
+//#region shared/authoring-references.mjs
+function contentReferenceIssues(a) {
+	const issues = [], ids = (xs) => new Set((xs || []).map((x) => x.id ?? x.key));
+	const g = a.gameplay.designs, f = a["functional-systems"], art = a["art-assets"], schedule = a["project-schedule"], task = a["task-flows"], narrative = a["story-orchestration"], maps = a["map-design"], prototype = a["prototype-design"];
+	const types = {
+		gameplay: ids(g),
+		capability: ids(f.capabilities),
+		system: ids(f.systems),
+		requirement: ids(art.requirements),
+		asset: ids(art.assets),
+		tool: ids(a["development-tools"].tools),
+		map: ids(maps.maps),
+		prototype: ids(prototype.scenes),
+		story: ids(a.stories),
+		narrative: ids(narrative.stories),
+		character: ids(narrative.characters),
+		table: ids(a.definitions),
+		dataset: ids(a.definitions),
+		task: ids(task.tasks)
+	};
+	const check = (where, value, set) => {
+		if (value && !set.has(value)) issues.push(where + " → " + value);
+	};
+	const sourceIds = (id, kind) => {
+		const d = g.find((d) => d.id === id);
+		return ids(kind === "rule" ? d?.conditionRules : kind === "state" ? d?.stateFlow.states : kind === "event" ? d?.timeline.events : kind === "object" ? d?.space.objects : []);
+	};
+	const imageRef = (where, r) => {
+		if (!r) return;
+		const asset = art.assets.find((a) => a.id === r.assetId), version = asset?.versions.find((v) => v.id === r.versionId);
+		check(where + "/asset", r.assetId, types.asset);
+		check(where + "/version", r.versionId, ids(asset?.versions));
+		check(where + "/file", r.fileId, ids(version?.files));
+	};
+	const refs = (where, rs) => {
+		for (const r of rs || []) if (types[r.kind]) {
+			check(where + "/" + r.kind, r.targetId, types[r.kind]);
+			if (r.recordId) check(where + "/record", r.recordId, ids(a["enum-versions"].data.datasets[r.targetId]));
+		}
+	};
+	for (const t of schedule.tasks) {
+		check("排期/" + t.id + "/milestone", t.milestoneId, ids(schedule.milestones));
+		t.dependencyIds.forEach((id) => check("排期/" + t.id + "/dependency", id, ids(schedule.tasks)));
+		refs("排期/" + t.id, t.references);
+	}
+	const done = /* @__PURE__ */ new Set(), visiting = /* @__PURE__ */ new Set();
+	function cycle(id) {
+		if (visiting.has(id)) {
+			issues.push("排期依赖循环/" + id);
+			return;
+		}
+		if (done.has(id)) return;
+		visiting.add(id);
+		for (const d of schedule.tasks.find((t) => t.id === id)?.dependencyIds || []) cycle(d);
+		visiting.delete(id);
+		done.add(id);
+	}
+	schedule.tasks.forEach((t) => cycle(t.id));
+	for (const c of f.capabilities) {
+		check("功能/" + c.id + "/system", c.systemId, types.system);
+		for (const r of c.configRefs) {
+			check("功能/" + c.id + "/table", r.datasetKey, types.table);
+			check("功能/" + c.id + "/row", r.rowId, ids(a["enum-versions"].data.datasets[r.datasetKey]));
+			check("功能/" + c.id + "/column", r.columnKey, new Set((a["enum-versions"].data.columns[r.datasetKey] || []).map((c) => c.key)));
+		}
+	}
+	for (const d of f.dependencies) {
+		check("依赖/" + d.id + "/from", d.fromId, types.capability);
+		check("依赖/" + d.id + "/to", d.toId, types.capability);
+	}
+	for (const u of f.usages) {
+		check("使用/" + u.id + "/gameplay", u.gameplayId, types.gameplay);
+		check("使用/" + u.id + "/capability", u.capabilityId, types.capability);
+		check("使用/" + u.id + "/source", u.sourceId, sourceIds(u.gameplayId, u.sourceKind));
+	}
+	for (const t of a["development-tools"].tools) t.capabilityIds.forEach((id) => check("工具/" + t.id, id, types.capability));
+	for (const r of art.requirements) {
+		refs("素材/" + r.id, r.sources);
+		for (const s of r.sources) check("素材/" + r.id + "/source", s.sourceId, sourceIds(s.targetId, s.sourceKind));
+	}
+	for (const l of art.links) {
+		check("素材关联/" + l.id, l.requirementId, types.requirement);
+		check("素材关联/" + l.id, l.assetId, types.asset);
+	}
+	for (const doc of art.productionDocs || []) {
+		for (const id of doc.requirementIds) check("制作方案/" + doc.id, id, types.requirement);
+		for (const id of doc.assetIds) check("制作方案/" + doc.id, id, types.asset);
+	}
+	for (const story of a.stories) refs("故事文档/" + story.id, story.references);
+	for (const d of g) {
+		refs("玩法/" + d.id, d.links);
+		check("玩法/" + d.id + "/category", d.categoryId, ids(a.gameplay.categories));
+	}
+	for (const d of g) {
+		for (const r of d.dependencies) check("玩法依赖/" + d.id + "/" + r.id, r.targetId, types.gameplay);
+		check("玩法状态/" + d.id, d.stateFlow.initialStateId, ids(d.stateFlow.states));
+		for (const edge of d.stateFlow.transitions) {
+			check("状态连线/" + edge.id, edge.fromId, ids(d.stateFlow.states));
+			check("状态连线/" + edge.id, edge.toId, ids(d.stateFlow.states));
+		}
+		const rooms = d.space.spatial?.rooms || [];
+		for (const r of rooms) check("空间房间/" + r.id, r.sourceDesignId, types.gameplay);
+		for (const o of d.space.objects) check("空间对象/" + o.id, o.roomId, ids(rooms));
+		const sourceObjects = (roomId) => {
+			const r = rooms.find((r) => r.id === roomId);
+			return r?.sourceDesignId ? g.find((g) => g.id === r.sourceDesignId)?.space.objects : d.space.objects;
+		};
+		for (const c of d.space.spatial?.connections || []) {
+			check("空间通路/" + c.id + "/from", c.from, ids(rooms));
+			check("空间通路/" + c.id + "/to", c.to, ids(rooms));
+			check("空间通路/" + c.id + "/fromObject", c.fromObjectId, ids(sourceObjects(c.from)));
+			check("空间通路/" + c.id + "/toObject", c.toObjectId, ids(sourceObjects(c.to)));
+			check("空间通路/" + c.id + "/rule", c.ruleId, ids(d.conditionRules));
+		}
+		check("时间轴来源/" + d.id, d.timeline.spaceOwnerId, types.gameplay);
+		const source = d.timeline.spaceOwnerId ? g.find((g) => g.id === d.timeline.spaceOwnerId) : d;
+		for (const event of d.timeline.events) {
+			check("时间轴事件/" + event.id + "/track", event.trackId, ids(d.timeline.tracks));
+			check("时间轴事件/" + event.id + "/object", event.objectId, ids(source?.space.objects));
+		}
+	}
+	for (const graph of a["gameplay-core"].graphs) for (const node of graph.nodes) node.gameplayIds.forEach((id) => check("核心/" + node.id, id, types.gameplay));
+	for (const t of task.tasks) {
+		t.prerequisiteIds.forEach((id) => check("玩家任务/" + t.id, id, types.task));
+		check("玩家任务/" + t.id + "/start", t.startId, ids(t.stages));
+		refs("玩家任务/" + t.id, t.references);
+		for (const e of t.transitions) {
+			check("阶段/" + e.id, e.fromId, ids(t.stages));
+			check("阶段/" + e.id, e.toId, ids(t.stages));
+		}
+	}
+	for (const s of narrative.stories) {
+		const sets = {
+			sceneId: ids(s.scenes),
+			speakerId: ids(s.actors),
+			variableId: ids(s.variables),
+			retryVariableIds: ids(s.variables),
+			clockId: ids(s.variables),
+			checkId: ids(s.checks),
+			fromId: ids(s.nodes),
+			toId: ids(s.nodes),
+			successId: ids(s.nodes),
+			failureId: ids(s.nodes),
+			nodeId: ids(s.nodes),
+			entryId: ids(s.nodes),
+			taskIds: types.task,
+			characterId: types.character
+		};
+		function walk(v, path) {
+			if (Array.isArray(v)) v.forEach((x, i) => walk(x, path + "/" + (x?.id || i)));
+			else if (v && typeof v === "object") for (const [k, x] of Object.entries(v)) if (sets[k]) for (const id of Array.isArray(x) ? x : [x]) check(path + "/" + k, id, sets[k]);
+			else walk(x, path + "/" + k);
+		}
+		walk(s, "故事编排/" + s.id);
+	}
+	for (const r of narrative.relationships || []) {
+		check("角色关系/" + r.id, r.fromId, types.character);
+		check("角色关系/" + r.id, r.toId, types.character);
+	}
+	for (const character of narrative.characters || []) imageRef("人物肖像/" + character.id, character.portrait);
+	for (const m of maps.maps) {
+		check("地图/" + m.id, m.sourceDesignId, types.gameplay);
+		for (const o of m.objects) {
+			check("地图对象/" + o.id + "/layer", o.layerId, ids(m.layers));
+			refs("地图对象/" + o.id, o.references);
+		}
+	}
+	const designObjects = (id, roomId) => {
+		const d = g.find((d) => d.id === id);
+		if (!d) return [];
+		const rooms = d.space.spatial?.rooms || [], room = rooms.find((r) => r.id === roomId);
+		if (room?.sourceDesignId) return g.find((d) => d.id === room.sourceDesignId)?.space.objects || [];
+		return [...d.space.objects, ...roomId ? [] : rooms.flatMap((r) => g.find((x) => x.id === r.sourceDesignId)?.space.objects || [])];
+	};
+	const mapObjects = (m) => m ? [...m.objects, ...designObjects(m.sourceDesignId, m.roomId)] : [];
+	for (const m of maps.maps) {
+		check("地图房间/" + m.id, m.roomId, ids(g.find((d) => d.id === m.sourceDesignId)?.space.spatial?.rooms));
+		for (const s of m.surfaces || []) check("地图表面/" + m.id, s.objectId, ids(mapObjects(m)));
+	}
+	for (const c of maps.connections) {
+		check("地图连接/" + c.id, c.from, types.map);
+		check("地图连接/" + c.id, c.to, types.map);
+		const from = maps.maps.find((m) => m.id === c.from), to = maps.maps.find((m) => m.id === c.to);
+		for (const [key, m] of [
+			["fromObjectId", from],
+			["toObjectId", to],
+			["reverseFromObjectId", to],
+			["reverseToObjectId", from],
+			["fromOpeningId", from],
+			["toOpeningId", to]
+		]) check("地图连接/" + c.id + "/" + key, c[key], ids(key.endsWith("OpeningId") ? m?.openings : mapObjects(m)));
+	}
+	check("原型入口", prototype.entryId, types.prototype);
+	for (const s of prototype.scenes) for (const e of s.elements) imageRef("原型图像/" + e.id, e);
+	for (const s of prototype.scenes) {
+		const objects = s.mapId ? mapObjects(maps.maps.find((m) => m.id === s.mapId)) : designObjects(s.sourceDesignId, s.roomId);
+		check("原型房间/" + s.id, s.roomId, ids(g.find((d) => d.id === s.sourceDesignId)?.space.spatial?.rooms));
+		for (const e of s.elements) check("原型来源对象/" + e.id, e.sourceObjectId, ids(objects));
+	}
+	for (const s of prototype.scenes) {
+		check("原型/" + s.id + "/map", s.mapId, types.map);
+		check("原型/" + s.id + "/gameplay", s.sourceDesignId, types.gameplay);
+		check("原型/" + s.id + "/core", s.coreNodeId, ids(a["gameplay-core"].graphs.flatMap((g) => g.nodes)));
+		for (const e of s.elements) {
+			check("原型元素/" + e.id + "/asset", e.assetId, types.asset);
+			if (e.action.kind === "scene") check("原型动作/" + e.id, e.action.targetId, types.prototype);
+			else if ([
+				"show",
+				"hide",
+				"toggle"
+			].includes(e.action.kind)) check("原型动作/" + e.id, e.action.targetId, ids(s.elements));
+			check("原型地图通路/" + e.id, e.action.mapConnectionId, ids(maps.connections));
+		}
+	}
+	for (const plan of a["numerical-analysis"].plans) {
+		check("数值分析/" + plan.id, plan.gameplayId, types.gameplay);
+		for (const p of plan.parameters) {
+			const b = p.binding;
+			if (b.kind === "cell") {
+				check("数值参数/" + p.id, b.table, types.table);
+				check("数值参数/" + p.id, b.rowId, ids(a["enum-versions"].data.datasets[b.table]));
+				check("数值参数/" + p.id, b.field, new Set((a["enum-versions"].data.columns[b.table] || []).map((c) => c.key)));
+			}
+			if (b.kind === "variable") check("数值变量/" + p.id, b.variableId, ids(narrative.stories.find((s) => s.id === b.storyId)?.variables));
+		}
+	}
+	for (const p of a["numerical-analysis"].plans) {
+		if (p.batch) {
+			check("批量分析/" + p.id, p.batch.table, types.table);
+			for (const id of p.batch.rowIds) check("批量分析/" + p.id, id, ids(a["enum-versions"].data.datasets[p.batch.table]));
+		}
+		if (p.sweep) check("参数扫描/" + p.id, p.sweep.parameterId, ids(p.parameters));
+		if (p.check) check("检定分析/" + p.id, p.check.checkId, ids(narrative.stories.find((s) => s.id === p.check.storyId)?.checks));
+		for (const v of p.variants) for (const id of Object.keys(v.overrides)) check("分析方案/" + v.id, id, ids(p.parameters));
+	}
+	for (const d of a.definitions) {
+		check("数据表/" + d.key, d.key, new Set(Object.keys(a["enum-versions"].data.datasets)));
+		for (const c of d.columns) if (c.type === "reference" && c.reference) {
+			check("配置字段/" + d.key + "/" + c.key, c.reference, types.table);
+			for (const row of a["enum-versions"].data.datasets[d.key] || []) check("配置引用/" + d.key + "/" + row.id + "/" + c.key, row[c.key], ids(a["enum-versions"].data.datasets[c.reference]));
+		}
+	}
+	for (const [key, rows] of Object.entries(a["enum-versions"].data.datasets)) {
+		check("配置目录/" + key, key, types.table);
+		if (ids(rows).size !== rows.length || rows.some((r) => !r.id.trim())) issues.push("配置记录 ID 重复或为空/" + key);
+		const fields = new Set(a["enum-versions"].data.columns[key].map((c) => c.key)), defined = new Set((a.definitions.find((d) => d.key === key)?.columns || []).map((c) => c.key));
+		if ([...fields].sort().join("\0") !== [...defined].sort().join("\0")) issues.push("表定义与开发数据字段不一致/" + key);
+		for (const row of rows) for (const field of Object.keys(row)) if (!fields.has(field)) issues.push("未定义配置字段/" + key + "/" + row.id + "/" + field);
+	}
+	return [...new Set(issues)];
+}
+function assertContentReferences(before, after) {
+	const old = new Set(contentReferenceIssues(before)), added = contentReferenceIssues(after).filter((i) => !old.has(i));
+	if (added.length) throw new Error("提交产生失效引用，请在同一批次修复：\n" + added.slice(0, 30).join("\n"));
+}
+
+//#endregion
+//#region shared/gamecreator-guide.mjs
+const guideVersion = "2026-09-25.1";
+function gamecreatorGuide() {
+	return `# GameCreator 使用说明与 AI 项目编写协议
+
+说明版本：${guideVersion}
+
+## 从哪里开始
+
+GameCreator 项目文件夹以 project.gamecreator 为入口，archives 保存应用存档，assets 保存历史附件。先在客户端打开项目，再阅读本说明、项目规范和 ai/context/content 中的当前内容。不要直接编辑哈希存档、锁文件或私有凭证。
+
+全新原型可以先完成设计，再连接引擎。项目文件夹的 ai 目录支持内容编写；引擎内 gamecreator 目录支持开发反馈，两者用途与路径不同。
+
+## 从零设计原型
+
+1. 在人员分配创建开发者。制作人可不分配任务，使用长期令牌；选择项目范围、修改项目内容与排期，并明确允许的模块。私有凭证单独下载给开发者。
+2. 在“使用说明 → 项目编写”点击“更新协作文件”，生成最新上下文。新建文件夹已包含起始上下文；人员或项目有变化时重新生成。
+3. 先明确项目目标、范围与验收，再组织玩法核心、玩法文档、功能、配置、素材标准、任务与里程碑。已有项目优先复用已有分类、系统与稳定 ID。版本不作为所有模块的重复分类。
+4. 读取 ai/project.json 的 snapshotId、modules、developers 与 ai/context/templates.json。模板由当前编辑器生成；新增条目需使用新的稳定 ID，补齐必填字段，保持未开发状态。
+5. 以 ai/change-template.json 为例编写一个跨模块 JSON 提交，先本地校验，再用凭证签名提交。
+6. 管理者在“使用说明 → 项目编写”读取提交、查看差异、处理冲突并应用。整批内容与引用检查通过后统一写入。回执位于 ai/receipts；更新上下文后再开始下一批。
+
+## 内容权限与反馈权限
+
+progress 报告开发成果；review 提交验收结论；propose 建议分工或排期；spec_change 建议修改已有任务说明和验收标准；project_write 编写获准模块的正式项目内容。
+
+project_write 支持新增、修改、重新分类、关联、归档、删除未交付条目及跨模块批次。完成或交付历史不允许通过删除条目抹除；应保留旧成果并归档。人员、岗位授权、令牌、引擎连接、文件访问、稳定发布与验收结果由各自管理流程维护。
+
+旧 project_change 反馈仍支持已有字段修改；本说明的 gamecreator-content-change 协议用于结构性批次。私有凭证不写入上下文，不提交到 Git。当前权限以客户端中开发者的最新配置为准，导出的 developers 只是生成时的公开说明。
+
+## 提交格式
+
+必填：format=gamecreator-content-change、schema=1、id、projectId、snapshotId、intent=project_change、target={kind:module,id:首个模块}、summary、compatibility、operations。
+
+compatibility 的 reuse、modify、add、archive 分别说明复用、修改、新增、归档及影响，没有写“无”。
+
+每个 operation 包含唯一 id、module、op、path，以及 add/set 的 value（原生 JSON，不是字符串化 JSON）。op 为 add / set / remove。
+
+- 对象字段：/description。新增可选字段用 add，修改已存在字段用 set。
+- 列表条目：/designs/@条目ID。配置表定义根列表：/@表名。使用 @ID 或 @key，禁止顺序下标。
+- 嵌套字段：/tasks/@任务ID/acceptance。归档：将条目的 archived 设为 true。
+- 新增完整条目可含内部节点；同批其他模块可以引用它。不能在一批里重叠写入同一路径及其子路径。
+- 新增配置表时同时添加 definitions 的 /@表名，以及 enum-versions 的 /data/columns/表名 和 /data/datasets/表名。单元格值为字符串，表、字段、行 ID 唯一。
+- 更新配置字段时同步表定义与开发数据字段；发布快照保持不变。引用目标删除时，同批修复所有关联，否则拒绝应用。
+
+## 提交命令
+
+在 GameCreator 项目文件夹运行（需要 Node.js）：
+
+\`\`\`sh
+node ai/submit-change.cjs validate change.json
+node ai/submit-change.cjs submit change.json /私有位置/credential.json
+\`\`\`
+
+validate 检查协议和本地上下文完整性；权威的权限、存档格式、引用及最新冲突检查由客户端预览和应用执行。签名后不要再手改 ai/changes 中的文件；内容变更请使用新的提交 ID。相同 ID 不允许变更内容重放。
+
+## 支持的内容模块
+
+${Object.entries(authoringModules).map(([id, label]) => "- " + label + "：" + id).join("\n")}
+
+模块存档结构参照 context/content 对应 JSON，新增常用条目参照 templates.json。地图、故事编排等可选模块须在同批明确设置 enabled。项目规范可编辑项目补充，通用内置规则随客户端维护。美术风格可编辑草稿；确认风格基线在客户端执行。
+
+## 冲突、恢复与边界
+
+提交绑定生成时的快照。其他人修改了同一字段时，预览对比基准、当前值、提交值，逐项选择保留当前或采用提交。未处理冲突不写入。新增标识冲突、错误引用、模块越权、改写完成状态会阻止应用。结构已删除时应重新读取最新上下文再提交。
+
+应用使用持久化事务日志；发生中断时在项目编写点击“恢复未完成提交”，恢复后重新打开各模块。存档文件自带上一版备份，处理历史保留在项目排期存档中。复制项目时保留整个项目文件夹。另存为新身份后应重新生成协作文件与凭证。
+
+引擎中的开发反馈仍在“引擎设置 → 开发反馈”读取和处理；设计批次在本模块处理。设计内容保存成功不代表开发完成，也不会自动验收里程碑。
+
+## 文件维护
+
+更新协作文件只更新 GameCreator 管理的文档与上下文，保留自定义 README 和 AGENTS.md。项目根 README 中的使用说明链接用于发现入口。此说明不授予权限；缺少令牌或范围时，在人员分配明确授权后再提交。
+`;
+}
+
+//#endregion
 //#region src/project-content-model.ts
+function validateContentBatch(archives) {
+	return validateProjectPackage({
+		...emptyContentDocument(),
+		archives
+	});
+}
+function authoringTemplates() {
+	return {
+		artStyle: emptyArtStyle(),
+		character: createStoryCharacter("新角色"),
+		gameplayRule: createRule(),
+		gameplayState: createState(),
+		gameplayTransition: createTransition(),
+		artLibrary: artLibrary(emptyArtAssets()),
+		productionDoc: {
+			id: crypto.randomUUID(),
+			title: "新制作方案",
+			category: "",
+			content: "",
+			requirementIds: [],
+			assetIds: [],
+			images: [],
+			createdAt: (/* @__PURE__ */ new Date()).toISOString(),
+			updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+		},
+		gameplay: createGameplay("新玩法"),
+		coreNode: createCoreNode("activity"),
+		prototypeScene: createPrototypeScene(),
+		prototypeElement: createPrototypeElement("button"),
+		system: createFunctionalSystem("新系统"),
+		capability: createCapability("替换为系统ID", "新功能"),
+		productionTask: createProductionTask("新任务"),
+		milestone: createProductionMilestone("新里程碑"),
+		requirement: createArtRequirement("新素材"),
+		asset: createArtAsset("新资产"),
+		playerTask: createTask("新玩家任务"),
+		taskStage: createTaskStage(),
+		narrative: createNarrative("新故事"),
+		map: createDesignMap(),
+		analysis: newAnalysisPlan(),
+		tool: createDevelopmentTool("新工具"),
+		definition: {
+			key: "example",
+			label: "示例表",
+			badge: "配置",
+			columns: [{
+				key: "id",
+				label: "ID"
+			}, {
+				key: "name",
+				label: "名称"
+			}]
+		},
+		story: {
+			id: crypto.randomUUID(),
+			title: "新文档",
+			category: "世界观",
+			status: "草稿",
+			updated: "",
+			summary: "",
+			content: "",
+			tags: [],
+			outlines: [],
+			relations: {
+				characters: [],
+				locations: [],
+				systems: []
+			}
+		}
+	};
+}
 let empty;
 function emptyContentDocument() {
 	if (!empty) empty = captureProjectPackage({ getItem: () => null }, {
@@ -2656,5 +3755,17 @@ function validateContentArchive(module, value) {
 }
 
 //#endregion
+exports.assertContentReferences = assertContentReferences;
+exports.authoringModules = authoringModules;
+exports.authoringPreview = authoringPreview;
+exports.authoringTemplates = authoringTemplates;
+exports.canonical = canonical;
+exports.captureProjectPackage = captureProjectPackage;
 exports.emptyContentDocument = emptyContentDocument;
+exports.gamecreatorGuide = gamecreatorGuide;
+exports.guideVersion = guideVersion;
+exports.moduleGrants = moduleGrants;
+exports.validModuleGrants = validModuleGrants;
+exports.validateAuthoringProposal = validateAuthoringProposal;
 exports.validateContentArchive = validateContentArchive;
+exports.validateContentBatch = validateContentBatch;

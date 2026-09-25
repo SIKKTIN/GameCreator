@@ -438,6 +438,7 @@ function validateProjectScheduleArchive(value) {
     const ids = (v, max = 2000) => Array.isArray(v) && v.length <= max && v.every(x => bounded(x) && x.trim()) && new Set(v).size === v.length;
     const permissions = (v) => ids(v, 5) && v.every(x => ['progress', 'review', 'propose', 'spec_change', 'project_write'].includes(x));
     const stamp = (v) => bounded(v, 50) && Number.isFinite(Date.parse(v));
+  if(record(value)&&value.authoringHistory!==undefined){const history=value.authoringHistory;if(!Array.isArray(history)||history.length>10000||history.some(r=>!record(r)||!bounded(r.id,100)||!/^\w[\w-]{7,99}$/.test(r.id)||!bounded(r.digest,64)||!/^[a-f0-9]{64}$/.test(r.digest)||!bounded(r.summary,4000)||!stamp(r.at)||!bounded(r.memberName,100)||!ids(r.modules,30))||new Set(history.map(r=>r.id)).size!==history.length)return fail();}
     if (record(value) && value.personnel !== undefined) {
         const p = value.personnel;
         if (!record(p) || p.schema !== 1 || !Array.isArray(p.members) || p.members.length > 200 || !Array.isArray(p.credentials) || p.credentials.length > 1000)
@@ -459,7 +460,7 @@ function validateProjectScheduleArchive(value) {
                 return fail();
             if (m.developer !== undefined) {
                 const d = m.developer;
-                if (!record(d) || !ids(d.positionIds, 100) || !d.positionIds.length || !ids(d.taskIds) || !['assigned', 'positions', 'project'].includes(d.scope) || !(d.expiresAt === '' || stamp(d.expiresAt)))
+                if (!record(d) || !ids(d.positionIds, 100) || !d.positionIds.length || !ids(d.taskIds) || (d.projectModules!==undefined&&(!ids(d.projectModules,30)||d.projectModules.some(k=>!['project','project-schedule','gameplay','gameplay-core','prototype-design','task-flows','numerical-analysis','functional-systems','development-tools','art-assets','stories','story-orchestration','map-design','program-framework','definitions','enum-versions','project-standards'].includes(k)))) || !['assigned', 'positions', 'project'].includes(d.scope) || !(d.expiresAt === '' || stamp(d.expiresAt)))
                     return fail();
             }
             seen.add(m.id);

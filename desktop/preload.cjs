@@ -5,6 +5,7 @@ function storageRequest(operation, key, value) {
   return result.value;
 }
 contextBridge.exposeInMainWorld('desktopClient', {
+  projectAuthoring:(operation,input)=>ipcRenderer.invoke('project-authoring',operation,input),
   platform: 'electron', localFiles: true,
   collaborationHost: {
     status: () => ipcRenderer.invoke('collaboration-host', 'status'),

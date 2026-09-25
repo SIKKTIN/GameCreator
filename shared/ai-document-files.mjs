@@ -30,7 +30,7 @@ export function validateDocumentFiles(input) {
     if (!/\.md$/i.test(name) || parts.length === 1 && name.toLowerCase() === '模块') throw new Error('只支持 Markdown 文档');
     const key = file.path.normalize('NFC').toLowerCase();
     if (seen.has(key)) throw new Error(`文档文件名重复：${file.path}`);
-    seen.add(key); if (parts.length === 1) summaries++;
+    seen.add(key); if (parts.length === 1 && key !== 'gamecreator_guide.md') summaries++;
     bytes += encoder.encode(file.content).length;
     if (bytes > 128 * 1024 * 1024) throw new Error('文档总大小超过 128 MB，请减少单次导出的内容');
     return {path:file.path,content:file.content};

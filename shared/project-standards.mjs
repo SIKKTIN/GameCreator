@@ -49,7 +49,7 @@ export function projectStandardsMarkdown(store=emptyProjectStandards()){
     projectStandardRules.map(r=>'### '+standardModules[r.scope]+' · '+r.title+'\n\n'+r.body+'\n\n示例：'+r.example+(r.scope!=='general'&&store.moduleNotes[r.scope]?'\n\n本项目补充：\n'+store.moduleNotes[r.scope]:'')).join('\n\n')+
     '\n\n### 本项目通用补充\n\n'+(store.notes||'暂无补充，采用以上通用规则。')+
     '\n\n### 更新步骤\n\n'+updateSteps.map(([title,body],i)=>`${i+1}. **${title}**：${body}`).join('\n')+
-    '\n\n### 反馈中的兼容方案\n\n需求建议与项目修改填写 compatibility：reuse（复用）、modify（修改）、add（新增）、archive（归档），每项说明对象、归属与处理方式，没有则写“无”。新增或删除条目仍按对应模块支持的操作执行，不通过替换整个对象绕过。规范补充由管理者在 GameCreator 维护，普通项目修改反馈不能修改它本身。\n';
+    '\n\n### 反馈中的兼容方案\n\n需求建议与项目修改填写 compatibility：reuse（复用）、modify（修改）、add（新增）、archive（归档），每项说明对象、归属与处理方式，没有则写“无”。新增或删除条目仍按对应模块支持的操作执行，不通过替换整个对象绕过。规范补充由管理者在 GameCreator 维护，也可授权 project-standards 模块后通过项目编写批次更新；通用内置规则随客户端维护。\n';
 }
 export function validateCompatibility(value,required=false){
   if(value===undefined&&!required)return;

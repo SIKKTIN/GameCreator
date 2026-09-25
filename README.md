@@ -83,6 +83,7 @@ npm run mcp:debug
 - [Withdraw 枚举导入说明](docs/withdraw-enum-import.md)
 - [本地客户端](docs/desktop-client.md)
 - [AI 文档导出](docs/ai-export.md)
+- [使用说明与项目内容编写](docs/project-authoring.md)：不连接引擎即可生成 AI 协作入口，按模块授权，以跨模块批次从零设计或更新项目。
 - [程序框架与内置规范库](docs/program-framework.md)
 - [开发工具需求与制作排期](docs/development-tools.md)
 - [AI 人员分配与协作凭证](docs/ai-personnel.md)

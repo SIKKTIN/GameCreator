@@ -1,6 +1,6 @@
 import type {ProjectScheduleStore,ProductionTask} from '../src/project-schedule.ts';
 export type AiPermission='progress'|'review'|'propose'|'spec_change'|'project_write';
-export type AiDeveloperProfile={positionIds:string[];taskIds:string[];scope:'assigned'|'positions'|'project';expiresAt:string};
+export type AiDeveloperProfile={projectModules?:string[];positionIds:string[];taskIds:string[];scope:'assigned'|'positions'|'project';expiresAt:string};
 export type AiMember={developer?:AiDeveloperProfile;id:string;name:string;roles:string[];duties:string;active:boolean;scope:'project'|'assigned';permissions:AiPermission[];createdAt:string};
 export type AiAssignment={primaryId:string;collaboratorIds:string[];reviewerId:string};
 export type AiPosition={id:string;name:string;duties:string;active:boolean;taskKinds:string[]};

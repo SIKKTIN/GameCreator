@@ -98,6 +98,8 @@ import { patchDataViewState, readDataViewState, resolveActiveDataset } from './d
 import { projectIdentity, type DatasetKey, type DataRecord, type DatasetDef, type ProjectData } from './data-model';
 import { WorkspaceShell, beforeLogoutEvent } from './auth';
 import {WorkspaceEntry,TeamProjectSelection} from './WorkspaceEntry';
+import {UsageGuide} from './UsageGuide';
+import {captureProjectPackage} from './project-package';
 import {ProjectStandards} from './ProjectStandards';
 import {useProjectStandards} from './useProjectStandards';
 import { aiModules, buildAiDocument } from './ai-export';
@@ -334,7 +336,7 @@ function WorkspaceController() {
     onExportProject={transfer.enabled ? () => transfer.openExport(formalProject) : undefined}
     onSaveAsProject={transfer.enabled ? () => transfer.saveAs(formalProject) : undefined}
     onConfigChange={configureProject}
-    onRenameProject={name => projects.commit(catalog => ({ ...catalog, projects: catalog.projects.map(item => item.id === formalProject.id ? { ...item, name } : item) }))}
+    onReloadCatalog={projects.reload} onRenameProject={name => projects.commit(catalog => ({ ...catalog, projects: catalog.projects.map(item => item.id === formalProject.id ? { ...item, name } : item) }))}
     testSession={testSession} onLoadTest={load} onExitTest={exit} preparingTest={preparing || prototypeBusy || transfer.busy || projects.blocked}
     testError={error || projects.error || sessionError || (storedTest && !valid ? '测试会话信息无效，已回到正式工作区。' : '')} />
     : <div className="app local-workspace empty-project-workspace">
@@ -367,12 +369,12 @@ function ProjectDataUpgrade(props: ComponentProps<typeof WorkspaceApp>) {
     <ProjectSwitcher projects={props.projectOptions} currentId={props.formalProject.id} currentName={props.formalProject.name}
       canAdd busy={props.preparingTest} onSelect={props.onSelectProject} onAdd={props.onAddProject} onDelete={props.onDeleteProject} onImportProject={props.onImportProject} onImportPrototype={props.onImportPrototype} />
   </main>;
-  return <WorkspaceApp key={contentRevision} {...props} contentReload={contentRevision>0} onContentReload={()=>setContentRevision(v=>v+1)} />;
+  return <WorkspaceApp key={contentRevision} {...props} contentReload={contentRevision>0} onContentReload={()=>{props.onReloadCatalog?.();setContentRevision(v=>v+1);}} />;
 }
 
 const initialTestProject = { ...initialProject, name: '枚举测试工作区' };
 function WorkspaceApp({ contentReload,onContentReload,username, testSession, onLoadTest, onExitTest, preparingTest, testError, formalProject, projectOptions, onSelectProject, onAddProject, onDeleteProject, onConfigChange, onRenameProject, onConnectTeam, onCreateTeam, onPublishProject, teamNotice, onImportPrototype, onImportProject, onExportProject, onSaveAsProject, serverPage, onManageServer, onLeaveServer, adminPageName, onManageUsers }: {
-  contentReload?:boolean;onContentReload?:()=>void;onImportProject?: () => void; onExportProject?: () => void; onSaveAsProject?: () => void;
+  contentReload?:boolean;onContentReload?:()=>void;onReloadCatalog?:()=>boolean;onImportProject?: () => void; onExportProject?: () => void; onSaveAsProject?: () => void;
   teamNotice?: string;
   onPublishProject: () => void;
   formalProject: SavedProject; projectOptions: SwitchableProject[]; onConnectTeam: () => void; onCreateTeam?: () => void; onImportPrototype: () => void;
@@ -383,7 +385,7 @@ function WorkspaceApp({ contentReload,onContentReload,username, testSession, onL
   onExitTest: () => void; preparingTest: boolean; testError: string;
 } & ServerModuleNavigation) {
   useEffect(()=>{const save=(event:KeyboardEvent)=>{if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='s'){event.preventDefault();if(!testSession&&!preparingTest)onExportProject?.();}};window.addEventListener('keydown',save);return()=>window.removeEventListener('keydown',save);},[onExportProject,testSession,preparingTest]);
-  const [active, setActiveModule] = useState(contentReload?'引擎设置':testSession ? '枚举管理' : '项目概览');
+  const [active, setActiveModule] = useState(contentReload?(sessionStorage.getItem('gamecreator.authoring-return')===formalProject.id?'使用说明':'引擎设置'):testSession ? '枚举管理' : '项目概览');
   const [searchNavigation, setSearchNavigation] = useState(0);
   const leaveSearch = () => setSearchNavigation(n => n + 1);
   const setActive = (name: string) => { leaveSearch(); setActiveModule(name); };
@@ -676,12 +678,13 @@ function WorkspaceApp({ contentReload,onContentReload,username, testSession, onL
         {active === '数据配置' && <DataVersions key={dataKey} registry={registry} onOpenSync={()=>setActive('数据同步')}><DataConfiguration key={dataKey} workspaceKey={dataKey} data={currentData}
           onChange={(next) => registry.updateData(next)}
           definitions={definitions} activeDataset={currentDataset} setActiveDataset={id=>{leaveSearch();setActiveDataset(id);}} registry={registry} onCreateTable={createDataset} onDeleteTable={deleteDataset} deletionReferences={datasetDeletionReferences} deletionBlocked={datasetDeletionBlocked} /></DataVersions>}
+        {active === '使用说明' && <UsageGuide testMode={!!testSession} project={formalProject} schedule={schedule.store} blockedReason={aiExportBlocked} snapshot={()=>captureProjectPackage(workspaceStorage,formalProject).expectedEntries} onApplied={()=>onContentReload?.()}/>}
         {active === '项目规范' && <ProjectStandards controller={standards} requestedId={requestedStandard} sources={{gameplay:gameplay.blocked?undefined:gameplay.store,core:core.blocked?undefined:core.store,functional:functional.blocked?undefined:functional.store,schedule:schedule.blocked?undefined:schedule.store}} sourceError={[gameplay,core,functional,schedule].some(c=>c.blocked||c.pending)?'部分来源尚未保存或暂不可读':''} onNavigate={setActive}/> }
         {active === '数据同步' && <DataSyncPanel projectId={formalProject.id} config={engineConfig} setConfig={onConfigChange} registry={registry} blocked={!!testSession} onOpenTable={name=>{setActiveDataset(name);setActive('数据配置');}}/>}
         {active === '枚举定义' && <EnumDefinitions registry={registry} />}
         {active === '枚举管理' && <EnumManager config={engineConfig} registry={registry} />}
         {active === '引擎设置' && <fieldset disabled={!!testSession} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>{testSession && <p>测试场景使用固定来源，请通过测试面板加载或重置场景。</p>}<EngineSyncPanel initialFeedback={contentReload} collaboration={{schedule:schedule.store,tools:developmentTools.store}} onFeedbackApplied={(reloadContent=false)=>{if(reloadContent){onContentReload?.();return true;}const s=schedule.reloadIfClean(),t=developmentTools.reloadIfClean();return s&&t;}} onOpenAsset={id=>{setArtSelection({kind:'asset',id});setActive('素材资产');}} projectId={formalProject.id} build={exportAiContext} art={art.store} blockedReason={aiExportBlocked} config={engineConfig} registry={registry} onPickDirectory={window.desktopClient?.pickProjectDirectory} setConfig={(next) => testSession ? Promise.resolve(false) : onConfigChange(next)} /></fieldset>}
-        {active !== '项目规范' && active !== '人员分配' && active !== '数据同步' && active !== '开发工具' && active !== '程序框架' && active !== '全局搜索' && active !== '数值分析' && active !== '项目排期' && active !== '地图设计' && active !== '工作区设置' && active !== '故事编排' && active !== '原型设计' && active !== '任务与流程' && active !== '项目概览' && active !== '玩法核心' && active !== '玩法设计' && active !== '功能系统' && active !== '素材资产' && active !== '故事文档' && active !== '数据配置' && active !== '枚举定义' && active !== '枚举管理' && active !== '引擎设置' && (
+        {active !== '使用说明' && active !== '项目规范' && active !== '人员分配' && active !== '数据同步' && active !== '开发工具' && active !== '程序框架' && active !== '全局搜索' && active !== '数值分析' && active !== '项目排期' && active !== '地图设计' && active !== '工作区设置' && active !== '故事编排' && active !== '原型设计' && active !== '任务与流程' && active !== '项目概览' && active !== '玩法核心' && active !== '玩法设计' && active !== '功能系统' && active !== '素材资产' && active !== '故事文档' && active !== '数据配置' && active !== '枚举定义' && active !== '枚举管理' && active !== '引擎设置' && (
           <section className="empty">
             <div className="empty-icon"><Layers size={34} /></div>
             <h2>{active}</h2>

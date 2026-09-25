@@ -31,5 +31,9 @@ export function useProjectCatalog() {
       return false;
     }
   };
-  return { catalog: state.catalog, error: state.error, blocked: state.blocked, commit };
+  const reload = () => {
+    try {latest.current={catalog:readProjectCatalog(workspaceStorage,defaultEngineConfig,'Project Aurora'),error:'',blocked:false};setState(latest.current);return true;}
+    catch(error){latest.current={...latest.current,error:String(error),blocked:true};setState(latest.current);return false;}
+  };
+  return { catalog: state.catalog, error: state.error, blocked: state.blocked, commit, reload };
 }

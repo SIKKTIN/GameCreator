@@ -1,3 +1,4 @@
+import {gamecreatorGuide} from '../shared/gamecreator-guide.mjs';
 import {emptyProjectStandards,projectStandardsMarkdown,type ProjectStandardsStore} from './project-standards.ts';
 import {personnelMarkdown} from '../shared/ai-personnel.mjs';
 import {configDataPolicyMarkdown,policyExportPath} from '../shared/config-data-policy.mjs';
@@ -79,16 +80,17 @@ export type AiExportNames = {folderName:string;summaryName:string;moduleNames:Pa
 const heading=(doc:AiDocument,title:string)=>`# ${doc.projectName}：${title}\n\n> 项目版本：${doc.version||'未填写'}\n> 生成时间：${doc.generatedAt}\n> 本文件由 GameCreator 本地客户端生成，供 AI 检索和协作使用。\n\n`;
 export function buildAiMarkdown(...args:Parameters<typeof buildAiDocument>) {
   const doc=buildAiDocument(...args);
-  return heading(doc,'AI 项目上下文')+doc.sections.map(s=>s.body).join('\n\n')+(doc.configDataPolicy?'\n\n'+doc.configDataPolicy:'')+'\n';
+  return heading(doc,'AI 项目上下文')+gamecreatorGuide()+'\n\n'+doc.sections.map(s=>s.body).join('\n\n')+(doc.configDataPolicy?'\n\n'+doc.configDataPolicy:'')+'\n';
 }
 export function buildAiDocumentFiles(doc:AiDocument,names:AiExportNames) {
   const summaryName=markdownName(names.summaryName),paths=doc.sections.map(s=>'模块/'+markdownName(names.moduleNames[s.id]??s.label));
   const link=(text:string,path:string)=>`[${text}](<${path.split('/').map(encodeURIComponent).join('/')}>)`;
   const standardsIndex=doc.sections.findIndex(s=>s.id==='standards'),standardsPath=paths[standardsIndex];
-  const contents='## 模块文档目录\n\n'+doc.sections.map((s,i)=>'- '+link(s.label,paths[i])).join('\n')+(doc.configDataPolicy?'\n- '+link('配置数据管理与同步规范',policyExportPath):'')+'\n\n';
+  const contents='## 模块文档目录\n\n- '+link('GameCreator 使用说明','GAMECREATOR_GUIDE.md')+'\n'+doc.sections.map((s,i)=>'- '+link(s.label,paths[i])).join('\n')+(doc.configDataPolicy?'\n- '+link('配置数据管理与同步规范',policyExportPath):'')+'\n\n';
   return validateDocumentFiles({folderName:names.folderName,files:[
-    {path:summaryName,content:heading(doc,'AI 项目上下文')+contents+doc.sections.map(s=>s.body).join('\n\n')+(doc.configDataPolicy?'\n\n'+doc.configDataPolicy:'')+'\n'},
+    {path:summaryName,content:heading(doc,'AI 项目上下文')+contents+gamecreatorGuide()+'\n\n'+doc.sections.map(s=>s.body).join('\n\n')+(doc.configDataPolicy?'\n\n'+doc.configDataPolicy:'')+'\n'},
     ...doc.sections.map((s,i)=>({path:paths[i],content:heading(doc,s.label)+link('返回项目完整文档','../'+summaryName)+'\n\n'+(standardsPath&&s.id!=='standards'?'更新项目前先读 '+link('项目规范',standardsPath.slice('模块/'.length))+'。\n\n':'')+s.body+'\n'})),
+    {path:'GAMECREATOR_GUIDE.md',content:gamecreatorGuide()},
     ...(doc.configDataPolicy?[{path:policyExportPath,content:link('返回项目完整文档','../'+summaryName)+'\n\n'+doc.configDataPolicy}]:[]),
   ]});
 }

@@ -1,0 +1,43 @@
+import {createElement,useEffect,useRef,useState} from 'react';
+import {BookOpen,FolderSync,RefreshCw,Check,Copy,Download} from 'lucide-react';
+import {gamecreatorGuide,guideVersion} from '../shared/gamecreator-guide.mjs';
+import {authoringModules,moduleGrants,type AuthoringItem,type AuthoringReceipt,type AuthoringInput} from '../shared/project-authoring.mjs';
+import type {SavedProject} from './project-catalog';
+import type {ProjectScheduleStore} from './project-schedule';
+import {storyBlocks} from './story-library';
+import {beforeLogoutEvent} from './auth';
+import {useLeaveSearch} from './GlobalSearch';
+import './usage-guide.css';
+
+export function UsageGuide({project,schedule,blockedReason,snapshot,onApplied,testMode=false}:{project:SavedProject;schedule:ProjectScheduleStore;blockedReason:string;snapshot:()=>AuthoringInput['expectedEntries'];onApplied:()=>void;testMode?:boolean}){
+ const [tab,setTab]=useState(sessionStorage.getItem('gamecreator.authoring-return')===project.id?'authoring':'guide'),[items,setItems]=useState<AuthoringItem[]>([]),[history,setHistory]=useState<AuthoringReceipt[]>(schedule.authoringHistory||[]),[selected,setSelected]=useState(''),[decisions,setDecisions]=useState<Record<string,'keep'|'proposal'>>({}),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[developer,setDeveloper]=useState('');
+ useEffect(()=>{sessionStorage.removeItem('gamecreator.authoring-return');},[]);
+ useEffect(()=>{setHistory(schedule.authoringHistory||[]);},[schedule.authoringHistory]);
+ const lock=useRef(false),api=window.desktopClient?.projectAuthoring,leave=useLeaveSearch('使用说明'),text=gamecreatorGuide(),item=items.find(i=>i.id===selected),member=schedule.personnel?.members.find(m=>m.id===developer),grants=moduleGrants(member);
+ const blocked=busy||!!blockedReason||!api||!project.folderPath;
+ useEffect(()=>{if(!busy)return;const guard=(e:Event)=>e.preventDefault();window.addEventListener(beforeLogoutEvent,guard);return()=>window.removeEventListener(beforeLogoutEvent,guard);},[busy]);
+ async function run(op:'export'|'scan'|'preview'|'apply'|'recover'){
+  if(!api||lock.current||testMode)return;lock.current=true;setBusy(true);setError('');setNotice('');
+  try{
+   const result=await api(op,{projectId:project.id,...(op==='recover'?{}:{expectedEntries:snapshot()}),id:item?.id,digest:item?.digest,reviewId:item?.reviewId,decisions});
+   if(result.items){setItems(op==='preview'?items.map(i=>i.id===selected?result.items![0]:i):result.items);if(op==='scan'){setSelected(result.items[0]?.id||'');setDecisions({});}}
+   if(result.history)setHistory(result.history);
+   if(op==='export')setNotice('协作文件已更新：'+result.directory+'。将私有凭证单独交付给开发者。');
+   if(op==='scan')setNotice('已读取 '+(result.items?.length||0)+' 个待处理提交。');
+   if(op==='apply'||result.recovered){sessionStorage.setItem('gamecreator.authoring-return',project.id);onApplied();}
+   if(op==='recover'&&!result.recovered)setNotice('没有未完成的提交。');
+  }catch(e){setError(e instanceof Error?e.message:String(e));}finally{setBusy(false);lock.current=false;}
+ }
+ const download=()=>{const url=URL.createObjectURL(new Blob([text],{type:'text/markdown;charset=utf-8'})),a=document.createElement('a');a.href=url;a.download='GAMECREATOR_GUIDE.md';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+ return <section className="usage-guide" aria-label="GameCreator 使用说明">
+  <header className="ug-hero"><div><small>PROJECT AUTHORING</small><h2>从原型设计，到开发反馈。</h2><p>读取规范和当前内容，以获准身份提交可检查的项目变更。</p></div><BookOpen size={38}/></header>
+  <div className="ps-tabs" role="tablist" aria-label="使用说明页签">{[['guide','使用说明'],['authoring','项目编写'],['permissions','权限说明'],['history','处理记录']].map(([id,label])=><button role="tab" aria-selected={tab===id} key={id} onClick={()=>{leave();setTab(id);}}>{label}{id==='history'?' · '+history.length:''}</button>)}</div>
+  {error&&<p className="ar-error" role="alert">{error}</p>}{notice&&<p className="ug-notice" role="status">{notice}</p>}
+  {tab==='guide'&&<><div className="ug-toolbar"><span>内置说明 · {guideVersion}</span><button onClick={()=>void navigator.clipboard.writeText(text).then(()=>setNotice('说明已复制')).catch(()=>setError('复制失败，请下载说明'))}><Copy size={15}/>复制说明</button><button onClick={download}><Download size={15}/>下载说明</button></div><article className="ug-reader">{storyBlocks(text).map(b=>b.kind==='heading'?createElement('h'+b.level,{key:b.line},b.text):b.kind==='code'?<pre key={b.line}>{b.text}</pre>:<p key={b.line}>{b.text}</p>)}</article></>}
+  {tab==='permissions'&&<><h3>开发者当前权限</h3><p>制作人默认全部内容模块；其他开发者可明确勾选多个模块。任务分配和人员授权另行管理。</p><select aria-label="查看开发者权限" value={developer} onChange={e=>setDeveloper(e.target.value)}><option value="">选择开发者</option>{schedule.personnel?.members.map(m=><option key={m.id} value={m.id}>{m.name}</option>)}</select>{member&&<><p>{member.active?'已启用':'已停用'} · {member.permissions.join('、')||'无反馈权限'} · {member.developer?.expiresAt?'有效期至 '+member.developer.expiresAt:'长期身份'}</p><p>内容编写仍要求有效、未撤销的本项目长期令牌。过期或停用后不能提交。</p><div className="ug-grants">{Object.entries(authoringModules).map(([id,label])=><span key={id} className={grants.includes(id)?'allowed':''}>{grants.includes(id)?'✓':'—'} {label}</span>)}</div></>}{!schedule.personnel?.members.length&&<p>尚无开发者。请到人员分配创建制作人，可暂不指定任务。</p>}</>}
+  {tab==='authoring'&&<><div className="ug-toolbar"><button className="primary" disabled={blocked} onClick={()=>void run('export')}><FolderSync size={16}/>更新协作文件</button><button disabled={blocked} onClick={()=>void run('scan')}><RefreshCw size={16}/>读取设计提交</button><button disabled={testMode||busy||!api||!project.folderPath} onClick={()=>void run('recover')}>恢复未完成提交</button></div><p className="gp-muted">{blockedReason||(!project.folderPath?'请先将项目保存到文件夹。':!api?'项目编写需要桌面客户端。':project.folderPath+' / ai/changes/')} </p><p>首次使用或内容、授权变化后更新协作文件。开发者依据根目录 GAMECREATOR_GUIDE.md 提交，管理者在这里检查并应用。</p>
+   <div className="ug-workspace"><aside><h3>待处理提交 · {items.length}</h3>{items.map(i=><button key={i.id} className={selected===i.id?'selected':''} onClick={()=>{setSelected(i.id);setDecisions({});}}><strong>{i.summary}</strong><small>{i.error?'需要修正':i.memberName+' · '+i.rows.length+' 项变更'}</small></button>)}{!items.length&&<p>点击读取，查看项目文件夹中的设计提交。</p>}</aside><main>{item?<><h3>{item.summary}</h3>{item.error?<p className="ar-error">{item.error}</p>:<><p>{item.memberName} · {item.id}</p><div className="ug-compatibility">{Object.entries(item.compatibility).map(([k,v])=><p key={k}><b>{{reuse:'复用',modify:'修改',add:'新增',archive:'归档'}[k]}：</b>{v}</p>)}</div>{item.rows.map(r=><details key={r.id} open={r.state==='conflict'}><summary>{authoringModules[r.module]} · {r.path} · {r.op} · {r.state==='conflict'?'冲突':r.state==='unchanged'?'无变化':'可应用'}</summary><div className="ug-diff">{[['基准',r.base],['当前',r.current],['提交',r.incoming]].map(([label,v])=><div key={label}><h4>{label}</h4><pre>{v}</pre></div>)}</div>{r.state==='conflict'&&<select aria-label={'冲突处理：'+r.id} value={decisions[r.id]||''} onChange={e=>setDecisions(v=>({...v,[r.id]:e.target.value as 'keep'|'proposal'}))}><option value="">请选择冲突处理</option><option value="keep">保留当前</option><option value="proposal">采用提交</option></select>}</details>)}<div className="ug-toolbar"><button disabled={blocked} onClick={()=>void run('preview')}>重新检查选择</button><button className="primary" disabled={blocked||item.rows.some(r=>r.state==='conflict'&&!decisions[r.id])} onClick={()=>void run('apply')}><Check size={16}/>应用整批变更</button></div><p className="gp-muted">应用前再次检查权限、全部模块结构与引用；成功后重新加载项目内容。</p></>}</>:<p>选择一份提交查看差异。</p>}</main></div>
+  </>}
+  {tab==='history'&&<div className="ug-history">{history.slice().reverse().map(r=><article key={r.id}><h3>{r.summary}</h3><p>{r.memberName} · {new Date(r.at).toLocaleString()}</p><p>{r.modules.map(id=>authoringModules[id]||id).join('、')}</p><code>{r.id}</code></article>)}{!history.length&&<p>还没有已应用的设计提交。</p>}</div>}
+ </section>;
+}

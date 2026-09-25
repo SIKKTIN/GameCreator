@@ -3,6 +3,7 @@ interface Window {
   desktopClient?: {
     developerCredentials?:(operation:'create'|'update'|'rotate'|'copy'|'download'|'import'|'revoke'|'delete'|'available',input:import('../shared/ai-personnel.mjs').DeveloperInput)=>Promise<{credential?:import('../shared/ai-personnel.mjs').AiCredential;memberId?:string;copied?:boolean;saved?:boolean}|Record<string,boolean>|null>;
     issueAiCredential?:(input:{projectId:string;memberId?:string;executorName?:string;positionIds?:string[];workDescription?:string;name:string;expiresAt:string;permissions:import('../shared/ai-personnel.mjs').AiPermission[];taskIds:string[];schedule:import('./project-schedule').ProjectScheduleStore})=>Promise<{credential:import('../shared/ai-personnel.mjs').AiCredential;secret:{schema:1;projectId:string;memberId:string;memberName:string;credentialId:string;privateKey:string;expiresAt:string}}>;
+    projectAuthoring?:import('../shared/project-authoring.mjs').AuthoringAPI;
     platform: string; localFiles: boolean;
     engineSync?: import('./engine-sync').EngineSyncAPI;
     collaborationHost?: {
