@@ -1,0 +1,10 @@
+.workspace-sidebar .workspace-nav-group { display: grid; gap: 4px; }
+.workspace-sidebar .workspace-nav-group-toggle { width: 100%; }
+.workspace-sidebar .workspace-nav-group-toggle.contains-current { color: #b9b0ff; }
+.workspace-sidebar .workspace-nav-chevron { margin-left: auto; flex-shrink: 0; }
+.workspace-sidebar .workspace-nav-group-toggle[aria-expanded="false"] .workspace-nav-chevron { transform: rotate(-90deg); }
+.workspace-sidebar .workspace-nav-submenu { display: grid; gap: 4px; margin-left: 21px; padding-left: 8px; border-left: 1px solid #39334b; }
+.workspace-sidebar .workspace-nav-submenu[hidden] { display: none; }
+.workspace-sidebar .workspace-nav-submenu button { width: 100%; padding-left: 10px; }
+.workspace-sidebar .workspace-nav-submenu svg { flex-shrink: 0; }
+.workspace-sidebar .workspace-nav-group button:focus-visible { outline: 2px solid #a797ee; outline-offset: -2px; }
