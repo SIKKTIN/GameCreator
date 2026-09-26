@@ -48,7 +48,9 @@ const root = path.resolve(__dirname, '..'), key = 'gamecreator.ui-preferences.v1
     await button('缩小画布').click();
     await page.evaluate(() => { window.navigationEditor = document.querySelector('.gc-canvas-surface'); });
     const groupButton = name => sidebar().getByRole('button', { name, exact: true });
-    assert.deepEqual(await sidebar().locator('.workspace-nav-group-toggle').allTextContents(), ['项目指南','项目管理','玩法与关卡','系统与开发','内容制作','数据与同步']);
+    assert.deepEqual(await sidebar().locator('.workspace-nav-group-toggle').allTextContents(), ['项目指南','项目管理','玩法与关卡','系统与开发','内容制作','数据与同步','废弃模块']);
+    assert.deepEqual(await sidebar().getByRole('group',{name:'废弃模块子菜单',exact:true}).getByRole('button').allTextContents(),['枚举定义','枚举管理']);
+    assert.deepEqual(await sidebar().getByRole('group',{name:'数据与同步子菜单',exact:true}).getByRole('button').allTextContents(),['数据配置','数据同步','工程同步']);
     assert.equal(await sidebar().getByRole('button', {name:'游戏任务与流程',exact:true}).count(),1);
     assert.equal(await sidebar().getByRole('button', {name:'地图设计',exact:true}).count(),0);
     assert.equal(await sidebar().getByRole('button', {name:'故事编排',exact:true}).count(),0);
@@ -132,7 +134,7 @@ const root = path.resolve(__dirname, '..'), key = 'gamecreator.ui-preferences.v1
     await launch(); await check(true); await toggle().click(); await check(false);
     assert.deepEqual(JSON.parse(storage.getItem(key)), { schema: 1, navigationVisible: false });
     assert.deepEqual(errors, []);
-    console.log('PASS: six navigation groups, search auto-expansion, optional modules, persistent group and sidebar preferences, editing/camera preservation, keyboard/scrolling, failed-save recovery, local reentry and team workspace.');
+    console.log('PASS: seven navigation groups including deprecated enums, search auto-expansion, optional modules, persistent group and sidebar preferences, editing/camera preservation, keyboard/scrolling, failed-save recovery, local reentry and team workspace.');
   } catch (error) {
     if (page && !page.isClosed()) {
       console.error((await page.locator('body').innerText()).slice(0, 3500));

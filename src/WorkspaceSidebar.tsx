@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Search, CalendarDays, Map, Layers, Gamepad2, ListTree, Palette, BookOpen, Database, Tag, Settings2, GitBranch, BarChart3, Server, Workflow, Users, PanelsTopLeft, FileCode2, Wrench, BookOpenCheck, ChevronDown, Rocket, FolderSync, type LucideIcon } from 'lucide-react';
+import { Search, CalendarDays, Map, Layers, Gamepad2, ListTree, Palette, BookOpen, Database, Tag, Settings2, GitBranch, BarChart3, Server, Workflow, Users, PanelsTopLeft, FileCode2, Wrench, BookOpenCheck, ChevronDown, Rocket, FolderSync, Archive, type LucideIcon } from 'lucide-react';
 import './workspace-sidebar.css';
 import { useWorkspaceNavigationGroups } from './useWorkspaceNavigation';
 
@@ -13,7 +13,8 @@ const navigationGroups: NavigationGroup[] = [
   { id: 'gameplay', label: '玩法与关卡', icon: Gamepad2, children: [['玩法核心', Workflow], ['玩法设计', Gamepad2], ['原型设计', PanelsTopLeft], ['地图设计', Map], ['任务与流程', GitBranch], ['数值分析', BarChart3]] },
   { id: 'development', label: '系统与开发', icon: Wrench, children: [['功能系统', ListTree], ['程序框架', FileCode2], ['开发工具', Wrench]] },
   { id: 'content', label: '内容制作', icon: Palette, children: [['素材资产', Palette], ['故事文档', BookOpen], ['故事编排', BookOpen]] },
-  { id: 'data-engine', label: '数据与同步', icon: Database, children: [['数据配置', Database], ['枚举定义', Tag], ['枚举管理', Tag], ['数据同步', Workflow], ['工程同步', FolderSync]] },
+  { id: 'data-engine', label: '数据与同步', icon: Database, children: [['数据配置', Database], ['数据同步', Workflow], ['工程同步', FolderSync]] },
+  { id: 'deprecated', label: '废弃模块', icon: Archive, children: [['枚举定义', Tag], ['枚举管理', Tag]] },
 ];
 
 export function WorkspaceSidebar({ picker, active, onNavigate, team = false, empty = false, teamOverview = false, teamCore = false, teamGameplay = false, teamSchedule = false, onManageServer, onManageUsers, storyEnabled = false, mapEnabled = false, footer }: {
