@@ -24,7 +24,7 @@ import {emptyArtAssets} from './art-assets.ts';
 export {validModuleGrants} from '../shared/project-authoring.mjs';
 export {authoringModules,moduleGrants,authoringPreview,canonical,validateAuthoringProposal} from '../shared/project-authoring.mjs';
 export {assertContentReferences} from '../shared/authoring-references.mjs';
-export {gamecreatorGuide,guideVersion} from '../shared/gamecreator-guide.mjs';
+export {gamecreatorGuide,guideVersion,authoringReadme} from '../shared/gamecreator-guide.mjs';
 export {captureProjectPackage} from './project-package.ts';
 export {authoringError} from '../shared/authoring-diagnostics.mjs';
 export const contentModelVersion='2026-09-26.1';

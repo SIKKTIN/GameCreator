@@ -15,6 +15,11 @@ function file(root,relative,create=false){
 }
 function read(root,relative,max=20*1024*1024){const p=file(root,relative);if(fs.statSync(p).size>max)throw new Error('协作文件过大');return fs.readFileSync(p,'utf8');}
 function write(root,relative,content){const p=file(root,relative,true);if(fs.existsSync(p)){const backup=file(root,relative+'.bak',true);atomicWrite(backup,fs.readFileSync(p,'utf8'));}atomicWrite(p,content);}
+function writeAuthoringReadme(root){
+ const p=file(root,'ai/README.md',true);
+ // Existing custom directory instructions belong to the project owner.
+ if(!fs.existsSync(p)||read(root,'ai/README.md').startsWith(marker))write(root,'ai/README.md',marker+'\n'+model.authoringReadme());
+}
 function context(storage,project){try{return model.captureProjectPackage(storage,project);}catch(e){throw model.authoringError(e,'current');}}
 function template(projectId,snapshotId){return {format:'gamecreator-content-change',schema:1,id:'替换为新的唯一提交编号',projectId,snapshotId,intent:'project_change',target:{kind:'module',id:'project'},summary:'说明设计目标、范围和影响',compatibility:{reuse:'复用现有结构，无则写无',modify:'说明原有内容如何兼容',add:'列出新增内容及所属模块',archive:'无'},operations:[{id:'overview',module:'project',op:'set',path:'/description',value:'填写项目目标与原型范围'}]};}
 function writeCollaborationFiles(root,project,storage,allowUnvalidated=false){
@@ -25,6 +30,7 @@ function writeCollaborationFiles(root,project,storage,allowUnvalidated=false){
   write(root,'GAMECREATOR_GUIDE.md',marker+'\n'+model.gamecreatorGuide());
   write(root,'README.md',read(root,'README.md')+'\n\n[GameCreator 使用说明](GAMECREATOR_GUIDE.md)\n');
   write(root,'ai/context-status.txt','上下文尚未生成。请在客户端检查项目存档，再到使用说明更新协作文件。\n'+error.message);
+  writeAuthoringReadme(root);
   return {directory:root};
  }
  const archives=captured.document.archives,raw=JSON.stringify({schema:1,projectId:project.id,archives}),snapshotId=hash(raw),guide=marker+'\n'+model.gamecreatorGuide();
@@ -41,11 +47,13 @@ function writeCollaborationFiles(root,project,storage,allowUnvalidated=false){
  write(root,'ai/project.json',JSON.stringify({schema:1,projectId:project.id,name:project.name,snapshotId,guideVersion:model.guideVersion,validator:{version:model.contentModelVersion,sha256:hash(validator)},modules:model.authoringModules,developers},null,2));
  write(root,'ai/change-template.json',JSON.stringify(template(project.id,snapshotId),null,2));
  write(root,'ai/submit-change.cjs',fs.readFileSync(path.join(__dirname,'../shared/submit-content-change.cjs'),'utf8'));
+ writeAuthoringReadme(root);
  write(root,'ai/changes/README.md','将签名提交放在本目录，由客户端读取并预览。不要直接修改项目存档。\n');
  write(root,'ai/receipts/README.md','客户端成功应用后写入回执。权威处理记录保存在项目存档中。\n');
  write(root,'GAMECREATOR_GUIDE.md',guide);
  const readme=file(root,'README.md',true),old=fs.existsSync(readme)?read(root,'README.md'): '# '+project.name+'\n';
  if(!old.includes('[GameCreator 使用说明](GAMECREATOR_GUIDE.md)'))write(root,'README.md',old+'\n\n'+marker+'\n开始编写前请阅读 [GameCreator 使用说明](GAMECREATOR_GUIDE.md)。\n');
+ const linked=read(root,'README.md');if(!linked.includes('(ai/README.md)'))write(root,'README.md',linked+'\n[AI 项目编写入口](ai/README.md)：目录说明、阅读顺序和校验提交命令。\n');
  for(const e of captured.expectedEntries)if(storage.getItem(e.key)!==e.value)throw new Error('生成期间项目已变化，请重新生成');
  const registered=JSON.parse(storage.getItem(contextKey(project.id))||'{"snapshotIds":[]}');
  storage.setItem(contextKey(project.id),JSON.stringify({schema:1,projectId:project.id,snapshotIds:[...new Set([...registered.snapshotIds,snapshotId])].slice(-100)}));

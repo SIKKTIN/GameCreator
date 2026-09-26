@@ -4,7 +4,7 @@
 
 ## 首次使用
 
-1. 保存 GameCreator 项目为独立文件夹。新文件夹自动加入 `GAMECREATOR_GUIDE.md`、README 入口、`ai/project.json`、当前内容、常用条目模板和提交脚本。
+1. 保存 GameCreator 项目为独立文件夹。新文件夹自动加入 `GAMECREATOR_GUIDE.md`、根 README 入口、`ai/README.md` 目录总览、`ai/project.json`、当前内容、常用条目模板和提交脚本。直接打开 ai 目录的协作者先读 README；它包含阅读顺序、各文件用途、两种工作目录下的命令及回执流程。已有自定义 ai/README.md 保留。
 2. 在人员分配创建长期开发者。制作人可以零任务创建，默认项目范围与全部内容模块权限。其他岗位默认没有 `project_write`；管理者可明确选择多个模块。
 3. 到使用说明的项目编写页签，更新协作文件，单独下载开发者私有凭证。上下文仅包含公开身份和授权信息。
 4. 开发者参考 `ai/change-template.json`、`ai/context/templates.json` 和 `ai/context/template-options.json` 编写批次。模板包含循环步骤、原型清单、验证记录、条件、连线、时间轴及常用地图/故事/素材/分析子项；枚举与初始工作流值单独列出。完整操作规范由 `shared/gamecreator-guide.mjs` 统一生成，并随 AI 文档、引擎开发协作文件输出。
@@ -44,6 +44,7 @@
   archives/                     # 应用存档，不直接编辑
   assets/                       # 历史附件
   ai/
+    README.md                   # AI 协作目录总入口
     project.json                # 基准编号、公开模块及开发者范围
     change-template.json
     submit-change.cjs

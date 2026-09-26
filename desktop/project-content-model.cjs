@@ -3805,7 +3805,68 @@ function assertContentReferences(before, after) {
 
 //#endregion
 //#region shared/gamecreator-guide.mjs
-const guideVersion = "2026-09-26.1";
+const guideVersion = "2026-09-26.2";
+function authoringReadme() {
+	return `# AI 项目编写入口
+
+这里是 GameCreator 生成的项目协作目录。通过这里的上下文、模板和提交工具编写项目内容；正式项目存档由客户端应用提交后更新。
+
+## 推荐阅读顺序
+
+1. 阅读 [GameCreator 使用说明](../GAMECREATOR_GUIDE.md)，了解编写协议、权限和应用流程。
+2. 读取 [project.json](project.json)，确认项目 ID、当前基准 snapshotId、支持模块、开发者权限和校验包版本。实际授权以客户端最新状态为准。
+3. 先读 [项目规范](context/content/project-standards.json) 和 [项目概览](context/content/project.json)，再读 [当前模块内容](context/content/)，检查已有条目和引用，决定复用、修改、新增及归档范围。
+4. 参考 [变更模板](change-template.json)、[条目与嵌套模板](context/templates.json) 和 [枚举及初始值](context/template-options.json)。不要根据空数组猜测条目结构；复制模板后为新条目生成唯一 ID。
+5. 创建草稿、执行完整校验，再用本项目的长期开发者凭证签名提交。
+
+## 文件与目录
+
+| 位置 | 用途 | 如何使用 |
+| --- | --- | --- |
+| README.md | 本目录总入口 | 从这里开始 |
+| project.json | 项目身份、基准与公开授权信息 | 阅读；通过客户端更新 |
+| context/content/ | 当前各模块的设计内容 | 阅读与对照，不把修改这些副本当作更新项目 |
+| context/snapshots/ | 带摘要的提交基准 | 不直接修改；提交绑定对应 snapshotId |
+| context/templates.json | 完整条目及常用嵌套子项模板 | 复制后填写新 ID、字段和引用 |
+| context/template-options.json | 关键枚举、初始状态与子项位置 | 配合模板查阅 |
+| change-template.json | 跨模块变更批次模板 | 复制成自己的草稿文件 |
+| submit-change.cjs | 校验及签名提交命令 | 通过 Node.js 执行 |
+| validator.cjs | 与编辑器同源的离线校验包 | 由提交工具调用，不手改 |
+| changes/ | 已签名、待客户端处理的提交 | submit 自动生成；不要再修改签名文件 |
+| receipts/ | 成功应用的回执 | 查看提交是否已经应用；不是签名完成就有回执 |
+
+## 在本目录完成一次提交
+
+以下命令的工作目录是当前 ai 文件夹。先把 change-template.json 复制成 draft.json，填写新的提交编号、设计内容和兼容说明。所有命令里的凭证路径都要替换为实际私有文件路径。
+
+\`\`\`sh
+node submit-change.cjs validate draft.json
+node submit-change.cjs validate draft.json --json
+node submit-change.cjs submit draft.json /私有位置/credential.json
+\`\`\`
+
+如果终端位于上一层项目根目录，等价命令为：
+
+\`\`\`sh
+node ai/submit-change.cjs validate ai/draft.json --json
+node ai/submit-change.cjs submit ai/draft.json /私有位置/credential.json
+\`\`\`
+
+离线校验基于导出快照，检查内容结构、工作流字段、配置一致性和跨模块引用。失败时按诊断中的操作编号、模块、字段路径和允许值修正；submit 也会在签名前执行同样的校验。私有凭证单独保存，不写入草稿、README、上下文或 Git。
+
+签名完成后，在 GameCreator 的“使用说明 → 项目编写”点击“读取设计提交”，查看差异并解决冲突，再点击“应用整批变更”。成功后查看 [receipts/](receipts/) 下的同编号回执，以及客户端的处理记录。修正已签名内容时使用新提交编号重新签名。
+
+## 开始下一批工作
+
+项目内容、授权或客户端版本变化后，在客户端点击“更新协作文件”，重新读取 project.json 和当前模块内容。校验包缺失、版本不匹配或基准过期时，也使用这个入口更新，不手改摘要或版本号。
+
+本目录处理项目设计内容。游戏引擎中的开发进度反馈位于引擎工程的 gamecreator/feedback/，在“引擎设置 → 开发反馈”处理，两者不要混放。设计已应用不代表开发已完成或里程碑已验收。
+
+若目录只有 context-status.txt 或缺少上述上下文，请先在客户端检查项目并更新协作文件，再开始编写。
+
+[返回项目目录说明](../README.md) · [完整使用协议](../GAMECREATOR_GUIDE.md)
+`;
+}
 function gamecreatorGuide() {
 	return `# GameCreator 使用说明与 AI 项目编写协议
 
@@ -3815,7 +3876,7 @@ function gamecreatorGuide() {
 
 GameCreator 项目文件夹以 project.gamecreator 为入口，archives 保存应用存档，assets 保存历史附件。先在客户端打开项目，再阅读本说明、项目规范和 ai/context/content 中的当前内容。不要直接编辑哈希存档、锁文件或私有凭证。
 
-全新原型可以先完成设计，再连接引擎。项目文件夹的 ai 目录支持内容编写；引擎内 gamecreator 目录支持开发反馈，两者用途与路径不同。
+全新原型可以先完成设计，再连接引擎。项目文件夹的 ai 目录支持内容编写，先阅读 ai/README.md 了解文件用途和命令；引擎内 gamecreator 目录支持开发反馈，两者用途与路径不同。
 
 ## 从零设计原型
 
@@ -4312,6 +4373,7 @@ exports.assertContentReferences = assertContentReferences;
 exports.authoringError = authoringError;
 exports.authoringModules = authoringModules;
 exports.authoringPreview = authoringPreview;
+exports.authoringReadme = authoringReadme;
 exports.authoringTemplateOptions = authoringTemplateOptions;
 exports.authoringTemplates = authoringTemplates;
 exports.canonical = canonical;
