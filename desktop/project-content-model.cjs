@@ -210,6 +210,7 @@ function validateProjectSchedule(value) {
 	if (record(value) && value.personnel !== void 0) {
 		const p = value.personnel;
 		if (!record(p) || p.schema !== 1 || !Array.isArray(p.members) || p.members.length > 200 || !Array.isArray(p.credentials) || p.credentials.length > 1e3) return fail();
+		if (p.positionPreset !== void 0 && !["basic", "production"].includes(p.positionPreset)) return fail();
 		if (p.positions !== void 0) {
 			if (!Array.isArray(p.positions) || p.positions.length > 100) return fail();
 			const positionIds = /* @__PURE__ */ new Set(), positionNames = /* @__PURE__ */ new Set();

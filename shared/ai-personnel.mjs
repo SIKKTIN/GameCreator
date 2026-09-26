@@ -44,3 +44,54 @@ export function credentialMarkdown(schedule,key){const member=schedule.personnel
 export function credentialExpiry(schedule,key){return key.persistent?schedule.personnel?.members.find(m=>m.id===key.memberId)?.developer?.expiresAt||'':key.expiresAt;}
 export function developerMayAccess(schedule,member,task){const d=member.developer;if(!d)return false;const active=positionsOf(schedule).filter(p=>p.active&&d.positionIds.includes(p.id));if(!active.length)return false;if(d.scope==='project')return true;const matches=active.some(p=>taskPositionIds(schedule,task).includes(p.id));return matches&&(d.scope==='positions'||d.taskIds.includes(task.id));}
 export function credentialState(schedule,key,projectId){if(key.projectId!==projectId)return '属于原项目';if(key.revokedAt)return '已撤销';const expiry=credentialExpiry(schedule,key);if(expiry&&Date.parse(expiry)<=Date.now())return '已过期';if(!schedule.personnel?.members.find(m=>m.id===key.memberId)?.active)return '已停用';return '有效';}
+
+
+export const positionPresets=[
+ {id:'basic',name:'基础协作',count:6,description:'制作人、策划、程序、美术、测试、音效。适合快速原型与小团队。'},
+ {id:'production',name:'完整制作',count:8,description:'拆分主美、技术美术与美术开发，明确风格、技术方案和素材制作职责。'},
+];
+export function presetPositions(id){
+ if(id==='basic')return defaultAiPositions();
+ if(id!=='production')throw new Error('未知岗位预设');
+ const base=defaultAiPositions(),find=id=>base.find(p=>p.id===id);
+ return [find('producer'),find('planning'),
+  {id:'art-director',name:'主美',taskKinds:[],active:true,duties:'制定视觉风格、参考图与美术品质标准；审核游戏内最终视觉效果，提出修改意见。'},
+  {id:'technical-art',name:'技术美术',taskKinds:[],active:true,duties:'确定骨骼、逐帧、Shader 等素材实现方案；制定拆图、导入与性能规格，验证制作流程并验收技术结果。'},
+  {...find('art'),name:'美术开发',duties:'按照主美确定的风格和技术美术制定的方案，制作角色、场景、动画、特效与 UI 素材，完成交付与修改。'},
+  find('program'),find('qa'),find('audio')];
+}
+export function positionPresetState(schedule){
+ const positions=positionsOf(schedule),id=schedule.personnel?.positionPreset||(['art-director','technical-art'].some(id=>positions.some(p=>p.id===id&&p.active))?'production':'basic');
+ const expected=presetPositions(id),same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+ return {id,customized:expected.some(p=>{const found=positions.find(x=>x.id===p.id);return !found||['name','duties','active','taskKinds'].some(k=>!same(found[k],p[k]));})||positions.some(p=>p.active&&!expected.some(x=>x.id===p.id))};
+}
+export function previewPositionPreset(schedule,id){
+ const current=positionsOf(schedule),defaults=[...presetPositions('basic'),...presetPositions('production')],target=presetPositions(id);
+ const positions=target.map(p=>{const old=current.find(x=>x.id===p.id);if(!old)return p;const known=defaults.filter(x=>x.id===p.id),next={...old};
+  for(const key of ['name','duties','taskKinds'])if(known.some(x=>JSON.stringify(old[key])===JSON.stringify(x[key])))next[key]=p[key];
+  if(['art-director','technical-art'].includes(p.id))next.active=true;
+  return next;
+ });
+ // Keep identities and authored details so old developer scopes and histories never point at deleted roles.
+ const retired=id==='basic'?['art-director','technical-art']:[];
+ positions.push(...current.filter(p=>!positions.some(x=>x.id===p.id)).map(p=>retired.includes(p.id)?{...p,active:false,taskKinds:[]}:p));
+ const names=new Set();for(const p of positions){const name=p.name.trim().toLowerCase();if(names.has(name))throw new Error('岗位名称冲突：'+p.name+'。请先重命名现有自定义岗位，再切换预设。');names.add(name);}
+ if(positions.length>100)throw new Error('切换后岗位超过 100 个，请先整理现有岗位');
+ const changes=positions.flatMap(after=>{const before=current.find(p=>p.id===after.id);return JSON.stringify(before)===JSON.stringify(after)?[]:[{id:after.id,before,after}];});
+ const taskChanges=[];
+ const tasks=schedule.tasks.map(t=>{const before=taskPositionIds(schedule,t),after=[...new Set(before.map(p=>retired.includes(p)?'art':p))];
+  if(JSON.stringify(before)!==JSON.stringify(after))taskChanges.push({taskId:t.id,title:t.title,from:before.map(id=>current.find(p=>p.id===id)?.name||id),to:after.map(id=>positions.find(p=>p.id===id)?.name||id)});
+  // Freeze implicit membership before changing defaults; a preset never silently adds review work.
+  const implicit=positions.filter(p=>p.taskKinds.includes(t.kind)).map(p=>p.id);
+  return JSON.stringify(before)===JSON.stringify(after)&&(t.positionIds!==undefined||JSON.stringify(implicit)===JSON.stringify(after))?t:{...t,positionIds:after};
+ });
+ const affectedDevelopers=(schedule.personnel?.members||[]).filter(m=>m.developer?.positionIds.some(p=>retired.includes(p))).map(m=>m.name);
+ const affectedCredentials=(schedule.personnel?.credentials||[]).filter(k=>!k.revokedAt&&k.positionIds?.some(p=>retired.includes(p))).length;
+ return {changes,taskChanges,affectedDevelopers,affectedCredentials,next:{...schedule,personnel:{...(schedule.personnel||defaultWorkTeam()),positionPreset:id,positions},tasks}};
+}
+
+export function legacyRolePositionIds(schedule,roles){
+ const aliases={'制作管理':'producer','制作人':'producer','策划':'planning','关卡设计':'planning','程序开发':'program','程序':'program','开发工具':'program','美术':'art','美术开发':'art','动画':'art','UI':'art','测试':'qa','音乐':'audio','音效':'audio','主美':'art-director','技术美术':'technical-art'};
+ const positions=positionsOf(schedule);
+ return [...new Set(roles.flatMap(role=>{const standard=positions.find(p=>p.id===aliases[role]);return standard?[standard.id]:positions.filter(p=>p.name===role).map(p=>p.id);}))];
+}

@@ -1,3 +1,4 @@
+import {legacyRolePositionIds,presetPositions,positionPresetState,previewPositionPreset,developerMayAccess} from '../shared/ai-personnel.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
@@ -86,4 +87,42 @@ test('exported signing helper publishes complete feedback without overwriting a 
  } finally {
   assert.ok(path.resolve(root).startsWith(path.resolve(os.tmpdir())+path.sep+'gc-ai-cli-'));fs.rmSync(root,{recursive:true,force:true});
  }
+});
+
+
+test('two position presets keep default projects unchanged and move art identity into production',()=>{
+ const schedule={schema:1,tasks:[{...createProductionTask('素材制作'),kind:'美术'}],milestones:[]},original=structuredClone(schedule);
+ assert.equal(positionPresetState(schedule).id,'basic');assert.equal(presetPositions('basic').length,6);assert.equal(presetPositions('production').length,8);
+ const preview=previewPositionPreset(schedule,'production'),next=preview.next;assert.deepEqual(schedule,original);
+ assert.deepEqual(next.personnel.positions.map(p=>p.name),['制作人','策划','主美','技术美术','美术开发','程序','测试','音效']);
+ assert.deepEqual(next.tasks,schedule.tasks);assert.equal(positionTasks(next,'art')[0].id,schedule.tasks[0].id);assert.equal(positionTasks(next,'art-director').length,0);
+ next.personnel.positions.filter(p=>['art-director','technical-art'].includes(p.id)).forEach(p=>p.active=false);assert.equal(positionPresetState(next).id,'production');next.personnel.positions.filter(p=>['art-director','technical-art'].includes(p.id)).forEach(p=>p.active=true);
+ assert.equal(positionPresetState(next).id,'production');assert.equal(positionPresetState(next).customized,false);assert.equal(next.personnel.members.length,0);
+ validateProjectSchedule(next);validateProjectScheduleArchive(next);assert.deepEqual(previewPositionPreset(next,'production').next,next);
+});
+test('collapsing art roles previews merges without deleting custom roles, work results, credentials or developer identities',()=>{
+ const schedule={schema:1,tasks:[{...createProductionTask('最终效果验收'),kind:'美术',positionIds:['art-director','technical-art','art'],status:'已完成',result:'已通过',owner:'主美A'}],milestones:[],personnel:{...defaultWorkTeam(),positions:presetPositions('production')}};
+ schedule.personnel.positions.push({id:'custom',name:'叙事',duties:'自定义',active:true,taskKinds:[]});
+ const member={...newAiMember([],'美术'),developer:{positionIds:['art-director'],scope:'positions',taskIds:[],expiresAt:''}};schedule.personnel.members.push(member);
+ const key={id:randomUUID(),projectId:'p',memberId:member.id,name:'审核',publicKey:'key',permissions:['review'],taskIds:[],createdAt:new Date().toISOString(),expiresAt:'',revokedAt:'',persistent:true,positionIds:['art-director'],workDescription:'检查画面'};schedule.personnel.credentials.push(key);
+ assert.equal(developerMayAccess(schedule,member,schedule.tasks[0]),true);
+ const p=previewPositionPreset(schedule,'basic'),next=p.next;
+ assert.equal(p.taskChanges.length,1);assert.deepEqual(p.taskChanges[0].to,['美术']);assert.equal(p.affectedCredentials,1);assert.deepEqual(p.affectedDevelopers,[member.name]);
+ assert.deepEqual(next.tasks[0],{...schedule.tasks[0],positionIds:['art']});assert.deepEqual(next.personnel.members,schedule.personnel.members);assert.deepEqual(next.personnel.credentials,schedule.personnel.credentials);
+ assert.equal(next.personnel.positions.find(p=>p.id==='custom').active,true);assert.equal(next.personnel.positions.find(p=>p.id==='art-director').active,false);assert.equal(developerMayAccess(next,member,next.tasks[0]),false);
+ assert.equal(workAssignees(next,next.tasks[0].id,'p').length,0);validateProjectSchedule(next);validateProjectScheduleArchive(next);
+ const full=previewPositionPreset(next,'production').next;assert.equal(full.personnel.positions.find(p=>p.id==='art-director').active,true);assert.deepEqual(full.tasks,next.tasks);
+});
+test('preset changes preserve authored names, duties, deactivated common roles and unclassified tasks',()=>{
+ const schedule={schema:1,tasks:[{...createProductionTask('暂不分工'),positionIds:[]}],milestones:[],personnel:defaultWorkTeam()};
+ schedule.personnel.positions.find(p=>p.id==='program').duties='工程特定规范';schedule.personnel.positions.find(p=>p.id==='art').name='角色制作';schedule.personnel.positions.find(p=>p.id==='qa').active=false;
+ const next=previewPositionPreset(schedule,'production').next;assert.equal(next.personnel.positions.find(p=>p.id==='program').duties,'工程特定规范');assert.equal(next.personnel.positions.find(p=>p.id==='art').name,'角色制作');assert.equal(next.personnel.positions.find(p=>p.id==='qa').active,false);assert.deepEqual(next.tasks,schedule.tasks);assert.equal(positionPresetState(next).customized,true);
+ schedule.personnel.positions.push({id:'user-art-lead',name:'主美',duties:'custom',active:true,taskKinds:[]});assert.throws(()=>previewPositionPreset(schedule,'production'),/名称冲突/);
+});
+
+
+test('legacy art identities resolve to the same stable position after preset rename',()=>{
+ const s=previewPositionPreset({schema:1,tasks:[],milestones:[]},'production').next;
+ assert.deepEqual(legacyRolePositionIds(s,['美术','UI','动画']),['art']);assert.deepEqual(legacyRolePositionIds(s,['主美','技术美术']),['art-director','technical-art']);
+ const corrupt=structuredClone(s);corrupt.personnel.positionPreset='unknown';assert.throws(()=>validateProjectSchedule(corrupt));assert.throws(()=>validateProjectScheduleArchive(corrupt));
 });
