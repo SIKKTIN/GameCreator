@@ -60,11 +60,12 @@ function createProjectAuthoring({storage,folders}){
   const history=schedule.authoringHistory||[],previous=history.find(r=>r.id===p.id);
   if(previous){if(previous.digest!==digest)throw new Error('已处理编号的内容发生变化，不允许重放');return {processed:true,receipt:previous};}
   const identity=verifyAiFeedback(p,schedule);if(!identity?.verified)throw new Error('内容编写需要有效的长期开发者签名');
-  const member=schedule.personnel.members.find(m=>m.id===identity.memberId),grants=model.moduleGrants(member);for(const op of p.operations)if(!grants.includes(op.module))throw new Error('此开发者没有模块修改权限：'+op.module);
+  const member=schedule.personnel.members.find(m=>m.id===identity.memberId),grants=model.moduleGrants(member);for(const op of p.operations)if(!grants.includes(op.module)&&!(op.module==='art-assets'&&member.developer?.artPermissions?.some(k=>['style','details','technical'].includes(k))))throw new Error('此开发者没有模块修改权限：'+op.module);
   const registered=JSON.parse(storage.getItem(contextKey(project.id))||'null');if(registered?.projectId!==project.id||!registered.snapshotIds.includes(p.snapshotId))throw new Error('设计基准未由当前项目生成或已过期，请更新协作文件');
   const raw=read(project.folderPath,'ai/context/snapshots/'+p.snapshotId+'.json');if(hash(raw)!==p.snapshotId)throw new Error('上下文快照已被修改，请恢复或更新协作文件');
   const base=JSON.parse(raw);if(base.projectId!==project.id)throw new Error('基准属于其他项目');
   const result=model.validateContentChange(p,base.archives,current,decisions);
+  if(p.operations.some(op=>op.module==='art-assets')&&!grants.includes('art-assets')){model.assertArtPermission(member,base.archives['art-assets'],result.incoming['art-assets']);model.assertArtPermission(member,current['art-assets'],result.next['art-assets']);}
   return {p,digest,captured,reviewId:hash(model.canonical(captured.expectedEntries)),...result,summary:p.summary,memberName:identity.memberName,compatibility:p.compatibility,id:p.id};
  }
  function receipt(root,r){write(root,'ai/receipts/'+r.id+'.json',JSON.stringify(r,null,2));}

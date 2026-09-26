@@ -1,7 +1,7 @@
 import {validateCompatibility} from './project-standards.mjs';
 import {projectContentModules} from './project-changes.mjs';
 // Engine-neutral exchange format. Feedback is data, never a script to execute.
-export const feedbackIntentLabels={progress:'制作进度',review:'验收结论',propose:'分工/排期建议',spec_change:'需求与验收变更建议',project_change:'正式项目修改'};
+export const feedbackIntentLabels={dispatch:'派发美术任务',progress:'制作进度',review:'验收结论',propose:'分工/排期建议',spec_change:'需求与验收变更建议',project_change:'正式项目修改'};
 export const feedbackFields = {
   task: {status:'任务状态',actualStart:'实际开始日期',actualEnd:'实际结束日期',result:'开发结果 / 受阻原因'},
   tool: {status:'工具状态',usage:'使用说明',delivery:'交付位置与测试结果'},
@@ -24,6 +24,7 @@ export function validateFeedback(value) {
   if(!record(value.target)||!Object.hasOwn(feedbackFields,value.target.kind)||!text(value.target.id,1200)||!value.target.id.trim())fail('任务或工具标识错误');
   if(!text(value.author,200)||!value.author.trim()||!text(value.summary,3000)||!value.summary.trim()||!Array.isArray(value.evidence)||value.evidence.length>30||value.evidence.some(v=>!text(v,2000)))fail('请提供作者、反馈摘要和依据列表');
   if(value.intent!==undefined&&!Object.hasOwn(feedbackIntentLabels,value.intent))fail('反馈意图无效');
+  const dispatch=value.intent==='dispatch';if(dispatch&&(value.target.kind!=='task'||Object.keys(value.changes||{}).join(',')!=='assigneeId'))fail('派发仅支持任务与单一接收人');
   const spec=value.intent==='spec_change',project=value.intent==='project_change';
   if(spec&&value.target.kind!=='task'||project!==(value.target.kind==='module'))fail('反馈类型与目标不匹配');
   if(project&&!Object.hasOwn(projectContentModules,value.target.id))fail('项目模块不支持修改');
@@ -33,7 +34,7 @@ export function validateFeedback(value) {
   if(!record(value.changes)||!Object.keys(value.changes).length)fail('没有变更字段');
   for(const [key,v] of Object.entries(value.changes)) {
     if(project){if(!key.startsWith('/')||key.length>1500)fail('字段路径无效');try{JSON.parse(v);}catch{fail('项目字段值必须是 JSON 编码的文本');}}
-    else if(spec?!['description','acceptance'].includes(key):!Object.hasOwn(feedbackFields[value.target.kind],key))fail('不支持回写字段 '+key);
+    else if(dispatch?key!=='assigneeId':spec?!['description','acceptance'].includes(key):!Object.hasOwn(feedbackFields[value.target.kind],key))fail('不支持回写字段 '+key);
     if(!text(v,30000))fail('字段必须是文本且不超过 30000 字符');
     if(key==='status'&&!statuses[value.target.kind].includes(v))fail('状态不受支持');
     if(['actualStart','actualEnd'].includes(key)&&!date(v))fail('实际日期必须是有效的 YYYY-MM-DD 或空字符串');
@@ -54,7 +55,7 @@ export function validateFeedbackHistory(value,kind) {
     if(r.reason!==undefined&&(!text(r.reason,3000)||!text(r.impact,3000)))return fail();
     const fields=new Set();
     for(const row of r.rows) {
-      if(!record(row)||!text(row.field,1500)||!(r.target.kind==='module'?row.field.startsWith('/'):(Object.hasOwn(feedbackFields[kind],row.field)||r.identity?.intent==='spec_change'&&['description','acceptance'].includes(row.field)))||fields.has(row.field)||!text(row.label,1700)||!['base','current'].every(k=>text(row[k],20*1024*1024))||!text(row.incoming,30000)||!['updated','unchanged','conflict'].includes(row.state)||!['keep','feedback'].includes(r.decisions[row.field]))return fail();
+      if(!record(row)||!text(row.field,1500)||!(r.target.kind==='module'?row.field.startsWith('/'):(Object.hasOwn(feedbackFields[kind],row.field)||r.identity?.intent==='dispatch'&&row.field==='assigneeId'||r.identity?.intent==='spec_change'&&['description','acceptance'].includes(row.field)))||fields.has(row.field)||!text(row.label,1700)||!['base','current'].every(k=>text(row[k],20*1024*1024))||!text(row.incoming,30000)||!['updated','unchanged','conflict'].includes(row.state)||!['keep','feedback'].includes(r.decisions[row.field]))return fail();
       fields.add(row.field);
     }
     if(Object.keys(r.decisions).some(k=>!fields.has(k)))return fail();
@@ -66,6 +67,7 @@ export function feedbackDiff(feedback,base,current) {
   if(!base)throw new Error('导出的快照中不存在此任务或工具');
   if(!current)throw new Error('当前项目已删除此任务或工具');
   if(current.archived)throw new Error('此工具已归档，请先在开发工具中恢复');
+  if(feedback.intent==='dispatch'){const b=base.assignment?.primaryId||'',c=current.assignment?.primaryId||'',incoming=feedback.changes.assigneeId;return [{field:'assigneeId',label:'任务接收人 ID',base:b,current:c,incoming,state:c===incoming?'unchanged':c===b?'updated':'conflict'}];}
   return Object.entries(feedback.changes).map(([field,incoming])=>({field,label:({description:'任务说明',acceptance:'验收标准'}[field]||feedbackFields[feedback.target.kind][field]),base:base[field],current:current[field],incoming,
     state:current[field]===incoming?'unchanged':current[field]===base[field]?'updated':'conflict'}));
 }
@@ -90,7 +92,7 @@ export function feedbackBatchItems(entries,acceptCompletion=false) {
     let reason='';
     if(entry.legacy)reason='旧版未签名反馈需要逐条确认来源';
     else if(entry.state!=='pending'||!entry.feedback||!entry.token)reason=entry.error||'需要重新读取或修正反馈';
-    else if(['spec_change','project_change'].includes(entry.feedback.intent))reason='需求建议与正式项目修改需逐条评估并确认';
+    else if(['dispatch','spec_change','project_change'].includes(entry.feedback.intent))reason='需求建议与正式项目修改需逐条评估并确认';
     else if(counts.get(target(entry))>1)reason='同一目标有多条反馈，请逐条核对';
     else if(entry.rows.some(r=>r.state==='conflict'))reason='存在字段冲突，请逐条处理';
     else if(!acceptCompletion&&entry.rows.some(r=>r.field==='status'&&r.state!=='unchanged'&&['已完成','可使用'].includes(r.incoming)))reason='完成状态等待验收确认';

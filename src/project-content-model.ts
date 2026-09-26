@@ -1,3 +1,4 @@
+export {assertDispatch,dispatchTask} from '../shared/task-inbox.mjs';
 import {captureProjectPackage,validateProjectPackage,type ProjectPackageDocument} from './project-package.ts';
 import type {SavedProject} from './project-catalog.ts';
 import {createGameplay,gameplayStatuses,gameplayResults,type LoopStep,type PrototypeItem,type GameplayCheck} from './gameplay.ts';
@@ -21,6 +22,7 @@ import {authoringPreview,validateAuthoringProposal,authoringModules} from '../sh
 import {assertContentReferences} from '../shared/authoring-references.mjs';
 import {artLibrary} from './art-library.ts';
 import {emptyArtAssets} from './art-assets.ts';
+export {assertArtPermission,validArtPermissions} from '../shared/art-permissions.mjs';
 export {validModuleGrants} from '../shared/project-authoring.mjs';
 export {authoringModules,moduleGrants,authoringPreview,canonical,validateAuthoringProposal} from '../shared/project-authoring.mjs';
 export {assertContentReferences} from '../shared/authoring-references.mjs';
