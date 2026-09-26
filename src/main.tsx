@@ -20,6 +20,7 @@ import { NumericalAnalysis } from './NumericalAnalysis';
 import { useNumericalAnalysis } from './useNumericalAnalysis';
 import { ProjectSchedule } from './ProjectSchedule';
 import { useProjectSchedule } from './useProjectSchedule';
+import { compareMilestoneDatesDescending } from './overview-model';
 import { buildScheduleSources } from './project-schedule';
 import { MapDesign, MapModuleSettings } from './MapDesign';
 import { useMapDesign } from './useMapDesign';
@@ -771,7 +772,9 @@ function ProjectOverview({ project, showExamples, progress, milestones, updatePr
         <div className="overview-panel milestone-panel">
           <div className="panel-heading"><div><span className="section-kicker">MILESTONES</span><h3>关键里程碑</h3></div><button className="icon-button" title="添加里程碑" onClick={addMilestone}><Plus size={16} /></button></div>
           <div className="milestone-list">
-            {milestones.map((milestone, index) => (
+            {milestones.map((milestone, index) => ({ milestone, index }))
+              .sort((a, b) => compareMilestoneDatesDescending(a.milestone.due, b.milestone.due))
+              .map(({ milestone, index }) => (
               <button className="milestone" key={`${milestone.title}-${index}`} onClick={() => toggleMilestone(index)}>
                 <span className={`milestone-check ${milestone.status}`}>{milestone.status === 'done' && <Check size={13} />}</span>
                 <span className="milestone-copy"><strong>{milestone.title}</strong><small>{milestone.owner}</small></span>

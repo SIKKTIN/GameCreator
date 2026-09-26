@@ -1,6 +1,6 @@
 import {usePublishSearch} from './GlobalSearch';
 import { useEffect, useRef, useState } from 'react';
-import { normalizeInfo, normalizeMilestone, overviewLabels, overviewLimits, milestoneLabels, type OverviewInfo, type MilestoneFields, type TeamRecord } from './overview-model';
+import { compareMilestoneDatesDescending, normalizeInfo, normalizeMilestone, overviewLabels, overviewLimits, milestoneLabels, type OverviewInfo, type MilestoneFields, type TeamRecord } from './overview-model';
 import { canLeaveTeam, canEditModule, roleLabels, teamRequest, TeamError, type TeamCapabilities, type TeamRole, type TeamSession } from './team-api';
 import { workspaceStorage } from './workspace-storage';
 import { useTeamRecord } from './useTeamRecord';
@@ -79,7 +79,7 @@ export function TeamOverview({ session,projectId,members,onMembers,onDenied,onSc
         <div className="team-milestone-list">{validPending&&pending&&<MilestoneEditor key={'new:'+pending.id} record={data.milestones.find(item=>item.id===pending.id)??pending} session={session}
           route={route+'/milestones/'+pending.id} draftKey={newKey} readOnly={!writableMilestones} onSaved={receiveMilestone}
           onCancel={()=>{if(!canLeaveTeam())return;try{workspaceStorage.setItem(newKey,'null');setPending(null);}catch{setNewError('无法移除本机草稿，请重试。');}}}/>}
-          {data.milestones.filter(item=>item.id!==pending?.id).map(record=><MilestoneEditor key={record.id} record={record} session={session} route={route+'/milestones/'+encodeURIComponent(record.id)}
+          {data.milestones.filter(item=>item.id!==pending?.id).sort((a,b)=>compareMilestoneDatesDescending(a.fields.due,b.fields.due)).map(record=><MilestoneEditor key={record.id} record={record} session={session} route={route+'/milestones/'+encodeURIComponent(record.id)}
             draftKey={prefix+':milestone:'+record.id} readOnly={!writableMilestones} onSaved={receiveMilestone}/>)}</div>
       </section>
       <section className="overview-panel"><h3>最近动态</h3>{!data.activity.length?<p>暂无项目动态</p>:<ol className="team-overview-activity">{data.activity.map(item=><li key={item.id}><strong>{item.title}</strong><span>{item.actor} · {new Date(item.createdAt).toLocaleString('zh-CN')}</span></li>)}</ol>}</section>
