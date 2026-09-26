@@ -3,7 +3,7 @@ import {useEffect,useState} from 'react';
 import {X,Copy,Download,Plus,KeyRound,Trash2} from 'lucide-react';
 import {beforeLogoutEvent} from './auth';
 import {ScheduleRecovery} from './ProjectSchedule';
-import {positionsOf,defaultWorkTeam,taskPositionIds,credentialTasks,credentialState,credentialExpiry,aiPermissionLabels,type AiMember,type AiCredential,type AiDeveloperProfile,type AiPermission,type DeveloperInput} from '../shared/ai-personnel.mjs';
+import {legacyRolePositionIds,positionsOf,defaultWorkTeam,taskPositionIds,credentialTasks,credentialState,credentialExpiry,aiPermissionLabels,type AiMember,type AiCredential,type AiDeveloperProfile,type AiPermission,type DeveloperInput} from '../shared/ai-personnel.mjs';
 import type {useProjectSchedule} from './useProjectSchedule';
 import type {ProjectScheduleStore} from './project-schedule';
 type Controller=ReturnType<typeof useProjectSchedule>;
@@ -12,8 +12,7 @@ const grants=(Object.keys(aiPermissionLabels) as AiPermission[]).filter(p=>p!=='
 const scopes={assigned:'已分配任务',positions:'岗位范围（包含后续任务）',project:'项目范围'};
 export function developerProfile(store:ProjectScheduleStore,member?:AiMember,key?:AiCredential):AiDeveloperProfile{
  if(member?.developer)return structuredClone(member.developer);
- const alias:Record<string,string>={'制作管理':'制作人','程序开发':'程序','动画':'美术','UI':'美术','音乐':'音效','开发工具':'程序','关卡设计':'策划'};
- const ids=key?.positionIds||positionsOf(store).filter(p=>member?.roles.some(r=>(alias[r]||r)===p.name)).map(p=>p.id);
+ const ids=key?.positionIds||legacyRolePositionIds(store,member?.roles||[]);
  return {projectModules:[],positionIds:ids,scope:key?'assigned':'assigned',taskIds:key?credentialTasks(store,key).map(t=>t.id):[],expiresAt:key?.expiresAt||''};
 }
 function useOperation(c:Controller){const [busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');useEffect(()=>{if(!busy)return;const guard=(e:Event)=>e.preventDefault();window.addEventListener(beforeLogoutEvent,guard);return()=>window.removeEventListener(beforeLogoutEvent,guard);},[busy]);return{busy,error,notice,setNotice,run:async(fn:()=>Promise<void>)=>{if(busy)return;setBusy(true);setError('');setNotice('');try{await fn();}catch(e){setError(String(e));}finally{c.reloadIfClean();setBusy(false);}}};}

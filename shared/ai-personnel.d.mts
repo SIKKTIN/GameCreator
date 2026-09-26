@@ -5,7 +5,7 @@ export type AiMember={developer?:AiDeveloperProfile;id:string;name:string;roles:
 export type AiAssignment={primaryId:string;collaboratorIds:string[];reviewerId:string};
 export type AiPosition={id:string;name:string;duties:string;active:boolean;taskKinds:string[]};
 export type AiCredential={persistent?:true;positionIds?:string[];workDescription?:string;id:string;projectId:string;memberId:string;name:string;publicKey:string;permissions:AiPermission[];taskIds:string[];createdAt:string;expiresAt:string;revokedAt:string};
-export type AiPersonnel={positions?:AiPosition[];schema:1;members:AiMember[];credentials:AiCredential[]};
+export type AiPersonnel={positionPreset?:PositionPresetId;positions?:AiPosition[];schema:1;members:AiMember[];credentials:AiCredential[]};
 export const aiRoles:string[];
 export const aiPermissionLabels:Record<AiPermission,string>;
 export function nextAiName(members:AiMember[],role:string):string;
@@ -32,3 +32,11 @@ export type DeveloperInput={projectId:string;credentialId?:string;memberId?:stri
 export function credentialExpiry(schedule:ProjectScheduleStore,key:AiCredential):string;
 export function credentialState(schedule:ProjectScheduleStore,key:AiCredential,projectId:string):string;
 export function developerMayAccess(schedule:ProjectScheduleStore,member:AiMember,task:ProductionTask):boolean;
+
+export type PositionPresetId='basic'|'production';
+export const positionPresets:{id:PositionPresetId;name:string;count:number;description:string}[];
+export function presetPositions(id:PositionPresetId):AiPosition[];
+export function positionPresetState(schedule:ProjectScheduleStore):{id:PositionPresetId;customized:boolean};
+export function previewPositionPreset(schedule:ProjectScheduleStore,id:PositionPresetId):{changes:{id:string;before?:AiPosition;after:AiPosition}[];taskChanges:{taskId:string;title:string;from:string[];to:string[]}[];affectedDevelopers:string[];affectedCredentials:number;next:ProjectScheduleStore};
+
+export function legacyRolePositionIds(schedule:ProjectScheduleStore,roles:string[]):string[];
