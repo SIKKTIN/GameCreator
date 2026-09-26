@@ -31,7 +31,7 @@ export type EnumGroup = { engine?: string; name: string; source: string; line: n
 export type EnumScan = { engine?: string; incomplete?: boolean; projectPath: string; enumPath: string; files: string[]; groups: EnumGroup[]; orderTables: { name: string; source: string; keys: string[]; detail: string }[]; dynamic: { name: string; source: string; line: number; detail: string }[]; counts: { files: number; groups: number; members: number } };
 
 export async function scanEngineProject(config: EngineConfig, signal?: AbortSignal): Promise<EnumScan> {
-  if (!config.projectPath.trim() || !config.enumPath.trim()) throw new Error('请先在引擎设置中配置工程和枚举目录');
+  if (!config.projectPath.trim() || !config.enumPath.trim()) throw new Error('请先在工程连接中配置工程和枚举目录');
   const query = new URLSearchParams({ engine: config.engine, projectPath: config.projectPath, enumPath: config.enumPath });
   const response = await fetch(`/api/engine/scan?${query}`, { signal });
   const payload = await response.json().catch(() => ({}));

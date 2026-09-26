@@ -37,6 +37,6 @@ node tests/desktop-program-framework.cjs
 
 开发规范目录新增《配置数据管理与同步规范》，作为 GameCreator 数据交付参考，不改变 Package/Core 1.0 的已采用架构契约。该约定仅在使用数据同步管理配置时适用。
 
-生成 AI 文档时，总文档和 `模块/config-data-policy.md` 附带同一份规范及当前保存的引擎、工程根目录、数据目录和输出格式。开启引擎文档同步时，固定交付到文档目录下的 `config-data-policy.md`，由 README 索引；不依赖是否选择程序框架模块，也不依赖框架采用状态。关闭文档同步不会写入或删除该文件。
+生成 AI 文档时，总文档和 `模块/config-data-policy.md` 附带同一份规范及当前保存的引擎、工程根目录、数据目录和输出格式。开启引擎文档同步时，固定交付到文档目录下的 `modules/data-engine/config-data-policy.md`，由 README 索引；不依赖是否选择程序框架模块，也不依赖框架采用状态。关闭文档同步不会写入或删除该文件。
 
 源文档统一维护在 `frameworks/package-core-v1/开发规范/03_配置数据管理与同步规范.md`；项目路径由 `shared/config-data-policy.mjs` 生成。路径未配置、无效或当前格式不是 JSON 时会明确提示，不自动移动游戏工程文件。

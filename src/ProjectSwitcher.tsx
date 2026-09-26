@@ -300,7 +300,7 @@ export function ProjectSwitcher({ projects, currentId, currentName, testName, te
           <div><span className="ps-dialog-kicker">PROJECT</span><h2 id={`${id}-title`}>新建项目</h2></div>
           <button type="button" className="ps-close-button" aria-label="关闭新建项目" disabled={pending} onClick={closeDialog}><X size={19} aria-hidden="true" /></button>
         </div>
-        <p id={`${id}-description`} className="ps-dialog-description">填写名称后选择保存位置，创建独立的项目文件夹。需要连接游戏工程时，再到“引擎设置”配置。</p>
+        <p id={`${id}-description`} className="ps-dialog-description">填写名称后选择保存位置，创建独立的项目文件夹。需要连接游戏工程时，再到“工程连接”配置。</p>
         <label htmlFor={`${id}-name`} className="ps-field">项目名称
           <input id={`${id}-name`} ref={nameRef} required autoComplete="off" value={name} onChange={event => setName(event.target.value)} placeholder="例如：我的游戏" disabled={locked} />
         </label>

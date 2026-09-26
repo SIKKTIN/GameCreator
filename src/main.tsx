@@ -93,8 +93,9 @@ import './data-config.css';
 import './enum-bindings.css';
 import type { EngineConfig } from './engine';
 import { useEnumRegistry } from './useEnumRegistry';
-import { EnumDefinitions, EnumManager } from './EnginePanels';
+import { EngineSettings, EnumDefinitions, EnumManager } from './EnginePanels';
 import { EngineSyncPanel } from './EngineSyncPanel';
+import { ProjectStartup } from './ProjectStartup';
 import { DataConfiguration } from './DataConfiguration';
 import { patchDataViewState, readDataViewState, resolveActiveDataset } from './data-view-state';
 import { projectIdentity, type DatasetKey, type DataRecord, type DatasetDef, type ProjectData } from './data-model';
@@ -387,7 +388,8 @@ function WorkspaceApp({ contentReload,onContentReload,username, testSession, onL
   onExitTest: () => void; preparingTest: boolean; testError: string;
 } & ServerModuleNavigation) {
   useEffect(()=>{const save=(event:KeyboardEvent)=>{if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='s'){event.preventDefault();if(!testSession&&!preparingTest)onExportProject?.();}};window.addEventListener('keydown',save);return()=>window.removeEventListener('keydown',save);},[onExportProject,testSession,preparingTest]);
-  const [active, setActiveModule] = useState(contentReload?(sessionStorage.getItem('gamecreator.authoring-return')===formalProject.id?'使用说明':'引擎设置'):testSession ? '枚举管理' : '项目概览');
+  const [active, setActiveModule] = useState(contentReload?(sessionStorage.getItem('gamecreator.authoring-return')===formalProject.id?'使用说明':'工程同步'):testSession ? '枚举管理' : '项目概览');
+  const [connectionDirty, setConnectionDirty] = useState(false);
   const [searchNavigation, setSearchNavigation] = useState(0);
   const leaveSearch = () => setSearchNavigation(n => n + 1);
   const setActive = (name: string) => { leaveSearch(); setActiveModule(name); };
@@ -629,7 +631,7 @@ function WorkspaceApp({ contentReload,onContentReload,username, testSession, onL
             if((next.counts.tasks||next.counts.milestones)&&!schedule.update(()=>next.schedule))throw new Error('工具已保存，排期草稿尚未保存；请到项目排期重试保存。');
             return next.counts.tools||next.counts.tasks||next.counts.milestones?`已补充 ${next.counts.tools} 项工具、${next.counts.tasks} 项制作任务、${next.counts.milestones} 个里程碑。已有内容已保留，请在项目排期安排新增任务日期。`:'工具与排期已齐全，没有重复添加。';
           }:undefined}/>}
-        {active === '程序框架' && <ProgramFramework controller={framework} engine={engineConfig.engine} onOpenEngine={()=>setActive('引擎设置')}/>}
+        {active === '程序框架' && <ProgramFramework controller={framework} engine={engineConfig.engine} onOpenEngine={()=>setActive('工程连接')}/>}
         {active === '地图设计' && maps.store.enabled && <MapDesign requestedId={requestedMap} controller={maps} gameplay={gameplay} prototype={prototype.store} prototypeBlocked={prototype.blocked||prototype.pending} targets={{gameplay:gameplay.store.designs.map(d=>({id:d.id,name:d.title})),task:tasks.store.tasks.map(t=>({id:t.id,name:t.title})),story:storyDocs.map(s=>({id:s.id,name:s.title})),character:(narrative.store.characters||[]).map(c=>({id:c.id,name:c.name})),asset:art.store.assets.map(a=>({id:a.id,name:a.name})),prototype:prototype.store.scenes}} onOpenReference={ref=>{
           if(ref.kind==='gameplay')openGameplay(ref.targetId,'object');
           else if(ref.kind==='task'){setRequestedTask({id:ref.targetId});setActive('任务与流程');}
@@ -681,13 +683,15 @@ function WorkspaceApp({ contentReload,onContentReload,username, testSession, onL
         {active === '数据配置' && <DataVersions key={dataKey} registry={registry} onOpenSync={()=>setActive('数据同步')}><DataConfiguration key={dataKey} workspaceKey={dataKey} data={currentData}
           onChange={(next) => registry.updateData(next)}
           definitions={definitions} activeDataset={currentDataset} setActiveDataset={id=>{leaveSearch();setActiveDataset(id);}} registry={registry} onCreateTable={createDataset} onDeleteTable={deleteDataset} deletionReferences={datasetDeletionReferences} deletionBlocked={datasetDeletionBlocked} /></DataVersions>}
-        {active === '使用说明' && <UsageGuide testMode={!!testSession} project={formalProject} schedule={schedule.store} blockedReason={aiExportBlocked} snapshot={()=>captureProjectPackage(workspaceStorage,formalProject).expectedEntries} onApplied={()=>onContentReload?.()}/>}
+        {active === '使用说明' && <UsageGuide onNavigate={setActive} testMode={!!testSession} project={formalProject} schedule={schedule.store} blockedReason={aiExportBlocked} snapshot={()=>captureProjectPackage(workspaceStorage,formalProject).expectedEntries} onApplied={()=>onContentReload?.()}/>}
         {active === '项目规范' && <ProjectStandards controller={standards} requestedId={requestedStandard} sources={{gameplay:gameplay.blocked?undefined:gameplay.store,core:core.blocked?undefined:core.store,functional:functional.blocked?undefined:functional.store,schedule:schedule.blocked?undefined:schedule.store}} sourceError={[gameplay,core,functional,schedule].some(c=>c.blocked||c.pending)?'部分来源尚未保存或暂不可读':''} onNavigate={setActive}/> }
         {active === '数据同步' && <DataSyncPanel projectId={formalProject.id} config={engineConfig} setConfig={onConfigChange} registry={registry} blocked={!!testSession} onOpenTable={name=>{setActiveDataset(name);setActive('数据配置');}}/>}
         {active === '枚举定义' && <EnumDefinitions registry={registry} />}
         {active === '枚举管理' && <EnumManager config={engineConfig} registry={registry} />}
-        {active === '引擎设置' && <fieldset disabled={!!testSession} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>{testSession && <p>测试场景使用固定来源，请通过测试面板加载或重置场景。</p>}<EngineSyncPanel initialFeedback={contentReload} collaboration={{schedule:schedule.store,tools:developmentTools.store}} onFeedbackApplied={(reloadContent=false)=>{if(reloadContent){onContentReload?.();return true;}const s=schedule.reloadIfClean(),t=developmentTools.reloadIfClean();return s&&t;}} onOpenAsset={id=>{setArtSelection({kind:'asset',id});setActive('素材资产');}} projectId={formalProject.id} build={exportAiContext} art={art.store} blockedReason={aiExportBlocked} config={engineConfig} registry={registry} onPickDirectory={window.desktopClient?.pickProjectDirectory} setConfig={(next) => testSession ? Promise.resolve(false) : onConfigChange(next)} /></fieldset>}
-        {active !== '使用说明' && active !== '项目规范' && active !== '任务清单' && active !== '人员分配' && active !== '数据同步' && active !== '开发工具' && active !== '程序框架' && active !== '全局搜索' && active !== '数值分析' && active !== '项目排期' && active !== '地图设计' && active !== '工作区设置' && active !== '故事编排' && active !== '原型设计' && active !== '任务与流程' && active !== '项目概览' && active !== '玩法核心' && active !== '玩法设计' && active !== '功能系统' && active !== '素材资产' && active !== '故事文档' && active !== '数据配置' && active !== '枚举定义' && active !== '枚举管理' && active !== '引擎设置' && (
+        {active === '项目启动' && <ProjectStartup project={formalProject} build={exportAiContext} art={art.store} collaboration={{schedule:schedule.store,tools:developmentTools.store}} snapshot={()=>captureProjectPackage(workspaceStorage,formalProject).expectedEntries} blockedReason={testSession?'测试工作区不支持初始化正式工程':connectionDirty?'工程连接有未保存的修改':aiExportBlocked} onNavigate={setActive} onSaveProject={onExportProject}/>}
+        {(active === '工程连接'||connectionDirty) && <fieldset hidden={active!=='工程连接'} disabled={!!testSession} style={{border:0,padding:0,margin:0,minWidth:0}}><EngineSettings config={engineConfig} setConfig={next=>testSession?Promise.resolve(false):onConfigChange(next)} registry={registry} onPickDirectory={window.desktopClient?.pickProjectDirectory} onDirtyChange={setConnectionDirty}/></fieldset>}
+        {active === '工程同步' && <fieldset disabled={!!testSession} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>{testSession && <p>测试场景使用固定来源，请通过测试面板加载或重置场景。</p>}<EngineSyncPanel onOpenConnection={()=>setActive('工程连接')} initialFeedback={contentReload} collaboration={{schedule:schedule.store,tools:developmentTools.store}} onFeedbackApplied={(reloadContent=false)=>{if(reloadContent){onContentReload?.();return true;}const s=schedule.reloadIfClean(),t=developmentTools.reloadIfClean();return s&&t;}} onOpenAsset={id=>{setArtSelection({kind:'asset',id});setActive('素材资产');}} projectId={formalProject.id} build={exportAiContext} art={art.store} blockedReason={connectionDirty?'工程连接有未保存的修改，请先保存工程连接。':aiExportBlocked} config={engineConfig} registry={registry} onPickDirectory={window.desktopClient?.pickProjectDirectory} setConfig={(next) => testSession ? Promise.resolve(false) : onConfigChange(next)} /></fieldset>}
+        {active !== '项目启动' && active !== '工程连接' && active !== '使用说明' && active !== '项目规范' && active !== '任务清单' && active !== '人员分配' && active !== '数据同步' && active !== '开发工具' && active !== '程序框架' && active !== '全局搜索' && active !== '数值分析' && active !== '项目排期' && active !== '地图设计' && active !== '工作区设置' && active !== '故事编排' && active !== '原型设计' && active !== '任务与流程' && active !== '项目概览' && active !== '玩法核心' && active !== '玩法设计' && active !== '功能系统' && active !== '素材资产' && active !== '故事文档' && active !== '数据配置' && active !== '枚举定义' && active !== '枚举管理' && active !== '工程同步' && (
           <section className="empty">
             <div className="empty-icon"><Layers size={34} /></div>
             <h2>{active}</h2>

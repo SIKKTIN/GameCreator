@@ -46,6 +46,12 @@ else {
   ipcMain.handle('project-authoring',(event,operation,input)=>{if(!trusted(event))throw new Error('不允许访问项目编写');return projectAuthoring().run(operation,input);});
   let developerService;
   const developers=()=>developerService??=require('./ai-developers.cjs').createDeveloperService({storage,vault:require('./ai-credential-vault.cjs').createCredentialVault({directory:path.join(app.getPath('userData'),'ai-credential-vault'),safeStorage})});
+  let startupService;
+  ipcMain.handle('project-startup',(event,operation,input)=>{
+    if(!trusted(event))throw new Error('不允许初始化项目');
+    startupService??=require('./project-startup.cjs').createProjectStartup({storage,folders,developers:developers(),engineSync});
+    return startupService.run(operation,input);
+  });
   ipcMain.handle('ai-developer',async(event,operation,input)=>{
     if(!trusted(event))throw new Error('不允许管理开发者凭证');
     const api=developers();

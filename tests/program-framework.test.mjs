@@ -82,7 +82,7 @@ test('full AI, module Markdown and engine sync share adopted content without bro
   assert.doesNotMatch(section.body,/\]\(\.\.\//);
   const bundle=buildAiDocumentFiles(doc,{folderName:'资料',summaryName:'总文档',moduleNames:{framework:'程序结构'}});
   assert.ok(bundle.files[0].content.includes(section.body));assert.ok(bundle.files.find(f=>f.path==='模块/程序结构.md').content.includes(section.body));
-  assert.ok(syncDocuments(doc,['framework']).find(f=>f.path==='modules/framework.md').content.includes(section.body));
+  assert.ok(syncDocuments(doc,['framework']).find(f=>f.path==='modules/development/framework.md').content.includes(section.body));
   assert.doesNotMatch(docFor(emptyProgramFramework()).sections.find(s=>s.id==='framework').body,/### 架构总纲/);
   const code={content:'# 标题\n```md\n# 保留代码标题\n```',path:'sample.md'};
   assert.match(frameworkDocumentBody(code,[]),/^### 标题\n```md\n# 保留代码标题/);

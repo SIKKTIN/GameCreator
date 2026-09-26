@@ -12,7 +12,7 @@ const root=path.resolve(__dirname,'..');
   const id=prepared.project.id,key='gamecreator.enum-versions.v1:'+id;
   const initial=JSON.parse(storage.getItem(key));initial.data={datasets:{},columns:{}};storage.setItem(key,JSON.stringify(initial));
   const json={schema_version:1,rows:[{id:'sunflower',name:'向日葵',cost:50,hp:300,enabled:true},{id:'peashooter',name:'豌豆射手',cost:100,hp:300,enabled:false}]};
-  const manifest={schema_version:1,project_version:'0.1.0',source:'docs/gamecreator/modules/data.md',wave_counts:[3,5,8],spawn_count:16};
+  const manifest={schema_version:1,project_version:'0.1.0',source:'docs/gamecreator/modules/data-engine/data.md',wave_counts:[3,5,8],spawn_count:16};
   for(const [name,value] of [['pvz_plants',json],['manifest',manifest]])await fs.writeFile(path.join(engine,'data/generated',name+'.json'),JSON.stringify(value,null,2));
   const folders=createFolderProjects({legacyStorage:storage,dataDirectory:data});const saved=folders.create(path.join(dir,'project'),prepared.project,[],id);folders.storage.setItem('gamecreator.projects.v1',JSON.stringify({...prepared.catalog,projects:[saved]}));folders.close();
   let app,page;const errors=[],env={...process.env,GAMECREATOR_DATA_DIR:data,GAMECREATOR_USER_DATA_DIR:path.join(dir,'profile')};delete env.ELECTRON_RUN_AS_NODE;

@@ -12,7 +12,7 @@ import {compareDataFile,chooseDifferences,choiceFor,pendingDifference} from '../
 const require=createRequire(import.meta.url),{createEngineSync}=require('../desktop/engine-sync.cjs'),{createStorage}=require('../desktop/storage.cjs');
 const empty=()=>({schema:1,revision:0,activeId:null,candidateId:null,snapshots:[],reviews:{},releases:[],data:{datasets:{},columns:{}}});
 const plants={schema_version:1,author:'test',rows:[{id:'001',name:'sunflower',cost:50,enabled:true,tags:['sun'],extra:{n:null},optional:null},{id:'002',name:'pea',cost:100,enabled:false,tags:[],extra:{}}]};
-const manifest={schema_version:1,project_version:'0.1.0',source:'docs/gamecreator/modules/data.md',source_sha256:'0486e81565e769fc5c4594313c5f74c8195a621446b295b6ba156002246dfe8e',wave_counts:[3,5,8],spawn_count:16};
+const manifest={schema_version:1,project_version:'0.1.0',source:'docs/gamecreator/modules/data-engine/data.md',source_sha256:'0486e81565e769fc5c4594313c5f74c8195a621446b295b6ba156002246dfe8e',wave_counts:[3,5,8],spawn_count:16};
 async function fixture(t,options={}) {
   const dir=await fs.mkdtemp(path.join(os.tmpdir(),'gc-data-sync-'));t.after(async()=>{assert.equal(path.dirname(dir),path.resolve(os.tmpdir()));assert.ok(path.basename(dir).startsWith('gc-data-sync-'));await fs.rm(dir,{recursive:true,force:true});});
   const engine=path.join(dir,'engine');await fs.mkdir(path.join(engine,'data/generated'),{recursive:true});await fs.writeFile(path.join(engine,'project.godot'),'config_version=5');

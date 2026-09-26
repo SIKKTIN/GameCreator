@@ -32,6 +32,6 @@ test('document-only images survive portable archives and sync with documents whe
  const engine=path.join(dir,'engine');await fs.mkdir(engine);await fs.writeFile(path.join(engine,'project.godot'),'config_version=5');
  const sync=createEngineSync({artFiles}),input={projectId:id,config:{...config,projectPath:engine},settings:{documents:true,assets:false,includePlaceholders:false,docsDirectory:'docs/design',assetsDirectory:'assets/design',modules:['art']},document:{projectName:project.name,version:'v1',sections:[{id:'art',label:'素材资产',body:artAssetsMarkdown(art,{designs:[],functional:{systems:[],capabilities:[],dependencies:[]}})}]},art};
  const plan=await sync.preview(input),image=plan.rows.find(r=>r.id.startsWith('document:production-image:'));assert.ok(image);await sync.apply({token:plan.token,decisions:{},removals:[]});
- assert.deepEqual(await fs.readFile(path.join(engine,image.path)),png);assert.match(await fs.readFile(path.join(engine,'docs/design/modules/art.md'),'utf8'),new RegExp('../media/'+files[0].storagePath));
+ assert.deepEqual(await fs.readFile(path.join(engine,image.path)),png);assert.match(await fs.readFile(path.join(engine,'docs/design/modules/content/art.md'),'utf8'),new RegExp('../media/'+files[0].storagePath));
  const excluded=await sync.preview({...input,settings:{...input.settings,modules:[]}});assert.ok(!excluded.rows.some(r=>r.status==='added'&&r.id.startsWith('document:production-image:')));
 });

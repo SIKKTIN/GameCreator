@@ -14,7 +14,7 @@ const root = path.resolve(__dirname, '..');
   const old = { projectId: oldId, config, settings: { documents: true, assets: false, includePlaceholders: true, docsDirectory: 'docs/gamecreator', assetsDirectory: 'assets/gamecreator', modules: ['gameplay'] }, document: { projectName: '旧原型', version: 'v1', generatedAt: '', sections: [{ id: 'gameplay', label: '玩法设计', body: '以前的玩法文档' }] }, art: { assets: [] } };
   const initialPlan = await api.preview(old); await api.apply({ token: initialPlan.token });
   const manifestPath = path.join(engine, '.gamecreator-sync/manifest.json'), originalRaw = await fs.readFile(manifestPath, 'utf8'), original = JSON.parse(originalRaw);
-  const documentPath = path.join(engine, 'docs/gamecreator/modules/gameplay.md'); await fs.writeFile(documentPath, 'engine-side manual changes');
+  const documentPath = path.join(engine, 'docs/gamecreator/modules/gameplay/gameplay.md'); await fs.writeFile(documentPath, 'engine-side manual changes');
   const env = { ...process.env, GAMECREATOR_DATA_DIR: data, GAMECREATOR_USER_DATA_DIR: path.join(dir, 'profile') }; delete env.ELECTRON_RUN_AS_NODE;
   let app, page; const errors = [];
   const button = name => page.getByRole('button', { name, exact: true }), tab = name => page.getByRole('tab', { name, exact: true });
@@ -23,7 +23,7 @@ const root = path.resolve(__dirname, '..');
     app = await _electron.launch({ executablePath: require('electron'), args: [path.join(root, 'desktop/main.cjs')], env });
     page = await app.firstWindow(); page.setDefaultTimeout(15000); page.on('pageerror', e => errors.push(e.message));
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1440, 1050));
-    await button('进入本地工作区').click(); await button('引擎设置').click(); await tab('同步配置').click();
+    await button('进入本地工作区').click(); await button('工程同步').click(); await tab('同步配置').click();
   }
   try {
     await launch(); await page.getByRole('region', { name: '工程同步归属冲突' }).waitFor();
@@ -50,7 +50,7 @@ const root = path.resolve(__dirname, '..');
     assert.equal(await fs.readFile(path.join(rebound.history[0].backupDirectory, 'before-manifest.json'), 'utf8'), originalRaw + '\n');
     assert.equal(await fs.readFile(documentPath, 'utf8'), 'engine-side manual changes');
     await button('预览同步变更').click(); await page.locator('.es-summary').waitFor();
-    await page.getByLabel('冲突处理 docs/gamecreator/modules/gameplay.md', { exact: true }).waitFor();
+    await page.getByLabel('冲突处理 docs/gamecreator/modules/gameplay/gameplay.md', { exact: true }).waitFor();
     assert.equal(await button('同步到工程').isDisabled(), true);
     await tab('同步记录').click(); await page.getByText('已重新绑定', { exact: true }).waitFor();
     assert.equal(await fs.readFile(documentPath, 'utf8'), 'engine-side manual changes');

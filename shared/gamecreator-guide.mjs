@@ -1,5 +1,5 @@
 import {authoringModules} from './project-authoring.mjs';
-export const guideVersion='2026-09-26.2';
+export const guideVersion='2026-09-26.3';
 export function authoringReadme(){return `# AI 项目编写入口
 
 这里是 GameCreator 生成的项目协作目录。通过这里的上下文、模板和提交工具编写项目内容；正式项目存档由客户端应用提交后更新。
@@ -53,7 +53,7 @@ node ai/submit-change.cjs submit ai/draft.json /私有位置/credential.json
 
 项目内容、授权或客户端版本变化后，在客户端点击“更新协作文件”，重新读取 project.json 和当前模块内容。校验包缺失、版本不匹配或基准过期时，也使用这个入口更新，不手改摘要或版本号。
 
-本目录处理项目设计内容。游戏引擎中的开发进度反馈位于引擎工程的 gamecreator/feedback/，在“引擎设置 → 开发反馈”处理，两者不要混放。设计已应用不代表开发已完成或里程碑已验收。
+本目录处理项目设计内容。游戏引擎中的开发进度反馈位于引擎工程的 gamecreator/feedback/，在“工程同步 → 开发反馈”处理，两者不要混放。设计已应用不代表开发已完成或里程碑已验收。
 
 若目录只有 context-status.txt 或缺少上述上下文，请先在客户端检查项目并更新协作文件，再开始编写。
 
@@ -68,6 +68,14 @@ export function gamecreatorGuide(){return `# GameCreator 使用说明与 AI 项�
 GameCreator 项目文件夹以 project.gamecreator 为入口，archives 保存应用存档，assets 保存历史附件。先在客户端打开项目，再阅读本说明、项目规范和 ai/context/content 中的当前内容。不要直接编辑哈希存档、锁文件或私有凭证。
 
 全新原型可以先完成设计，再连接引擎。项目文件夹的 ai 目录支持内容编写，先阅读 ai/README.md 了解文件用途和命令；引擎内 gamecreator 目录支持开发反馈，两者用途与路径不同。
+
+## 从引擎开始协作
+
+在“项目管理 → 工程连接”保存实际引擎工程位置。在“人员分配”准备至少一名具有项目范围和项目写入权限的制作人，并生成有效长期令牌。随后进入“项目启动”，检查两边目录、成员凭证和文档位置，预览后初始化。
+
+引擎协作入口默认为 gamecreator/README.md，可在项目启动选择其他入口子目录。personal/ 位于该入口目录下，存放本机成员凭证 JSON，按成员 ID 命名，自动加入 Git 忽略。开发反馈固定在引擎的 gamecreator/feedback；完整设计编写仍在绑定的 GameCreator 项目 ai/ 中进行。不要把引擎目录里的相对路径与管理项目目录混用。
+
+AI 根据实际引擎效果决定修复实现还是调整正式需求。修改设计时先更新 GameCreator 协作上下文，在管理项目中校验并签名提交，再由客户端应用；重新同步到工程后继续开发。直接修改同步的 Markdown 不会回写项目。
 
 ## 从零设计原型
 
@@ -137,7 +145,7 @@ ${Object.entries(authoringModules).map(([id,label])=>'- '+label+'：'+id).join('
 
 应用使用持久化事务日志；发生中断时在项目编写点击“恢复未完成提交”，恢复后重新打开各模块。存档文件自带上一版备份，处理历史保留在项目排期存档中。复制项目时保留整个项目文件夹。另存为新身份后应重新生成协作文件与凭证。
 
-引擎中的开发反馈仍在“引擎设置 → 开发反馈”读取和处理；设计批次在本模块处理。设计内容保存成功不代表开发完成，也不会自动验收里程碑。
+引擎中的开发反馈仍在“工程同步 → 开发反馈”读取和处理；设计批次在本模块处理。设计内容保存成功不代表开发完成，也不会自动验收里程碑。
 
 ## 文件维护
 

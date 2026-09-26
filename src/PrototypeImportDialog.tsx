@@ -129,7 +129,7 @@ export function PrototypeImportDialog({ open, busy, projects, onClose, onImport 
       <label className="pi-name-field" htmlFor={id + '-name'}>项目名称
         <input id={id + '-name'} required maxLength={100} autoComplete="off" value={name} disabled={locked} onChange={event => { setName(event.target.value); nameEditedRef.current = event.target.value.length > 0; setError(''); }} placeholder="为这份原型起个名字" />
       </label>
-      <p className="pi-note">示例提供设计内容，不包含可运行游戏或已交付的素材。需要连接游戏工程时，可稍后在“引擎设置”中配置。</p>
+      <p className="pi-note">示例提供设计内容，不包含可运行游戏或已交付的素材。需要连接游戏工程时，可稍后在“工程连接”中配置。</p>
       {error && <p className="pi-error" role="alert">{error}</p>}
       <div className="pi-actions">
         <span>创建后自动打开 · 各项目独立保存</span>

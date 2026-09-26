@@ -105,7 +105,7 @@ const root=path.resolve(__dirname,'..');
   await launch();await page.locator('.test-workspace-banner').waitFor();
   assert.equal(session().id,savedId);assert.equal(testKey(),savedKey);
   assert.equal(await page.getByRole('button',{name:'同意 Const_Panel.Mode.C · 新增成员',exact:true}).getAttribute('aria-pressed'),'true');
-  await page.getByRole('button',{name:'引擎设置',exact:true}).click();
+  await page.getByRole('button',{name:'工程同步',exact:true}).click();
   assert.equal(await page.getByRole('textbox',{name:/^项目目录/}).isDisabled(),true);
   await page.locator('.test-workspace-banner').getByRole('button',{name:'返回原工作区',exact:true}).click();
   assert.equal(session(),null);assert.equal(await page.locator('.test-workspace-banner').count(),0);

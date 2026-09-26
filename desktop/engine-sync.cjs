@@ -130,7 +130,7 @@ function createEngineSync({artFiles,storage,beforeWrite=async()=>{},beforeRebind
       return entry;
     });
   }
-  async function preview(input) {
+  async function preview(input,startupEntryDirectory) {
     // A plan owns an immutable snapshot, and is valid for ten minutes.
     input=structuredClone(input);
     const ctx=await context(input),{syncSettings,adoptedSyncAssets,syncDocuments}=await modules(),settings=syncSettings(input.settings);
@@ -139,7 +139,22 @@ function createEngineSync({artFiles,storage,beforeWrite=async()=>{},beforeRebind
     if(await read(ctx,META+'/data-pending.json'))throw new Error('请先在数据同步中恢复中断的同步');
     if(settings.collaboration)desired.push(...await feedback.documents(ctx,input,settings));
     if(settings.documents) {
-      for(const d of syncDocuments(input.document,settings.modules))desired.push({id:d.id,path:settings.docsDirectory+'/'+d.path,bytes:Buffer.from(d.content),kind:'document',label:d.id==='document:index'?'项目文档目录':d.id==='document:config-data-policy'?'配置数据管理与同步规范':input.document.sections.find(s=>'document:'+s.id===d.id)?.label||d.path,version:input.document.version});
+      const project=JSON.parse(storage?.getItem('gamecreator.projects.v1')||'null')?.projects?.find(p=>p.id===ctx.projectId);
+      for(const d of syncDocuments(input.document,settings.modules,{projectId:ctx.projectId,projectDirectory:project?.folderPath||'',engineDirectory:ctx.root,docsDirectory:settings.docsDirectory,collaboration:settings.collaboration}))desired.push({id:d.id,path:settings.docsDirectory+'/'+d.path,bytes:Buffer.from(d.content),kind:'document',label:d.id==='document:index'?'项目文档目录':d.id==='document:config-data-policy'?'配置数据管理与同步规范':d.id==='document:usage-guide'?'协作流程与 GameCreator 写入入口':input.document.sections.find(s=>'document:'+s.id===d.id)?.label||d.path,version:input.document.version});
+    }
+    // Startup chooses a public entry once; later ordinary syncs maintain it. Private credentials never enter sync plans/history.
+    if(settings.collaboration){
+      const startup=JSON.parse(storage?.getItem('gamecreator.workspace.v1:'+ctx.projectId+':project-startup')||'null');
+      const sameRoot=startup?.engineDirectory&&path.resolve(startup.engineDirectory).toLowerCase()===ctx.root.toLowerCase();
+      const entryDirectory=startupEntryDirectory??(sameRoot?startup.entryDirectory:'gamecreator');
+      const {syncPath}=await modules();const entry=syncPath(entryDirectory),lower=entry.toLowerCase();
+      if(lower!=='gamecreator'){
+        if(lower.startsWith('gamecreator/')||[settings.docsDirectory,settings.assetsDirectory].map(v=>v.toLowerCase()).some(v=>lower===v||lower.startsWith(v+'/')||v.startsWith(lower+'/')))throw new Error('项目启动入口与协作、文档或素材目录重叠，请调整目录后重试');
+        const project=JSON.parse(storage?.getItem('gamecreator.projects.v1')||'null')?.projects?.find(p=>p.id===ctx.projectId);
+        const {projectWorkflowMarkdown,relativeDocumentPath}=await import('../shared/engine-document-layout.mjs');
+        const content=projectWorkflowMarkdown({projectId:ctx.projectId,projectName:input.document.projectName,projectDirectory:project?.folderPath||'',engineDirectory:ctx.root,docsDirectory:settings.docsDirectory})+'\n[开发反馈与协作说明]('+relativeDocumentPath(entry+'/README.md','gamecreator/README.md')+')\n\n成员凭证位于本目录 personal/，按成员 ID 命名。\n';
+        desired.push({id:'collaboration:startup-entry',path:entry+'/README.md',bytes:Buffer.from(content),kind:'collaboration',label:'项目启动入口',version:''});
+      }
     }
     if(settings.documents&&settings.modules.includes('art')) {
       const {validateProductionDocs}=await import('../shared/material-production.mjs');

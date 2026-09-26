@@ -2,7 +2,7 @@ import {frameworkLibrary} from './program-framework-library.mjs';
 import {dataDirectory} from './data-sync.mjs';
 
 export const policyExportPath = '模块/config-data-policy.md';
-export const policySyncPath = 'config-data-policy.md';
+export const policySyncPath = 'modules/data-engine/config-data-policy.md';
 export function configDataPolicyMarkdown(config) {
   const document = frameworkLibrary.documents.find(d => d.id === 'config-data-policy');
   if (!document) throw new Error('缺少配置数据管理与同步规范');

@@ -133,7 +133,7 @@ export function DataConfiguration({ workspaceKey, ...props }: Props) {
         {viewError && <p className="data-view-warning" role="status">表目录偏好未能保存，本次仍可正常使用。</p>}
         {showStatus && <div className="data-status-details">
           <p>{registry.active ? '稳定版本 ' + registry.active.id.slice(0, 10) + ' · ' + registry.scan?.groups.length + ' 组枚举' : '尚无稳定枚举版本'}</p>
-          <p>{registry.candidate ? '请到「枚举管理」审核更新；当前配置继续使用稳定版本。' : registry.ready ? '字段和记录自动保存到当前项目。' : !registry.sourceConfigured ? '可以先编写配置，后续在引擎设置中连接工程。' : '请到「枚举管理」审核首次导入。'}</p>
+          <p>{registry.candidate ? '请到「枚举管理」审核更新；当前配置继续使用稳定版本。' : registry.ready ? '字段和记录自动保存到当前项目。' : !registry.sourceConfigured ? '可以先编写配置，后续在工程连接中连接工程。' : '请到「枚举管理」审核首次导入。'}</p>
           {registry.blockingIssues.length > 0 && <ul>{registry.blockingIssues.map((issue, index) => <li key={index}>{issue}</li>)}</ul>}
           <small>{registry.sourceWarning}通过“数据同步”导入或导出工程 JSON。候选枚举版本不参与当前数据解析。</small>
         </div>}

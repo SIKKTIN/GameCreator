@@ -1,6 +1,6 @@
 # 工程内容同步
 
-在桌面客户端的「引擎设置」中使用「工程连接 / 同步配置 / 待同步变更 / 开发反馈 / 同步记录」。适用于已连接的 Godot 4 与绿洲启元本地工程。任务进度和工具交付回写见 [开发反馈](engine-development-feedback.md)。
+在桌面客户端的「项目管理 → 工程连接」保存引擎工程；在「数据与同步 → 工程同步」使用「同步配置 / 待同步变更 / 开发反馈 / 同步记录」。适用于已连接的 Godot 4 与绿洲启元本地工程。首次准备人员、凭证和引擎协作入口见 [项目启动](project-startup.md)，任务进度和工具交付回写见 [开发反馈](engine-development-feedback.md)。
 
 ## 使用
 
@@ -17,6 +17,9 @@
 ## 输出与版本
 
 - 文档使用现有 AI 文档章节，生成 README 索引和选定模块的 Markdown。固定模块 ID 用于文件名，章节名变化不会改变路径。输出不包含每次变化的生成时间，因此重复检查不产生虚假更新。
+- README 包含引擎到 GameCreator 的完整工作流、绑定的 GameCreator 项目目录，以及该项目 `GAMECREATOR_GUIDE.md` 和 `ai/README.md` 的入口。开启文档同步时固定附带规范与使用入口；开启开发协作同步时，`gamecreator/README.md` 和公开 `project.json.authoring` 同样指明内容提交位置。设计编写仍在 GameCreator 项目 `ai/changes`，开发反馈在引擎 `gamecreator/feedback`。
+- 引擎文档按侧栏的六个类别分目录：`modules/project-guide`、`project-management`、`gameplay`、`development`、`content`、`data-engine`；项目概览保留为 `modules/overview.md`，未来未知模块归入 `modules/other`。README 按分类索引；素材文档的图片相对链接按新层级生成。普通 AI 文档导出继续使用原有独立文档包结构。
+- 从旧平铺目录升级时，新分类路径与旧待移除文件同时进入预览。旧文件须勾选才移除，手工修改的旧文件额外要求冲突决定；不会直接清空原目录。
 - Godot 文档目录不再生成 `.gdignore`，Markdown 可在编辑器文件系统中查看。旧版受管的 `.gdignore` 会列为待移除，确认后备份并移除；手工创建或父目录的忽略规则只提示，不自动删除。游戏发布时请在引擎导出配置中排除不需要的开发文档。
 - 素材只选择未归档资产的采用版本。正式版本须审核通过；占位版本由同步配置控制。需求文字、未采用版本不会变成素材文件。
 - 常见图片、音频、视频、字体和模型源文件原样复制。支持 PNG/JPEG/WebP/GIF/SVG/BMP/TGA/EXR/HDR/DDS/KTX、WAV/OGG/MP3/FLAC、MP4/WebM/OGV、GLB/GLTF/FBX/OBJ/MTL/Blend、TTF/OTF/WOFF、PSD/ASEPRITE，以及配套 BIN/ATLAS/JSON。其他格式明确报错，不默默漏交。
@@ -56,4 +59,4 @@
 
 ## 配置数据管理与同步规范
 
-通用规范可在“程序框架 → 开发规范”阅读。生成 AI 文档时附带 `模块/config-data-policy.md`，完整总文档同时包含正文；引擎文档同步时附带 `<文档目录>/config-data-policy.md`。文档包含当前项目保存的数据目录、格式与适用范围，无需采用 Package/Core。目录或格式更改后重新生成并预览同步；文档只记录约定，不自动移动文件或修改游戏加载代码。
+通用规范可在“程序框架 → 开发规范”阅读。生成 AI 文档时附带 `模块/config-data-policy.md`，完整总文档同时包含正文；引擎文档同步时附带 `<文档目录>/modules/data-engine/config-data-policy.md`。文档包含当前项目保存的数据目录、格式与适用范围，无需采用 Package/Core。目录或格式更改后重新生成并预览同步；文档只记录约定，不自动移动文件或修改游戏加载代码。

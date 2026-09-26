@@ -14,8 +14,8 @@ async function fixture(t,options={}) {
 }
 test('real adopted files and selected deterministic Markdown are delivered; repeat and restart are no-ops',async t=>{
   const f=await fixture(t);f.input.art.assets.push(await f.asset('植物.png','PNG original bytes'));
-  const p=await f.preview();assert.equal(p.rows.length,4);assert.ok(p.rows.every(r=>r.status==='added'));assert.equal(await fs.stat(path.join(f.engine,'.gamecreator-sync')).catch(()=>null),null);
-  const result=await f.apply(p);assert.equal(result.files.length,4);assert.equal(await f.read(p.rows.find(r=>r.kind==='asset').path),'PNG original bytes');assert.match(await f.read('docs/gamecreator/modules/gameplay.md'),/选择/);assert.match(await f.read('docs/gamecreator/README.md'),/modules\/stories.md/);
+  const p=await f.preview();assert.equal(p.rows.length,5);assert.ok(p.rows.every(r=>r.status==='added'));assert.equal(await fs.stat(path.join(f.engine,'.gamecreator-sync')).catch(()=>null),null);
+  const result=await f.apply(p);assert.equal(result.files.length,5);assert.equal(await f.read(p.rows.find(r=>r.kind==='asset').path),'PNG original bytes');assert.match(await f.read('docs/gamecreator/modules/gameplay/gameplay.md'),/选择/);assert.match(await f.read('docs/gamecreator/README.md'),/modules\/content\/stories.md/);
   f.input.document.generatedAt='new time';assert.ok((await f.preview()).rows.every(r=>r.status==='unchanged'));
   const restarted=createEngineSync({artFiles:createArtFiles(f.data)});assert.equal((await restarted.history(f.input)).entries.length,1);assert.ok((await restarted.preview(f.input)).rows.every(r=>r.status==='unchanged'));
   await assert.rejects(f.apply(p),/过期/);
@@ -28,25 +28,25 @@ test('different adopted version with identical bytes still records the version; 
   const f=await fixture(t),a=await f.asset('same.png','same');f.input.art.assets=[a];await f.apply(await f.preview());a.versions.push({...a.versions[0],id:'v2',name:'第二版'});a.adoptedVersionId='v2';const p=await f.preview();assert.equal(p.rows.filter(r=>r.status==='updated').length,1);await f.apply(p);assert.ok((await f.preview()).rows.every(r=>r.status==='unchanged'));
 });
 test('scope exclusions preserve previous delivery; module removal is opt-in and only touches managed files',async t=>{
-  const f=await fixture(t);await f.apply(await f.preview());await fs.writeFile(path.join(f.engine,'docs/gamecreator/manual.md'),'manual');f.input.settings.modules=['gameplay'];let p=await f.preview();assert.equal(p.rows.find(r=>r.path.endsWith('stories.md')).status,'removed');await f.apply(p);assert.match(await f.read('docs/gamecreator/modules/stories.md'),/文档内容/);
+  const f=await fixture(t);await f.apply(await f.preview());await fs.writeFile(path.join(f.engine,'docs/gamecreator/manual.md'),'manual');f.input.settings.modules=['gameplay'];let p=await f.preview();assert.equal(p.rows.find(r=>r.path.endsWith('stories.md')).status,'removed');await f.apply(p);assert.match(await f.read('docs/gamecreator/modules/content/stories.md'),/文档内容/);
   p=await f.preview();const removal=p.rows.find(r=>r.status==='removed');await f.api.apply({token:p.token,removals:[removal.path]});assert.equal(await fs.stat(path.join(f.engine,removal.path)).catch(()=>null),null);assert.equal(await f.read('docs/gamecreator/manual.md'),'manual');
   f.input.settings.documents=false;p=await f.preview();assert.equal(p.rows.length,0);assert.match(await f.read('docs/gamecreator/README.md'),/测试原型/);
 });
 test('conflicts require a decision; keep does not adopt manual edits, replace backs up the external content',async t=>{
-  const f=await fixture(t);await f.apply(await f.preview());const target='docs/gamecreator/modules/gameplay.md';await fs.writeFile(path.join(f.engine,target),'external edit');f.input.document.sections[1].body='changed story';let p=await f.preview();assert.equal(p.rows.find(r=>r.path===target).status,'conflict');await assert.rejects(f.apply(p),/处理所有冲突/);
+  const f=await fixture(t);await f.apply(await f.preview());const target='docs/gamecreator/modules/gameplay/gameplay.md';await fs.writeFile(path.join(f.engine,target),'external edit');f.input.document.sections[1].body='changed story';let p=await f.preview();assert.equal(p.rows.find(r=>r.path===target).status,'conflict');await assert.rejects(f.apply(p),/处理所有冲突/);
   await f.api.apply({token:p.token,decisions:{[target]:'keep'}});assert.equal(await f.read(target),'external edit');p=await f.preview();assert.equal(p.rows.find(r=>r.path===target).status,'conflict');const result=await f.api.apply({token:p.token,decisions:{[target]:'replace'}});assert.match(await f.read(target),/选择/);assert.equal(await fs.readFile(path.join(result.backupDirectory,'files/0'),'utf8'),'external edit');
 });
 test('an existing unmanaged file is a conflict even when its contents match',async t=>{
   const f=await fixture(t);await fs.mkdir(path.join(f.engine,'docs/gamecreator'),{recursive:true});await fs.writeFile(path.join(f.engine,'docs/gamecreator/README.md'),'user doc');const p=await f.preview();assert.equal(p.rows.find(r=>r.path.endsWith('README.md')).status,'conflict');await assert.rejects(f.apply(p));assert.equal(await f.read('docs/gamecreator/README.md'),'user doc');
 });
 test('post-preview edits, other synchronization commits and replaced project roots invalidate the snapshot',async t=>{
-  const f=await fixture(t);await f.apply(await f.preview());f.input.document.sections[0].body='new';let p=await f.preview();await fs.writeFile(path.join(f.engine,'docs/gamecreator/modules/gameplay.md'),'intervening edit');await assert.rejects(f.apply(p),/预览后/);assert.equal(await f.read('docs/gamecreator/modules/gameplay.md'),'intervening edit');
-  p=await f.preview();const newer=await f.preview();await f.api.apply({token:newer.token,decisions:{'docs/gamecreator/modules/gameplay.md':'replace'}});await assert.rejects(f.api.apply({token:p.token,decisions:{'docs/gamecreator/modules/gameplay.md':'replace'}}),/记录已改变/);
+  const f=await fixture(t);await f.apply(await f.preview());f.input.document.sections[0].body='new';let p=await f.preview();await fs.writeFile(path.join(f.engine,'docs/gamecreator/modules/gameplay/gameplay.md'),'intervening edit');await assert.rejects(f.apply(p),/预览后/);assert.equal(await f.read('docs/gamecreator/modules/gameplay/gameplay.md'),'intervening edit');
+  p=await f.preview();const newer=await f.preview();await f.api.apply({token:newer.token,decisions:{'docs/gamecreator/modules/gameplay/gameplay.md':'replace'}});await assert.rejects(f.api.apply({token:p.token,decisions:{'docs/gamecreator/modules/gameplay/gameplay.md':'replace'}}),/记录已改变/);
   const q=await f.preview();f.input.document.sections[0].body='yet another';const q2=await f.preview();await fs.rename(f.engine,f.engine+'-old');await fs.mkdir(f.engine);await assert.rejects(f.apply(q2),/目录已被替换/);f.api.release(q.token);
 });
 test('failed multi-file write rolls back both updates and additions and retains a failed record',async t=>{
-  let fail=false;const f=await fixture(t,{beforeWrite:async index=>{if(fail&&index===1)throw new Error('simulated disk failure');}});await f.apply(await f.preview());const before=await f.read('docs/gamecreator/modules/gameplay.md');f.input.document.sections[0].body='changed';f.input.document.sections[1].body='changed too';fail=true;
-  await assert.rejects(f.apply(await f.preview()),/已恢复写入前/);assert.equal(await f.read('docs/gamecreator/modules/gameplay.md'),before);assert.equal((await f.api.history(f.input)).entries[0].status,'failed');assert.equal((await f.api.history(f.input)).interrupted,false);
+  let fail=false;const f=await fixture(t,{beforeWrite:async index=>{if(fail&&index===1)throw new Error('simulated disk failure');}});await f.apply(await f.preview());const before=await f.read('docs/gamecreator/modules/gameplay/gameplay.md');f.input.document.sections[0].body='changed';f.input.document.sections[1].body='changed too';fail=true;
+  await assert.rejects(f.apply(await f.preview()),/已恢复写入前/);assert.equal(await f.read('docs/gamecreator/modules/gameplay/gameplay.md'),before);assert.equal((await f.api.history(f.input)).entries[0].status,'failed');assert.equal((await f.api.history(f.input)).interrupted,false);
 });
 test('paths reject traversal, collisions, reserved names and document/asset overlap before writing',async t=>{
   const f=await fixture(t);for(const docsDirectory of ['../outside','/absolute','C:/root','.git/output','x/../y','CON','assets/gamecreator/inside','docs//child']){f.input.settings.docsDirectory=docsDirectory;await assert.rejects(f.preview());}assert.equal(await fs.stat(path.join(f.engine,'.gamecreator-sync')).catch(()=>null),null);
@@ -68,14 +68,14 @@ test('binding inspection is read-only, distinguishes owners and engines, and can
  await f.apply(await f.preview());const raw=await f.read('.gamecreator-sync/manifest.json');
  assert.equal((await f.api.binding(f.input)).status,'current');
  const other={...f.input,projectId:'new-project'},review=await f.api.binding(other);
- assert.equal(review.status,'project-mismatch');assert.equal(review.ownerProjectId,f.input.projectId);assert.equal(review.projectId,other.projectId);assert.equal(review.fileCount,3);assert.equal(review.historyCount,1);assert.ok(review.token);
+ assert.equal(review.status,'project-mismatch');assert.equal(review.ownerProjectId,f.input.projectId);assert.equal(review.projectId,other.projectId);assert.equal(review.fileCount,4);assert.equal(review.historyCount,1);assert.ok(review.token);
  f.api.release(review.token);await assert.rejects(f.api.rebind({token:review.token}),/过期/);assert.equal(await f.read('.gamecreator-sync/manifest.json'),raw);
  const engine=await f.api.binding({...other,config:{...other.config,engine:'oasis-lua'}});assert.equal(engine.status,'engine-mismatch');assert.equal(engine.token,undefined);assert.match(engine.reason,/引擎/);
 });
 
 test('explicit rebind preserves exact old manifest, file records, manual changes and history; new owner can preview after restart',async t=>{
  const f=await fixture(t);await f.apply(await f.preview());const oldRaw=await f.read('.gamecreator-sync/manifest.json'),old=JSON.parse(oldRaw);
- const target='docs/gamecreator/modules/gameplay.md';await fs.writeFile(path.join(f.engine,target),'manual changes');
+ const target='docs/gamecreator/modules/gameplay/gameplay.md';await fs.writeFile(path.join(f.engine,target),'manual changes');
  f.input.document.sections[1].body='new story';const oldPlan=await f.preview(),other={...f.input,projectId:'migrated-project'};
  const review=await f.api.binding(other),result=await f.api.rebind({token:review.token});
  const next=JSON.parse(await f.read('.gamecreator-sync/manifest.json'));
@@ -121,10 +121,10 @@ test('expired rebind reviews cannot write',async t=>{
 });
 
 test('Oasis receives docs and assets without Godot ignore files',async t=>{
-  const f=await fixture(t);f.input.config.engine='oasis-lua';const p=await f.preview();assert.equal(p.rows.length,3);await f.apply(p);assert.match(await f.read('docs/gamecreator/modules/stories.md'),/故事/);
+  const f=await fixture(t);f.input.config.engine='oasis-lua';const p=await f.preview();assert.equal(p.rows.length,4);await f.apply(p);assert.match(await f.read('docs/gamecreator/modules/content/stories.md'),/故事/);
 });
 test('interrupted writes recover from validated journal and backups; preserve subsequent external edits',async t=>{
-  const f=await fixture(t);await f.apply(await f.preview());const target='docs/gamecreator/modules/gameplay.md',before=await fs.readFile(path.join(f.engine,target));const id='11111111-1111-4111-8111-111111111111',folder=path.join(f.engine,'.gamecreator-sync/history',id);await fs.mkdir(path.join(folder,'files'),{recursive:true});await fs.writeFile(path.join(folder,'files/0'),before);await fs.writeFile(path.join(f.engine,target),'partial new bytes');
+  const f=await fixture(t);await f.apply(await f.preview());const target='docs/gamecreator/modules/gameplay/gameplay.md',before=await fs.readFile(path.join(f.engine,target));const id='11111111-1111-4111-8111-111111111111',folder=path.join(f.engine,'.gamecreator-sync/history',id);await fs.mkdir(path.join(folder,'files'),{recursive:true});await fs.writeFile(path.join(folder,'files/0'),before);await fs.writeFile(path.join(f.engine,target),'partial new bytes');
   const journal={schema:1,id,ops:[{index:0,path:target,before:digest(before),after:digest('partial new bytes')}]};await fs.writeFile(path.join(f.engine,'.gamecreator-sync/pending.json'),JSON.stringify(journal));await assert.rejects(f.preview(),/未完成/);assert.match((await f.api.recover(f.input)).message,/完成/);assert.equal(await f.read(target),before.toString());
   await fs.writeFile(path.join(f.engine,'.gamecreator-sync/pending.json'),JSON.stringify(journal));await fs.writeFile(path.join(f.engine,target),'external after crash');await assert.rejects(f.api.recover(f.input),/外部改动/);assert.equal(await f.read(target),'external after crash');
 });
@@ -141,7 +141,7 @@ test('recovery removes an exclusively staged new file when interrupted between l
 });
 test('source files remain isolated by workspace and snapshots are immutable after preview',async t=>{
  const f=await fixture(t),a=await f.asset('plant.png','first bytes');f.input.art.assets=[a];const p=await f.preview();f.input.document.sections[0].body='mutated after preview';a.name='renamed after preview';await f.apply(p);
- assert.match(await f.read('docs/gamecreator/modules/gameplay.md'),/选择/);await assert.rejects(f.api.preview({...f.input,projectId:'unrelated',config:{...f.input.config,projectPath:await fs.mkdtemp(path.join(f.dir,'other-')),engine:'oasis-lua'}}),/丢失/);
+ assert.match(await f.read('docs/gamecreator/modules/gameplay/gameplay.md'),/选择/);await assert.rejects(f.api.preview({...f.input,projectId:'unrelated',config:{...f.input.config,projectPath:await fs.mkdtemp(path.join(f.dir,'other-')),engine:'oasis-lua'}}),/丢失/);
 });
 
 test('Godot documents stay visible and legacy ignore removal is reviewed, backed up, and never recreated',async t=>{
@@ -156,7 +156,7 @@ test('configuration policy syncs without framework adoption, respects scope, dir
  const f=await fixture(t);const {configDataPolicyMarkdown}=await import('../shared/config-data-policy.mjs');
  f.input.settings.modules=[];f.input.config.dataPath='balance/tables';f.input.config.outputFormat='json';
  f.input.document.configDataPolicy=configDataPolicyMarkdown(f.input.config);
- const target='docs/gamecreator/config-data-policy.md';let p=await f.preview();assert.ok(p.rows.some(r=>r.path===target&&r.status==='added'));await f.apply(p);
+ const target='docs/gamecreator/modules/data-engine/config-data-policy.md';let p=await f.preview();assert.ok(p.rows.some(r=>r.path===target&&r.status==='added'));await f.apply(p);
  assert.match(await f.read(target),/balance\/tables/);assert.match(await f.read('docs/gamecreator/README.md'),/config-data-policy.md/);
  assert.ok((await f.preview()).rows.every(r=>r.status==='unchanged'));
  f.input.settings.documents=false;p=await f.preview();assert.equal(p.rows.length,0);assert.match(await f.read(target),/balance\/tables/);

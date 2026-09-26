@@ -70,7 +70,7 @@ export const aiModules = [
   {id:'gameplay',label:'玩法设计'}, {id:'prototype',label:'原型设计'}, {id:'maps',label:'地图设计'},
   {id:'functional',label:'功能系统'}, {id:'development-tools',label:'开发工具'}, {id:'framework',label:'程序框架'}, {id:'art',label:'素材资产'}, {id:'stories',label:'故事文档'},
   {id:'narrative',label:'故事编排'}, {id:'data',label:'数据配置'}, {id:'enum-definitions',label:'枚举定义'},
-  {id:'enum-versions',label:'枚举管理'}, {id:'engine',label:'引擎设置'}, {id:'tasks',label:'任务与流程'},
+  {id:'enum-versions',label:'枚举管理'}, {id:'engine',label:'工程连接'}, {id:'tasks',label:'任务与流程'},
   {id:'analysis',label:'数值分析'},
 ] as const;
 export type AiModuleId = typeof aiModules[number]['id'];

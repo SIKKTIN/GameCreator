@@ -51,7 +51,7 @@ export function EngineSettings({ config, setConfig, registry, onPickDirectory, o
     } catch (reason) { setError(reason instanceof Error ? reason.message : String(reason)); }
     finally { operation.current = false; setSaving(false); }
   };
-  return <form className="engine-settings" onSubmit={event => void save(event)} aria-label="引擎设置" aria-busy={saving || picking}>
+  return <form className="engine-settings" onSubmit={event => void save(event)} aria-label="工程连接" aria-busy={saving || picking}>
     <div className="settings-intro"><div><span>ENGINE ADAPTER</span><h2>{adapter.name}</h2>
       <p>配置游戏工程目录后，可读取 {adapter.language} 枚举并审核同步。</p></div>
       <div className={`engine-badge${registry.sourceConfigured ? '' : ' engine-badge-neutral'}`}>
@@ -110,7 +110,7 @@ export function EnumDefinitions({ registry }: { registry: EnumRegistry }) {
     </div>
     {!scan ? <div className="enum-catalog-empty" role="status">
       {registry.sourceConfigured ? <AlertTriangle size={24} /> : <Settings2 size={24} />}<h3>{registry.sourceConfigured ? '尚未发布枚举定义' : '尚未配置引擎'}</h3>
-      <p>{registry.sourceConfigured ? '请管理员在“枚举管理”中扫描并审核发布，发布后即可在这里查看。' : '可先编写项目内容。需要枚举时，请管理员在“引擎设置”中配置游戏工程目录，再导入并审核。'}</p>
+      <p>{registry.sourceConfigured ? '请管理员在“枚举管理”中扫描并审核发布，发布后即可在这里查看。' : '可先编写项目内容。需要枚举时，请管理员在“工程连接”中配置游戏工程目录，再导入并审核。'}</p>
     </div> : <>
       <div className="enum-catalog-toolbar">
         <p role="status">{search ? `找到 ${groups.length} 组枚举 · ${memberCount} 个成员`
@@ -156,14 +156,14 @@ export function EnumManager({ config, registry }: {
     {registry.error && <p className="field-error" role="alert">{registry.error}</p>}
     {tab === 'updates' ? <div id="enum-updates-panel" role="tabpanel" aria-labelledby="enum-updates-tab">
       {!registry.sourceConfigured && !registry.candidate && !registry.active
-        ? <div className="enum-catalog-empty" role="status"><Settings2 size={24} /><h3>尚未配置引擎</h3><p>可先编写项目内容。需要检测枚举更新时，请在“引擎设置”中配置游戏工程目录并保存。</p></div>
+        ? <div className="enum-catalog-empty" role="status"><Settings2 size={24} /><h3>尚未配置引擎</h3><p>可先编写项目内容。需要检测枚举更新时，请在“工程连接”中配置游戏工程目录并保存。</p></div>
         : <>{!registry.sourceConfigured && <p className="engine-config-neutral" role="status">尚未配置引擎，当前显示已有枚举存档。配置游戏工程目录后可检测新变化。</p>}<EnumReviewPanel key={registry.key} registry={registry} onImport={() => setTab('import')} /></>}
     </div> : <div id="enum-import-panel" role="tabpanel" aria-labelledby="enum-import-tab" className="enum-import-panel">
       <div className="enum-catalog-heading"><div><h2>外部导入</h2><p>读取工程中的 {engineInfo(config.engine).language} 枚举，导入后前往更新检测决定是否同步。</p></div>
         <button className="primary" disabled={!registry.sourceConfigured || registry.loading || registry.busy} onClick={() => { if (registry.sourceConfigured) void registry.refresh(); }}>
           <Database size={16} />{registry.loading ? '正在读取…' : '从工程导入'}</button></div>
       <div className="enum-import-source"><b>当前来源</b>{registry.sourceConfigured ? <code>{config.projectPath}/{config.enumPath}</code> : <p>尚未配置引擎，可先编写项目内容。</p>}
-        <p>来源目录在“引擎设置”中配置并保存。导入仅生成候选内容，不会自动更新枚举定义。</p></div>
+        <p>来源目录在“工程连接”中配置并保存。导入仅生成候选内容，不会自动更新枚举定义。</p></div>
       {source ? <>
         <div className="enum-import-result"><div><b>{source.groups.length} 组枚举 · {source.counts.members} 个成员</b>
           <p>{registry.changes.length} 项待审核差异</p></div><button className="primary" onClick={() => setTab('updates')}>前往更新检测</button></div>
@@ -176,7 +176,7 @@ export function EnumManager({ config, registry }: {
           <details className="enum-import-files"><summary>查看只读来源详情</summary><code>{group.source}:{group.line} · {group.valueType}</code>
             {group.members.map(member => <code key={member.key}>{member.key} = {formatLuaValue(member.value)}</code>)}</details>
         </article>)}</div>
-      </> : <div className="enum-catalog-empty" role="status">{registry.sourceConfigured ? <Database size={24} /> : <Settings2 size={24} />}<h3>{registry.sourceConfigured ? '尚无导入内容' : '尚未配置引擎'}</h3><p>{registry.sourceConfigured ? '点击“从工程导入”读取已配置目录。' : '请在“引擎设置”中配置游戏工程目录并保存，再回来导入枚举。'}</p></div>}
+      </> : <div className="enum-catalog-empty" role="status">{registry.sourceConfigured ? <Database size={24} /> : <Settings2 size={24} />}<h3>{registry.sourceConfigured ? '尚无导入内容' : '尚未配置引擎'}</h3><p>{registry.sourceConfigured ? '点击“从工程导入”读取已配置目录。' : '请在“工程连接”中配置游戏工程目录并保存，再回来导入枚举。'}</p></div>}
     </div>}
   </section>;
 }

@@ -9,6 +9,6 @@ export function projectFeedbackGuide(project){
  '## project_write：项目内容修改权限\n\n它是权限，不是反馈类型。持有此权限并具有项目范围的长期开发者，使用 intent: project_change 提交正式修改。新建制作人默认拥有，其他开发者须由管理者显式授予。旧令牌不会因名称叫制作人自动扩权。修改仍在 GameCreator 中逐条比较和确认。\n\n'+
  '先读 context/content/<模块ID>.json。target.kind 固定为 module，target.id 是模块 ID。可用模块：project、project-schedule、gameplay、gameplay-core、prototype-design、task-flows、numerical-analysis、functional-systems、development-tools、art-assets、stories、story-orchestration、map-design、program-framework、definitions、enum-versions。\n\n'+
  'changes 的键是字段路径，值是 JSON.stringify(新值) 得到的文本。字符串也必须包含 JSON 引号。对象属性用 / 分隔，属性内的 ~ 和 / 分别写为 ~0 和 ~1；记录列表使用 /@ID/字段（记录只有 key 时用 @key），禁止下标定位，以免排序改变后改错条目。例如 /tasks/@真实任务ID/acceptance、/requirements/@素材需求ID/specification、/data/datasets/pvz_plants/@植物ID/health。\n\n'+
- '当前支持已有条目的字段修改，新建和删除条目仍在 GameCreator 界面操作。排期可修改任务说明、验收标准、计划日期、优先级、负责人文字等计划字段。enum-versions 只开放 data 下的开发配置，枚举历史和稳定版本不通过此入口修改。人员身份、任务授权、令牌、处理记录、文件交付与验收状态不属于 project_write；制作状态仍使用 progress/review。禁止同时修改父字段和子字段。\n\n```json\n'+JSON.stringify(formal,null,2)+'\n```\n\n'+
+ '本反馈入口支持已有条目的字段修改。新增、删除及跨模块结构变更进入绑定的 GameCreator 项目，按 GAMECREATOR_GUIDE.md 使用 ai/changes 编写协议。排期可修改任务说明、验收标准、计划日期、优先级、负责人文字等计划字段。enum-versions 只开放 data 下的开发配置，枚举历史和稳定版本不通过此入口修改。人员身份、任务授权、令牌、处理记录、文件交付与验收状态不属于 project_write；制作状态仍使用 progress/review。禁止同时修改父字段和子字段。\n\n```json\n'+JSON.stringify(formal,null,2)+'\n```\n\n'+
  '将真实快照、目标 ID 和新的反馈 UUID 写入草稿，用 submit-feedback.cjs 和对应私有凭证签名。不要改写只读 context 或历史 snapshots。每条正式修改只更新一个模块；通过后重新同步上下文再继续开发。相同更新编号只处理一次，失败的多存档写入可在重新读取时恢复，不能通过换编号重复提交。\n';
 }

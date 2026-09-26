@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Search, CalendarDays, Map, Layers, Gamepad2, ListTree, Palette, BookOpen, Database, Tag, Settings2, GitBranch, BarChart3, Server, Workflow, Users, PanelsTopLeft, FileCode2, Wrench, BookOpenCheck, ChevronDown, type LucideIcon } from 'lucide-react';
+import { Search, CalendarDays, Map, Layers, Gamepad2, ListTree, Palette, BookOpen, Database, Tag, Settings2, GitBranch, BarChart3, Server, Workflow, Users, PanelsTopLeft, FileCode2, Wrench, BookOpenCheck, ChevronDown, Rocket, FolderSync, type LucideIcon } from 'lucide-react';
 import './workspace-sidebar.css';
 import { useWorkspaceNavigationGroups } from './useWorkspaceNavigation';
 
@@ -9,11 +9,11 @@ type NavigationGroup = { id: string; label: string; icon: LucideIcon; children: 
 const workspaceNavigation: readonly NavigationItem[] = [['全局搜索', Search], ['项目概览', Layers]];
 const navigationGroups: NavigationGroup[] = [
   { id: 'project-guide', label: '项目指南', icon: BookOpen, children: [['项目规范', BookOpenCheck], ['使用说明', BookOpen]] },
-  { id: 'project-management', label: '项目管理', icon: Users, children: [['项目排期', CalendarDays], ['人员分配', Users], ['任务清单', ListTree]] },
+  { id: 'project-management', label: '项目管理', icon: Users, children: [['项目启动', Rocket], ['工程连接', Settings2], ['人员分配', Users], ['项目排期', CalendarDays], ['任务清单', ListTree]] },
   { id: 'gameplay', label: '玩法与关卡', icon: Gamepad2, children: [['玩法核心', Workflow], ['玩法设计', Gamepad2], ['原型设计', PanelsTopLeft], ['地图设计', Map], ['任务与流程', GitBranch], ['数值分析', BarChart3]] },
   { id: 'development', label: '系统与开发', icon: Wrench, children: [['功能系统', ListTree], ['程序框架', FileCode2], ['开发工具', Wrench]] },
   { id: 'content', label: '内容制作', icon: Palette, children: [['素材资产', Palette], ['故事文档', BookOpen], ['故事编排', BookOpen]] },
-  { id: 'data-engine', label: '数据与引擎', icon: Database, children: [['数据配置', Database], ['枚举定义', Tag], ['枚举管理', Tag], ['数据同步', Workflow], ['引擎设置', Settings2]] },
+  { id: 'data-engine', label: '数据与同步', icon: Database, children: [['数据配置', Database], ['枚举定义', Tag], ['枚举管理', Tag], ['数据同步', Workflow], ['工程同步', FolderSync]] },
 ];
 
 export function WorkspaceSidebar({ picker, active, onNavigate, team = false, empty = false, teamOverview = false, teamCore = false, teamGameplay = false, teamSchedule = false, onManageServer, onManageUsers, storyEnabled = false, mapEnabled = false, footer }: {

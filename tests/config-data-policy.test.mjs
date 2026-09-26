@@ -17,7 +17,7 @@ test('unconfigured or unsupported settings are explained without inventing a usa
 test('non-adopting projects always export the policy, even with only a non-framework module selected for sync',()=>{
  const doc=buildAiDocument(...args(config));assert.match(doc.sections.find(s=>s.id==='framework').body,/未采用/);
  const bundle=buildAiDocumentFiles(doc,{folderName:'文档',summaryName:'总览',moduleNames:{}});assert.ok(bundle.files[0].content.includes(doc.configDataPolicy));assert.ok(bundle.files.find(f=>f.path===policyExportPath).content.includes(doc.configDataPolicy));assert.ok(buildAiMarkdown(...args(config)).includes(doc.configDataPolicy));
- const files=syncDocuments(doc,['overview']);assert.deepEqual(files.map(f=>f.path),['README.md','modules/overview.md','config-data-policy.md']);assert.match(files[0].content,/config-data-policy.md/);assert.ok(files[2].content.includes(doc.configDataPolicy));
+ const files=syncDocuments(doc,['overview']);assert.deepEqual(files.map(f=>f.path),['README.md','modules/overview.md','modules/project-guide/standards.md','modules/project-guide/usage-guide.md','modules/data-engine/config-data-policy.md']);assert.match(files[0].content,/config-data-policy.md/);assert.ok(files[4].content.includes(doc.configDataPolicy));
  assert.deepEqual(syncDocuments({...doc,generatedAt:'different'},['overview']),files);
  assert.throws(()=>buildAiDocumentFiles(doc,{folderName:'文档',summaryName:'总览',moduleNames:{overview:'config-data-policy.md'}}),/重复/);
 });

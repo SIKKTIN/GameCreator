@@ -1,8 +1,7 @@
 import {EngineSyncBinding,foreignSyncBinding} from './EngineSyncBinding';
 import {EngineFeedbackPanel} from './EngineFeedbackPanel';
 import {useEffect,useRef,useState} from 'react';
-import {ArrowRight,CheckCircle2,FileText,FolderSync,History,RefreshCw,Save,Settings2} from 'lucide-react';
-import {EngineSettings} from './EnginePanels';
+import {ArrowRight,CheckCircle2,FileText,FolderSync,History,RefreshCw,Save} from 'lucide-react';
 import {aiModules,type AiDocument} from './ai-export';
 import type {ArtStore} from './art-assets';
 import {engineInfo,type EngineConfig} from './engine';
@@ -13,19 +12,18 @@ import {workspaceStorage} from './workspace-storage';
 import {beforeLogoutEvent} from './auth';
 import './engine-sync.css';
 
-type Props={projectId:string;config:EngineConfig;setConfig:(next:EngineConfig)=>Promise<boolean>|boolean;registry:EnumRegistry;onPickDirectory?:()=>Promise<string|null>;build:()=>AiDocument;art:ArtStore;collaboration:CollaborationSource;initialFeedback?:boolean;onFeedbackApplied:(reloadContent?:boolean)=>boolean;blockedReason:string;onOpenAsset?:(id:string)=>void};
+type Props={onOpenConnection:()=>void;projectId:string;config:EngineConfig;setConfig:(next:EngineConfig)=>Promise<boolean>|boolean;registry:EnumRegistry;onPickDirectory?:()=>Promise<string|null>;build:()=>AiDocument;art:ArtStore;collaboration:CollaborationSource;initialFeedback?:boolean;onFeedbackApplied:(reloadContent?:boolean)=>boolean;blockedReason:string;onOpenAsset?:(id:string)=>void};
 const labels={added:'新增',updated:'更新',removed:'待移除',unchanged:'无变化',conflict:'冲突'};
 export function EngineSyncPanel(props:Props) {
-  const [tab,setTab]=useState(props.initialFeedback?'feedback':'connection'),[connectionDirty,setConnectionDirty]=useState(false);
+  const [tab,setTab]=useState(props.initialFeedback?'feedback':'settings');
   return <section className="engine-hub" aria-label="引擎与同步">
-    <div className="engine-hub-intro"><div><span>ENGINE & CONTENT</span><h2>连接工程，交付项目内容。</h2><p>制作文档由 GameCreator 交付，素材、场景与程序在工程中完成，通过反馈回写进度。</p></div><FolderSync size={30}/></div>
-    <div className="engine-hub-tabs" role="tablist" aria-label="引擎与同步分页">{([['connection','工程连接',Settings2],['settings','同步配置',FileText],['preview','待同步变更',FolderSync],['feedback','开发反馈',RefreshCw],['history','同步记录',History]] as const).map(([key,label,Icon])=><button key={key as string} role="tab" aria-selected={tab===key} onClick={()=>setTab(key as string)}><Icon size={16}/>{label as string}</button>)}</div>
-    <div hidden={tab!=='connection'}><EngineSettings onDirtyChange={setConnectionDirty} config={props.config} setConfig={props.setConfig} registry={props.registry} onPickDirectory={props.onPickDirectory}/></div>
-    <ContentSync key={props.projectId+':'+props.config.engine+':'+props.config.projectPath} {...props} blockedReason={connectionDirty?'工程连接有未保存的修改，请先保存工程连接再同步。':props.blockedReason} tab={tab} setTab={setTab}/>
-    {tab==='feedback'&&<EngineFeedbackPanel key={props.projectId+':'+props.config.engine+':'+props.config.projectPath} projectId={props.projectId} config={props.config} collaboration={props.collaboration} onApplied={props.onFeedbackApplied} blockedReason={connectionDirty?'工程连接有未保存的修改，请先保存工程连接再读取反馈。':props.blockedReason}/>}
+    <div className="engine-hub-intro"><div><span>ENGINE & CONTENT</span><h2>交付项目内容，接收开发反馈。</h2><p>制作文档按分类交付到引擎，素材、场景与程序在工程中完成，通过反馈回写进度。</p></div><FolderSync size={30}/></div>
+    <div className="engine-hub-tabs" role="tablist" aria-label="引擎与同步分页">{([['settings','同步配置',FileText],['preview','待同步变更',FolderSync],['feedback','开发反馈',RefreshCw],['history','同步记录',History]] as const).map(([key,label,Icon])=><button key={key as string} role="tab" aria-selected={tab===key} onClick={()=>setTab(key as string)}><Icon size={16}/>{label as string}</button>)}</div>
+    <ContentSync key={props.projectId+':'+props.config.engine+':'+props.config.projectPath} {...props} tab={tab} setTab={setTab}/>
+    {tab==='feedback'&&<EngineFeedbackPanel key={props.projectId+':'+props.config.engine+':'+props.config.projectPath} projectId={props.projectId} config={props.config} collaboration={props.collaboration} onApplied={props.onFeedbackApplied} blockedReason={props.blockedReason}/>}
   </section>;
 }
-function ContentSync({projectId,config,build,art,collaboration,blockedReason,onOpenAsset,tab,setTab}:Props&{tab:string;setTab:(tab:string)=>void}) {
+function ContentSync({projectId,config,build,art,collaboration,blockedReason,onOpenAsset,onOpenConnection,tab,setTab}:Props&{tab:string;setTab:(tab:string)=>void}) {
   const api=window.desktopClient?.engineSync,key='gamecreator.workspace.v1:'+projectId+':engine-sync-'+config.engine;
   const available=buildSafe();
   function buildSafe(){try{return build().sections.map(s=>s.id);}catch{return aiModules.map(m=>m.id);}}
@@ -96,7 +94,7 @@ function ContentSync({projectId,config,build,art,collaboration,blockedReason,onO
   useEffect(()=>{if(blockedReason)discard();},[blockedReason]);
   const actions=plan?.rows.filter(r=>r.status!=='unchanged'&&(r.status!=='conflict'||decisions[r.path]==='replace')&&(!r.remove||removals.includes(r.path))).length||0;
   return <div className="engine-content" hidden={tab==='connection'||tab==='feedback'}>
-    <section className="es-engine-root" aria-label="当前同步工程"><div><span>{engineInfo(config.engine).name} · 已保存的游戏工程根目录</span><code aria-label="同步工程根目录">{root||'尚未连接游戏工程'}</code><p>同步直接写入此工程。下方仅设置工程内的子目录。</p></div><button type="button" className="gp-secondary" disabled={busy} onClick={()=>setTab('connection')}>更换工程</button></section>
+    <section className="es-engine-root" aria-label="当前同步工程"><div><span>{engineInfo(config.engine).name} · 已保存的游戏工程根目录</span><code aria-label="同步工程根目录">{root||'尚未连接游戏工程'}</code><p>同步直接写入此工程。下方仅设置工程内的子目录。</p></div><button type="button" className="gp-secondary" disabled={busy} onClick={onOpenConnection}>更换工程</button></section>
     <EngineSyncBinding binding={ownership} busy={busy} blocked={blocked} confirming={confirmBinding} error={error} onRefresh={()=>void checkBinding()} onConfirm={()=>{setError('');setConfirmBinding(true);}} onCancel={()=>setConfirmBinding(false)} onRebind={()=>void rebind()}/>
     {blocked&&<p className="es-notice" role="status">{blocked}</p>}
     {error&&<p className="es-error" role="alert">{error}</p>}{notice&&<p className="es-success" role="status"><CheckCircle2 size={17}/>{notice}</p>}
@@ -109,7 +107,7 @@ function ContentSync({projectId,config,build,art,collaboration,blockedReason,onO
       <div className="es-section-heading"><div><h3>同步范围与目录</h3><p>同步位置跟随已保存的工程连接。关闭某类同步会保留其已交付文件。</p></div><button className="primary" disabled={busy||!dirty||!!invalid} onClick={save}><Save size={16}/>保存同步配置</button></div>
       <fieldset disabled={busy} className="es-fields">
         <div className="es-config-grid">
-          <section className="es-card"><label className="es-checkbox"><input type="checkbox" checked={settings.documents} onChange={e=>patch({documents:e.target.checked})}/>同步设计文档</label><p>按模块生成 Markdown，可供程序与 AI 查阅。同时附带项目规范与配置数据规范，供更新内容前查阅。</p><label>文档子目录（相对于工程根目录）<input aria-label="文档目标目录" value={settings.docsDirectory} onChange={e=>patch({docsDirectory:e.target.value})}/></label><div className="es-target-path"><span>最终写入位置</span><output aria-label="文档最终写入位置">{fullPath(settings.docsDirectory)}</output></div><div className="es-modules">{aiModules.filter(m=>available.includes(m.id)).map(m=><label className="es-checkbox" key={m.id}><input type="checkbox" disabled={!settings.documents||m.id==='standards'} checked={m.id==='standards'||settings.modules.includes(m.id)} onChange={e=>patch({modules:e.target.checked?[...settings.modules,m.id]:settings.modules.filter(id=>id!==m.id)})}/>{m.label}</label>)}</div><small>{config.engine==='godot-gdscript'?'文档以 Markdown 同步，可在 Godot 文件系统中查看。若旧版留下 .gdignore，请在待同步变更中确认移除。':'文档用于开发查阅，发布游戏时请按工程规则排除。'}</small></section>
+          <section className="es-card"><label className="es-checkbox"><input type="checkbox" checked={settings.documents} onChange={e=>patch({documents:e.target.checked})}/>同步设计文档</label><p>按六个分类生成 Markdown，README 说明设计编写、开发反馈和回写流程，并指向绑定的 GameCreator 项目。</p><label>文档子目录（相对于工程根目录）<input aria-label="文档目标目录" value={settings.docsDirectory} onChange={e=>patch({docsDirectory:e.target.value})}/></label><div className="es-target-path"><span>最终写入位置</span><output aria-label="文档最终写入位置">{fullPath(settings.docsDirectory)}</output></div><div className="es-modules">{aiModules.filter(m=>available.includes(m.id)).map(m=><label className="es-checkbox" key={m.id}><input type="checkbox" disabled={!settings.documents||m.id==='standards'} checked={m.id==='standards'||settings.modules.includes(m.id)} onChange={e=>patch({modules:e.target.checked?[...settings.modules,m.id]:settings.modules.filter(id=>id!==m.id)})}/>{m.label}</label>)}</div><small>{config.engine==='godot-gdscript'?'文档以 Markdown 同步，可在 Godot 文件系统中查看。若旧版留下 .gdignore，请在待同步变更中确认移除。':'文档用于开发查阅，发布游戏时请按工程规则排除。'}</small></section>
           <section className="es-card"><label className="es-checkbox"><input type="checkbox" checked={settings.assets} onChange={e=>patch({assets:e.target.checked})}/>同步历史已采用素材</label><p>兼容旧项目的导入文件。新素材在工程内制作，无需启用此项；关闭后保留工程中已经交付的文件。</p><label>素材子目录（相对于工程根目录）<input aria-label="素材目标目录" value={settings.assetsDirectory} onChange={e=>patch({assetsDirectory:e.target.value})}/></label><div className="es-target-path"><span>最终写入位置</span><output aria-label="素材最终写入位置">{fullPath(settings.assetsDirectory)}</output></div><label className="es-checkbox"><input type="checkbox" disabled={!settings.assets} checked={settings.includePlaceholders} onChange={e=>patch({includePlaceholders:e.target.checked})}/>包含已采用的占位素材</label><small>关闭后，仅纳入审核通过的正式采用版本。单文件素材更新时保留同格式的工程路径；多文件版本按文件名对应。</small><div className="es-policy"><b>交付规则</b><p>更新和移除前自动备份。工程中手工修改过的文件需处理冲突。不会修改程序、场景或引擎生成的导入缓存。</p></div></section>
         </div>
       </fieldset>

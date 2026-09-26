@@ -1,0 +1,25 @@
+.project-startup { display: grid; gap: 24px; min-width: 0; }
+.startup-hero { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin: 0; }
+.startup-hero small { color: #ad9aee; letter-spacing: 2px; }
+.startup-hero h2 { font-size: 25px; margin: 16px 0; }
+.project-startup p { color: #b6abc9; line-height: 1.8; }
+.startup-checks,.startup-paths { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 20px; }
+.startup-checks article,.startup-output { border: 1px solid #40364e; border-radius: 13px; background: #201b2a; padding: 22px; min-width: 0; }
+.project-startup h3 { margin-top: 0; }
+.project-startup code { overflow-wrap: anywhere; color: #cec1e3; }
+.startup-checks ul { padding: 0; list-style: none; }
+.startup-checks li { display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; padding: 9px 0; }
+.startup-checks li span { color: #b9accb; }
+.startup-paths label { display: grid; gap: 10px; }
+.startup-paths small { color: #ab9dbc; line-height: 1.6; }
+.startup-paths input,.startup-file select { width: 100%; padding: 12px; border: 1px solid #514360; border-radius: 7px; background: #17131f; color: #ece5f8; font: inherit; }
+.startup-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 20px; }
+.project-startup button { display: inline-flex; align-items: center; gap: 8px; padding: 11px 16px; border: 1px solid #554367; border-radius: 7px; background: #30243e; color: #decdf6; font: inherit; cursor: pointer; }
+.project-startup button.primary { background: #7056df; color: white; }
+.project-startup button:disabled { opacity: .5; cursor: not-allowed; }
+.startup-blockers { color: #e6bd85; line-height: 1.9; }
+.startup-file { display: flex; flex-wrap: wrap; gap: 12px; padding: 12px 0; border-bottom: 1px solid #40364e; align-items: center; }
+.startup-file code { flex: 1; min-width: 160px; }
+.startup-file select { max-width: 220px; }
+.startup-output details { margin-bottom: 18px; }
+@media(max-width:1100px){.startup-checks,.startup-paths{grid-template-columns:minmax(0,1fr);}}

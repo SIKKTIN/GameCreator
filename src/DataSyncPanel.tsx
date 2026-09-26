@@ -56,7 +56,7 @@ export function DataSyncPanel({projectId,config,setConfig,registry,blocked,onOpe
   return <section className="data-sync" aria-label="数据同步">
     <div className="ds-intro"><span>DATA SYNC</span><h2>让配置表与工程数据保持一致。</h2><p>开发版接收结构变化；同步配置只传递结构一致的数据，验证完成后发布稳定版。</p></div>
     {!api&&<p role="alert">此功能需要桌面客户端。请重新启动最新版客户端。</p>}
-    <fieldset disabled={locked} className="ds-settings"><h3>数据配置路径</h3><p>工程根目录：<code>{config.projectPath||'请先在引擎设置中连接工程'}</code></p>
+    <fieldset disabled={locked} className="ds-settings"><h3>数据配置路径</h3><p>工程根目录：<code>{config.projectPath||'请先在项目管理的工程连接中配置工程'}</code></p>
       <label>数据配置子目录<input aria-label="数据配置子目录" value={draft.dataPath} onChange={e=>setDraft({...draft,dataPath:e.target.value})} placeholder="data/generated"/></label>
       <p>最终位置：<code>{config.projectPath.replace(/[\\/]$/,'')+'/'+draft.dataPath.replace(/^res:\/\//,'')}</code></p>
       <div className="ds-settings-options"><label>文件格式<select aria-label="数据同步格式" value={draft.outputFormat} onChange={e=>setDraft({...draft,outputFormat:e.target.value})}><option value="json">JSON</option>{draft.outputFormat!=='json'&&<option value={draft.outputFormat}>{draft.outputFormat.toUpperCase()}（暂不支持）</option>}</select></label>

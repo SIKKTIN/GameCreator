@@ -9,7 +9,7 @@ import {beforeLogoutEvent} from './auth';
 import {useLeaveSearch} from './GlobalSearch';
 import './usage-guide.css';
 
-export function UsageGuide({project,schedule,blockedReason,snapshot,onApplied,testMode=false}:{project:SavedProject;schedule:ProjectScheduleStore;blockedReason:string;snapshot:()=>AuthoringInput['expectedEntries'];onApplied:()=>void;testMode?:boolean}){
+export function UsageGuide({project,schedule,blockedReason,snapshot,onApplied,onNavigate,testMode=false}:{project:SavedProject;schedule:ProjectScheduleStore;blockedReason:string;snapshot:()=>AuthoringInput['expectedEntries'];onApplied:()=>void;onNavigate?:(name:string)=>void;testMode?:boolean}){
  const [tab,setTab]=useState(sessionStorage.getItem('gamecreator.authoring-return')===project.id?'authoring':'guide'),[items,setItems]=useState<AuthoringItem[]>([]),[history,setHistory]=useState<AuthoringReceipt[]>(schedule.authoringHistory||[]),[selected,setSelected]=useState(''),[decisions,setDecisions]=useState<Record<string,'keep'|'proposal'>>({}),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[developer,setDeveloper]=useState('');
  useEffect(()=>{sessionStorage.removeItem('gamecreator.authoring-return');},[]);
  useEffect(()=>{setHistory(schedule.authoringHistory||[]);},[schedule.authoringHistory]);
@@ -31,6 +31,7 @@ export function UsageGuide({project,schedule,blockedReason,snapshot,onApplied,te
  const download=()=>{const url=URL.createObjectURL(new Blob([text],{type:'text/markdown;charset=utf-8'})),a=document.createElement('a');a.href=url;a.download='GAMECREATOR_GUIDE.md';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
  return <section className="usage-guide" aria-label="GameCreator 使用说明">
   <header className="ug-hero"><div><small>PROJECT AUTHORING</small><h2>从原型设计，到开发反馈。</h2><p>读取规范和当前内容，以获准身份提交可检查的项目变更。</p></div><BookOpen size={38}/></header>
+  <div className="ug-locations"><div><b>引擎主工作目录</b><code>{project.config.projectPath||'尚未连接'}</code>{onNavigate&&<button onClick={()=>onNavigate('项目启动')}>项目启动与入口文档</button>}</div><div><b>GameCreator 管理项目</b><code>{project.folderPath||'尚未保存'}</code><p>本页的协作文件与设计提交在此目录的 ai/ 中读写。</p></div></div>
   <div className="ps-tabs" role="tablist" aria-label="使用说明页签">{[['guide','使用说明'],['authoring','项目编写'],['permissions','权限说明'],['history','处理记录']].map(([id,label])=><button role="tab" aria-selected={tab===id} key={id} onClick={()=>{leave();setTab(id);}}>{label}{id==='history'?' · '+history.length:''}</button>)}</div>
   {error&&<p className="ar-error" role="alert">{error}</p>}{notice&&<p className="ug-notice" role="status">{notice}</p>}
   {tab==='guide'&&<><div className="ug-toolbar"><span>内置说明 · {guideVersion}</span><button onClick={()=>void navigator.clipboard.writeText(text).then(()=>setNotice('说明已复制')).catch(()=>setError('复制失败，请下载说明'))}><Copy size={15}/>复制说明</button><button onClick={download}><Download size={15}/>下载说明</button></div><article className="ug-reader">{storyBlocks(text).map(b=>b.kind==='heading'?createElement('h'+b.level,{key:b.line},b.text):b.kind==='code'?<pre key={b.line}>{b.text}</pre>:<p key={b.line}>{b.text}</p>)}</article></>}

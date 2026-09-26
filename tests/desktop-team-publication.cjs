@@ -142,7 +142,7 @@ const waitUntil = async (check, message) => {
     await choose(a.page, '空白本地'); await openPublish(a.page);
     await modal(a.page).getByLabel('协作项目名称', { exact: true }).fill('空白协作'); await submit(a.page);
     await a.page.getByRole('heading', { name: '暂无故事文档', exact: true }).waitFor();
-    await choose(a.page, '空白本地'); await a.page.getByRole('button', { name: '引擎设置', exact: true }).click();
+    await choose(a.page, '空白本地'); await a.page.getByRole('button', { name: '工程连接', exact: true }).click();
     await a.page.getByRole('button', { name: /^测试面板/ }).click(); await a.page.getByRole('button', { name: '加载新增成员', exact: true }).click();
     await a.page.locator('.test-workspace-banner').waitFor();
     assert.equal(await (await menu(a.page)).getByRole('menuitem', { name: '发布为协作项目', exact: true }).count(), 0);

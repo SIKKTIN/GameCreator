@@ -40,7 +40,9 @@ function createEngineFeedback({storage,context,manifest,read,writeMeta,checked,l
     const source=await sources(ctx,input.collaboration),{stableFeedbackJson,collaborationReadme}=await model();
     const {projectContentModules}=await import('../shared/project-changes.mjs'),content={};for(const module of Object.keys(projectContentModules)){const state=readContent(storage,ctx.projectId,module);content[module]=structuredClone(state.value);if(module==='project-schedule'){delete content[module].personnel;delete content[module].feedbackHistory;}if(module==='development-tools')delete content[module].feedbackHistory;} const standardsStore=readContent(storage,ctx.projectId,'project-standards').value,{projectStandardsMarkdown}=await import('../shared/project-standards.mjs'),standards={revision:1,store:standardsStore,markdown:projectStandardsMarkdown(standardsStore)};const snapshot={schema:1,projectId:ctx.projectId,engine:ctx.engine,...source,content,standards};
     const bytes=Buffer.from(stableFeedbackJson(snapshot)),snapshotId=hash(bytes);
-    const project={schema:1,projectId:ctx.projectId,projectName:input.document.projectName,engine:ctx.engine,snapshotId,documents:settings.docsDirectory,assets:settings.assetsDirectory};
+    const savedProject=JSON.parse(storage.getItem('gamecreator.projects.v1')||'null')?.projects?.find(p=>p.id===ctx.projectId);
+    const project={schema:1,projectId:ctx.projectId,projectName:input.document.projectName,engine:ctx.engine,snapshotId,documents:settings.docsDirectory,assets:settings.assetsDirectory,authoring:{projectDirectory:savedProject?.folderPath||'',guide:'GAMECREATOR_GUIDE.md',entry:'ai/README.md',changes:'ai/changes',receipts:'ai/receipts'}};
+    const workflow=(await import('../shared/engine-document-layout.mjs')).projectWorkflowMarkdown({projectId:ctx.projectId,projectName:project.projectName,projectDirectory:project.authoring.projectDirectory,engineDirectory:ctx.root,docsDirectory:settings.docsDirectory});
     const json=v=>JSON.stringify(v,null,2)+'\n';
     const {inboxMarkdown,taskInbox}=await import('../shared/task-inbox.mjs');
     const files=[
@@ -50,8 +52,8 @@ function createEngineFeedback({storage,context,manifest,read,writeMeta,checked,l
       ['context/tasks.json','排期开发上下文',json({schema:1,projectId:ctx.projectId,snapshotId,...source.schedule})],
       ['context/tools.json','工具开发上下文',json({schema:1,projectId:ctx.projectId,snapshotId,...source.tools})],
       ['context/snapshots/'+snapshotId+'.json','开发反馈比较基准',bytes],
-      ['README.md','开发协作说明',collaborationReadme(project)+'\n\n项目从零编写说明见 [GameCreator 使用说明](GAMECREATOR_GUIDE.md)。结构性设计批次在 GameCreator 项目文件夹的 ai/changes 提交。\n'],
-      ['GAMECREATOR_GUIDE.md','GameCreator 使用说明',(await import('../shared/gamecreator-guide.mjs')).gamecreatorGuide()],
+      ['README.md','开发协作说明',workflow+'\n\n'+collaborationReadme(project)+'\n\n完整项目编写协议保存在绑定的 GameCreator 项目根目录 GAMECREATOR_GUIDE.md。\n'],
+      ['GAMECREATOR_GUIDE.md','GameCreator 使用说明入口',workflow],
       ['project-standards.md','项目规范（更新前必读）',standards.markdown],
       ['project-changes.md','需求与项目修改说明',(await import('../shared/project-feedback-guide.mjs')).projectFeedbackGuide(project)],
       ['feedback/README.md','反馈提交目录','# 开发反馈\n\n将 UTF-8 JSON 反馈放在本目录。每个文件一项任务、工具或项目模块，每次使用新的 UUID。格式见 [协作说明](../README.md)。\n'],
