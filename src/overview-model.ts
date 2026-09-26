@@ -1,4 +1,4 @@
-import { validateProjectSchedule } from './project-schedule.ts';
+import { isScheduleDate, validateProjectSchedule } from './project-schedule.ts';
 import { initialMilestones, initialProject } from './project-defaults.ts';
 import type { SavedProject } from './project-catalog.ts';
 
@@ -7,6 +7,13 @@ export type MilestoneFields = { title: string; owner: string; due: string; statu
 export type TeamRecord<F> = { id: string; fields: F; revision: number; updatedAt: string | null; updatedBy: string | null; initialized?: boolean };
 export type OverviewPublication = { info: OverviewInfo; milestones: MilestoneFields[] };
 export type LocalOverviewPreview = OverviewPublication & { signature: string };
+export function compareMilestoneDatesDescending(left: string, right: string): number {
+  const dateKey = (value: string) => {
+    const date = value.trim().replace(/\//g, '-');
+    return isScheduleDate(date) ? date : '';
+  };
+  return dateKey(right).localeCompare(dateKey(left));
+}
 export const sameRecordFields = (a: unknown, b: unknown) => {
   if (!a || !b || typeof a !== 'object' || typeof b !== 'object') return a === b;
   const left = a as Record<string, unknown>, right = b as Record<string, unknown>;
