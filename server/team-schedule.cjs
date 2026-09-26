@@ -14,7 +14,7 @@ function createScheduleStore(db,{fail,overview,gameplay}) {
       return {...emptyScheduleSnapshot(),store:{schema:1,tasks:[],milestones:old.map(r=>legacyScheduleMilestone(r.id,r.fields))},versions:Object.fromEntries(old.map(r=>[r.id,r.revision])),stamps:Object.fromEntries(old.map(r=>[r.id,{updatedAt:r.updatedAt,updatedBy:r.updatedBy}]))};
     }
     const rows=db.prepare('SELECT r.*,u.username FROM schedule_records r JOIN users u ON u.id=r.updated_by WHERE project_id=? ORDER BY r.id').all(project);
-    return {initialized:true,store:{schema:1,tasks:rows.filter(r=>r.kind==='task'&&r.fields!==null).map(r=>JSON.parse(r.fields)),milestones:rows.filter(r=>r.kind==='milestone'&&r.fields!==null).map(r=>JSON.parse(r.fields))},references:JSON.parse(meta.refs),versions:Object.fromEntries(rows.map(r=>[r.id,r.revision])),stamps:Object.fromEntries(rows.map(r=>[r.id,{updatedAt:r.updated_at,updatedBy:r.username}]))};
+    return {initialized:true,store:{schema:1,tasks:rows.filter(r=>r.kind==='task'&&r.fields!==null).map(r=>JSON.parse(r.fields)),milestones:rows.filter(r=>r.kind==='milestone'&&r.fields!==null).map(r=>JSON.parse(r.fields)),...(rows.some(r=>r.kind==='release')?{releases:rows.filter(r=>r.kind==='release'&&r.fields!==null).map(r=>JSON.parse(r.fields))}:{})},references:JSON.parse(meta.refs),versions:Object.fromEntries(rows.map(r=>[r.id,r.revision])),stamps:Object.fromEntries(rows.map(r=>[r.id,{updatedAt:r.updated_at,updatedBy:r.username}]))};
   };
   const normalize=input=>{try{return normalizeSchedulePublication(input);}catch(e){fail(400,e.message);}};
   const write=(project,kind,id,fields,revision,user,stamp)=>{
@@ -38,20 +38,24 @@ function createScheduleStore(db,{fail,overview,gameplay}) {
     const current=read(project);
     if(current.initialized||current.store.milestones.length)fail(409,'团队已有里程碑或排期，请直接在团队中维护，不能用本地内容覆盖');
     const value=normalize(input);
+    if(scheduleStructureErrors(value.store).some(e=>e.includes(':release:')))fail(400,'里程碑引用的版本不存在');
     db.prepare('INSERT INTO schedule_projects VALUES(?,?)').run(project,JSON.stringify(value.references));
+    for(const r of value.store.releases??[])write(project,'release',r.id,r,1,user);
     for(const m of value.store.milestones)write(project,'milestone',m.id,m,1,user);
     for(const t of value.store.tasks)write(project,'task',t.id,t,1,user);
     overview.activity(project,user,'从本地项目初始化了项目排期');return read(project);
   };
   const update=(project,input,user)=>{
     const current=read(project),changes=input.changes;
-    if(typeof input.requestId!=='string'||!input.requestId.trim()||input.requestId.length>200||!Array.isArray(changes)||changes.length>2200||changes.some(c=>!c||!['task','milestone'].includes(c.kind)||typeof c.id!=='string'||!c.id.trim()||c.id.length>200||!Number.isSafeInteger(c.revision)||c.revision<0||(c.fields!==null&&(!c.fields||c.fields.id!==c.id)))||new Set(changes.map(c=>c.id)).size!==changes.length)fail(400,'排期提交格式无效');
+    if(typeof input.requestId!=='string'||!input.requestId.trim()||input.requestId.length>200||!Array.isArray(changes)||changes.length>2400||changes.some(c=>!c||!['task','milestone','release'].includes(c.kind)||typeof c.id!=='string'||!c.id.trim()||c.id.length>200||!Number.isSafeInteger(c.revision)||c.revision<0||(c.fields!==null&&(!c.fields||c.fields.id!==c.id)))||new Set(changes.map(c=>c.id)).size!==changes.length)fail(400,'排期提交格式无效');
     const signature=createHash('sha256').update(JSON.stringify(changes)).digest('hex'),prior=db.prepare('SELECT signature FROM schedule_operations WHERE project_id=? AND user_id=? AND request_id=?').get(project,user,input.requestId);
     if(prior){if(prior.signature!==signature)fail(409,'提交请求的内容已变化，请重新提交');return current;}
     const conflict=message=>fail(409,message??'任务或里程碑已有新的团队版本，请对照后提交',{currentRecord:current});
     if(changes.some(c=>c.revision!==(current.versions[c.id]??0)))conflict();
     for(const c of changes){const old=db.prepare('SELECT kind FROM schedule_records WHERE project_id=? AND id=?').get(project,c.id);if(old&&old.kind!==c.kind||current.store.milestones.some(m=>m.id===c.id)&&c.kind!=='milestone')fail(400,'不能更改排期记录类型');}
-    let candidate;try{candidate=applyScheduleChanges(current.store,changes);}catch(e){fail(400,e.message);}
+    // Older clients do not know releaseId; omission must not silently ungroup a milestone.
+    const compatible=changes.map(c=>{const old=current.store.milestones.find(m=>m.id===c.id);return c.kind==='milestone'&&c.fields&&old?.releaseId&&!Object.hasOwn(c.fields,'releaseId')?{...c,fields:{...c.fields,releaseId:old.releaseId}}:c;});
+    let candidate;try{candidate=applyScheduleChanges(current.store,compatible);}catch(e){fail(400,e.message);}
     candidate=normalize({store:candidate,references:current.references}).store;
     for(const milestone of candidate.milestones) {
       const state=milestoneAcceptance(candidate,milestone.id);

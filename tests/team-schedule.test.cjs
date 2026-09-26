@@ -3,6 +3,7 @@ const {randomUUID}=require('node:crypto'),{DatabaseSync}=require('node:sqlite');
 const {createCollaborationServer}=require('../server/collaboration.cjs');
 const {createProductionTask,createProductionMilestone,removeProductionTask,removeProductionMilestone}=require('../src/project-schedule.ts');
 const {scheduleChanges,reconcileSchedule,validateScheduleDraft}=require('../src/team-schedule-model.ts');
+const {removeScheduleRelease}=require('../src/schedule-releases.ts');
 const sample=()=>({schema:1,tasks:[{...createProductionTask('任务甲'),id:'task-a',start:'2026-10-01',end:'2026-10-02',milestoneId:'mile'},{...createProductionTask('任务乙'),id:'task-b',start:'2026-10-03',end:'2026-10-05',milestoneId:'mile',dependencyIds:['task-a']}],milestones:[{...createProductionMilestone('第一阶段'),id:'mile',due:'2026-10-10',acceptance:'形成可玩的闭环'}]});
 const body=(base,store)=>({requestId:randomUUID(),changes:scheduleChanges(base,store)});
 async function fixture(run){
@@ -71,13 +72,14 @@ test('legacy milestones migrate with stable identity and rich fields; overview s
 }));
 test('publication is complete and atomic; old publication supplement protects existing milestones; project deletion includes schedules',()=>fixture(async({req,admin,dbop})=>{
   const publication={sourceInstanceId:randomUUID(),sourceProjectId:'local',name:'完整排期',members:[{userId:'admin',role:'admin'}],stories:[],overview:{info:{name:'完整排期',genre:'',platform:'',version:'',status:'',description:''},milestones:[]},schedule:{store:sample(),references:[]}};
+  publication.schedule.store.releases=[{id:'publish-release',title:'v0.3.0',description:'发布公共说明'}];publication.schedule.store.milestones[0].releaseId='publish-release';
   const bad=structuredClone(publication);bad.schedule.store.tasks[0].end='2026-02-31';assert.equal((await req('/publications',admin,'POST',bad)).status,400);assert.equal((await req('/publications/lookup',admin,'POST',bad)).data.publication,null);
   const first=await req('/publications',admin,'POST',publication);assert.equal(first.status,201,JSON.stringify(first.data));const id=first.data.project.id;
-  const read=(await req('/projects/'+id+'/schedule',admin)).data;assert.equal(read.store.milestones.length,1);assert.equal((await req('/projects/'+id+'/overview',admin)).data.milestones.length,1);
+  const read=(await req('/projects/'+id+'/schedule',admin)).data;assert.equal(read.store.milestones.length,1);assert.deepEqual(read.store.releases,publication.schedule.store.releases);assert.equal(read.store.milestones[0].releaseId,'publish-release');assert.equal((await req('/projects/'+id+'/overview',admin)).data.milestones.length,1);
   assert.equal((await req('/publications',admin,'POST',publication)).data.project.id,id);assert.equal((await req('/publications/schedule',admin,'POST',publication)).status,409);
   const legacy={...publication,sourceProjectId:'old'};delete legacy.schedule;const old=(await req('/publications',admin,'POST',legacy)).data;
   assert.equal((await req('/publications/schedule',admin,'POST',{...publication,sourceProjectId:'old'})).status,200);assert.equal((await req('/projects/'+old.project.id+'/schedule',admin)).data.store.tasks.length,2);
-  const before=(await req('/admin/projects/'+id,admin)).data;assert.equal(before.counts.scheduleTasks,2);assert.equal(before.counts.scheduleHistory,3);
+  const before=(await req('/admin/projects/'+id,admin)).data;assert.equal(before.counts.scheduleTasks,2);assert.equal(before.counts.scheduleHistory,4);
   const changed=structuredClone(read.store);changed.tasks[0].description='删除确认期间更改';assert.equal((await req('/projects/'+id+'/schedule',admin,'PUT',body(read,changed))).status,200);
   assert.equal((await req('/admin/projects/'+id,admin,'DELETE',{confirmName:before.project.name,version:before.version})).status,409);
   const fresh=(await req('/admin/projects/'+id,admin)).data;assert.equal((await req('/admin/projects/'+id,admin,'DELETE',{confirmName:fresh.project.name,version:fresh.version})).status,200);
@@ -95,4 +97,31 @@ test('failed history write rolls back all records, mirrored milestones and activ
   const base=await seed(),before=(await req('/projects/team-demo/overview',admin)).data,next=structuredClone(base.store);next.tasks[0].owner='rollback';next.milestones[0].title='不能部分写入';
   dbop(db=>db.exec("CREATE TRIGGER reject_schedule_history BEFORE INSERT ON schedule_history WHEN NEW.revision > 1 BEGIN SELECT RAISE(ABORT,'QA history failure'); END"));
   assert.equal((await save(admin,body(base,next))).status,500);assert.deepEqual(await read(),base);assert.deepEqual((await req('/projects/team-demo/overview',admin)).data,before);
+}));
+
+
+test('release metadata shares schedule permissions, independent edits merge, and legacy clients retain membership',()=>fixture(async({seed,grant,read,save,admin,alice,bob,viewer,restart,login,req})=>{
+  const base=await seed(),next={...base.store,releases:[{id:'release',title:'v0.3.0',description:'共享版本背景'}],milestones:base.store.milestones.map(m=>({...m,releaseId:'release'}))};
+  assert.equal((await save(viewer,body(base,next))).status,403);assert.equal((await save(admin,body(base,next))).status,200);await grant();
+  const shared=await read(),a=structuredClone(shared.store),b=structuredClone(shared.store);a.releases[0].description='Alice 版本目标';b.tasks[0].result='Bob 任务结果';
+  assert.equal((await save(alice,body(shared,a))).status,200);assert.equal((await save(bob,body(shared,b))).status,200);
+  b.releases[0].description='过期改动';assert.equal((await save(bob,body(shared,b))).status,409);
+  const latest=await read(),legacy={...latest.store.milestones[0],owner:'旧客户端编辑'};delete legacy.releaseId;
+  assert.equal((await save(admin,{requestId:randomUUID(),changes:[{id:legacy.id,kind:'milestone',revision:latest.versions[legacy.id],fields:legacy}]})).status,200);
+  assert.equal((await read()).store.milestones[0].releaseId,'release');assert.equal((await read()).store.releases[0].description,'Alice 版本目标');
+  assert.ok((await req('/projects/team-demo/schedule/history',admin)).data.history.some(h=>h.kind==='release'));
+  await restart();const restored=await read(await login());assert.equal(restored.store.releases[0].description,'Alice 版本目标');assert.equal(restored.store.tasks.find(t=>t.id==='task-a').result,'Bob 任务结果');
+}));
+
+test('release deletion rejects concurrent membership, then detaches milestones atomically without removing tasks',()=>fixture(async({seed,grant,read,save,admin,alice,bob})=>{
+  const base=await seed(),next={...base.store,releases:[{id:'release',title:'v0.3.0',description:'背景'}],milestones:base.store.milestones.map(m=>({...m,releaseId:'release'}))};
+  await save(admin,body(base,next));await grant();const shared=await read();
+  const b=structuredClone(shared.store);b.milestones.push({...createProductionMilestone('新增阶段'),id:'new-mile',releaseId:'release'});
+  assert.equal((await save(bob,body(shared,b))).status,200);
+  assert.equal((await save(alice,body(shared,removeScheduleRelease(shared.store,'release')))).status,409);
+  const current=await read(),removed=removeScheduleRelease(current.store,'release');
+  assert.equal((await save(alice,body(current,removed))).status,200);const after=await read();
+  assert.deepEqual(after.store.releases,[]);assert.equal(after.store.milestones.length,2);assert.ok(after.store.milestones.every(m=>m.releaseId===''));assert.deepEqual(after.store.tasks,current.store.tasks);
+  const stale={requestId:randomUUID(),changes:[{id:'release',kind:'release',revision:shared.versions.release,fields:next.releases[0]}]};assert.equal((await save(bob,stale)).status,409);
+  assert.deepEqual(reconcileSchedule({base:shared,store:removeScheduleRelease(shared.store,'release')},current).conflicts.length>0,true);
 }));

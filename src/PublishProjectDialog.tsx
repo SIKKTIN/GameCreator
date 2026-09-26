@@ -69,6 +69,7 @@ export function PublishProjectDialog({ session, project, onClose, onPublished }:
       const members = accounts.filter(account => roles[account.userId] && roles[account.userId] !== 'none')
         .map(account => ({ userId: account.userId, role: roles[account.userId] as TeamRole }));
       const body = publicationBody(preview, source, name, members);
+      if((session.apiVersion??0)<12&&(preview.schedule.store.releases?.length??0)>0)throw new Error('请先升级协作服务器并重新连接，再发布带有版本分组的排期。');
       const result = await teamRequest<TeamPublication>(session.url, '/publications', session.token, 'POST', {...body,...(deletedPublication ? {replacesProjectId:deletedPublication.projectId} : {})});
       if (alive.current) onPublished(result.project);
     } catch (reason) {

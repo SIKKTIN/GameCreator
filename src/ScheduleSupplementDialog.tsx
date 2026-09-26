@@ -10,6 +10,7 @@ import { workspaceStorage } from './workspace-storage';
 export function SchedulePublicationPreview({schedule}:{schedule:SchedulePublication}) {
   return <details className="team-publication-preview"><summary>查看项目排期（{schedule.store.tasks.length} 个任务、{schedule.store.milestones.length} 个里程碑）</summary><div>
     <p>保留任务和里程碑标识、计划与实际日期、负责人、前置依赖和验收记录。未接入模块的关联仅保留来源说明。</p>
+    {schedule.store.releases?.map(r=><details key={r.id}><summary>版本：{r.title}</summary><p>{r.description}</p></details>)}
     {schedule.store.milestones.map(m=><details key={m.id}><summary>{m.title} · {m.owner||'未分配'} · {m.due||'未定'}</summary><p>{m.description}</p><p>验收：{m.acceptance||'待填写'} · {m.review}</p></details>)}
     {schedule.store.tasks.map(t=><details key={t.id}><summary>{t.title} · {t.owner||'未分配'} · {t.status}</summary><p>{t.start||'未定'} → {t.end||'未定'}</p><p>{t.description}</p><p>验收：{t.acceptance||'待填写'} · {t.result}</p><p>前置任务：{t.dependencyIds.map(id=>schedule.store.tasks.find(d=>d.id===id)?.title||id).join('、')||'无'}</p></details>)}
   </div></details>;
@@ -29,6 +30,7 @@ export function ScheduleSupplementDialog({session,project,source,target,onClose,
     if(operating.current||!snapshot.preview)return;
     operating.current=true;setBusy(true);setError('');
     try{
+      if((session.apiVersion??0)<12&&(snapshot.preview.schedule.store.releases?.length??0)>0)throw new Error('请先升级协作服务器并重新连接，再发布带有版本分组的排期。');
       const {publication}=await teamRequest<{publication:TeamPublication|null}>(session.url,'/publications/lookup',session.token,'POST',source);
       if(!alive.current)return;
       if(!publication||publication.project.id!==target.id)throw new Error('发布记录已变化，请重新打开发布窗口。');

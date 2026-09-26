@@ -741,6 +741,14 @@ function validateProjectSchedule(value) {
 		return true;
 	};
 	if (!record(value) || value.schema !== 1 || !Array.isArray(value.tasks) || !Array.isArray(value.milestones)) return fail();
+	if (value.releases !== void 0) {
+		if (!Array.isArray(value.releases) || value.releases.length > 200) return fail();
+		const names = /* @__PURE__ */ new Set();
+		for (const r of value.releases) {
+			if (!record(r) || !bounded(r.id) || !id(r.id) || !bounded(r.title, 160) || !r.title.trim() || names.has(r.title.trim().toLowerCase()) || !bounded(r.description, 1e4)) return fail();
+			names.add(r.title.trim().toLowerCase());
+		}
+	}
 	for (const m of value.milestones) if (!record(m) || !id(m.id) || !fields(m, [
 		"title",
 		"owner",
@@ -748,7 +756,7 @@ function validateProjectSchedule(value) {
 		"description",
 		"acceptance",
 		"review"
-	]) || !date(m.due) || ![
+	]) || !date(m.due) || m.releaseId !== void 0 && !bounded(m.releaseId) || ![
 		"计划中",
 		"进行中",
 		"已验收"
