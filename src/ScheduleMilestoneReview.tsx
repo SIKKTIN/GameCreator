@@ -1,10 +1,11 @@
 import {useState} from 'react';
 import {CheckCircle2,Flag} from 'lucide-react';
 import {milestoneAcceptance} from './schedule-acceptance';
+import {compareMilestoneDatesDescending} from './overview-model';
 import type {ProjectScheduleStore,ProductionMilestone} from './project-schedule';
 
 export function MilestoneCards({store,disabled,onOpen,onReview,onReopen}:{store:ProjectScheduleStore;disabled:boolean;onOpen:(id:string)=>void;onReview:(id:string)=>void;onReopen:(id:string)=>void}) {
-  return <div className="sch-milestones">{store.milestones.map(m=>{
+  return <div className="sch-milestones">{[...store.milestones].sort((a,b)=>compareMilestoneDatesDescending(a.due,b.due)).map(m=>{
     const state=milestoneAcceptance(store,m.id),accepted=m.status==='已验收',label=accepted?(state.ready?'已验收':'需重新验收'):state.ready?'待确认验收':m.status;
     return <article key={m.id} className={'sch-milestone-card'+(state.ready&&!accepted?' ready':'')} aria-label={'里程碑：'+m.title}>
       <div><Flag size={20}/><span>{label}</span></div>
