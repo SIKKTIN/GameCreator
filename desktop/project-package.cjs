@@ -466,7 +466,7 @@ function validateProjectScheduleArchive(value) {
                 return fail();
             if (m.developer !== undefined) {
                 const d = m.developer;
-                if (!record(d) || !ids(d.positionIds, 100) || !d.positionIds.length || !ids(d.taskIds) || (d.projectModules !== undefined && (!ids(d.projectModules, 30) || d.projectModules.some((k) => !['project', 'project-schedule', 'gameplay', 'gameplay-core', 'prototype-design', 'task-flows', 'numerical-analysis', 'functional-systems', 'development-tools', 'art-assets', 'stories', 'story-orchestration', 'map-design', 'program-framework', 'definitions', 'enum-versions', 'project-standards'].includes(k)))) || !['assigned', 'positions', 'project'].includes(d.scope) || !(d.expiresAt === '' || stamp(d.expiresAt)))
+                if (!record(d) || (d.artPermissions !== undefined && (!ids(d.artPermissions, 5) || d.artPermissions.some(k => !['style', 'details', 'technical', 'propose', 'dispatch'].includes(k)))) || !ids(d.positionIds, 100) || !d.positionIds.length || !ids(d.taskIds) || (d.projectModules !== undefined && (!ids(d.projectModules, 30) || d.projectModules.some((k) => !['project', 'project-schedule', 'gameplay', 'gameplay-core', 'prototype-design', 'task-flows', 'numerical-analysis', 'functional-systems', 'development-tools', 'art-assets', 'stories', 'story-orchestration', 'map-design', 'program-framework', 'definitions', 'enum-versions', 'project-standards'].includes(k)))) || !['assigned', 'positions', 'project'].includes(d.scope) || !(d.expiresAt === '' || stamp(d.expiresAt)))
                     return fail();
             }
             seen.add(m.id);
@@ -509,6 +509,8 @@ function validateProjectScheduleArchive(value) {
             !['start', 'end', 'actualStart', 'actualEnd'].every(k => date(t[k])) || (t.start && t.end && t.end < t.start) || (t.actualStart && t.actualEnd && t.actualEnd < t.actualStart) ||
             !Array.isArray(t.dependencyIds) || t.dependencyIds.some(v => typeof v !== 'string' || !v.trim()) || new Set(t.dependencyIds).size !== t.dependencyIds.length || !Array.isArray(t.references))
             return fail();
+        if (t.dispatchHistory !== undefined && (!Array.isArray(t.dispatchHistory) || t.dispatchHistory.length > 1000 || t.dispatchHistory.some(r => !record(r) || !bounded(r.id) || !bounded(r.fromId) || !bounded(r.toId) || !stamp(r.at)) || new Set(t.dispatchHistory.map(r => r.id)).size !== t.dispatchHistory.length))
+            return fail();
         if (t.positionIds !== undefined && !ids(t.positionIds, 100))
             return fail();
         if (t.assignment !== undefined) {
@@ -516,7 +518,7 @@ function validateProjectScheduleArchive(value) {
             if (!record(a) || !bounded(a.primaryId) || !bounded(a.reviewerId) || !ids(a.collaboratorIds, 200) || a.collaboratorIds.includes(a.primaryId))
                 return fail();
         }
-        if (t.proposals !== undefined && (!Array.isArray(t.proposals) || t.proposals.length > 1000 || t.proposals.some(p => !record(p) || !bounded(p.id) || !bounded(p.memberId) || !bounded(p.text, 30000) || !stamp(p.at)) || new Set(t.proposals.map(p => p.id)).size !== t.proposals.length))
+        if (t.proposals !== undefined && (!Array.isArray(t.proposals) || t.proposals.length > 1000 || t.proposals.some(p => !record(p) || !bounded(p.id) || !bounded(p.memberId) || !bounded(p.text, 30000) || !stamp(p.at) || (p.resolution !== undefined && (!['accepted', 'dismissed'].includes(p.resolution) || !stamp(p.resolvedAt)))) || new Set(t.proposals.map(p => p.id)).size !== t.proposals.length))
             return fail();
         const refs = new Set();
         for (const r of t.references) {

@@ -49,7 +49,7 @@ function mutate(root,op) {
  if(Array.isArray(at.parent)){const expected=parts(op.path).at(-1).slice(1);if(!object(op.value)||String(op.value.id??op.value.key)!==expected)throw new Error('新增或替换条目的 ID / key 必须与路径一致');}
  at.parent[at.key]=structuredClone(op.value);
 }
-const lockedKeys=new Set(['personnel','authoringHistory','feedbackHistory','proposals','assignment','positionIds','specChanges','snapshots','releases','reviews','activeId','candidateId','dataReleases','dataSync','versions','styleReview','adoptedVersionId','images','files','storagePath','revision','scheduleProgress','scheduleAcceptance']);
+const lockedKeys=new Set(['dispatchHistory','personnel','authoringHistory','feedbackHistory','proposals','assignment','positionIds','specChanges','snapshots','releases','reviews','activeId','candidateId','dataReleases','dataSync','versions','styleReview','adoptedVersionId','images','files','storagePath','revision','scheduleProgress','scheduleAcceptance']);
 const empty = v => v===undefined||v===null||v===''||v===false||v===0||Array.isArray(v)&&!v.length||object(v)&&!Object.keys(v).length;
 function locked(module,path,key){
  if(lockedKeys.has(key))return true;
