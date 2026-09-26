@@ -490,8 +490,18 @@ function validateProjectScheduleArchive(value) {
         return false; unique.add(v); return true; };
     if (!record(value) || value.schema !== 1 || !Array.isArray(value.tasks) || !Array.isArray(value.milestones))
         return fail();
+    if (value.releases !== undefined) {
+        if (!Array.isArray(value.releases) || value.releases.length > 200)
+            return fail();
+        const names = new Set();
+        for (const r of value.releases) {
+            if (!record(r) || !bounded(r.id) || !id(r.id) || !bounded(r.title, 160) || !r.title.trim() || names.has(r.title.trim().toLowerCase()) || !bounded(r.description, 10000))
+                return fail();
+            names.add(r.title.trim().toLowerCase());
+        }
+    }
     for (const m of value.milestones)
-        if (!record(m) || !id(m.id) || !fields(m, ['title', 'owner', 'due', 'description', 'acceptance', 'review']) || !date(m.due) || !['计划中', '进行中', '已验收'].includes(m.status))
+        if (!record(m) || !id(m.id) || !fields(m, ['title', 'owner', 'due', 'description', 'acceptance', 'review']) || !date(m.due) || (m.releaseId !== undefined && !bounded(m.releaseId)) || !['计划中', '进行中', '已验收'].includes(m.status))
             return fail();
     for (const t of value.tasks) {
         if (!record(t) || !id(t.id) || !fields(t, ['title', 'description', 'owner', 'start', 'end', 'actualStart', 'actualEnd', 'milestoneId', 'acceptance', 'result']) ||

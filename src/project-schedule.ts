@@ -19,8 +19,9 @@ export type ProductionTask = {
   start: string; end: string; actualStart: string; actualEnd: string; milestoneId: string;
   acceptance: string; result: string; dependencyIds: string[]; references: ScheduleReference[];
 };
-export type ProductionMilestone = { id: string; title: string; owner: string; due: string; description: string; acceptance: string; review: string; status: '计划中' | '进行中' | '已验收' };
-export type ProjectScheduleStore = { authoringHistory?:import('../shared/project-authoring.mjs').AuthoringReceipt[]; personnel?:AiPersonnel; schema: 1; tasks: ProductionTask[]; milestones: ProductionMilestone[]; feedbackHistory?: FeedbackReceipt[] };
+export type ProductionRelease = { id: string; title: string; description: string };
+export type ProductionMilestone = { id: string; title: string; owner: string; due: string; description: string; acceptance: string; review: string; releaseId?: string; status: '计划中' | '进行中' | '已验收' };
+export type ProjectScheduleStore = { releases?: ProductionRelease[]; authoringHistory?:import('../shared/project-authoring.mjs').AuthoringReceipt[]; personnel?:AiPersonnel; schema: 1; tasks: ProductionTask[]; milestones: ProductionMilestone[]; feedbackHistory?: FeedbackReceipt[] };
 export type ScheduleSources = Record<ScheduleReference['kind'], { id: string; name: string; status?: string; unavailable?: boolean }[]>;
 export type ScheduleIssue = { taskId?: string; milestoneId?: string; kind: 'blocked' | 'conflict' | 'overdue' | 'reference' | 'review'; message: string };
 export const emptyProjectSchedule = (): ProjectScheduleStore => ({ schema: 1, tasks: [], milestones: [] });
@@ -69,7 +70,15 @@ export function validateProjectSchedule(value: unknown): ProjectScheduleStore {
   const unique = new Set<string>();
   const id = (v: unknown) => { if (typeof v !== 'string' || !v.trim() || unique.has(v)) return false; unique.add(v); return true; };
   if (!record(value) || value.schema !== 1 || !Array.isArray(value.tasks) || !Array.isArray(value.milestones)) return fail();
-  for (const m of value.milestones) if (!record(m) || !id(m.id) || !fields(m, ['title', 'owner', 'due', 'description', 'acceptance', 'review']) || !date(m.due) || !['计划中', '进行中', '已验收'].includes(m.status as string)) return fail();
+  if (value.releases !== undefined) {
+    if (!Array.isArray(value.releases) || value.releases.length > 200) return fail();
+    const names = new Set<string>();
+    for (const r of value.releases) {
+      if (!record(r) || !bounded(r.id) || !id(r.id) || !bounded(r.title, 160) || !r.title.trim() || names.has(r.title.trim().toLowerCase()) || !bounded(r.description, 10000)) return fail();
+      names.add(r.title.trim().toLowerCase());
+    }
+  }
+  for (const m of value.milestones) if (!record(m) || !id(m.id) || !fields(m, ['title', 'owner', 'due', 'description', 'acceptance', 'review']) || !date(m.due) || (m.releaseId !== undefined && !bounded(m.releaseId)) || !['计划中', '进行中', '已验收'].includes(m.status as string)) return fail();
   for (const t of value.tasks) {
     if (!record(t) || !id(t.id) || !fields(t, ['title', 'description', 'owner', 'start', 'end', 'actualStart', 'actualEnd', 'milestoneId', 'acceptance', 'result']) ||
       !['设计', '程序', '美术', '关卡', '测试', '其他'].includes(t.kind as string) || !['待开始', '进行中', '待验收', '已完成', '受阻'].includes(t.status as string) || !['低', '普通', '高', '紧急'].includes(t.priority as string) ||
@@ -155,6 +164,7 @@ export function projectScheduleIssues(store: ProjectScheduleStore, today = sched
     const linked = store.tasks.filter(t => t.milestoneId === m.id);
     const add = (kind: ScheduleIssue['kind'], message: string) => issues.push({ milestoneId: m.id, kind, message });
     if (!m.title.trim()) add('review', '里程碑尚未命名');
+    if (m.releaseId && !store.releases?.some(r => r.id === m.releaseId)) add('reference', '所属版本已失效，请重新选择');
     if (m.due && m.due < today && m.status !== '已验收') add('overdue', '里程碑已超过目标日期');
     if (m.due && linked.some(t => t.end && t.end > m.due)) add('conflict', '包含晚于目标日期完成的任务');
     if (!m.acceptance.trim()) add('review', '请填写明确的验收条件');
@@ -164,7 +174,8 @@ export function projectScheduleIssues(store: ProjectScheduleStore, today = sched
 }
 export function projectScheduleMarkdown(store: ProjectScheduleStore, sources?: ScheduleSources): string {
   const lines = ['## 项目排期', '', '> 制作计划与人工验收记录；设计、程序、美术和试玩状态分别维护。前置任务按完成后的下一日开始计算，拖动不自动改动其他任务。', ''];
-  for (const m of store.milestones) lines.push('### 里程碑：' + m.title, '- 目标：' + (m.due || '未排期') + '；负责人：' + (m.owner || '未分配') + '；' + m.status, m.description, '- 验收条件：' + (m.acceptance || '待填写'), '- 验收记录：' + (m.review || '未填写'), '');
+  for (const r of store.releases ?? []) lines.push('### 版本：' + r.title, r.description, '');
+  for (const m of store.milestones) lines.push('### 里程碑：' + m.title, '- 所属版本：' + (store.releases?.find(r=>r.id===m.releaseId)?.title || '未分组'), '- 目标：' + (m.due || '未排期') + '；负责人：' + (m.owner || '未分配') + '；' + m.status, m.description, '- 验收条件：' + (m.acceptance || '待填写'), '- 验收记录：' + (m.review || '未填写'), '');
   for (const t of store.tasks) {
     lines.push('### 制作任务：' + t.title, '- ID：' + t.id, '- ' + t.kind + '；' + t.priority + '；' + t.status + '；负责人：' + (t.owner || '未分配'), '- 里程碑：' + (store.milestones.find(m => m.id === t.milestoneId)?.title || '未分组'), '- 计划：' + (t.start || '未定') + ' → ' + (t.end || '未定'), '- 实际：' + (t.actualStart || '未记录') + ' → ' + (t.actualEnd || '未记录'), t.description, '- 验收条件：' + (t.acceptance || '待填写'), '- 验收结果：' + (t.result || '未填写'), '- 前置任务：' + (t.dependencyIds.map(id => (store.tasks.find(d => d.id === id)?.title || '已失效') + ' [' + id + ']').join('、') || '无'));
     if(t.positionIds)lines.push('- 工作岗位：'+t.positionIds.join('、'));
