@@ -21,6 +21,7 @@ test('legacy release inference is stable, lossless and read-only; explicit group
   assert.deepEqual(next.tasks,old.tasks);assert.equal(next.milestones[0].review,'原验收记录');assert.equal(next.milestones[0].status,'已验收');
   assert.deepEqual(next.milestones.map(m=>[m.id,m.title,m.due]),old.milestones.map(m=>[m.id,m.title,m.due]));
   assert.equal(milestoneDisplayTitle(next.milestones[0],next.releases[0]),'M1 | 设计定稿');
+  assert.equal(milestoneDisplayTitle(next.milestones[0],{...next.releases[0],title:'v0.4.0 · 新版本'}),'M1 | 设计定稿');
   const different=sample();different.milestones[1].description+='差异';const unmerged=withScheduleReleases(different);
   assert.equal(unmerged.releases[0].description,'');assert.equal(unmerged.milestones[0].description,different.milestones[0].description);
   assert.equal(withScheduleReleases({...old,releases:[]}).releases.length,0);

@@ -42,5 +42,5 @@ export function scheduleReleaseGroups(store: ProjectScheduleStore) {
 
 export function milestoneDisplayTitle(m: ProductionMilestone, release?: ProductionRelease | null) {
   const prefix = versionPrefix.exec(m.title);
-  return prefix && release?.title.toLowerCase() === prefix[1].toLowerCase() ? m.title.slice(prefix[0].length) : m.title;
+  return prefix && release ? m.title.slice(prefix[0].length) : m.title;
 }
