@@ -47,7 +47,22 @@ const root = path.resolve(__dirname, '..'), key = 'gamecreator.ui-preferences.v1
     await page.getByLabel('节点名称', { exact: true }).fill('保留编辑后的入口');
     await button('缩小画布').click();
     await page.evaluate(() => { window.navigationEditor = document.querySelector('.gc-canvas-surface'); });
-    const matrix = await page.locator('.gc-canvas-surface').evaluate(el => getComputedStyle(el).transform);
+    const groupButton = name => sidebar().getByRole('button', { name, exact: true });
+    assert.deepEqual(await sidebar().locator('.workspace-nav-group-toggle').allTextContents(), ['项目指南','项目管理','玩法与关卡','系统与开发','内容制作','数据与引擎']);
+    assert.equal(await sidebar().getByRole('button', {name:'游戏任务与流程',exact:true}).count(),1);
+    assert.equal(await sidebar().getByRole('button', {name:'地图设计',exact:true}).count(),0);
+    assert.equal(await sidebar().getByRole('button', {name:'故事编排',exact:true}).count(),0);
+    await groupButton('项目指南').click(); await groupButton('数据与引擎').click();
+    await groupButton('玩法与关卡').click();
+    assert.equal(await sidebar().getByRole('button',{name:'玩法核心',exact:true}).isVisible(),false);
+    assert.equal(await page.evaluate(() => window.navigationEditor === document.querySelector('.gc-canvas-surface')),true);
+    await page.keyboard.press('Control+k');await page.getByLabel('搜索当前项目',{exact:true}).filter({visible:true}).fill('保留编辑后的入口');
+    await button('打开搜索结果：保留编辑后的入口').click();
+    assert.equal(await groupButton('玩法与关卡').getAttribute('aria-expanded'),'true');
+    assert.equal(await groupButton('项目指南').getAttribute('aria-expanded'),'false');
+    // Search intentionally reopens the editor; subsequent sidebar actions must preserve this instance.
+    await page.evaluate(() => { window.navigationEditor = document.querySelector('.gc-canvas-surface'); });
+    const camera = await page.locator('.gc-canvas-surface').evaluate(el => getComputedStyle(el).transform);
     const beforeRaw = storage.getItem(coreKey), before = await page.locator('.gc-canvas-scroll').boundingBox(), nav = await sidebar().boundingBox();
     await page.screenshot({ path: path.join(qa, 'navigation-shown.png') });
     await button('隐藏主导航栏').click(); await check(false);
@@ -55,9 +70,9 @@ const root = path.resolve(__dirname, '..'), key = 'gamecreator.ui-preferences.v1
     assert.ok(after.width >= before.width + nav.width - 2, 'canvas must use released sidebar width');
     assert.equal(await page.evaluate(() => window.navigationEditor === document.querySelector('.gc-canvas-surface')), true, 'editor remounted');
     assert.equal(await page.getByLabel('节点名称', { exact: true }).inputValue(), '保留编辑后的入口');
-    assert.equal(await page.locator('.gc-canvas-surface').evaluate(el => getComputedStyle(el).transform), matrix, 'camera reset');
+    assert.equal(await page.locator('.gc-canvas-surface').evaluate(el => getComputedStyle(el).transform), camera, 'camera reset');
     assert.equal(storage.getItem(coreKey), beforeRaw, 'navigation changed project data');
-    assert.deepEqual(JSON.parse(storage.getItem(key)), { schema: 1, navigationVisible: false });
+    assert.deepEqual(JSON.parse(storage.getItem(key)), { schema: 1, navigationVisible: false, collapsedNavigationGroups:['project-guide','data-engine'] });
     await page.screenshot({ path: path.join(qa, 'navigation-hidden.png') });
     // The same button works with keyboard, and hidden links leave keyboard navigation.
     await toggle().focus(); await page.keyboard.press('Tab');
@@ -67,9 +82,12 @@ const root = path.resolve(__dirname, '..'), key = 'gamecreator.ui-preferences.v1
     await toggle().focus(); await page.keyboard.press('Space'); await check(false);
     await app.close(); app = null; await launch(); await check(false);
     await toggle().click(); await check(true);
+    assert.equal(await groupButton('项目指南').getAttribute('aria-expanded'),'false');
+    assert.equal(await groupButton('数据与引擎').getAttribute('aria-expanded'),'false');
     await page.locator('.ps-trigger').click();
     await page.getByRole('menuitemradio', { name: /^导航测试乙/ }).click();
     assert.ok((await page.locator('.ps-trigger').innerText()).includes('导航测试乙'));
+    assert.equal(await groupButton('项目指南').getAttribute('aria-expanded'),'false');
     await toggle().click(); await check(false);
     await app.close(); app = null; await launch(); await check(false);
     assert.ok((await page.locator('.ps-trigger').innerText()).includes('导航测试乙'));
@@ -84,9 +102,14 @@ const root = path.resolve(__dirname, '..'), key = 'gamecreator.ui-preferences.v1
     }, key);
     await toggle().click(); await check(true);
     await page.getByRole('status').filter({ hasText: '导航状态仅在本次会话生效' }).waitFor();
+    await groupButton('项目指南').click();
+    await page.getByRole('status').filter({hasText:'菜单展开状态暂未保存'}).waitFor();
+    assert.equal(await groupButton('项目指南').getAttribute('aria-expanded'),'true');
     await toggle().click(); await check(false);
     await app.evaluate(({ ipcMain }) => { ipcMain.removeAllListeners('workspace-storage'); ipcMain.on('workspace-storage', globalThis.navigationStorageHandler); });
     await toggle().click(); await check(true);
+    await groupButton('项目指南').click();
+    assert.equal(await page.locator('.workspace-nav-save-error').count(),0);
     assert.equal(await page.locator('.auth-preference-status').count(), 0);
     // Returning through startup must not block this UI-only preference.
     await toggle().click(); await button('返回启动页').click();
@@ -109,7 +132,7 @@ const root = path.resolve(__dirname, '..'), key = 'gamecreator.ui-preferences.v1
     await launch(); await check(true); await toggle().click(); await check(false);
     assert.deepEqual(JSON.parse(storage.getItem(key)), { schema: 1, navigationVisible: false });
     assert.deepEqual(errors, []);
-    console.log('PASS: main navigation layout, editing/camera preservation, keyboard/scrolling, restart and project persistence, failed-save recovery, local reentry and team workspace.');
+    console.log('PASS: six navigation groups, search auto-expansion, optional modules, persistent group and sidebar preferences, editing/camera preservation, keyboard/scrolling, failed-save recovery, local reentry and team workspace.');
   } catch (error) {
     if (page && !page.isClosed()) {
       console.error((await page.locator('body').innerText()).slice(0, 3500));

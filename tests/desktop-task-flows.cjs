@@ -23,9 +23,9 @@ const { createWorkspaceStorage } = require('../desktop/test-workspaces.cjs');
   async function launch() {
     app = await _electron.launch({ executablePath: require('electron'), args: [path.join(root, 'desktop/main.cjs')], env });
     page = await app.firstWindow(); page.setDefaultTimeout(12000); page.on('pageerror', e => errors.push(e.message)); page.on('dialog', d => d.accept());
-    await click('进入本地工作区'); await page.locator('.ps-trigger').waitFor(); await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1550, 1050)); await click('任务与流程');
+    await click('进入本地工作区'); await page.locator('.ps-trigger').waitFor(); await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1550, 1050)); await click('游戏任务与流程');
   }
-  async function choose(name) { await page.locator('.ps-trigger').click(); await page.getByRole('menuitemradio').filter({ hasText: name }).click(); await click('任务与流程'); }
+  async function choose(name) { await page.locator('.ps-trigger').click(); await page.getByRole('menuitemradio').filter({ hasText: name }).click(); await click('游戏任务与流程'); }
   async function create(name) { await click('新建任务'); await field('新任务名称').fill(name); await click('创建任务'); await field('任务名称').waitFor(); }
   try {
     await launch(); assert.equal(read(a), null, 'visiting an old project must not create task storage');
@@ -65,7 +65,7 @@ const { createWorkspaceStorage } = require('../desktop/test-workspaces.cjs');
       await choose(project.name); assert.deepEqual(read(project.id), example.taskFlows);
       await click('选择任务：' + example.taskFlows.tasks[0].title); await click('任务设置');
       const ref = page.locator('.tf-reference .tf-link').first(); const refName = await ref.innerText(); await ref.click(); await page.getByRole('textbox', { name: '玩法名称', exact: true }).waitFor(); assert.ok(refName.includes(await page.getByRole('textbox', { name: '玩法名称', exact: true }).inputValue()));
-      await click('任务与流程'); await click('流程与预览'); await page.locator('.local-workspace > main').evaluate(el => { el.scrollTop = 0; }); await page.screenshot({ path: path.join(qa, 'tasks-' + slug + '.png'), fullPage: true });
+      await click('游戏任务与流程'); await click('流程与预览'); await page.locator('.local-workspace > main').evaluate(el => { el.scrollTop = 0; }); await page.screenshot({ path: path.join(qa, 'tasks-' + slug + '.png'), fullPage: true });
       assert.equal(await page.locator('.tf-graph-node').count(), example.taskFlows.tasks[0].stages.length);
     }
     // Exercise farm ANY objectives and timeout branch, and cross-task prerequisites in the knight example.

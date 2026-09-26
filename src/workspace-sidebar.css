@@ -8,3 +8,4 @@
 .workspace-sidebar .workspace-nav-submenu button { width: 100%; padding-left: 10px; }
 .workspace-sidebar .workspace-nav-submenu svg { flex-shrink: 0; }
 .workspace-sidebar .workspace-nav-group button:focus-visible { outline: 2px solid #a797ee; outline-offset: -2px; }
+.workspace-sidebar .workspace-nav-save-error { color: #e7c388; font-size: 11px; line-height: 1.6; padding: 0 12px; margin: 8px 0; }
