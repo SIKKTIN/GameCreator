@@ -1,3 +1,4 @@
+import {ContentChecks} from './content-validation.ts';
 import { validateGameplayLibrary, categoryName, type GameplayCategory } from './gameplay-library.ts';
 import { emptyStage, copyStage, validateStage, stageMarkdown, type GameplayStage } from './gameplay-stage.ts';
 import { emptyStructure, copyStructure, validateStructure, structureMarkdown, type GameplayStructure } from './gameplay-structure.ts';
@@ -38,39 +39,27 @@ export function moveGameplayItem<T>(items: T[], index: number, direction: -1 | 1
   const next = [...items]; [next[index], next[target]] = [next[target], next[index]]; return next;
 }
 export function validateGameplay(value: unknown): GameplayStore {
-  const fail = (): never => { throw new Error('玩法存档格式异常，已停止写入'); };
-  const record = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
-  const strings = (v: Record<string, unknown>, keys: string[]) => keys.every(k => typeof v[k] === 'string');
-  const ids = (list: unknown[], validate: (v: Record<string, unknown>) => boolean) => {
-    const seen = new Set<string>();
-    for (const item of list) {
-      if (!record(item) || typeof item.id !== 'string' || !item.id || seen.has(item.id) || !validate(item)) fail();
-      seen.add((item as Record<string, unknown>).id as string);
-    }
-  };
-  if (!record(value) || ![1, 2, 3].includes(value.schema as number) || !Array.isArray(value.designs)) return fail();
-  validateGameplayLibrary(value);
-  ids(value.designs, d => {
-    if (!strings(d, ['title', 'summary', 'experience', 'rules', 'winCondition', 'loseCondition', 'deferred', 'createdAt', 'updatedAt']) ||
-        !gameplayStatuses.includes(d.status as GameplayStatus) || typeof d.archived !== 'boolean' ||
-        !Number.isFinite(Date.parse(d.createdAt as string)) || !Number.isFinite(Date.parse(d.updatedAt as string)) ||
-        !Array.isArray(d.loop) || !Array.isArray(d.prototype) || !Array.isArray(d.checks) || !Array.isArray(d.links)) return false;
-    ids(d.loop, s => strings(s, ['text']));
-    ids(d.prototype, s => strings(s, ['text']) && typeof s.done === 'boolean');
-    ids(d.checks, s => strings(s, ['question', 'steps', 'expected', 'actual']) && gameplayResults.includes(s.result as typeof gameplayResults[number]));
-    const links = new Set<string>();
-    for (const link of d.links) {
-      if (!record(link) || !['story', 'dataset'].includes(link.kind as string) || typeof link.targetId !== 'string' || !link.targetId) return false;
-      const key = JSON.stringify([link.kind, link.targetId]); if (links.has(key)) return false; links.add(key);
-    }
-    return true;
+  const c=new ContentChecks();
+  if(!c.object(value,'')){c.finish('玩法存档格式异常，已停止写入');throw new Error('unreachable');}
+  c.enum(value.schema,[1,2,3],'/schema');
+  c.list(value.designs,'/designs',(d,p)=>{
+    c.strings(d,['title','summary','experience','rules','winCondition','loseCondition','deferred','createdAt','updatedAt'],p);
+    c.enum(d.status,gameplayStatuses,p+'/status');c.boolean(d.archived,p+'/archived');
+    for(const key of ['createdAt','updatedAt'])if(typeof d[key]==='string'&&!Number.isFinite(Date.parse(d[key])))c.add(p+'/'+key,'valid date string',d[key],'FIELD_DATE');
+    c.list(d.loop,p+'/loop',(s,q)=>c.strings(s,['text'],q),Infinity,'{ id: string, text: string }');
+    c.list(d.prototype,p+'/prototype',(s,q)=>{c.strings(s,['text'],q);c.boolean(s.done,q+'/done');},Infinity,'{ id: string, text: string, done: boolean }');
+    c.list(d.checks,p+'/checks',(s,q)=>{c.strings(s,['question','steps','expected','actual'],q);c.enum(s.result,gameplayResults,q+'/result');},Infinity,'{ id, question, steps, expected, actual, result }');
+    if(!Array.isArray(d.links))c.add(p+'/links','array',d.links);
+    else {const seen=new Set();for(const [i,link]of d.links.entries()){const q=p+'/links/'+i;if(!c.object(link,q))continue;c.enum(link.kind,['story','dataset'],q+'/kind');if(typeof link.targetId!=='string'||!link.targetId)c.add(q+'/targetId','nonempty string',link.targetId);const key=JSON.stringify([link.kind,link.targetId]);if(seen.has(key))c.add(q,'unique link',link,'DUPLICATE_REFERENCE');seen.add(key);}}
+    const structure=value.schema===1?{...emptyStructure(),...d}:d;
+    const upgraded=value.schema!==3?{...emptyStage(),...structure}:structure;
+    c.capture(()=>validateStructure(upgraded as GameplayStructure),p);
+    c.capture(()=>validateStage(upgraded as GameplayStage),p);
   });
-  const designs = (value.designs as GameplayDesign[]).map(design => {
-    const structure = value.schema === 1 ? { ...emptyStructure(), ...design } : design;
-    const upgraded = value.schema !== 3 ? { ...emptyStage(), ...structure } : structure;
-    validateStructure(upgraded); validateStage(upgraded); return upgraded;
-  });
-  return { schema: 3, designs, ...(value.categories !== undefined ? { categories: value.categories as GameplayCategory[] } : {}) };
+  c.capture(()=>validateGameplayLibrary(value));
+  c.finish('玩法存档格式异常，已停止写入');
+  const designs=(value.designs as GameplayDesign[]).map(d=>value.schema===1?{...emptyStage(),...emptyStructure(),...d}:value.schema===2?{...emptyStage(),...d}:d);
+  return {schema:3,designs,...(value.categories!==undefined?{categories:value.categories as GameplayCategory[]}:{})};
 }
 export function readGameplay(storage: Pick<Storage, 'getItem'>, key: string) {
   const raw = storage.getItem(key);

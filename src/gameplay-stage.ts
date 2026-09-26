@@ -1,3 +1,4 @@
+import {ContentChecks} from './content-validation.ts';
 import { validateSpatial, spatialIssues, spatialObjectReferences, spatialMarkdown, spatialObjectLocation, objectGeometry, type SpatialGeometry, type SpatialLayout } from './spatial-layout.ts';
 import type { GameplayDesign } from './gameplay';
 export const stageKinds = { actor: '单位', obstacle: '障碍', spawn: '入口', goal: '目标', zone: '区域', note: '标记' } as const;
@@ -15,15 +16,21 @@ export const createTimelineEvent = (trackId: string): TimelineEvent => ({ id: cr
 const has = (o: object, k: unknown) => typeof k === 'string' && Object.prototype.hasOwnProperty.call(o, k);
 const num = (n: unknown, min: number, max: number, integer = false) => typeof n === 'number' && Number.isFinite(n) && n >= min && n <= max && (!integer || Number.isInteger(n));
 export function validateStage(value: GameplayStage) {
-  const object = (x: unknown): x is Record<string, unknown> => !!x && typeof x === 'object' && !Array.isArray(x);
-  const strings = (o: Record<string, unknown>, keys: string[]) => keys.every(k => typeof o[k] === 'string');
-  const list = (xs: unknown, check: (x: Record<string, unknown>) => boolean, max: number) => { if (!Array.isArray(xs) || xs.length > max) return false; const seen = new Set(); return xs.every(x => { if (!object(x) || typeof x.id !== 'string' || !x.id || seen.has(x.id) || !check(x)) return false; seen.add(x.id); return true; }); };
-  const s = value.space, t = value.timeline;
-  if (!object(s) || !num(s.rows, 1, 30, true) || !num(s.columns, 1, 40, true) || !num(s.cellSize, .001, 10000) || !strings(s, ['unit', 'description']) ||
-      !list(s.objects, o => strings(o, ['name', 'notes']) && has(stageKinds, o.kind) && has(stageColors, o.color) && ['cell', 'left', 'right'].includes(o.anchor as string) && ['left', 'right', 'up', 'down'].includes(o.direction as string) && ['none', 'line', 'radius', 'ring', 'sector'].includes(o.rangeShape as string) && num(o.row, 1, 30, true) && num(o.column, 1, 40, true) && num(o.width, 1, 40, true) && num(o.height, 1, 30, true) && num(o.range, 0, 100), 300) ||
-      !object(t) || !num(t.duration, 1, 86400) || !strings(t, ['clock', 'spaceOwnerId']) || !list(t.tracks, r => strings(r, ['name']) && has(stageColors, r.color), 30) ||
-      !list(t.events, e => strings(e, ['trackId', 'name', 'objectId', 'condition', 'notes']) && num(e.start, 0, 86400) && num(e.duration, 0, 86400) && num(e.interval, 0, 86400) && num(e.repeat, 1, 100, true) && num(e.quantity, 1, 10000, true), 200)) throw new Error('空间布局或时间轴存档格式异常，已停止写入');
-  validateSpatial(s); return value;
+  const c=new ContentChecks(),s=value?.space,t=value?.timeline;
+  if(c.object(s,'/space')){
+    c.number(s.rows,'/space/rows',1,30,true);c.number(s.columns,'/space/columns',1,40,true);c.number(s.cellSize,'/space/cellSize',.001,10000);c.strings(s,['unit','description'],'/space');
+    c.list(s.objects,'/space/objects',(o,p)=>{
+      c.strings(o,['name','notes'],p);c.enum(o.kind,Object.keys(stageKinds),p+'/kind');c.enum(o.color,Object.keys(stageColors),p+'/color');c.enum(o.anchor,['cell','left','right'],p+'/anchor');c.enum(o.direction,['left','right','up','down'],p+'/direction');c.enum(o.rangeShape,['none','line','radius','ring','sector'],p+'/rangeShape');
+      for(const key of ['row','height'])c.number(o[key],p+'/'+key,1,30,true);for(const key of ['column','width'])c.number(o[key],p+'/'+key,1,40,true);c.number(o.range,p+'/range',0,100);
+    },300);
+    if(Array.isArray(s.objects)&&s.objects.every(o=>!!o&&typeof o==='object'))c.capture(()=>validateSpatial(s),'/space');
+  }
+  if(c.object(t,'/timeline')){
+    c.number(t.duration,'/timeline/duration',1,86400);c.strings(t,['clock','spaceOwnerId'],'/timeline');
+    c.list(t.tracks,'/timeline/tracks',(r,p)=>{c.strings(r,['name'],p);c.enum(r.color,Object.keys(stageColors),p+'/color');},30);
+    c.list(t.events,'/timeline/events',(e,p)=>{c.strings(e,['trackId','name','objectId','condition','notes'],p);for(const key of ['start','duration','interval'])c.number(e[key],p+'/'+key,0,86400);c.number(e.repeat,p+'/repeat',1,100,true);c.number(e.quantity,p+'/quantity',1,10000,true);},200);
+  }
+  c.finish('空间布局或时间轴存档格式异常，已停止写入');return value;
 }
 export function copyStage(source: GameplayDesign, newDesignId: string, ruleIds = new Map<string, string>()): GameplayStage {
   const objectIds = new Map(source.space.objects.map(o => [o.id, crypto.randomUUID()])), trackIds = new Map(source.timeline.tracks.map(t => [t.id, crypto.randomUUID()]));

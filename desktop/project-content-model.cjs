@@ -814,7 +814,7 @@ function validateNumericalAnalysis(value) {
 //#endregion
 //#region src/spatial-layout.ts
 const finite = (n, min = -1e6, max = 1e6) => typeof n === "number" && Number.isFinite(n) && n >= min && n <= max;
-const record$4 = (x) => !!x && typeof x === "object" && !Array.isArray(x);
+const record$5 = (x) => !!x && typeof x === "object" && !Array.isArray(x);
 function validateSpatial(s) {
 	const fail = () => {
 		throw new Error("空间视图存档格式异常，已停止写入");
@@ -823,7 +823,7 @@ function validateSpatial(s) {
 		if (!Array.isArray(xs) || xs.length > max) return false;
 		const seen = /* @__PURE__ */ new Set();
 		return xs.every((x) => {
-			if (!record$4(x) || typeof x.id !== "string" || !x.id || seen.has(x.id) || !check(x)) return false;
+			if (!record$5(x) || typeof x.id !== "string" || !x.id || seen.has(x.id) || !check(x)) return false;
 			seen.add(x.id);
 			return true;
 		});
@@ -831,12 +831,12 @@ function validateSpatial(s) {
 	for (const o of s.objects) {
 		if (o.roomId !== void 0 && typeof o.roomId !== "string") fail();
 		const g = o.geometry;
-		if (g !== void 0 && (!record$4(g) || !finite(g.x) || !finite(g.y) || !finite(g.width, .001) || !finite(g.height, .001) || !finite(g.rotation, -360, 360) || !["rect", "circle"].includes(g.shape) || !finite(g.range, 0) || !finite(g.innerRange, 0, g.range) || !finite(g.arc, 1, 360))) fail();
+		if (g !== void 0 && (!record$5(g) || !finite(g.x) || !finite(g.y) || !finite(g.width, .001) || !finite(g.height, .001) || !finite(g.rotation, -360, 360) || !["rect", "circle"].includes(g.shape) || !finite(g.range, 0) || !finite(g.innerRange, 0, g.range) || !finite(g.arc, 1, 360))) fail();
 	}
 	if (s.spatial === void 0) return;
 	const a = s.spatial;
 	const strings = (x, keys) => keys.every((k) => typeof x[k] === "string");
-	if (!record$4(a) || a.version !== 1 || ![
+	if (!record$5(a) || a.version !== 1 || ![
 		"grid",
 		"free",
 		"rooms"
@@ -853,6 +853,17 @@ function validateSpatial(s) {
 		"condition",
 		"ruleId"
 	]) && ["one", "both"].includes(c.direction), 500)) fail();
+}
+function createSpatialRoom(index) {
+	return {
+		id: crypto.randomUUID(),
+		name: "房间 " + (index + 1),
+		x: index % 3 * 400,
+		y: Math.floor(index / 3) * 240,
+		view: "free",
+		sourceDesignId: "",
+		notes: ""
+	};
 }
 
 //#endregion
@@ -1116,24 +1127,24 @@ const createPrototypeElement = (kind, index = 0) => ({
 		condition: ""
 	}
 });
-const record$3 = (v) => !!v && typeof v === "object" && !Array.isArray(v);
+const record$4 = (v) => !!v && typeof v === "object" && !Array.isArray(v);
 const strings$1 = (v, keys) => keys.every((k) => typeof v[k] === "string");
 const number = (v, min, max) => typeof v === "number" && Number.isFinite(v) && v >= min && v <= max;
 const color = (v) => typeof v === "string" && /^#[0-9a-f]{6}$/i.test(v);
-const has$2 = (v, k) => typeof k === "string" && Object.prototype.hasOwnProperty.call(v, k);
+const has$1 = (v, k) => typeof k === "string" && Object.prototype.hasOwnProperty.call(v, k);
 /** Broken references remain repairable drafts; malformed archives are never overwritten. */
 function validatePrototypeDesign(value) {
 	const fail = () => {
 		throw new Error("原型设计存档格式无效");
 	};
-	if (!record$3(value) || value.schema !== 1 || typeof value.entryId !== "string" || !Array.isArray(value.scenes) || value.scenes.length > 100) return fail();
+	if (!record$4(value) || value.schema !== 1 || typeof value.entryId !== "string" || !Array.isArray(value.scenes) || value.scenes.length > 100) return fail();
 	const ids = /* @__PURE__ */ new Set();
 	const unique = (v) => {
 		if (typeof v.id !== "string" || !v.id.trim() || ids.has(v.id)) fail();
 		ids.add(v.id);
 	};
 	for (const s of value.scenes) {
-		if (!record$3(s) || s.mapId !== void 0 && typeof s.mapId !== "string" || !strings$1(s, [
+		if (!record$4(s) || s.mapId !== void 0 && typeof s.mapId !== "string" || !strings$1(s, [
 			"name",
 			"description",
 			"sourceDesignId",
@@ -1142,14 +1153,14 @@ function validatePrototypeDesign(value) {
 		]) || !number(s.width, 320, 3840) || !number(s.height, 240, 2160) || !color(s.background) || !["grid", "free"].includes(s.view) || !Array.isArray(s.elements) || s.elements.length > 300) return fail();
 		unique(s);
 		for (const e of s.elements) {
-			if (!record$3(e) || !strings$1(e, [
+			if (!record$4(e) || !strings$1(e, [
 				"name",
 				"text",
 				"sourceObjectId",
 				"assetId",
 				"versionId",
 				"fileId"
-			]) || !has$2(prototypeKinds, e.kind) || !number(e.x, -1e4, 1e4) || !number(e.y, -1e4, 1e4) || !number(e.width, 1, 1e4) || !number(e.height, 1, 1e4) || !number(e.fontSize, 8, 150) || !color(e.color) || typeof e.visible !== "boolean" || !record$3(e.action) || !has$2(prototypeActions, e.action.kind) || !strings$1(e.action, ["targetId", "condition"]) || e.action.mapConnectionId !== void 0 && typeof e.action.mapConnectionId !== "string" || e.action.mapReverse !== void 0 && typeof e.action.mapReverse !== "boolean") return fail();
+			]) || !has$1(prototypeKinds, e.kind) || !number(e.x, -1e4, 1e4) || !number(e.y, -1e4, 1e4) || !number(e.width, 1, 1e4) || !number(e.height, 1, 1e4) || !number(e.fontSize, 8, 150) || !color(e.color) || typeof e.visible !== "boolean" || !record$4(e.action) || !has$1(prototypeActions, e.action.kind) || !strings$1(e.action, ["targetId", "condition"]) || e.action.mapConnectionId !== void 0 && typeof e.action.mapConnectionId !== "string" || e.action.mapReverse !== void 0 && typeof e.action.mapReverse !== "boolean") return fail();
 			unique(e);
 		}
 	}
@@ -1337,6 +1348,16 @@ function createCoreNode(kind, title = coreNodeLabels[kind], x = 120, y = 120) {
 		gameplayIds: []
 	};
 }
+function createCoreEdge(fromId, toId) {
+	if (!fromId.trim() || !toId.trim()) throw new Error("请选择流程连线的起点和终点");
+	return {
+		id: crypto.randomUUID(),
+		fromId,
+		toId,
+		label: "",
+		condition: ""
+	};
+}
 function validateGameplayCore(value) {
 	const invalid = () => {
 		throw new Error("玩法核心存档格式异常，已停止写入");
@@ -1386,6 +1407,85 @@ function validateGameplayCore(value) {
 	if (seen.size !== store.graphs.length) return invalid();
 	return store;
 }
+
+//#endregion
+//#region src/content-validation.ts
+const pointer = (value) => value.replace(/~/g, "~0").replace(/\//g, "~1");
+const record$3 = (value) => !!value && typeof value === "object" && !Array.isArray(value);
+var ContentValidationError = class extends Error {
+	code = "CONTENT_INVALID";
+	issues;
+	constructor(message, issues) {
+		super(message + "\n" + issues.slice(0, 8).map((i) => i.path + ": " + i.message).join("\n"));
+		this.issues = issues;
+	}
+};
+var ContentChecks = class {
+	issues = [];
+	add(path, expected, value, code = "FIELD_TYPE") {
+		if (this.issues.length >= 100) return;
+		const actual = value === void 0 ? "missing" : value === null ? "null" : Array.isArray(value) ? "array" : typeof value;
+		this.issues.push({
+			code,
+			path,
+			expected,
+			actual,
+			message: "期望 " + expected + "，实际为 " + actual
+		});
+	}
+	object(value, path, expected = "object") {
+		if (record$3(value)) return true;
+		this.add(path, expected, value);
+		return false;
+	}
+	strings(value, keys, path) {
+		for (const key of keys) if (typeof value[key] !== "string") this.add(path + "/" + pointer(key), "string", value[key]);
+	}
+	boolean(value, path) {
+		if (typeof value !== "boolean") this.add(path, "boolean", value);
+	}
+	enum(value, values, path) {
+		if (!values.includes(value)) this.add(path, values.join(" | "), value, "FIELD_ENUM");
+	}
+	number(value, path, min, max = Infinity, integer = false) {
+		if (typeof value !== "number" || !Number.isFinite(value) || value < min || value > max || integer && !Number.isInteger(value)) this.add(path, (integer ? "integer" : "number") + " [" + min + ", " + max + "]", value, "FIELD_RANGE");
+	}
+	list(value, path, check, max = Infinity, expected = "object with unique nonempty id") {
+		if (!Array.isArray(value)) {
+			this.add(path, "array", value);
+			return;
+		}
+		if (value.length > max) this.add(path, "array length ≤ " + max, value, "LIST_LIMIT");
+		const ids = /* @__PURE__ */ new Set();
+		for (const [index, item] of value.entries()) {
+			const p = path + "/" + (record$3(item) && typeof item.id === "string" && item.id ? "@" + pointer(item.id) : index);
+			if (!this.object(item, p, expected)) continue;
+			if (typeof item.id !== "string" || !item.id) this.add(p + "/id", "nonempty string", item.id);
+			else if (ids.has(item.id)) this.add(p + "/id", "unique id", item.id, "DUPLICATE_ID");
+			ids.add(item.id);
+			check(item, p);
+			if (this.issues.length >= 100) break;
+		}
+	}
+	capture(action, prefix = "") {
+		try {
+			action();
+		} catch (e) {
+			if (e instanceof ContentValidationError) this.issues.push(...e.issues.map((i) => ({
+				...i,
+				path: prefix + i.path
+			})).slice(0, 100 - this.issues.length));
+			else if (this.issues.length < 100) this.issues.push({
+				code: "CONTENT_FORMAT",
+				path: prefix,
+				message: e instanceof Error ? e.message : String(e)
+			});
+		}
+	}
+	finish(message) {
+		if (this.issues.length) throw new ContentValidationError(message, this.issues);
+	}
+};
 
 //#endregion
 //#region src/gameplay-library.ts
@@ -1451,49 +1551,105 @@ const emptyStage = () => ({
 		events: []
 	}
 });
-const has$1 = (o, k) => typeof k === "string" && Object.prototype.hasOwnProperty.call(o, k);
-const num = (n, min, max, integer = false) => typeof n === "number" && Number.isFinite(n) && n >= min && n <= max && (!integer || Number.isInteger(n));
+const createStageObject = (kind, row, column) => ({
+	id: crypto.randomUUID(),
+	name: stageKinds[kind],
+	kind,
+	color: kind === "spawn" ? "red" : kind === "goal" ? "blue" : kind === "obstacle" ? "amber" : "green",
+	anchor: "cell",
+	row,
+	column,
+	width: 1,
+	height: 1,
+	direction: "right",
+	rangeShape: "none",
+	range: 3,
+	notes: ""
+});
+const createTrack = () => ({
+	id: crypto.randomUUID(),
+	name: "",
+	color: "violet"
+});
+const createTimelineEvent = (trackId) => ({
+	id: crypto.randomUUID(),
+	trackId,
+	name: "",
+	start: 0,
+	duration: 0,
+	repeat: 1,
+	interval: 1,
+	quantity: 1,
+	objectId: "",
+	condition: "",
+	notes: ""
+});
 function validateStage(value) {
-	const object = (x) => !!x && typeof x === "object" && !Array.isArray(x);
-	const strings = (o, keys) => keys.every((k) => typeof o[k] === "string");
-	const list = (xs, check, max) => {
-		if (!Array.isArray(xs) || xs.length > max) return false;
-		const seen = /* @__PURE__ */ new Set();
-		return xs.every((x) => {
-			if (!object(x) || typeof x.id !== "string" || !x.id || seen.has(x.id) || !check(x)) return false;
-			seen.add(x.id);
-			return true;
-		});
-	};
-	const s = value.space, t = value.timeline;
-	if (!object(s) || !num(s.rows, 1, 30, true) || !num(s.columns, 1, 40, true) || !num(s.cellSize, .001, 1e4) || !strings(s, ["unit", "description"]) || !list(s.objects, (o) => strings(o, ["name", "notes"]) && has$1(stageKinds, o.kind) && has$1(stageColors, o.color) && [
-		"cell",
-		"left",
-		"right"
-	].includes(o.anchor) && [
-		"left",
-		"right",
-		"up",
-		"down"
-	].includes(o.direction) && [
-		"none",
-		"line",
-		"radius",
-		"ring",
-		"sector"
-	].includes(o.rangeShape) && num(o.row, 1, 30, true) && num(o.column, 1, 40, true) && num(o.width, 1, 40, true) && num(o.height, 1, 30, true) && num(o.range, 0, 100), 300) || !object(t) || !num(t.duration, 1, 86400) || !strings(t, ["clock", "spaceOwnerId"]) || !list(t.tracks, (r) => strings(r, ["name"]) && has$1(stageColors, r.color), 30) || !list(t.events, (e) => strings(e, [
-		"trackId",
-		"name",
-		"objectId",
-		"condition",
-		"notes"
-	]) && num(e.start, 0, 86400) && num(e.duration, 0, 86400) && num(e.interval, 0, 86400) && num(e.repeat, 1, 100, true) && num(e.quantity, 1, 1e4, true), 200)) throw new Error("空间布局或时间轴存档格式异常，已停止写入");
-	validateSpatial(s);
+	const c = new ContentChecks(), s = value?.space, t = value?.timeline;
+	if (c.object(s, "/space")) {
+		c.number(s.rows, "/space/rows", 1, 30, true);
+		c.number(s.columns, "/space/columns", 1, 40, true);
+		c.number(s.cellSize, "/space/cellSize", .001, 1e4);
+		c.strings(s, ["unit", "description"], "/space");
+		c.list(s.objects, "/space/objects", (o, p) => {
+			c.strings(o, ["name", "notes"], p);
+			c.enum(o.kind, Object.keys(stageKinds), p + "/kind");
+			c.enum(o.color, Object.keys(stageColors), p + "/color");
+			c.enum(o.anchor, [
+				"cell",
+				"left",
+				"right"
+			], p + "/anchor");
+			c.enum(o.direction, [
+				"left",
+				"right",
+				"up",
+				"down"
+			], p + "/direction");
+			c.enum(o.rangeShape, [
+				"none",
+				"line",
+				"radius",
+				"ring",
+				"sector"
+			], p + "/rangeShape");
+			for (const key of ["row", "height"]) c.number(o[key], p + "/" + key, 1, 30, true);
+			for (const key of ["column", "width"]) c.number(o[key], p + "/" + key, 1, 40, true);
+			c.number(o.range, p + "/range", 0, 100);
+		}, 300);
+		if (Array.isArray(s.objects) && s.objects.every((o) => !!o && typeof o === "object")) c.capture(() => validateSpatial(s), "/space");
+	}
+	if (c.object(t, "/timeline")) {
+		c.number(t.duration, "/timeline/duration", 1, 86400);
+		c.strings(t, ["clock", "spaceOwnerId"], "/timeline");
+		c.list(t.tracks, "/timeline/tracks", (r, p) => {
+			c.strings(r, ["name"], p);
+			c.enum(r.color, Object.keys(stageColors), p + "/color");
+		}, 30);
+		c.list(t.events, "/timeline/events", (e, p) => {
+			c.strings(e, [
+				"trackId",
+				"name",
+				"objectId",
+				"condition",
+				"notes"
+			], p);
+			for (const key of [
+				"start",
+				"duration",
+				"interval"
+			]) c.number(e[key], p + "/" + key, 0, 86400);
+			c.number(e.repeat, p + "/repeat", 1, 100, true);
+			c.number(e.quantity, p + "/quantity", 1, 1e4, true);
+		}, 200);
+	}
+	c.finish("空间布局或时间轴存档格式异常，已停止写入");
 	return value;
 }
 
 //#endregion
 //#region src/gameplay-structure.ts
+const gameplayStateKinds = ["normal", "outcome"];
 const dependencyKinds$1 = {
 	depends: "依赖",
 	contains: "包含",
@@ -1544,24 +1700,42 @@ const createTransition = () => ({
 	priority: 100
 });
 function validateStructure(value) {
-	const object = (x) => !!x && typeof x === "object" && !Array.isArray(x);
-	const strings = (x, keys) => keys.every((k) => typeof x[k] === "string");
-	const list = (xs, test) => {
-		if (!Array.isArray(xs)) return false;
-		const seen = /* @__PURE__ */ new Set();
-		return xs.every((x) => {
-			if (!object(x) || typeof x.id !== "string" || !x.id || seen.has(x.id) || !test(x)) return false;
-			seen.add(x.id);
-			return true;
+	const c = new ContentChecks();
+	if (!c.object(value, "")) {
+		c.finish("玩法关系、规则或状态存档格式异常，已停止写入");
+		return value;
+	}
+	c.list(value.dependencies, "/dependencies", (x, p) => {
+		c.strings(x, ["targetId", "note"], p);
+		c.enum(x.kind, Object.keys(dependencyKinds$1), p + "/kind");
+	});
+	c.list(value.conditionRules, "/conditionRules", (x, p) => {
+		c.strings(x, ["name", "trigger"], p);
+		c.enum(x.mode, ["all", "any"], p + "/mode");
+		c.list(x.conditions, p + "/conditions", (v, q) => {
+			c.strings(v, ["subject", "value"], q);
+			c.enum(v.operator, Object.keys(conditionOperators), q + "/operator");
 		});
-	};
-	if (!object(value) || !list(value.dependencies, (x) => strings(x, ["targetId", "note"]) && Object.prototype.hasOwnProperty.call(dependencyKinds$1, x.kind)) || !list(value.conditionRules, (x) => strings(x, ["name", "trigger"]) && ["all", "any"].includes(x.mode) && list(x.conditions, (c) => strings(c, ["subject", "value"]) && Object.prototype.hasOwnProperty.call(conditionOperators, c.operator)) && list(x.actions, (a) => strings(a, ["text"])) && list(x.otherwise, (a) => strings(a, ["text"]))) || !object(value.stateFlow) || typeof value.stateFlow.initialStateId !== "string" || !list(value.stateFlow.states, (x) => strings(x, ["name", "description"]) && ["normal", "outcome"].includes(x.kind)) || !list(value.stateFlow.transitions, (x) => strings(x, [
-		"fromId",
-		"toId",
-		"event",
-		"condition",
-		"action"
-	]) && Number.isInteger(x.priority) && Number(x.priority) >= 0)) throw new Error("玩法关系、规则或状态存档格式异常，已停止写入");
+		for (const key of ["actions", "otherwise"]) c.list(x[key], p + "/" + key, (v, q) => c.strings(v, ["text"], q));
+	});
+	if (c.object(value.stateFlow, "/stateFlow")) {
+		c.strings(value.stateFlow, ["initialStateId"], "/stateFlow");
+		c.list(value.stateFlow.states, "/stateFlow/states", (s, p) => {
+			c.strings(s, ["name", "description"], p);
+			c.enum(s.kind, gameplayStateKinds, p + "/kind");
+		});
+		c.list(value.stateFlow.transitions, "/stateFlow/transitions", (s, p) => {
+			c.strings(s, [
+				"fromId",
+				"toId",
+				"event",
+				"condition",
+				"action"
+			], p);
+			c.number(s.priority, p + "/priority", 0, Infinity, true);
+		});
+	}
+	c.finish("玩法关系、规则或状态存档格式异常，已停止写入");
 	return value;
 }
 
@@ -1607,26 +1781,18 @@ function createGameplay(title) {
 	};
 }
 function validateGameplay(value) {
-	const fail = () => {
-		throw new Error("玩法存档格式异常，已停止写入");
-	};
-	const record = (v) => !!v && typeof v === "object" && !Array.isArray(v);
-	const strings = (v, keys) => keys.every((k) => typeof v[k] === "string");
-	const ids = (list, validate) => {
-		const seen = /* @__PURE__ */ new Set();
-		for (const item of list) {
-			if (!record(item) || typeof item.id !== "string" || !item.id || seen.has(item.id) || !validate(item)) fail();
-			seen.add(item.id);
-		}
-	};
-	if (!record(value) || ![
+	const c = new ContentChecks();
+	if (!c.object(value, "")) {
+		c.finish("玩法存档格式异常，已停止写入");
+		throw new Error("unreachable");
+	}
+	c.enum(value.schema, [
 		1,
 		2,
 		3
-	].includes(value.schema) || !Array.isArray(value.designs)) return fail();
-	validateGameplayLibrary(value);
-	ids(value.designs, (d) => {
-		if (!strings(d, [
+	], "/schema");
+	c.list(value.designs, "/designs", (d, p) => {
+		c.strings(d, [
 			"title",
 			"summary",
 			"experience",
@@ -1636,39 +1802,60 @@ function validateGameplay(value) {
 			"deferred",
 			"createdAt",
 			"updatedAt"
-		]) || !gameplayStatuses.includes(d.status) || typeof d.archived !== "boolean" || !Number.isFinite(Date.parse(d.createdAt)) || !Number.isFinite(Date.parse(d.updatedAt)) || !Array.isArray(d.loop) || !Array.isArray(d.prototype) || !Array.isArray(d.checks) || !Array.isArray(d.links)) return false;
-		ids(d.loop, (s) => strings(s, ["text"]));
-		ids(d.prototype, (s) => strings(s, ["text"]) && typeof s.done === "boolean");
-		ids(d.checks, (s) => strings(s, [
-			"question",
-			"steps",
-			"expected",
-			"actual"
-		]) && gameplayResults.includes(s.result));
-		const links = /* @__PURE__ */ new Set();
-		for (const link of d.links) {
-			if (!record(link) || !["story", "dataset"].includes(link.kind) || typeof link.targetId !== "string" || !link.targetId) return false;
-			const key = JSON.stringify([link.kind, link.targetId]);
-			if (links.has(key)) return false;
-			links.add(key);
+		], p);
+		c.enum(d.status, gameplayStatuses, p + "/status");
+		c.boolean(d.archived, p + "/archived");
+		for (const key of ["createdAt", "updatedAt"]) if (typeof d[key] === "string" && !Number.isFinite(Date.parse(d[key]))) c.add(p + "/" + key, "valid date string", d[key], "FIELD_DATE");
+		c.list(d.loop, p + "/loop", (s, q) => c.strings(s, ["text"], q), Infinity, "{ id: string, text: string }");
+		c.list(d.prototype, p + "/prototype", (s, q) => {
+			c.strings(s, ["text"], q);
+			c.boolean(s.done, q + "/done");
+		}, Infinity, "{ id: string, text: string, done: boolean }");
+		c.list(d.checks, p + "/checks", (s, q) => {
+			c.strings(s, [
+				"question",
+				"steps",
+				"expected",
+				"actual"
+			], q);
+			c.enum(s.result, gameplayResults, q + "/result");
+		}, Infinity, "{ id, question, steps, expected, actual, result }");
+		if (!Array.isArray(d.links)) c.add(p + "/links", "array", d.links);
+		else {
+			const seen = /* @__PURE__ */ new Set();
+			for (const [i, link] of d.links.entries()) {
+				const q = p + "/links/" + i;
+				if (!c.object(link, q)) continue;
+				c.enum(link.kind, ["story", "dataset"], q + "/kind");
+				if (typeof link.targetId !== "string" || !link.targetId) c.add(q + "/targetId", "nonempty string", link.targetId);
+				const key = JSON.stringify([link.kind, link.targetId]);
+				if (seen.has(key)) c.add(q, "unique link", link, "DUPLICATE_REFERENCE");
+				seen.add(key);
+			}
 		}
-		return true;
+		const structure = value.schema === 1 ? {
+			...emptyStructure(),
+			...d
+		} : d;
+		const upgraded = value.schema !== 3 ? {
+			...emptyStage(),
+			...structure
+		} : structure;
+		c.capture(() => validateStructure(upgraded), p);
+		c.capture(() => validateStage(upgraded), p);
 	});
+	c.capture(() => validateGameplayLibrary(value));
+	c.finish("玩法存档格式异常，已停止写入");
 	return {
 		schema: 3,
-		designs: value.designs.map((design) => {
-			const structure = value.schema === 1 ? {
-				...emptyStructure(),
-				...design
-			} : design;
-			const upgraded = value.schema !== 3 ? {
-				...emptyStage(),
-				...structure
-			} : structure;
-			validateStructure(upgraded);
-			validateStage(upgraded);
-			return upgraded;
-		}),
+		designs: value.designs.map((d) => value.schema === 1 ? {
+			...emptyStage(),
+			...emptyStructure(),
+			...d
+		} : value.schema === 2 ? {
+			...emptyStage(),
+			...d
+		} : d),
 		...value.categories !== void 0 ? { categories: value.categories } : {}
 	};
 }
@@ -3060,6 +3247,45 @@ function captureProjectPackage(storage, project) {
 }
 
 //#endregion
+//#region shared/authoring-diagnostics.mjs
+function authoringError(error, scope = "candidate", module = "", operations = []) {
+	const diagnostics = (Array.isArray(error?.diagnostics) ? error.diagnostics : Array.isArray(error?.issues) ? error.issues : [{
+		code: "CONTENT_FORMAT",
+		path: "",
+		message: error instanceof Error ? error.message : String(error)
+	}]).slice(0, 100).map((issue) => {
+		const m = issue.module || module, p = issue.path || "";
+		const op = (p ? operations.filter((o) => o.module === m && (p === o.path || p.startsWith(o.path + "/") || o.path.startsWith(p + "/"))).sort((a, b) => b.path.length - a.path.length) : [])[0] || (operations.filter((o) => o.module === m).length === 1 ? operations.find((o) => o.module === m) : void 0);
+		return {
+			code: issue.code || "CONTENT_FORMAT",
+			scope: issue.scope || scope,
+			module: m,
+			operationId: issue.operationId || op?.id || "",
+			path: p || op?.path || "",
+			message: issue.message,
+			...issue.expected ? { expected: issue.expected } : {},
+			...issue.actual ? { actual: issue.actual } : {}
+		};
+	});
+	const result = /* @__PURE__ */ new Error(({
+		candidate: "提交候选内容无效，未写入正式项目",
+		baseline: "导出基准内容无效，请更新协作文件",
+		current: "当前项目内容校验失败，请检查项目存档",
+		proposal: "提交操作无效，未写入正式项目",
+		reference: "提交产生失效引用，未写入正式项目"
+	}[scope] || "项目编写校验失败") + "\n" + diagnostics.map((d) => [
+		d.operationId,
+		d.module,
+		d.path,
+		d.message
+	].filter(Boolean).join(" · ")).join("\n"));
+	result.code = "AUTHORING_VALIDATION";
+	result.scope = scope;
+	result.diagnostics = diagnostics;
+	return result;
+}
+
+//#endregion
 //#region shared/project-changes.mjs
 const projectContentModules = {
 	project: "项目概览",
@@ -3280,7 +3506,7 @@ function assertAuthoringChange(module, before, after) {
 function authoringPreview(p, base, current, decisions = {}) {
 	validateAuthoringProposal(p);
 	const incoming = structuredClone(base), next = structuredClone(current), rows = [];
-	for (const op of p.operations) {
+	for (const op of p.operations) try {
 		mutate(incoming[op.module], op);
 		const b = location(base[op.module], op.path), c = location(current[op.module], op.path), n = location(incoming[op.module], op.path);
 		const state = c.exists === n.exists && same(c.value, n.value) ? "unchanged" : c.exists === b.exists && same(c.value, b.value) ? "updated" : "conflict";
@@ -3301,11 +3527,15 @@ function authoringPreview(p, base, current, decisions = {}) {
 			op: op.op === "remove" ? "remove" : c.exists ? "set" : "add"
 		};
 		mutate(next[op.module], effective);
+	} catch (e) {
+		throw authoringError(e, "proposal", op.module, [op]);
 	}
 	const modules = [...new Set(p.operations.map((o) => o.module))];
-	for (const m of modules) {
+	for (const m of modules) try {
 		assertAuthoringChange(m, base[m], incoming[m]);
 		assertAuthoringChange(m, current[m], next[m]);
+	} catch (e) {
+		throw authoringError(e, "candidate", m, p.operations);
 	}
 	return {
 		rows,
@@ -3574,7 +3804,7 @@ function assertContentReferences(before, after) {
 
 //#endregion
 //#region shared/gamecreator-guide.mjs
-const guideVersion = "2026-09-25.1";
+const guideVersion = "2026-09-26.1";
 function gamecreatorGuide() {
 	return `# GameCreator 使用说明与 AI 项目编写协议
 
@@ -3591,7 +3821,7 @@ GameCreator 项目文件夹以 project.gamecreator 为入口，archives 保存�
 1. 在人员分配创建开发者。制作人可不分配任务，使用长期令牌；选择项目范围、修改项目内容与排期，并明确允许的模块。私有凭证单独下载给开发者。
 2. 在“使用说明 → 项目编写”点击“更新协作文件”，生成最新上下文。新建文件夹已包含起始上下文；人员或项目有变化时重新生成。
 3. 先明确项目目标、范围与验收，再组织玩法核心、玩法文档、功能、配置、素材标准、任务与里程碑。已有项目优先复用已有分类、系统与稳定 ID。版本不作为所有模块的重复分类。
-4. 读取 ai/project.json 的 snapshotId、modules、developers 与 ai/context/templates.json。模板由当前编辑器生成；新增条目需使用新的稳定 ID，补齐必填字段，保持未开发状态。
+4. 读取 ai/project.json 的 snapshotId、modules、developers 与 ai/context/templates.json、template-options.json。空数组的条目结构应从对应嵌套模板取得，不要猜测字符串或对象；新增条目需使用新的稳定 ID，补齐必填字段，保持未开发状态。
 5. 以 ai/change-template.json 为例编写一个跨模块 JSON 提交，先本地校验，再用凭证签名提交。
 6. 管理者在“使用说明 → 项目编写”读取提交、查看差异、处理冲突并应用。整批内容与引用检查通过后统一写入。回执位于 ai/receipts；更新上下文后再开始下一批。
 
@@ -3624,10 +3854,23 @@ compatibility 的 reuse、modify、add、archive 分别说明复用、修改、�
 
 \`\`\`sh
 node ai/submit-change.cjs validate change.json
+node ai/submit-change.cjs validate change.json --json
 node ai/submit-change.cjs submit change.json /私有位置/credential.json
 \`\`\`
 
-validate 检查协议和本地上下文完整性；权威的权限、存档格式、引用及最新冲突检查由客户端预览和应用执行。签名后不要再手改 ai/changes 中的文件；内容变更请使用新的提交 ID。相同 ID 不允许变更内容重放。
+validate 使用随项目导出的 ai/validator.cjs，与编辑器同源地检查操作路径、候选模块结构、工作流锁定字段、配置一致性、跨模块引用及任务依赖循环。submit 在读取私有凭证与签名前执行同样的完整校验。离线成功只针对导出快照，不代表最新授权或并发状态通过；客户端仍以当前内容复核权限、冲突与事务。签名后不要再手改 ai/changes 中的文件；内容变更请使用新的提交 ID。相同 ID 不允许变更内容重放。
+
+## 嵌套模板与错误定位
+
+templates.json 提供完整对象和常用嵌套条目：gameplayLoopStep、gameplayPrototypeItem、gameplayCheck、gameplayDependency、gameplayRuleCondition、gameplayRuleAction、gameplayTimelineTrack、gameplayTimelineEvent、coreEdge，以及任务、地图、故事、素材和数值分析的子项。每次复用模板都重新生成条目 ID，随后填写真实引用。template-options.json 列出关键枚举、初始工作流值和模板路径；它不是完整 Schema，完整约束由同源校验器执行。
+
+玩法的 loop 是 { id, text } 对象列表；prototype 是 { id, text, done: false } 对象列表；checks 的条目需包含 id、question、steps、expected、actual: ""、result: "未测试"。状态 kind 只允许 normal 或 outcome，不能使用 terminal。
+
+使用 --json 获得可供 AI 读取的诊断。失败退出码为 1，diagnostics 包含 code、scope、module、operationId、path、message，以及可用时的 expected / actual。最多返回100项独立字段问题；结构损坏时不继续执行依赖该结构的引用检查。路径优先使用 @ID；非法列表项没有 ID 时用位置数字定位，修正后仍以 @ID 提交。
+
+scope=candidate 表示提交候选内容非法，没有写入正式项目；baseline 表示导出基准异常；current 表示客户端当前存档异常；proposal 表示操作或路径错误；reference 表示引用检查失败。某些模块仍只有模块级结构诊断，此时需要结合对应模板排查；客户端显示同样的操作与字段信息，并可复制诊断。
+
+ai/project.json 记录校验包模型版本和摘要，用于发现导出文件不配套。缺少校验包、模型版本或摘要不符时，在新版客户端更新协作文件；不要手改版本号或摘要跳过检查。模型升级后更新上下文再提交。无需安装 GameCreator 源码依赖或启动客户端即可执行离线校验。
 
 ## 支持的内容模块
 
@@ -3651,6 +3894,7 @@ ${Object.entries(authoringModules).map(([id, label]) => "- " + label + "：" + i
 
 //#endregion
 //#region src/project-content-model.ts
+const contentModelVersion = "2026-09-26.1";
 function validateContentBatch(archives) {
 	return validateProjectPackage({
 		...emptyContentDocument(),
@@ -3659,6 +3903,235 @@ function validateContentBatch(archives) {
 }
 function authoringTemplates() {
 	return {
+		gameplayLoopStep: {
+			id: crypto.randomUUID(),
+			text: ""
+		},
+		gameplayPrototypeItem: {
+			id: crypto.randomUUID(),
+			text: "",
+			done: false
+		},
+		gameplayCheck: {
+			id: crypto.randomUUID(),
+			question: "",
+			steps: "",
+			expected: "",
+			actual: "",
+			result: "未测试"
+		},
+		gameplayDependency: {
+			id: crypto.randomUUID(),
+			targetId: "",
+			kind: "depends",
+			note: ""
+		},
+		gameplayRuleCondition: {
+			id: crypto.randomUUID(),
+			subject: "",
+			operator: "eq",
+			value: ""
+		},
+		gameplayRuleAction: {
+			id: crypto.randomUUID(),
+			text: ""
+		},
+		gameplayTimelineTrack: createTrack(),
+		gameplayTimelineEvent: createTimelineEvent(""),
+		gameplayStageObject: createStageObject("actor", 1, 1),
+		coreEdge: createCoreEdge("替换为起点ID", "替换为终点ID"),
+		spatialRoom: createSpatialRoom(0),
+		taskObjective: {
+			id: crypto.randomUUID(),
+			title: "",
+			condition: "",
+			target: 1
+		},
+		taskTransition: {
+			id: crypto.randomUUID(),
+			fromId: "",
+			toId: "",
+			label: "",
+			condition: ""
+		},
+		mapLayer: {
+			id: crypto.randomUUID(),
+			name: "新图层",
+			visible: true,
+			locked: false
+		},
+		mapObject: {
+			id: crypto.randomUUID(),
+			name: "新对象",
+			kind: "note",
+			layerId: "",
+			x: 0,
+			y: 0,
+			width: 1,
+			height: 1,
+			color: "violet",
+			notes: "",
+			references: []
+		},
+		mapConnection: {
+			id: crypto.randomUUID(),
+			name: "区域通路",
+			from: "",
+			to: "",
+			fromObjectId: "",
+			toObjectId: "",
+			direction: "both",
+			kind: "passage",
+			condition: ""
+		},
+		narrativeActor: {
+			id: crypto.randomUUID(),
+			name: "新发言者",
+			description: "",
+			kind: "character",
+			characterId: ""
+		},
+		narrativeVariable: {
+			id: crypto.randomUUID(),
+			name: "新状态",
+			category: "故事",
+			initial: 0,
+			minimum: 0,
+			maximum: 1,
+			kind: "flag",
+			trueLabel: "是",
+			falseLabel: "否",
+			characterId: ""
+		},
+		narrativeScene: {
+			id: crypto.randomUUID(),
+			title: "新场景",
+			chapter: "",
+			description: ""
+		},
+		narrativeNode: {
+			id: crypto.randomUUID(),
+			sceneId: "",
+			title: "新片段",
+			kind: "narration",
+			speakerId: "",
+			text: "",
+			outcome: "",
+			taskStatus: "unchanged",
+			taskIds: []
+		},
+		narrativeChoice: {
+			id: crypto.randomUUID(),
+			fromId: "",
+			toId: "",
+			label: "继续",
+			condition: { groups: [] },
+			effects: [],
+			once: false,
+			passive: false,
+			cost: 0,
+			checkId: ""
+		},
+		narrativeCheck: {
+			id: crypto.randomUUID(),
+			name: "新检定",
+			variableId: "",
+			difficulty: 1,
+			retry: "always",
+			retryVariableIds: [],
+			successId: "",
+			failureId: "",
+			successEffects: [],
+			failureEffects: [],
+			modifiers: [],
+			notes: ""
+		},
+		narrativeCondition: {
+			variableId: "",
+			op: "eq",
+			value: 0
+		},
+		narrativeEffect: {
+			variableId: "",
+			op: "set",
+			value: 1
+		},
+		analysisParameter: {
+			id: crypto.randomUUID(),
+			name: "参数",
+			unit: "",
+			type: "number",
+			value: 0,
+			minimum: null,
+			maximum: null,
+			binding: { kind: "constant" }
+		},
+		analysisMetric: {
+			id: crypto.randomUUID(),
+			name: "指标",
+			unit: "",
+			formula: "0",
+			minimum: null,
+			maximum: null
+		},
+		analysisVariant: {
+			id: crypto.randomUUID(),
+			name: "方案",
+			overrides: {}
+		},
+		artSource: {
+			id: crypto.randomUUID(),
+			kind: "gameplay",
+			targetId: "",
+			sourceKind: "design",
+			sourceId: "",
+			note: ""
+		},
+		artLink: {
+			id: crypto.randomUUID(),
+			requirementId: "",
+			assetId: "",
+			note: ""
+		},
+		artPaletteColor: {
+			id: crypto.randomUUID(),
+			name: "主色",
+			color: "#7258d9",
+			usage: ""
+		},
+		artStyleReference: {
+			id: crypto.randomUUID(),
+			title: "参考",
+			source: "",
+			take: "",
+			avoid: ""
+		},
+		artCategoryStyle: {
+			id: "替换为素材分类ID",
+			rules: ""
+		},
+		functionalDependency: {
+			id: crypto.randomUUID(),
+			fromId: "",
+			toId: "",
+			kind: "call",
+			note: ""
+		},
+		functionalUsage: {
+			id: crypto.randomUUID(),
+			gameplayId: "",
+			capabilityId: "",
+			note: "",
+			sourceKind: "design",
+			sourceId: ""
+		},
+		functionalConfigReference: {
+			id: crypto.randomUUID(),
+			datasetKey: "",
+			rowId: "",
+			columnKey: "",
+			note: ""
+		},
 		artStyle: emptyArtStyle(),
 		character: createStoryCharacter("新角色"),
 		gameplayRule: createRule(),
@@ -3722,6 +4195,85 @@ function authoringTemplates() {
 		}
 	};
 }
+function authoringTemplateOptions() {
+	return {
+		modelVersion: contentModelVersion,
+		notes: "模板是单个条目的起始值，不是完整 Schema。替换 ID、补齐引用后运行 validate；字段合法值以同源校验器为准。",
+		enums: {
+			"gameplay.status": gameplayStatuses,
+			"gameplay.checks.result": gameplayResults,
+			"gameplay.stateFlow.states.kind": gameplayStateKinds,
+			"gameplay.dependencies.kind": Object.keys(dependencyKinds$1),
+			"gameplay.conditionRules.conditions.operator": Object.keys(conditionOperators),
+			"gameplay.space.objects.kind": Object.keys(stageKinds),
+			"gameplay.space.objects.color": Object.keys(stageColors),
+			"gameplay-core.nodes.kind": coreNodeKinds
+		},
+		initialWorkflow: {
+			"gameplay.status": "草稿",
+			"gameplay.prototype.done": false,
+			"gameplay.checks.actual": "",
+			"gameplay.checks.result": "未测试",
+			"project-schedule.tasks.status": "待开始",
+			"project-schedule.milestones.status": "计划中",
+			"functional-systems.capabilities.status": "待开发",
+			"development-tools.tools.status": "待开发",
+			"art-assets.requirements.status": "待制作"
+		},
+		paths: {
+			gameplayLoopStep: "/designs/@ID/loop",
+			gameplayPrototypeItem: "/designs/@ID/prototype",
+			gameplayCheck: "/designs/@ID/checks",
+			gameplayDependency: "/designs/@ID/dependencies",
+			gameplayRuleCondition: "/designs/@ID/conditionRules/@ID/conditions",
+			gameplayRuleAction: "/designs/@ID/conditionRules/@ID/actions",
+			gameplayTimelineTrack: "/designs/@ID/timeline/tracks",
+			gameplayTimelineEvent: "/designs/@ID/timeline/events",
+			coreEdge: "/graphs/@ID/edges"
+		}
+	};
+}
+function checkArchives(archives, scope, operations = []) {
+	const errors = [];
+	for (const module of Object.keys(authoringModules)) try {
+		validateContentArchive(module, archives[module]);
+	} catch (e) {
+		errors.push(...authoringError(e, scope, module, operations).diagnostics);
+	}
+	if (errors.length) throw authoringError({ diagnostics: errors }, scope);
+	try {
+		validateContentBatch(archives);
+	} catch (e) {
+		throw authoringError(e, scope);
+	}
+}
+/** The offline CLI and desktop preview share this entire candidate validation pipeline. */
+function validateContentChange(proposal, base, current = base, decisions = {}) {
+	try {
+		validateAuthoringProposal(proposal);
+	} catch (e) {
+		throw authoringError(e, "proposal");
+	}
+	const p = proposal;
+	checkArchives(base, "baseline");
+	if (current !== base) checkArchives(current, "current");
+	const result = authoringPreview(proposal, base, current, decisions);
+	checkArchives(result.incoming, "candidate", p.operations);
+	try {
+		assertContentReferences(base, result.incoming);
+	} catch (e) {
+		throw authoringError(e, "reference");
+	}
+	if (!result.unresolved) {
+		checkArchives(result.next, "candidate", p.operations);
+		try {
+			assertContentReferences(current, result.next);
+		} catch (e) {
+			throw authoringError(e, "reference");
+		}
+	}
+	return result;
+}
 let empty;
 function emptyContentDocument() {
 	if (!empty) empty = captureProjectPackage({ getItem: () => null }, {
@@ -3756,11 +4308,14 @@ function validateContentArchive(module, value) {
 
 //#endregion
 exports.assertContentReferences = assertContentReferences;
+exports.authoringError = authoringError;
 exports.authoringModules = authoringModules;
 exports.authoringPreview = authoringPreview;
+exports.authoringTemplateOptions = authoringTemplateOptions;
 exports.authoringTemplates = authoringTemplates;
 exports.canonical = canonical;
 exports.captureProjectPackage = captureProjectPackage;
+exports.contentModelVersion = contentModelVersion;
 exports.emptyContentDocument = emptyContentDocument;
 exports.gamecreatorGuide = gamecreatorGuide;
 exports.guideVersion = guideVersion;
@@ -3769,3 +4324,4 @@ exports.validModuleGrants = validModuleGrants;
 exports.validateAuthoringProposal = validateAuthoringProposal;
 exports.validateContentArchive = validateContentArchive;
 exports.validateContentBatch = validateContentBatch;
+exports.validateContentChange = validateContentChange;

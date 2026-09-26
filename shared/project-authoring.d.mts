@@ -1,4 +1,5 @@
 import type {AiMember} from './ai-personnel.mjs';
+import type {AuthoringDiagnostic} from './authoring-diagnostics.mjs';
 export const authoringModules:Record<string,string>;
 export function canonical(v:unknown):string;
 export function moduleGrants(member?:AiMember):string[];
@@ -7,7 +8,7 @@ export function validateAuthoringProposal(v:unknown):unknown;
 export function authoringPreview(proposal:unknown,base:Record<string,unknown>,current:Record<string,unknown>,decisions?:Record<string,string>):unknown;
 export type AuthoringReceipt={id:string;digest:string;summary:string;at:string;memberName:string;modules:string[]};
 export type AuthoringRow={id:string;module:string;path:string;op:string;state:'unchanged'|'updated'|'conflict';base:string;current:string;incoming:string};
-export type AuthoringItem={id:string;digest:string;reviewId:string;summary:string;memberName:string;compatibility:Record<string,string>;rows:AuthoringRow[];error?:string;unresolved:number};
+export type AuthoringItem={id:string;digest:string;reviewId:string;summary:string;memberName:string;compatibility:Record<string,string>;rows:AuthoringRow[];error?:string;errorScope?:string;diagnostics?:AuthoringDiagnostic[];unresolved:number};
 export type AuthoringResult={directory?:string;items?:AuthoringItem[];history?:AuthoringReceipt[];recovered?:boolean;applied?:boolean};
 export type AuthoringInput={projectId:string;expectedEntries?:{key:string;value:string|null}[];id?:string;digest?:string;reviewId?:string;decisions?:Record<string,'keep'|'proposal'>};
 export type AuthoringAPI=(operation:'export'|'scan'|'preview'|'apply'|'recover',input:AuthoringInput)=>Promise<AuthoringResult>;

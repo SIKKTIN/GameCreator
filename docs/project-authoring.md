@@ -7,8 +7,8 @@
 1. 保存 GameCreator 项目为独立文件夹。新文件夹自动加入 `GAMECREATOR_GUIDE.md`、README 入口、`ai/project.json`、当前内容、常用条目模板和提交脚本。
 2. 在人员分配创建长期开发者。制作人可以零任务创建，默认项目范围与全部内容模块权限。其他岗位默认没有 `project_write`；管理者可明确选择多个模块。
 3. 到使用说明的项目编写页签，更新协作文件，单独下载开发者私有凭证。上下文仅包含公开身份和授权信息。
-4. 开发者参考 `ai/change-template.json` 和 `ai/context/templates.json` 编写批次。完整操作规范由 `shared/gamecreator-guide.mjs` 统一生成，并随 AI 文档、引擎开发协作文件输出。
-5. 在项目目录执行 `node ai/submit-change.cjs validate change.json`，再执行 `node ai/submit-change.cjs submit change.json /private/credential.json`。
+4. 开发者参考 `ai/change-template.json`、`ai/context/templates.json` 和 `ai/context/template-options.json` 编写批次。模板包含循环步骤、原型清单、验证记录、条件、连线、时间轴及常用地图/故事/素材/分析子项；枚举与初始工作流值单独列出。完整操作规范由 `shared/gamecreator-guide.mjs` 统一生成，并随 AI 文档、引擎开发协作文件输出。
+5. 在项目目录执行 `node ai/submit-change.cjs validate change.json`，再执行 `node ai/submit-change.cjs submit change.json /private/credential.json`。两者都在签名前执行完整候选校验；加 `--json` 输出结构化报告。使用导出的独立校验包，不需要源码依赖或运行客户端。
 6. 客户端读取设计提交，比较基准、当前值和提交值，处理冲突后应用整批变更。成功后重新加载所有模块，保存处理记录。
 
 旧项目在使用说明中更新协作文件即可接入。目录内自定义 README 和 AGENTS.md 保留；发现同名的自定义使用说明文件时停止覆盖，提示先另存。旧格式或不完整存档另存时仍保留原文件，只生成静态入口和待生成上下文的说明，待客户端修复后再生成。
@@ -47,8 +47,10 @@
     project.json                # 基准编号、公开模块及开发者范围
     change-template.json
     submit-change.cjs
+    validator.cjs               # 与编辑器同源的独立校验包
     context/
       templates.json
+      template-options.json    # 常用枚举、初始状态和子项位置
       content/*.json
       snapshots/<sha256>.json
     changes/<id>.json
@@ -58,6 +60,16 @@
 项目内容批次在 GameCreator 文件夹的 `ai/changes` 处理；引擎进度反馈仍在引擎文件夹的 `gamecreator/feedback` 处理。另存为新的项目身份后重新生成上下文及新项目凭证。导出的普通 AI 文档是阅读资料，不能代替签名提交和应用。
 
 ## 验证
+
+模型版本与校验包 SHA-256 随 `ai/project.json` 输出；缺少、版本或摘要不符时要求更新协作文件，不降级成仅校验外壳。摘要用于检查文件配套，不替代客户端对注册快照与最新权限的校验。
+
+CLI 与客户端共用 `validateContentChange`：校验基准与当前内容，执行同源路径变换和字段保护，检查候选模块、配置契约、引用与任务依赖。冲突未解决时只验证完整提交候选，不把部分选中的结果当作有效批次；全部解决后再验证最终候选。
+
+玩法编辑器原有校验器现在提供字段诊断，覆盖基础字段、循环、原型、检查项、关系、条件、状态、空间和时间轴；最多100项。其余模块继续使用原有严格校验器，目前部分错误只能定位模块。没有另建宽松 Schema。诊断有 `code/scope/module/operationId/path/message/expected/actual`；actual 只记录类型，不输出字段内容。candidate 表示未写入的非法候选；baseline/current 区分导出基准和当前存档。客户端提供问题列表和复制诊断。
+
+自动化复现：`node --test tests/authoring-validation.test.cjs`。包括字符串数组、terminal 枚举、多错误、引用/依赖循环、保护字段、非玩法格式、校验包不匹配，以及模板编写到签名/应用/回执的完整闭环。真实项目只作为只读复核来源，回归使用临时项目。
+
+客户端启动发现、运行状态桥接、完整机器可读 Schema 和 MCP 工具扩展属于后续工作。
 
 核心和文件流程：`node --test tests/project-authoring.test.cjs`。
 

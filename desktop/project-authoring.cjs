@@ -15,7 +15,7 @@ function file(root,relative,create=false){
 }
 function read(root,relative,max=20*1024*1024){const p=file(root,relative);if(fs.statSync(p).size>max)throw new Error('协作文件过大');return fs.readFileSync(p,'utf8');}
 function write(root,relative,content){const p=file(root,relative,true);if(fs.existsSync(p)){const backup=file(root,relative+'.bak',true);atomicWrite(backup,fs.readFileSync(p,'utf8'));}atomicWrite(p,content);}
-function context(storage,project){return model.captureProjectPackage(storage,project);}
+function context(storage,project){try{return model.captureProjectPackage(storage,project);}catch(e){throw model.authoringError(e,'current');}}
 function template(projectId,snapshotId){return {format:'gamecreator-content-change',schema:1,id:'替换为新的唯一提交编号',projectId,snapshotId,intent:'project_change',target:{kind:'module',id:'project'},summary:'说明设计目标、范围和影响',compatibility:{reuse:'复用现有结构，无则写无',modify:'说明原有内容如何兼容',add:'列出新增内容及所属模块',archive:'无'},operations:[{id:'overview',module:'project',op:'set',path:'/description',value:'填写项目目标与原型范围'}]};}
 function writeCollaborationFiles(root,project,storage,allowUnvalidated=false){
  let captured;
@@ -35,7 +35,10 @@ function writeCollaborationFiles(root,project,storage,allowUnvalidated=false){
  write(root,'ai/context/snapshots/'+snapshotId+'.json',raw);
  for(const [module,value]of Object.entries(archives))write(root,'ai/context/content/'+module+'.json',JSON.stringify(value,null,2));
  write(root,'ai/context/templates.json',JSON.stringify(model.authoringTemplates(),null,2));
- write(root,'ai/project.json',JSON.stringify({schema:1,projectId:project.id,name:project.name,snapshotId,guideVersion:model.guideVersion,modules:model.authoringModules,developers},null,2));
+ write(root,'ai/context/template-options.json',JSON.stringify(model.authoringTemplateOptions(),null,2));
+ const validator=fs.readFileSync(path.join(__dirname,'project-content-model.cjs'),'utf8');
+ write(root,'ai/validator.cjs',validator);
+ write(root,'ai/project.json',JSON.stringify({schema:1,projectId:project.id,name:project.name,snapshotId,guideVersion:model.guideVersion,validator:{version:model.contentModelVersion,sha256:hash(validator)},modules:model.authoringModules,developers},null,2));
  write(root,'ai/change-template.json',JSON.stringify(template(project.id,snapshotId),null,2));
  write(root,'ai/submit-change.cjs',fs.readFileSync(path.join(__dirname,'../shared/submit-content-change.cjs'),'utf8'));
  write(root,'ai/changes/README.md','将签名提交放在本目录，由客户端读取并预览。不要直接修改项目存档。\n');
@@ -60,9 +63,8 @@ function createProjectAuthoring({storage,folders}){
   const member=schedule.personnel.members.find(m=>m.id===identity.memberId),grants=model.moduleGrants(member);for(const op of p.operations)if(!grants.includes(op.module))throw new Error('此开发者没有模块修改权限：'+op.module);
   const registered=JSON.parse(storage.getItem(contextKey(project.id))||'null');if(registered?.projectId!==project.id||!registered.snapshotIds.includes(p.snapshotId))throw new Error('设计基准未由当前项目生成或已过期，请更新协作文件');
   const raw=read(project.folderPath,'ai/context/snapshots/'+p.snapshotId+'.json');if(hash(raw)!==p.snapshotId)throw new Error('上下文快照已被修改，请恢复或更新协作文件');
-  const base=JSON.parse(raw);if(base.projectId!==project.id)throw new Error('基准属于其他项目');model.validateContentBatch(base.archives);
-  const result=model.authoringPreview(p,base.archives,current,decisions);model.validateContentBatch(result.incoming);model.assertContentReferences(base.archives,result.incoming);
-  if(!result.unresolved){model.validateContentBatch(result.next);model.assertContentReferences(current,result.next);}
+  const base=JSON.parse(raw);if(base.projectId!==project.id)throw new Error('基准属于其他项目');
+  const result=model.validateContentChange(p,base.archives,current,decisions);
   return {p,digest,captured,reviewId:hash(model.canonical(captured.expectedEntries)),...result,summary:p.summary,memberName:identity.memberName,compatibility:p.compatibility,id:p.id};
  }
  function receipt(root,r){write(root,'ai/receipts/'+r.id+'.json',JSON.stringify(r,null,2));}
@@ -74,7 +76,7 @@ function createProjectAuthoring({storage,folders}){
   if(operation==='scan'){
    const current=context(storage,project),history=current.document.archives['project-schedule'].authoringHistory||[],items=[];
    const directory=file(root,'ai/changes/README.md');const files=fs.readdirSync(path.dirname(directory)).filter(n=>n.endsWith('.json'));if(files.length>500)throw new Error('待扫描文件超过 500 个，请归档已处理文件');
-   for(const name of files){const id=name.slice(0,-5);try{const result=preview(project,id,{});if(result.processed){receipt(root,result.receipt);continue;}const {id:pid,digest,reviewId,summary,memberName,compatibility,rows,unresolved}=result;items.push({id:pid,digest,reviewId,summary,memberName,compatibility,rows,unresolved});}catch(e){items.push({id,summary:name,error:e.message,rows:[],unresolved:0});}}
+   for(const name of files){const id=name.slice(0,-5);try{const result=preview(project,id,{});if(result.processed){receipt(root,result.receipt);continue;}const {id:pid,digest,reviewId,summary,memberName,compatibility,rows,unresolved}=result;items.push({id:pid,digest,reviewId,summary,memberName,compatibility,rows,unresolved});}catch(e){items.push({id,summary:name,error:e.message,diagnostics:e.diagnostics||[],errorScope:e.scope||'proposal',rows:[],unresolved:0});}}
    return {items,history};
   }
   if(!['preview','apply'].includes(operation))throw new Error('未知项目编写操作');

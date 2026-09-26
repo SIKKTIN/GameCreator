@@ -1,3 +1,5 @@
+import {ContentChecks} from './content-validation.ts';
+export const gameplayStateKinds=['normal','outcome'] as const;
 import type { GameplayDesign } from './gameplay';
 export const dependencyKinds = { depends: '依赖', contains: '包含', collaborates: '协作' } as const;
 export type GameplayDependency = { id: string; targetId: string; kind: keyof typeof dependencyKinds; note: string };
@@ -14,23 +16,20 @@ export const createRule = (): GameplayRule => ({ id: crypto.randomUUID(), name: 
 export const createState = (): GameplayState => ({ id: crypto.randomUUID(), name: '', description: '', kind: 'normal' });
 export const createTransition = (): GameplayTransition => ({ id: crypto.randomUUID(), fromId: '', toId: '', event: '', condition: '', action: '', priority: 100 });
 export function validateStructure(value: GameplayStructure) {
-  const object = (x: unknown): x is Record<string, unknown> => !!x && typeof x === 'object' && !Array.isArray(x);
-  const strings = (x: Record<string, unknown>, keys: string[]) => keys.every(k => typeof x[k] === 'string');
-  const list = (xs: unknown, test: (x: Record<string, unknown>) => boolean) => {
-    if (!Array.isArray(xs)) return false;
-    const seen = new Set<string>();
-    return xs.every(x => { if (!object(x) || typeof x.id !== 'string' || !x.id || seen.has(x.id) || !test(x)) return false; seen.add(x.id); return true; });
-  };
-  if (!object(value) || !list(value.dependencies, x => strings(x, ['targetId', 'note']) && Object.prototype.hasOwnProperty.call(dependencyKinds, x.kind as string)) ||
-      !list(value.conditionRules, x => strings(x, ['name', 'trigger']) && ['all', 'any'].includes(x.mode as string) &&
-        list(x.conditions, c => strings(c, ['subject', 'value']) && Object.prototype.hasOwnProperty.call(conditionOperators, c.operator as string)) &&
-        list(x.actions, a => strings(a, ['text'])) && list(x.otherwise, a => strings(a, ['text']))) ||
-      !object(value.stateFlow) || typeof value.stateFlow.initialStateId !== 'string' ||
-      !list(value.stateFlow.states, x => strings(x, ['name', 'description']) && ['normal', 'outcome'].includes(x.kind as string)) ||
-      !list(value.stateFlow.transitions, x => strings(x, ['fromId', 'toId', 'event', 'condition', 'action']) && Number.isInteger(x.priority) && Number(x.priority) >= 0)) {
-    throw new Error('玩法关系、规则或状态存档格式异常，已停止写入');
+  const c=new ContentChecks();
+  if(!c.object(value,'')){c.finish('玩法关系、规则或状态存档格式异常，已停止写入');return value;}
+  c.list(value.dependencies,'/dependencies',(x,p)=>{c.strings(x,['targetId','note'],p);c.enum(x.kind,Object.keys(dependencyKinds),p+'/kind');});
+  c.list(value.conditionRules,'/conditionRules',(x,p)=>{
+    c.strings(x,['name','trigger'],p);c.enum(x.mode,['all','any'],p+'/mode');
+    c.list(x.conditions,p+'/conditions',(v,q)=>{c.strings(v,['subject','value'],q);c.enum(v.operator,Object.keys(conditionOperators),q+'/operator');});
+    for(const key of ['actions','otherwise'])c.list(x[key],p+'/'+key,(v,q)=>c.strings(v,['text'],q));
+  });
+  if(c.object(value.stateFlow,'/stateFlow')){
+    c.strings(value.stateFlow,['initialStateId'],'/stateFlow');
+    c.list(value.stateFlow.states,'/stateFlow/states',(s,p)=>{c.strings(s,['name','description'],p);c.enum(s.kind,gameplayStateKinds,p+'/kind');});
+    c.list(value.stateFlow.transitions,'/stateFlow/transitions',(s,p)=>{c.strings(s,['fromId','toId','event','condition','action'],p);c.number(s.priority,p+'/priority',0,Infinity,true);});
   }
-  return value;
+  c.finish('玩法关系、规则或状态存档格式异常，已停止写入');return value;
 }
 export function copyStructure(source: GameplayStructure): GameplayStructure {
   const ids = new Map(source.stateFlow.states.map(s => [s.id, crypto.randomUUID()]));

@@ -1,4 +1,5 @@
 import {projectContentModules} from './project-changes.mjs';
+import {authoringError} from './authoring-diagnostics.mjs';
 
 export const authoringModules = {...projectContentModules, 'project-standards':'项目规范'};
 export const canonical = v => Array.isArray(v) ? '['+v.map(canonical).join(',')+']' : v && typeof v==='object' ? '{'+Object.keys(v).sort().map(k=>JSON.stringify(k)+':'+canonical(v[k])).join(',')+'}' : JSON.stringify(v);
@@ -87,11 +88,12 @@ export function assertAuthoringChange(module,before,after){
 }
 export function authoringPreview(p,base,current,decisions={}) {
  validateAuthoringProposal(p);const incoming=structuredClone(base),next=structuredClone(current),rows=[];
- for(const op of p.operations){mutate(incoming[op.module],op);const b=location(base[op.module],op.path),c=location(current[op.module],op.path),n=location(incoming[op.module],op.path);const state=c.exists===n.exists&&same(c.value,n.value)?'unchanged':c.exists===b.exists&&same(c.value,b.value)?'updated':'conflict';rows.push({id:op.id,module:op.module,path:op.path,op:op.op,state,base:b.exists?JSON.stringify(b.value,null,2):'（不存在）',current:c.exists?JSON.stringify(c.value,null,2):'（不存在）',incoming:n.exists?JSON.stringify(n.value,null,2):'（删除）'});
+ for(const op of p.operations){try{mutate(incoming[op.module],op);const b=location(base[op.module],op.path),c=location(current[op.module],op.path),n=location(incoming[op.module],op.path);const state=c.exists===n.exists&&same(c.value,n.value)?'unchanged':c.exists===b.exists&&same(c.value,b.value)?'updated':'conflict';rows.push({id:op.id,module:op.module,path:op.path,op:op.op,state,base:b.exists?JSON.stringify(b.value,null,2):'（不存在）',current:c.exists?JSON.stringify(c.value,null,2):'（不存在）',incoming:n.exists?JSON.stringify(n.value,null,2):'（删除）'});
   if(state==='unchanged'||decisions[op.id]==='keep')continue;
   if(state==='conflict'&&!['keep','proposal'].includes(decisions[op.id]))continue;
   const effective={...op,op:op.op==='remove'?'remove':c.exists?'set':'add'};mutate(next[op.module],effective);
+  }catch(e){throw authoringError(e,'proposal',op.module,[op]);}
  }
- const modules=[...new Set(p.operations.map(o=>o.module))];for(const m of modules){assertAuthoringChange(m,base[m],incoming[m]);assertAuthoringChange(m,current[m],next[m]);}
+ const modules=[...new Set(p.operations.map(o=>o.module))];for(const m of modules){try{assertAuthoringChange(m,base[m],incoming[m]);assertAuthoringChange(m,current[m],next[m]);}catch(e){throw authoringError(e,'candidate',m,p.operations);}}
  return {rows,next,incoming,unresolved:rows.filter(r=>r.state==='conflict'&&!['keep','proposal'].includes(decisions[r.id])).length};
 }

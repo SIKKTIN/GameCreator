@@ -1,5 +1,5 @@
 import {authoringModules} from './project-authoring.mjs';
-export const guideVersion='2026-09-25.1';
+export const guideVersion='2026-09-26.1';
 export function gamecreatorGuide(){return `# GameCreator 使用说明与 AI 项目编写协议
 
 说明版本：${guideVersion}
@@ -15,7 +15,7 @@ GameCreator 项目文件夹以 project.gamecreator 为入口，archives 保存�
 1. 在人员分配创建开发者。制作人可不分配任务，使用长期令牌；选择项目范围、修改项目内容与排期，并明确允许的模块。私有凭证单独下载给开发者。
 2. 在“使用说明 → 项目编写”点击“更新协作文件”，生成最新上下文。新建文件夹已包含起始上下文；人员或项目有变化时重新生成。
 3. 先明确项目目标、范围与验收，再组织玩法核心、玩法文档、功能、配置、素材标准、任务与里程碑。已有项目优先复用已有分类、系统与稳定 ID。版本不作为所有模块的重复分类。
-4. 读取 ai/project.json 的 snapshotId、modules、developers 与 ai/context/templates.json。模板由当前编辑器生成；新增条目需使用新的稳定 ID，补齐必填字段，保持未开发状态。
+4. 读取 ai/project.json 的 snapshotId、modules、developers 与 ai/context/templates.json、template-options.json。空数组的条目结构应从对应嵌套模板取得，不要猜测字符串或对象；新增条目需使用新的稳定 ID，补齐必填字段，保持未开发状态。
 5. 以 ai/change-template.json 为例编写一个跨模块 JSON 提交，先本地校验，再用凭证签名提交。
 6. 管理者在“使用说明 → 项目编写”读取提交、查看差异、处理冲突并应用。整批内容与引用检查通过后统一写入。回执位于 ai/receipts；更新上下文后再开始下一批。
 
@@ -48,10 +48,23 @@ compatibility 的 reuse、modify、add、archive 分别说明复用、修改、�
 
 \`\`\`sh
 node ai/submit-change.cjs validate change.json
+node ai/submit-change.cjs validate change.json --json
 node ai/submit-change.cjs submit change.json /私有位置/credential.json
 \`\`\`
 
-validate 检查协议和本地上下文完整性；权威的权限、存档格式、引用及最新冲突检查由客户端预览和应用执行。签名后不要再手改 ai/changes 中的文件；内容变更请使用新的提交 ID。相同 ID 不允许变更内容重放。
+validate 使用随项目导出的 ai/validator.cjs，与编辑器同源地检查操作路径、候选模块结构、工作流锁定字段、配置一致性、跨模块引用及任务依赖循环。submit 在读取私有凭证与签名前执行同样的完整校验。离线成功只针对导出快照，不代表最新授权或并发状态通过；客户端仍以当前内容复核权限、冲突与事务。签名后不要再手改 ai/changes 中的文件；内容变更请使用新的提交 ID。相同 ID 不允许变更内容重放。
+
+## 嵌套模板与错误定位
+
+templates.json 提供完整对象和常用嵌套条目：gameplayLoopStep、gameplayPrototypeItem、gameplayCheck、gameplayDependency、gameplayRuleCondition、gameplayRuleAction、gameplayTimelineTrack、gameplayTimelineEvent、coreEdge，以及任务、地图、故事、素材和数值分析的子项。每次复用模板都重新生成条目 ID，随后填写真实引用。template-options.json 列出关键枚举、初始工作流值和模板路径；它不是完整 Schema，完整约束由同源校验器执行。
+
+玩法的 loop 是 { id, text } 对象列表；prototype 是 { id, text, done: false } 对象列表；checks 的条目需包含 id、question、steps、expected、actual: ""、result: "未测试"。状态 kind 只允许 normal 或 outcome，不能使用 terminal。
+
+使用 --json 获得可供 AI 读取的诊断。失败退出码为 1，diagnostics 包含 code、scope、module、operationId、path、message，以及可用时的 expected / actual。最多返回100项独立字段问题；结构损坏时不继续执行依赖该结构的引用检查。路径优先使用 @ID；非法列表项没有 ID 时用位置数字定位，修正后仍以 @ID 提交。
+
+scope=candidate 表示提交候选内容非法，没有写入正式项目；baseline 表示导出基准异常；current 表示客户端当前存档异常；proposal 表示操作或路径错误；reference 表示引用检查失败。某些模块仍只有模块级结构诊断，此时需要结合对应模板排查；客户端显示同样的操作与字段信息，并可复制诊断。
+
+ai/project.json 记录校验包模型版本和摘要，用于发现导出文件不配套。缺少校验包、模型版本或摘要不符时，在新版客户端更新协作文件；不要手改版本号或摘要跳过检查。模型升级后更新上下文再提交。无需安装 GameCreator 源码依赖或启动客户端即可执行离线校验。
 
 ## 支持的内容模块
 
