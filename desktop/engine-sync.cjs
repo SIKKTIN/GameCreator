@@ -138,9 +138,10 @@ function createEngineSync({artFiles,storage,beforeWrite=async()=>{},beforeRebind
     const m=await manifest(ctx),desired=[],warnings=[];
     if(await read(ctx,META+'/data-pending.json'))throw new Error('请先在数据同步中恢复中断的同步');
     if(settings.collaboration)desired.push(...await feedback.documents(ctx,input,settings));
-    if(settings.documents) {
+    if(settings.documents||settings.collaboration) {
       const project=JSON.parse(storage?.getItem('gamecreator.projects.v1')||'null')?.projects?.find(p=>p.id===ctx.projectId);
-      for(const d of syncDocuments(input.document,settings.modules,{projectId:ctx.projectId,projectDirectory:project?.folderPath||'',engineDirectory:ctx.root,docsDirectory:settings.docsDirectory,collaboration:settings.collaboration}))desired.push({id:d.id,path:settings.docsDirectory+'/'+d.path,bytes:Buffer.from(d.content),kind:'document',label:d.id==='document:index'?'项目文档目录':d.id==='document:config-data-policy'?'配置数据管理与同步规范':d.id==='document:usage-guide'?'协作流程与 GameCreator 写入入口':input.document.sections.find(s=>'document:'+s.id===d.id)?.label||d.path,version:input.document.version});
+      const standards=storage?require('./project-changes.cjs').readContent(storage,ctx.projectId,'project-standards').value:input.document.projectStandards;
+      for(const d of syncDocuments({...input.document,projectStandards:standards},settings.modules,{projectId:ctx.projectId,projectDirectory:project?.folderPath||'',engineDirectory:ctx.root,docsDirectory:settings.docsDirectory,collaboration:settings.collaboration,documents:settings.documents}).filter(d=>settings.documents||d.id==='document:standards'))desired.push({id:d.id,path:settings.docsDirectory+'/'+d.path,bytes:Buffer.from(d.content),kind:'document',label:d.id==='document:index'?'项目文档目录':d.id==='document:config-data-policy'?'配置数据管理与同步规范':d.id==='document:standards'?'本项目自定义规范':input.document.sections.find(s=>'document:'+s.id===d.id)?.label||d.path,version:input.document.version});
     }
     // Startup chooses a public entry once; later ordinary syncs maintain it. Private credentials never enter sync plans/history.
     if(settings.collaboration){
@@ -152,7 +153,7 @@ function createEngineSync({artFiles,storage,beforeWrite=async()=>{},beforeRebind
         if(lower.startsWith('gamecreator/')||[settings.docsDirectory,settings.assetsDirectory].map(v=>v.toLowerCase()).some(v=>lower===v||lower.startsWith(v+'/')||v.startsWith(lower+'/')))throw new Error('项目启动入口与协作、文档或素材目录重叠，请调整目录后重试');
         const project=JSON.parse(storage?.getItem('gamecreator.projects.v1')||'null')?.projects?.find(p=>p.id===ctx.projectId);
         const {projectWorkflowMarkdown,relativeDocumentPath}=await import('../shared/engine-document-layout.mjs');
-        const content=projectWorkflowMarkdown({projectId:ctx.projectId,projectName:input.document.projectName,projectDirectory:project?.folderPath||'',engineDirectory:ctx.root,docsDirectory:settings.docsDirectory})+'\n[开发反馈与协作说明]('+relativeDocumentPath(entry+'/README.md','gamecreator/README.md')+')\n\n成员凭证位于本目录 personal/，按成员 ID 命名。\n';
+        const content=projectWorkflowMarkdown({projectId:ctx.projectId,projectName:input.document.projectName,projectDirectory:project?.folderPath||'',engineDirectory:ctx.root,docsDirectory:settings.docsDirectory,entryPath:entry+'/README.md'})+'\n[开发反馈与协作说明]('+relativeDocumentPath(entry+'/README.md','gamecreator/README.md')+')\n\n成员凭证位于本目录 personal/，按成员 ID 命名。\n';
         desired.push({id:'collaboration:startup-entry',path:entry+'/README.md',bytes:Buffer.from(content),kind:'collaboration',label:'项目启动入口',version:''});
       }
     }
@@ -197,7 +198,8 @@ function createEngineSync({artFiles,storage,beforeWrite=async()=>{},beforeRebind
       rows.push({...f,currentHash,status:conflict?'conflict':currentHash===f.hash&&old?.versionId===f.versionId?'unchanged':old?'updated':'added',reason:conflict?(old?'工程文件在同步后被修改':'目标存在非本项目管理的文件'):''});
     }
     // Disabling a scope does not remove its previous output. Within an enabled scope, removals are opt-in.
-    for(const old of m.value.files)if(old.kind!=='collaboration'&&!paths.has(old.path.normalize('NFC').toLowerCase())&&(old.kind==='document'?settings.documents:settings.assets)) {
+    const retiredCollaboration=new Set(['collaboration:GAMECREATOR_GUIDE.md','collaboration:project-standards.md']);
+    for(const old of m.value.files)if(!paths.has(old.path.normalize('NFC').toLowerCase())&&(old.kind==='collaboration'?settings.collaboration&&retiredCollaboration.has(old.id):old.kind==='document'?settings.documents:settings.assets)) {
       const current=await read(ctx,old.path),currentHash=current?hash(current):null;
       rows.push({...old,remove:true,currentHash,status:currentHash!==null&&currentHash!==old.hash?'conflict':'removed',reason:currentHash!==null&&currentHash!==old.hash?'待移除文件在工程中被修改':'不再属于当前同步范围'});
     }

@@ -17,8 +17,8 @@
 ## 输出与版本
 
 - 文档使用现有 AI 文档章节，生成 README 索引和选定模块的 Markdown。固定模块 ID 用于文件名，章节名变化不会改变路径。输出不包含每次变化的生成时间，因此重复检查不产生虚假更新。
-- README 包含引擎到 GameCreator 的完整工作流、绑定的 GameCreator 项目目录，以及该项目 `GAMECREATOR_GUIDE.md` 和 `ai/README.md` 的入口。开启文档同步时固定附带规范与使用入口；开启开发协作同步时，`gamecreator/README.md` 和公开 `project.json.authoring` 同样指明内容提交位置。设计编写仍在 GameCreator 项目 `ai/changes`，开发反馈在引擎 `gamecreator/feedback`。
-- 引擎文档按侧栏的六个类别分目录：`modules/project-guide`、`project-management`、`gameplay`、`development`、`content`、`data-engine`；项目概览保留为 `modules/overview.md`，未来未知模块归入 `modules/other`。README 按分类索引；素材文档的图片相对链接按新层级生成。普通 AI 文档导出继续使用原有独立文档包结构。
+- README 包含引擎到 GameCreator 的完整工作流、绑定的 GameCreator 项目目录，以及该项目 `GAMECREATOR_GUIDE.md` 和 `ai/README.md` 的入口。开启文档或开发协作同步时固定附带本项目自定义规范，完整通用规范与使用说明通过入口链接查阅；开启开发协作同步时，`gamecreator/README.md` 和公开 `project.json.authoring` 同样指明内容提交位置。设计编写仍在 GameCreator 项目 `ai/changes`，开发反馈在引擎 `gamecreator/feedback`。
+- 引擎文档按内容类别分目录：`modules/project-management`、`gameplay`、`development`、`content`、`data-engine`；项目概览保留为 `modules/overview.md`，未来未知模块归入 `modules/other`。README 按分类索引；素材文档的图片相对链接按新层级生成。普通 AI 文档导出继续使用原有独立文档包结构。
 - 从旧平铺目录升级时，新分类路径与旧待移除文件同时进入预览。旧文件须勾选才移除，手工修改的旧文件额外要求冲突决定；不会直接清空原目录。
 - Godot 文档目录不再生成 `.gdignore`，Markdown 可在编辑器文件系统中查看。旧版受管的 `.gdignore` 会列为待移除，确认后备份并移除；手工创建或父目录的忽略规则只提示，不自动删除。游戏发布时请在引擎导出配置中排除不需要的开发文档。
 - 素材只选择未归档资产的采用版本。正式版本须审核通过；占位版本由同步配置控制。需求文字、未采用版本不会变成素材文件。

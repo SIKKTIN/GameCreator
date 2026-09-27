@@ -7,6 +7,7 @@ const apply=(f,item,decisions={})=>f.run('apply',{id:item.id,digest:item.digest,
 test('engine-independent blank project can author all content modules together, preserve identity, and record exactly one receipt',async t=>{
  const f=await setup(t);assert.equal(f.project.config.projectPath,'');assert.match(fs.readFileSync(path.join(f.project.folderPath,'README.md'),'utf8'),/GAMECREATOR_GUIDE/);
  assert.match(fs.readFileSync(path.join(f.project.folderPath,'README.md'),'utf8'),/\(ai\/README.md\)/);
+ assert.match(fs.readFileSync(path.join(f.project.folderPath,'PROJECT_STANDARDS.md'),'utf8'),/先复用，再扩展/);
  const aiReadme=fs.readFileSync(path.join(f.project.folderPath,'ai/README.md'),'utf8');assert.match(aiReadme,/推荐阅读顺序/);assert.match(aiReadme,/node submit-change.cjs validate draft.json/);assert.match(aiReadme,/node ai\/submit-change.cjs validate ai\/draft.json/);assert.match(aiReadme,/receipts/);
  assert.ok(!JSON.stringify(f.read('ai/project.json')).includes(f.secret.privateKey));
  const p=f.draft(initialOperations()),item=first(f,p);assert.equal(item.error,undefined);assert.equal(item.rows.length,p.operations.length);assert.equal(item.unresolved,0);apply(f,item);

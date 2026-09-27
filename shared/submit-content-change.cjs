@@ -11,7 +11,7 @@ function main(){
  if(!['validate','submit'].includes(command)||!source||args.length>(command==='submit'?3:2))throw new Error('用法：node ai/submit-change.cjs validate|submit change.json [credential.json] [--json]');
  const project=parse(read(path.join(__dirname,'project.json'))),p=parse(read(path.resolve(source)));
  if(p.projectId!==project.projectId||p.snapshotId!==project.snapshotId||!/^\w[\w-]{7,99}$/.test(p.id)||!/^[a-f0-9]{64}$/.test(p.snapshotId))throw new Error('项目、提交编号或基准不匹配，请更新协作文件后重新编写');
- if(!project.validator?.version||!/^[a-f0-9]{64}$/.test(project.validator.sha256))throw new Error('缺少完整校验包，请在客户端“使用说明 → 项目编写”更新协作文件');
+ if(!project.validator?.version||!/^[a-f0-9]{64}$/.test(project.validator.sha256))throw new Error('缺少完整校验包，请在客户端“项目内容同步 → 设计提交”更新协作文件');
  const validatorPath=path.join(__dirname,'validator.cjs'),bundle=read(validatorPath,10*1024*1024);
  if(hash(bundle)!==project.validator.sha256)throw new Error('校验包与导出上下文不匹配，请更新协作文件');
  const model=require(validatorPath);
@@ -29,6 +29,6 @@ function main(){
  p.identity.signature=crypto.sign(null,Buffer.from(model.canonical(p)),key).toString('base64');
  const directory=path.join(__dirname,'changes');if(fs.lstatSync(directory).isSymbolicLink())throw new Error('提交目录不能是链接');
  fs.writeFileSync(path.join(directory,p.id+'.json'),JSON.stringify(p,null,2)+'\n',{flag:'wx'});
- report({ok:true,id:p.id,message:'完整离线校验通过，签名提交已保存。请在 GameCreator 使用说明 → 项目编写读取并预览。'});
+ report({ok:true,id:p.id,message:'完整离线校验通过，签名提交已保存。请在 GameCreator 项目内容同步 → 设计提交读取并预览。'});
 }
 try{main();}catch(e){const result={ok:false,code:e.code||'AUTHORING_INPUT',scope:e.scope||'input',message:e.message,diagnostics:e.diagnostics||[]};if(json)console.log(JSON.stringify(result));else console.error(result.message);process.exitCode=1;}
