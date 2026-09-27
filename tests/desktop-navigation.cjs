@@ -50,13 +50,13 @@ const root = path.resolve(__dirname, '..'), key = 'gamecreator.ui-preferences.v1
     await button('缩小画布').click();
     await page.evaluate(() => { window.navigationEditor = document.querySelector('.gc-canvas-surface'); });
     const groupButton = name => sidebar().getByRole('button', { name, exact: true });
-    assert.deepEqual(await sidebar().locator('.workspace-nav-group-toggle').allTextContents(), ['项目管理','玩法与关卡','系统与开发','内容制作','数据与同步','废弃模块','使用帮助']);
+    assert.deepEqual(await sidebar().locator('.workspace-nav-group-toggle').allTextContents(), ['项目管理','玩法与关卡','系统与开发','内容制作','数据管理','废弃模块','知识库','使用帮助']);
     assert.deepEqual(await sidebar().getByRole('group',{name:'废弃模块子菜单',exact:true}).getByRole('button').allTextContents(),['枚举定义','枚举管理']);
-    assert.deepEqual(await sidebar().getByRole('group',{name:'数据与同步子菜单',exact:true}).getByRole('button').allTextContents(),['数据配置','项目内容同步','数据同步','工程同步']);
+    assert.deepEqual(await sidebar().getByRole('group',{name:'数据管理子菜单',exact:true}).getByRole('button').allTextContents(),['数据配置','数据同步']);
     assert.equal(await sidebar().getByRole('button', {name:'游戏任务与流程',exact:true}).count(),1);
     assert.equal(await sidebar().getByRole('button', {name:'地图设计',exact:true}).count(),0);
     assert.equal(await sidebar().getByRole('button', {name:'故事编排',exact:true}).count(),0);
-    await groupButton('使用帮助').click(); await groupButton('数据与同步').click();
+    await groupButton('使用帮助').click(); await groupButton('数据管理').click();
     await groupButton('玩法与关卡').click();
     assert.equal(await sidebar().getByRole('button',{name:'玩法核心',exact:true}).isVisible(),false);
     assert.equal(await page.evaluate(() => window.navigationEditor === document.querySelector('.gc-canvas-surface')),true);
@@ -87,7 +87,7 @@ const root = path.resolve(__dirname, '..'), key = 'gamecreator.ui-preferences.v1
     await app.close(); app = null; await launch(); await check(false);
     await toggle().click(); await check(true);
     assert.equal(await groupButton('使用帮助').getAttribute('aria-expanded'),'false');
-    assert.equal(await groupButton('数据与同步').getAttribute('aria-expanded'),'false');
+    assert.equal(await groupButton('数据管理').getAttribute('aria-expanded'),'false');
     await page.locator('.ps-trigger').click();
     await page.getByRole('menuitemradio', { name: /^导航测试乙/ }).click();
     assert.ok((await page.locator('.ps-trigger').innerText()).includes('导航测试乙'));

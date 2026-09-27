@@ -147,14 +147,14 @@ function createEngineSync({artFiles,storage,beforeWrite=async()=>{},beforeRebind
     if(settings.collaboration){
       const startup=JSON.parse(storage?.getItem('gamecreator.workspace.v1:'+ctx.projectId+':project-startup')||'null');
       const sameRoot=startup?.engineDirectory&&path.resolve(startup.engineDirectory).toLowerCase()===ctx.root.toLowerCase();
-      const entryDirectory=startupEntryDirectory??(sameRoot?startup.entryDirectory:'gamecreator');
+      const entryDirectory=startupEntryDirectory??input.settings.entryDirectory??(sameRoot?startup.entryDirectory:'gamecreator');
       const {syncPath}=await modules();const entry=syncPath(entryDirectory),lower=entry.toLowerCase();
       if(lower!=='gamecreator'){
-        if(lower.startsWith('gamecreator/')||[settings.docsDirectory,settings.assetsDirectory].map(v=>v.toLowerCase()).some(v=>lower===v||lower.startsWith(v+'/')||v.startsWith(lower+'/')))throw new Error('项目启动入口与协作、文档或素材目录重叠，请调整目录后重试');
+        if(lower.startsWith('gamecreator/')||[settings.docsDirectory,settings.assetsDirectory].map(v=>v.toLowerCase()).some(v=>lower===v||lower.startsWith(v+'/')||v.startsWith(lower+'/')))throw new Error('工程协作入口与协作、文档或素材目录重叠，请调整目录后重试');
         const project=JSON.parse(storage?.getItem('gamecreator.projects.v1')||'null')?.projects?.find(p=>p.id===ctx.projectId);
         const {projectWorkflowMarkdown,relativeDocumentPath}=await import('../shared/engine-document-layout.mjs');
         const content=projectWorkflowMarkdown({projectId:ctx.projectId,projectName:input.document.projectName,projectDirectory:project?.folderPath||'',engineDirectory:ctx.root,docsDirectory:settings.docsDirectory,entryPath:entry+'/README.md'})+'\n[开发反馈与协作说明]('+relativeDocumentPath(entry+'/README.md','gamecreator/README.md')+')\n\n成员凭证位于本目录 personal/，按成员 ID 命名。\n';
-        desired.push({id:'collaboration:startup-entry',path:entry+'/README.md',bytes:Buffer.from(content),kind:'collaboration',label:'项目启动入口',version:''});
+        desired.push({id:'collaboration:startup-entry',path:entry+'/README.md',bytes:Buffer.from(content),kind:'collaboration',label:'工程协作入口',version:''});
       }
     }
     if(settings.documents&&settings.modules.includes('art')) {

@@ -11,8 +11,11 @@ import type {SyncHistory,SyncPlan,SyncBinding,CollaborationSource} from './engin
 import {workspaceStorage} from './workspace-storage';
 import {beforeLogoutEvent} from './auth';
 import './engine-sync.css';
+import type {SavedProject} from './project-catalog';
+import type {AuthoringInput} from '../shared/project-authoring.mjs';
+import type {StartupStatus} from './ProjectStartup';
 
-type Props={onOpenConnection:()=>void;projectId:string;config:EngineConfig;setConfig:(next:EngineConfig)=>Promise<boolean>|boolean;registry:EnumRegistry;onPickDirectory?:()=>Promise<string|null>;build:()=>AiDocument;art:ArtStore;collaboration:CollaborationSource;initialFeedback?:boolean;onFeedbackApplied:(reloadContent?:boolean)=>boolean;blockedReason:string;onOpenAsset?:(id:string)=>void};
+type Props={project:SavedProject;snapshot:()=>AuthoringInput['expectedEntries'];onNavigate:(name:string)=>void;onSaveProject?:()=>void;onOpenConnection:()=>void;projectId:string;config:EngineConfig;setConfig:(next:EngineConfig)=>Promise<boolean>|boolean;registry:EnumRegistry;onPickDirectory?:()=>Promise<string|null>;build:()=>AiDocument;art:ArtStore;collaboration:CollaborationSource;initialFeedback?:boolean;onFeedbackApplied:(reloadContent?:boolean)=>boolean;blockedReason:string;onOpenAsset?:(id:string)=>void};
 const labels={added:'新增',updated:'更新',removed:'待移除',unchanged:'无变化',conflict:'冲突'};
 export function EngineSyncPanel(props:Props) {
   const [tab,setTab]=useState(props.initialFeedback?'feedback':'settings');
@@ -23,14 +26,18 @@ export function EngineSyncPanel(props:Props) {
     {tab==='feedback'&&<EngineFeedbackPanel key={props.projectId+':'+props.config.engine+':'+props.config.projectPath} projectId={props.projectId} config={props.config} collaboration={props.collaboration} onApplied={props.onFeedbackApplied} blockedReason={props.blockedReason}/>}
   </section>;
 }
-function ContentSync({projectId,config,build,art,collaboration,blockedReason,onOpenAsset,onOpenConnection,tab,setTab}:Props&{tab:string;setTab:(tab:string)=>void}) {
+function ContentSync({project,snapshot,onNavigate,onSaveProject,projectId,config,build,art,collaboration,blockedReason,onOpenAsset,onOpenConnection,tab,setTab}:Props&{tab:string;setTab:(tab:string)=>void}) {
   const api=window.desktopClient?.engineSync,key='gamecreator.workspace.v1:'+projectId+':engine-sync-'+config.engine;
+  const team=collaboration.schedule.personnel;
+  const preparedProducer=team?.members.some(m=>m.active&&m.permissions.includes('project_write')&&m.developer?.scope==='project'&&m.developer.positionIds.includes('producer')&&(m.developer.projectModules===undefined||m.developer.projectModules.length>0)&&team.credentials.some(k=>k.memberId===m.id&&k.projectId===projectId&&k.persistent&&!k.revokedAt));
   const available=buildSafe();
   function buildSafe(){try{return build().sections.map(s=>s.id);}catch{return aiModules.map(m=>m.id);}}
   const [initial]=useState(()=>{
-    try{const raw=workspaceStorage.getItem(key);return {settings:raw?syncSettings(JSON.parse(raw)):{...defaultSyncSettings,modules:available},error:''};}
+    try{const raw=workspaceStorage.getItem(key),previous=JSON.parse(workspaceStorage.getItem('gamecreator.workspace.v1:'+projectId+':project-startup')||'null'),value=raw?JSON.parse(raw):{...defaultSyncSettings,credentials:!!project.folderPath&&!!preparedProducer,modules:available};return {settings:syncSettings({...value,entryDirectory:value.entryDirectory??previous?.entryDirectory??'gamecreator',credentials:value.credentials??!!previous?.at}),error:''};}
     catch(e){return {settings:{...defaultSyncSettings,modules:available},error:'同步配置读取失败：'+String(e)};}
   });
+  const coordinated=window.desktopClient?.projectStartup,coordinatedToken=useRef(false);
+  const [preparation,setPreparation]=useState<Partial<StartupStatus>>();
   const [settings,setSettings]=useState<SyncSettings>(initial.settings),[saved,setSaved]=useState(JSON.stringify(initial.settings));
   const [error,setError]=useState(initial.error),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false);
   const [plan,setPlan]=useState<SyncPlan>(),[entries,setEntries]=useState<SyncHistory[]>([]),[decisions,setDecisions]=useState<Record<string,'keep'|'replace'>>({}),[removals,setRemovals]=useState<string[]>([]);
@@ -41,8 +48,8 @@ function ContentSync({projectId,config,build,art,collaboration,blockedReason,onO
   const dirty=JSON.stringify(settings)!==saved;
   const blocked=!api?'工程文件同步需要桌面客户端。浏览器仍可使用“生成 AI 文档”。':!config.projectPath?'请先在工程连接中配置并保存工程目录。':blockedReason;
   let invalid='';try{syncSettings(settings);if(settings.documents&&!available.includes('standards')&&!settings.modules.some(m=>available.includes(m as typeof available[number])))invalid='请选择至少一个文档模块';}catch(e){invalid=(e as Error).message;}
-  const discard=()=>{if(token.current){void api?.release(token.current);token.current='';}setPlan(undefined);setDecisions({});setRemovals([]);};
-  useEffect(()=>{alive.current=true;return()=>{alive.current=false;if(token.current)void api?.release(token.current);if(bindingToken.current)void api?.release(bindingToken.current);};},[]);
+  const discard=()=>{if(token.current){if(coordinatedToken.current)void coordinated?.('release',{token:token.current});else void api?.release(token.current);token.current='';}setPlan(undefined);setDecisions({});setRemovals([]);};
+  useEffect(()=>{alive.current=true;return()=>{alive.current=false;if(token.current){if(coordinatedToken.current)void coordinated?.('release',{token:token.current});else void api?.release(token.current);}if(bindingToken.current)void api?.release(bindingToken.current);};},[]);
   useEffect(()=>{
     const guard=(e:Event)=>{if(running.current)e.preventDefault();};
     const unload=(e:BeforeUnloadEvent)=>{if(running.current){e.preventDefault();e.returnValue='';}};
@@ -61,10 +68,11 @@ function ContentSync({projectId,config,build,art,collaboration,blockedReason,onO
     if(bindingToken.current)void api.release(bindingToken.current);
     bindingToken.current=next.token||'';checkedBinding.current=true;setOwnership(next);
     if(foreignSyncBinding(next)){discard();setEntries([]);}
+    if(settings.credentials&&coordinated){const status=await coordinated('status',{projectId,entryDirectory:settings.entryDirectory,settings});if(alive.current)setPreparation(status);}
     return next;
   };
   const checkBinding=()=>run(async()=>{await inspectBinding();});
-  const loadHistory=()=>run(async()=>{if(!api||!config.projectPath)return;const binding=await inspectBinding();if(!binding||foreignSyncBinding(binding))return;const result=await api.history({projectId,config});if(alive.current)setEntries(result.entries);});
+  const loadHistory=()=>run(async()=>{if(!api||!config.projectPath)return;const binding=await inspectBinding();if(!binding||foreignSyncBinding(binding))return;const result=await api.history({projectId,config}),privateHistory=await coordinated?.('history',{projectId});if(alive.current)setEntries([...result.entries,...privateHistory?.history||[]].sort((a,b)=>b.at.localeCompare(a.at)));});
   useEffect(()=>{if(tab==='history')void loadHistory();else if(tab!=='connection'&&!checkedBinding.current)void checkBinding();},[tab]);
   const rebind=()=>run(async()=>{
     if(!api||blocked||!ownership?.token)return;
@@ -78,13 +86,17 @@ function ContentSync({projectId,config,build,art,collaboration,blockedReason,onO
   const preview=()=>run(async()=>{
     if(!api||blocked||invalid||dirty)return;discard();setNotice('');
     const binding=await inspectBinding();if(!binding||foreignSyncBinding(binding))return;
-    const next=await api.preview({projectId,config,settings,document:build(),art,collaboration});
-    if(!alive.current){void api.release(next.token);return;}
+    coordinatedToken.current=!!settings.credentials;
+    const result=settings.credentials?await coordinated?.('preview',{projectId,entryDirectory:settings.entryDirectory,settings,expectedEntries:snapshot(),document:build(),art,collaboration}):undefined;
+    const next=settings.credentials?result?.plan:await api.preview({projectId,config,settings,document:build(),art,collaboration});
+    if(!next)throw new Error('凭证同步需要桌面客户端，请重启新版客户端');
+    if(result&&alive.current)setPreparation(result);
+    if(!alive.current){if(coordinatedToken.current)void coordinated?.('release',{token:next.token});else void api.release(next.token);return;}
     token.current=next.token;setPlan(next);setEntries(next.history);setTab('preview');
   });
   const apply=()=>run(async()=>{
     if(!api||!plan||blocked||dirty)return;
-    try{const result=await api.apply({token:plan.token,decisions,removals});if(alive.current){discard();setNotice(result.message+'，共 '+result.files.length+' 个文件。');setEntries(e=>[result,...e]);}}
+    try{const result=coordinatedToken.current?await coordinated?.('initialize',{token:plan.token,decisions,removals}):await api.apply({token:plan.token,decisions,removals});if(alive.current&&result){discard();setNotice((result.message||'工程同步完成')+(result.files?'，共 '+result.files.length+' 个文件。':''));const publicHistory=await api.history({projectId,config}),privateHistory=await coordinated?.('history',{projectId});setEntries([...publicHistory.entries,...privateHistory?.history||[]].sort((a,b)=>b.at.localeCompare(a.at)));}}
     catch(e){discard();throw e;}
   });
   const recover=()=>run(async()=>{if(!api||!config.projectPath)return;const result=await api.recover({projectId,config});if(alive.current){discard();setNotice(result.message);setEntries((await api.history({projectId,config})).entries);}});
@@ -111,7 +123,8 @@ function ContentSync({projectId,config,build,art,collaboration,blockedReason,onO
           <section className="es-card"><label className="es-checkbox"><input type="checkbox" checked={settings.assets} onChange={e=>patch({assets:e.target.checked})}/>同步历史已采用素材</label><p>兼容旧项目的导入文件。新素材在工程内制作，无需启用此项；关闭后保留工程中已经交付的文件。</p><label>素材子目录（相对于工程根目录）<input aria-label="素材目标目录" value={settings.assetsDirectory} onChange={e=>patch({assetsDirectory:e.target.value})}/></label><div className="es-target-path"><span>最终写入位置</span><output aria-label="素材最终写入位置">{fullPath(settings.assetsDirectory)}</output></div><label className="es-checkbox"><input type="checkbox" disabled={!settings.assets} checked={settings.includePlaceholders} onChange={e=>patch({includePlaceholders:e.target.checked})}/>包含已采用的占位素材</label><small>关闭后，仅纳入审核通过的正式采用版本。单文件素材更新时保留同格式的工程路径；多文件版本按文件名对应。</small><div className="es-policy"><b>交付规则</b><p>更新和移除前自动备份。工程中手工修改过的文件需处理冲突。不会修改程序、场景或引擎生成的导入缓存。</p></div></section>
         </div>
       </fieldset>
-      <section className="es-card es-collaboration"><label className="es-checkbox"><input type="checkbox" checked={settings.collaboration} disabled={busy} onChange={e=>patch({collaboration:e.target.checked})}/>同步开发协作（任务与工具回写）</label><p>在工程的 gamecreator/ 中生成任务与工具上下文、反馈填写规范和比较基准，并链接到文档目录中的本项目自定义规范。开发者或 AI 提交反馈后，到“开发反馈”查看并应用。</p><div className="es-target-path"><span>开发协作目录</span><output>{fullPath('gamecreator')}</output></div><small>关闭后保留已有上下文、反馈及回执。既有同步配置需要手动开启；历史快照保留用于核对旧反馈。</small></section>
+      <section className="es-card es-collaboration"><label className="es-checkbox"><input type="checkbox" checked={settings.collaboration} disabled={busy} onChange={e=>patch({collaboration:e.target.checked,...(!e.target.checked?{credentials:false}:{})})}/>同步开发协作（任务与工具回写）</label><p>在工程的 gamecreator/ 中生成任务与工具上下文、反馈填写规范和比较基准，并链接到文档目录中的本项目自定义规范。开发者或 AI 提交反馈后，到“开发反馈”查看并应用。</p><div className="es-target-path"><span>开发协作目录</span><output>{fullPath('gamecreator')}</output></div><small>关闭后保留已有上下文、反馈及回执。既有同步配置需要手动开启；历史快照保留用于核对旧反馈。</small></section>
+      <section className="es-card es-collaboration" aria-label="协作入口与成员凭证"><h3>协作入口与成员凭证</h3><p>首次导出凭证需先准备有效制作人；新增成员、更换令牌或修改职责后，继续在这里预览并同步。文档可以独立同步。</p><label>协作入口子目录<input aria-label="协作入口子目录" disabled={busy||!settings.collaboration} value={settings.entryDirectory||'gamecreator'} onChange={e=>patch({entryDirectory:e.target.value})}/></label><div className="es-target-path"><span>入口文档</span><output>{fullPath((settings.entryDirectory||'gamecreator')+'/README.md')}</output></div><label className="es-checkbox"><input type="checkbox" aria-label="同步成员凭证" checked={!!settings.credentials} disabled={busy||!settings.collaboration} onChange={e=>patch({credentials:e.target.checked})}/>同步成员凭证</label><p>凭证写入引擎工程的 personal/，复用已有身份与令牌。预览只显示成员、路径与状态；私钥不进入公共文档或备份。</p><output aria-label="成员凭证最终位置">{fullPath((settings.entryDirectory||'gamecreator')+'/personal')}</output><p>Godot 资源面板会忽略 personal，请用文件资源管理器查看。关闭凭证同步会保留已导出的凭证。</p><div className="es-footer"><button disabled={busy} onClick={()=>onNavigate('人员分配')}>配置人员与令牌</button>{!project.folderPath&&<button disabled={busy} onClick={onSaveProject}>保存 GameCreator 项目</button>}<button disabled={busy||!config.projectPath} onClick={()=>void checkBinding()}>检查准备状态</button><button disabled={busy} onClick={()=>onNavigate('项目内容同步')}>进入项目内容同步</button></div>{settings.credentials&&preparation&&<><p>GameCreator 管理项目：{project.folderPath||'尚未保存'}</p><ul>{preparation.members?.map(m=><li key={m.id}>{m.name} · {m.error||'凭证可用'}</li>)}</ul>{preparation.blockers?.map((b,i)=><p role="status" className="es-notice" key={i}>{b}</p>)}{preparation.initializedAt&&<p>上次协作同步：{new Date(preparation.initializedAt).toLocaleString()}</p>}</>}</section>
       {invalid&&<p className="es-error" role="alert">{invalid}</p>}
       <div className="es-footer"><span>{dirty?'配置待保存':'配置已保存 · 手动预览后同步'}</span><button className="primary" disabled={busy||foreign||dirty||!!blocked||!!invalid} onClick={()=>void preview()}>预览同步变更<ArrowRight size={16}/></button></div>
     </>}
@@ -121,15 +134,15 @@ function ContentSync({projectId,config,build,art,collaboration,blockedReason,onO
       {!plan?<div className="es-empty"><FolderSync size={36}/><h3>把最新内容交付到工程</h3><p>检查文档和所选同步内容的变化，确认后一次同步。</p><code>{config.projectPath||'尚未连接工程'}</code><button className="primary" disabled={busy||foreign||dirty||!!blocked||!!invalid} onClick={()=>void preview()}>预览同步变更</button></div>:<>
         <div className="es-summary">{Object.entries(labels).map(([status,label])=><span className={'es-state '+status} key={status}>{label} {plan.rows.filter(r=>r.status===status).length}</span>)}<label className="es-checkbox"><input type="checkbox" checked={showUnchanged} onChange={e=>setShowUnchanged(e.target.checked)}/>显示无变化</label></div>
         {!!plan.warnings.length&&<details className="es-notice"><summary>{plan.warnings.length} 项同步提示</summary>{plan.warnings.map((w,i)=><p key={i}>{w}</p>)}</details>}
-        <div className="es-changes">{plan.rows.filter(r=>showUnchanged||r.status!=='unchanged').map(r=><article className="es-change" key={r.path}><div><span className={'es-state '+r.status}>{labels[r.status]}{r.remove&&r.status==='conflict'?' · 待移除':''}</span><b>{r.label}</b>{r.placeholder&&<small>占位素材</small>}<code title={root.replace(/[\\/]+$/,'')+'/'+r.path}>{root.replace(/[\\/]+$/,'')+'/'+r.path}</code><small>{r.version&&'版本：'+r.version+' · '}{r.reason}</small></div><div className="es-row-actions">{r.status==='conflict'&&<select aria-label={'冲突处理 '+r.path} disabled={busy} value={decisions[r.path]||''} onChange={e=>setDecisions(d=>({...d,[r.path]:e.target.value as 'keep'|'replace'}))}><option value="">请选择处理方式</option><option value="keep">保留工程文件，本次跳过</option><option value="replace">{r.remove?'备份并允许移除':'备份并使用 GameCreator 版本'}</option></select>}{r.remove&&<label className="es-checkbox"><input type="checkbox" aria-label={'确认移除 '+r.path} disabled={busy} checked={removals.includes(r.path)} onChange={e=>setRemovals(a=>e.target.checked?[...a,r.path]:a.filter(p=>p!==r.path))}/>确认移除</label>}</div></article>)}</div>
+        <div className="es-changes">{plan.rows.filter(r=>showUnchanged||r.status!=='unchanged').map(r=><article className="es-change" key={r.path}><div><span className={'es-state '+r.status}>{labels[r.status]}{r.remove&&r.status==='conflict'?' · 待移除':''}</span><b>{r.label}</b>{r.placeholder&&<small>占位素材</small>}<code title={root.replace(/[\\/]+$/,'')+'/'+r.path}>{root.replace(/[\\/]+$/,'')+'/'+r.path}</code><small>{r.version&&'版本：'+r.version+' · '}{r.reason}</small></div><div className="es-row-actions">{r.status==='conflict'&&<select aria-label={'冲突处理 '+r.path} disabled={busy} value={decisions[r.path]||''} onChange={e=>setDecisions(d=>({...d,[r.path]:e.target.value as 'keep'|'replace'}))}><option value="">请选择处理方式</option><option value="keep">保留工程文件，本次跳过</option><option value="replace">{r.kind==='credential'?(r.remove?'移除私有凭证（不备份）':'替换私有凭证（不备份）'):r.remove?'备份并允许移除':'备份并使用 GameCreator 版本'}</option></select>}{r.remove&&<label className="es-checkbox"><input type="checkbox" aria-label={'确认移除 '+r.path} disabled={busy} checked={removals.includes(r.path)} onChange={e=>setRemovals(a=>e.target.checked?[...a,r.path]:a.filter(p=>p!==r.path))}/>确认移除</label>}</div></article>)}</div>
         {plan.rows.every(r=>r.status==='unchanged')&&<p className="es-success"><CheckCircle2 size={20}/>{settings.assets&&unadopted.length?'已纳入同步的文件已是最新版本；上方历史文件仍保留在存档中。':'所选范围的工程文件已是最新版本。'}</p>}
-        <div className="es-footer"><span>{unresolved?'请先处理冲突':actions?'本次处理 '+actions+' 个文件，覆盖前自动备份':'没有需要写入的变更'}</span><button className="primary" disabled={busy||foreign||!!blocked||!!unresolved||!actions} onClick={()=>void apply()}><FolderSync size={16}/>{busy?'正在同步…':'同步到工程'}</button></div>
+        <div className="es-footer"><span>{unresolved?'请先处理冲突':actions?'本次处理 '+actions+' 个文件，普通文档覆盖前备份，私有凭证不备份':'没有需要写入的变更'}</span><button className="primary" disabled={busy||foreign||!!blocked||!!unresolved||!actions} onClick={()=>void apply()}><FolderSync size={16}/>{busy?'正在同步…':'同步到工程'}</button></div>
       </>}
     </>}
     {tab==='history'&&<>
-      <div className="es-section-heading"><div><h3>同步记录</h3><p>记录保存在当前工程，备份目录保留写入前的文件和清单。</p></div><button className="gp-secondary" disabled={busy||!api||!config.projectPath} onClick={()=>void loadHistory()}><RefreshCw size={16}/>刷新记录</button></div>
-      {!entries.length?<div className="es-empty"><History size={32}/><h3>尚无同步记录</h3><p>完成第一次同步后，可在这里查看交付内容与备份位置。</p></div>:entries.map(entry=><details className="es-history" key={entry.id}><summary><span className={'es-state '+(entry.status==='success'?'added':'conflict')}>{entry.kind==='rebind'?'已重新绑定':entry.status==='success'?'已同步':'失败 / 已恢复'}</span>{new Date(entry.at).toLocaleString()}<span>{entry.files.length} 个文件</span></summary><p>{entry.message}</p>{entry.kind==='rebind'&&<p>原归属：{entry.fromProjectId}<br/>新归属：{entry.toProjectId}</p>}{entry.backupDirectory&&<><small>写入前备份位置</small><code>{entry.backupDirectory}</code></>}{entry.files.map(f=><p key={f.path}><code>{f.path}</code> {f.action==='removed'?'已移除':f.version?'版本：'+f.version:'已写入'}</p>)}</details>)}
-      <div className="es-footer"><small>客户端异常退出后，可恢复未完成的同步。检测到外部改动时会停止恢复。</small><button className="gp-secondary" disabled={busy||foreign||!api||!config.projectPath} onClick={()=>void recover()}>恢复中断的同步</button></div>
+      <div className="es-section-heading"><div><h3>同步记录</h3><p>文档记录与备份保存在工程中；凭证处理记录保存在管理项目中，不备份私钥。</p></div><button className="gp-secondary" disabled={busy||!api||!config.projectPath} onClick={()=>void loadHistory()}><RefreshCw size={16}/>刷新记录</button></div>
+      {!entries.length?<div className="es-empty"><History size={32}/><h3>尚无同步记录</h3><p>完成第一次同步后，可在这里查看交付内容与备份位置。</p></div>:entries.map(entry=><details className="es-history" key={entry.id}><summary><span className={'es-state '+(entry.status==='success'?'added':'conflict')}>{entry.kind==='rebind'?'已重新绑定':entry.kind==='credentials'?(entry.status==='success'?'凭证已同步':'凭证未完成'):entry.status==='success'?'已同步':'失败 / 已恢复'}</span>{new Date(entry.at).toLocaleString()}<span>{entry.files.length} 个文件</span></summary><p>{entry.message}</p>{entry.kind==='rebind'&&<p>原归属：{entry.fromProjectId}<br/>新归属：{entry.toProjectId}</p>}{entry.backupDirectory&&<><small>写入前备份位置</small><code>{entry.backupDirectory}</code></>}{entry.files.map(f=><p key={f.path}><code>{f.path}</code> {f.action==='removed'?'已移除':f.action==='kept'?'保留未同步':f.action==='registered'?'已登记':f.version?'版本：'+f.version:'已写入'}</p>)}</details>)}
+      <div className="es-footer"><small>文档中断可恢复；凭证未完成时请重新预览同步。检测到外部改动时会停止恢复。</small><button className="gp-secondary" disabled={busy||foreign||!api||!config.projectPath} onClick={()=>void recover()}>恢复中断的同步</button></div>
     </>}
   </div>;
 }

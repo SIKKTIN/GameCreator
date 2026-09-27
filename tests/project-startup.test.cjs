@@ -7,6 +7,63 @@ async function setup(t){
  const input=()=>({...f.input(),document:{projectName:f.project.name,version:'1',sections:[{id:'overview',label:'项目概览',body:'原型设计'},{id:'standards',label:'项目规范',body:'先复用，再扩展'},{id:'art',label:'素材资产',body:'角色文档'}]},collaboration:{schedule:JSON.parse(f.storage.getItem(f.sk)),tools:{schema:1,tools:[]}},art:{assets:[]}});
  return {...f,engine,sync,startup,input,preview:(extra={})=>startup.run('preview',{...input(),...extra})};
 }
+
+test('unified preview respects sync scope and shows private credential metadata, rotation and external conflicts',async t=>{
+ const f=await setup(t),settings={documents:false,assets:false,collaboration:true,credentials:true,includePlaceholders:true,entryDirectory:'gamecreator',docsDirectory:'design',assetsDirectory:'assets/gamecreator',modules:[]};
+ const preview=()=>f.preview({settings,entryDirectory:settings.entryDirectory});
+ let p=await preview();assert.ok(p.plan.rows.some(r=>r.kind==='credential'&&r.status==='added'));assert.ok(!JSON.stringify(p).includes(f.secret.privateKey));
+ await f.startup.run('initialize',{projectId:f.project.id,token:p.plan.token});
+ assert.equal(fs.existsSync(path.join(f.engine,'design/modules/overview.md')),false);assert.ok(fs.existsSync(path.join(f.engine,'design/modules/project-management/standards.md')));
+ const sk='gamecreator.workspace.v1:'+f.project.id+':engine-sync-'+f.project.config.engine;assert.equal(JSON.parse(f.storage.getItem(sk)).documents,false);
+ let schedule=JSON.parse(f.storage.getItem(f.sk)),m=schedule.personnel.members.find(m=>m.id===f.memberId);
+ const rotated=await f.developers.change('rotate',{projectId:f.project.id,memberId:m.id,credentialId:f.credential.id,schedule,name:m.name,duties:m.duties,permissions:m.permissions,active:m.active,profile:m.developer});
+ p=await preview();assert.equal(p.plan.rows.find(r=>r.kind==='credential').status,'updated');await f.startup.run('initialize',{token:p.plan.token});
+ const file=path.join(f.engine,'gamecreator/personal',m.id+'.json');assert.equal(JSON.parse(fs.readFileSync(file)).credentialId,rotated.credential.id);
+ fs.writeFileSync(file,'manual file');p=await preview();const row=p.plan.rows.find(r=>r.kind==='credential');assert.equal(row.status,'conflict');
+ await assert.rejects(f.startup.run('initialize',{token:p.plan.token}),/冲突/);
+ await f.startup.run('initialize',{token:p.plan.token,decisions:{[row.path]:'keep'}});assert.equal(fs.readFileSync(file,'utf8'),'manual file');
+ p=await preview();await f.startup.run('initialize',{token:p.plan.token,decisions:{[row.path]:'replace'}});assert.equal(JSON.parse(fs.readFileSync(file)).credentialId,rotated.credential.id);
+ const history=await f.startup.run('history',{projectId:f.project.id});assert.ok(history.history.some(h=>h.files.some(r=>r.action==='kept')));assert.ok(!JSON.stringify(history).includes(f.secret.privateKey));
+});
+
+test('credential relocation keeps unconfirmed old paths tracked; revocation can remove the last producer export',async t=>{
+ const f=await setup(t);let p=await f.preview();await f.startup.run('initialize',{token:p.plan.token});
+ const old='gamecreator/personal/'+f.memberId+'.json',moved='team/personal/'+f.memberId+'.json';
+ p=await f.preview({entryDirectory:'team'});assert.equal(p.plan.rows.find(r=>r.path===old).remove,true);await f.startup.run('initialize',{token:p.plan.token});
+ assert.ok(fs.existsSync(path.join(f.engine,old)));assert.ok(fs.existsSync(path.join(f.engine,moved)));
+ p=await f.preview({entryDirectory:'team'});assert.equal(p.plan.rows.find(r=>r.path===old).remove,true);await f.startup.run('initialize',{token:p.plan.token,removals:[old]});assert.equal(fs.existsSync(path.join(f.engine,old)),false);
+ const s=JSON.parse(f.storage.getItem(f.sk));f.developers.revoke({projectId:f.project.id,credentialId:f.credential.id,schedule:s});
+ p=await f.preview({entryDirectory:'team'});assert.equal(p.plan.rows.find(r=>r.path===moved).remove,true);await f.startup.run('initialize',{token:p.plan.token,removals:[moved]});assert.equal(fs.existsSync(path.join(f.engine,moved)),false);
+ for(const file of fs.readdirSync(path.join(f.engine,'.gamecreator-sync'),{recursive:true})){const full=path.join(f.engine,'.gamecreator-sync',file);if(fs.statSync(full).isFile())assert.ok(!fs.readFileSync(full).includes(Buffer.from(f.secret.privateKey)));}
+});
+
+test('case-only entry relocation preserves the same physical credential on Windows',{skip:process.platform!=='win32'},async t=>{
+ const f=await setup(t);let p=await f.preview({entryDirectory:'Team'});await f.startup.run('initialize',{token:p.plan.token});
+ const old='Team/personal/'+f.memberId+'.json',current='team/personal/'+f.memberId+'.json';
+ p=await f.preview({entryDirectory:'team'});assert.ok(!p.plan.rows.some(r=>r.kind==='credential'&&r.remove));
+ await f.startup.run('initialize',{token:p.plan.token,removals:[old]});
+ assert.equal(JSON.parse(fs.readFileSync(path.join(f.engine,current))).credentialId,f.credential.id);
+ const saved=JSON.parse(f.storage.getItem('gamecreator.workspace.v1:'+f.project.id+':project-startup'));
+ assert.ok(saved.files[current]);assert.equal(saved.files[old],undefined);
+});
+
+test('credential preview rejects changed private files and competing credential-only commits',async t=>{
+ const f=await setup(t);let p=await f.preview();await f.startup.run('initialize',{token:p.plan.token});
+ const first=await f.preview(),second=await f.preview();await f.startup.run('initialize',{token:first.plan.token});await assert.rejects(f.startup.run('initialize',{token:second.plan.token}),/配置已变化/);
+ p=await f.preview();const file=path.join(f.engine,'gamecreator/personal',f.memberId+'.json');fs.writeFileSync(file,'external edit');await assert.rejects(f.startup.run('initialize',{token:p.plan.token}),/凭证目标在预览后发生变化/);assert.equal(fs.readFileSync(file,'utf8'),'external edit');
+});
+
+test('partial private writes report failure without secret backups and can be safely previewed again',async t=>{
+ const f=await setup(t),schedule=JSON.parse(f.storage.getItem(f.sk));
+ const other=await f.developers.change('create',{projectId:f.project.id,schedule,name:'程序',duties:'实现功能',permissions:['progress'],profile:{positionIds:['program'],taskIds:[],scope:'positions',expiresAt:''}});
+ const p=await f.preview(),rename=fs.renameSync;
+ fs.renameSync=(from,to)=>{if(String(to).endsWith(other.memberId+'.json'))throw new Error('credential disk error');return rename(from,to);};
+ try{await assert.rejects(f.startup.run('initialize',{token:p.plan.token}),/凭证同步未完成/);}finally{fs.renameSync=rename;}
+ const first=path.join(f.engine,'gamecreator/personal',f.memberId+'.json'),before=fs.readFileSync(first,'utf8');assert.equal(JSON.parse(before).privateKey,f.secret.privateKey);
+ const failed=await f.startup.run('history',{projectId:f.project.id});assert.equal(failed.history.at(-1).status,'failed');assert.ok(!JSON.stringify(failed).includes(f.secret.privateKey));
+ const retry=await f.preview();await f.startup.run('initialize',{token:retry.plan.token});assert.equal(fs.readFileSync(first,'utf8'),before);assert.equal(JSON.parse(fs.readFileSync(path.join(f.engine,'gamecreator/personal',other.memberId+'.json'))).credentialId,other.credential.id);
+ assert.equal(JSON.parse(f.storage.getItem(f.sk)).personnel.credentials.length,2);
+});
 test('initialization exports engine workflow, grouped docs and private credentials; repeat preserves identities and secrets',async t=>{
  const f=await setup(t),p=await f.preview();assert.equal(p.blockers.length,0);assert.equal(JSON.stringify(p).includes(f.secret.privateKey),false);
  const result=await f.startup.run('initialize',{projectId:f.project.id,token:p.plan.token});assert.ok(result.initializedAt);

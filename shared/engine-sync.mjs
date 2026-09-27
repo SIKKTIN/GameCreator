@@ -3,7 +3,7 @@ import {validName} from './ai-document-files.mjs';
 import {projectCustomStandardsMarkdown} from './project-standards.mjs';
 import {documentGroups,moduleDocumentPath,relativeDocumentPath,projectWorkflowMarkdown} from './engine-document-layout.mjs';
 
-export const defaultSyncSettings = {documents:true, assets:false, collaboration:true, includePlaceholders:true, docsDirectory:'docs/gamecreator', assetsDirectory:'assets/gamecreator', modules:[]};
+export const defaultSyncSettings = {credentials:false,entryDirectory:'gamecreator',documents:true, assets:false, collaboration:true, includePlaceholders:true, docsDirectory:'docs/gamecreator', assetsDirectory:'assets/gamecreator', modules:[]};
 export function syncPath(value) {
   if(typeof value!=='string')throw new Error('同步目录必须是工程内的相对路径');
   const result=value.trim().replace(/^res:\/\//,'').replaceAll('\\','/');
@@ -21,8 +21,13 @@ export function syncSettings(input) {
   if(a===b||a.startsWith(b+'/')||b.startsWith(a+'/'))throw new Error('文档目录和素材目录不能相同或互相包含');
   if(input.collaboration!==undefined&&typeof input.collaboration!=='boolean')throw new Error('开发协作配置无效');
   const collaboration=input.collaboration??false;
+  if(input.credentials!==undefined&&typeof input.credentials!=='boolean')throw new Error('成员凭证同步配置无效');
+  const credentials=input.credentials??false,entryDirectory=syncPath(input.entryDirectory??'gamecreator');
+  const e=entryDirectory.toLowerCase();
+  if(credentials&&!collaboration)throw new Error('同步成员凭证需要开启开发协作');
+  if(collaboration&&(e!=='gamecreator'&&(e.startsWith('gamecreator/')||'gamecreator'.startsWith(e+'/'))||[a,b].some(p=>e===p||e.startsWith(p+'/')||p.startsWith(e+'/'))))throw new Error('协作入口与文档、素材或反馈目录重叠');
   if(collaboration&&[a,b].some(p=>p==='gamecreator'||p.startsWith('gamecreator/')))throw new Error('gamecreator 目录保留给开发协作，请调整文档或素材目录');
-  return {documents:input.documents,assets:input.assets,collaboration,includePlaceholders:input.includePlaceholders,docsDirectory,assetsDirectory,modules:[...new Set(input.modules)]};
+  return {credentials,entryDirectory,documents:input.documents,assets:input.assets,collaboration,includePlaceholders:input.includePlaceholders,docsDirectory,assetsDirectory,modules:[...new Set(input.modules)]};
 }
 
 // Deterministic output: checking changes must not rewrite every file because the clock changed.
