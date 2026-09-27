@@ -61,4 +61,4 @@ if(require.main===module){
  const projectDirectory=args.includes('--project')?option('--project'):path.resolve(__dirname,'..'),credentialFile=args.includes('--credential')?option('--credential'):process.env.GAMECREATOR_CREDENTIAL_FILE;
  if(!credentialFile){process.stderr.write('请用 --credential 或 GAMECREATOR_CREDENTIAL_FILE 指定开发者凭证文件。\n');process.exitCode=1;}else serve(createClient({projectDirectory:path.resolve(projectDirectory),credentialFile:path.resolve(credentialFile)}));
 }
-module.exports={createClient,tools,serve};
+module.exports={createClient,tools,serve,canonical};

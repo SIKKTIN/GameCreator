@@ -1,6 +1,6 @@
 import {producerBoundaries} from './producer-boundaries.mjs';
 import {authoringModules} from './project-authoring.mjs';
-export const guideVersion='2026-09-27.6';
+export const guideVersion='2026-09-27.7';
 export function authoringReadme(){return `# AI 项目编写入口
 
 这里是 GameCreator 生成的项目协作目录。通过这里的上下文、模板和提交工具编写项目内容；正式项目存档由客户端应用提交后更新。
@@ -84,7 +84,7 @@ ${producerBoundaries}
 
 ## AI 工作流工具
 
-管理项目 ai/WORKFLOW_MCP.md 说明 MCP 连接配置及读取、校验、提交、应用、协作导出和工程同步工具。软件左下角“MCP 连接”管理统一入口、项目身份连接及会话授权：先调用 gc_connections，核对接入码获准后，每次调用明确指定 connectionId。同一客户端进程可能被多个聊天共享，岗位隔离须使用独立进程并分别授权。ai/mcp.config.example.json 继续提供旧版逐项目配置。使用帮助的“AI 工作流工具”展示完整接入文档。
+管理项目 ai/WORKFLOW_MCP.md 说明 MCP 连接配置及读取、校验、提交、应用、协作导出和工程同步工具。软件左下角“MCP 连接”提供令牌自助接入：先用用户交付的凭证路径调用 gc_connect_credential，默认无需人工审批；每次工作流调用同时指定 connectionId 与 credentialFile，重新读取并签名。只有启用附加审批策略时才需核对接入码。连接编号不是授权；不同岗位须限制可读凭证范围，不能依靠聊天名称隔离。ai/mcp.config.example.json 继续提供旧版逐项目配置。使用帮助的“AI 工作流工具”展示完整接入文档。
 
 ## 从哪里开始
 

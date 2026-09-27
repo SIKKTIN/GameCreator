@@ -80,7 +80,7 @@ function createWorkflowService({storage,folders,developers,artFiles,session=rand
   guard();
   if(!operations.has(r?.operation))throw new Error('未知工作流操作');
   let s=state(r.projectId),m=authenticate(r,s);
-  const mutation=mutations.has(r.operation),digest=hash({operation:r.operation,input:r.input||{},projectId:r.projectId,memberId:r.memberId,credentialId:r.credentialId,...(r.accessContext?{accessContext:r.accessContext}:{})});
+  const mutation=mutations.has(r.operation),digest=hash({operation:r.operation,input:r.input||{},projectId:r.projectId,memberId:r.memberId,credentialId:r.credentialId,...(r.accessContext?{accessContext:{sessionId:r.accessContext.sessionId,connectionId:r.accessContext.connectionId}}:{})});
   if(!mutation)return execute(r,s,m,guard);
   const previous=journal(r.projectId).find(x=>x.id===r.id);
   if(previous){if(previous.digest!==digest)throw new Error('请求编号已用于不同内容');return {...previous,replayed:true};}
