@@ -44,10 +44,16 @@ export function validateProjectStandards(v){
   return v;
 }
 export function projectStandardsMarkdown(store=emptyProjectStandards()){
+  return builtinStandardsMarkdown()+'\n'+projectCustomStandardsMarkdown(store);
+}
+export function projectCustomStandardsMarkdown(store=emptyProjectStandards()){
   validateProjectStandards(store);
-  return '## 项目规范\n\n更新项目内容前必读。先兼容已有结构，再扩展独立的新内容。适用于不同游戏类型和引擎。\n\n'+
-    projectStandardRules.map(r=>'### '+standardModules[r.scope]+' · '+r.title+'\n\n'+r.body+'\n\n示例：'+r.example+(r.scope!=='general'&&store.moduleNotes[r.scope]?'\n\n本项目补充：\n'+store.moduleNotes[r.scope]:'')).join('\n\n')+
-    '\n\n### 本项目通用补充\n\n'+(store.notes||'暂无补充，采用以上通用规则。')+
+  const sections=[...(store.notes.trim()?['### 项目整体约定\n\n'+store.notes]:[]),...Object.entries(standardModules).filter(([id])=>id!=='general'&&store.moduleNotes[id]?.trim()).map(([id,label])=>'### '+label+' · 项目约定\n\n'+store.moduleNotes[id])];
+  return '## 本项目自定义规范\n\n'+(sections.length?sections.join('\n\n'):'尚未设置本项目自定义规范。')+'\n';
+}
+export function builtinStandardsMarkdown(){
+  return '## 内置通用规范\n\n更新项目内容前必读。先兼容已有结构，再扩展独立的新内容。适用于不同游戏类型和引擎。\n\n'+
+    projectStandardRules.map(r=>'### '+standardModules[r.scope]+' · '+r.title+'\n\n'+r.body+'\n\n示例：'+r.example).join('\n\n')+
     '\n\n### 更新步骤\n\n'+updateSteps.map(([title,body],i)=>`${i+1}. **${title}**：${body}`).join('\n')+
     '\n\n### 反馈中的兼容方案\n\n需求建议与项目修改填写 compatibility：reuse（复用）、modify（修改）、add（新增）、archive（归档），每项说明对象、归属与处理方式，没有则写“无”。新增或删除条目仍按对应模块支持的操作执行，不通过替换整个对象绕过。规范补充由管理者在 GameCreator 维护，也可授权 project-standards 模块后通过项目编写批次更新；通用内置规则随客户端维护。\n';
 }

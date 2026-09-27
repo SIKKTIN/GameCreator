@@ -23,18 +23,18 @@ function writeAuthoringReadme(root){
 function context(storage,project){try{return model.captureProjectPackage(storage,project);}catch(e){throw model.authoringError(e,'current');}}
 function template(projectId,snapshotId){return {format:'gamecreator-content-change',schema:1,id:'替换为新的唯一提交编号',projectId,snapshotId,intent:'project_change',target:{kind:'module',id:'project'},summary:'说明设计目标、范围和影响',compatibility:{reuse:'复用现有结构，无则写无',modify:'说明原有内容如何兼容',add:'列出新增内容及所属模块',archive:'无'},operations:[{id:'overview',module:'project',op:'set',path:'/description',value:'填写项目目标与原型范围'}]};}
 function writeCollaborationFiles(root,project,storage,allowUnvalidated=false){
+ for(const name of ['GAMECREATOR_GUIDE.md','PROJECT_STANDARDS.md']){const p=file(root,name,true);if(fs.existsSync(p)&&!read(root,name).startsWith(marker))throw new Error('已有自定义 '+name+'，请先另存为其他名称，避免覆盖');}
  let captured;
  try{captured=context(storage,project);}catch(error){
   if(!allowUnvalidated)throw error;
   // Folder preservation must not become a destructive migration for older/unknown archives.
   write(root,'GAMECREATOR_GUIDE.md',marker+'\n'+model.gamecreatorGuide());
   write(root,'README.md',read(root,'README.md')+'\n\n[GameCreator 使用说明](GAMECREATOR_GUIDE.md)\n');
-  write(root,'ai/context-status.txt','上下文尚未生成。请在客户端检查项目存档，再到使用说明更新协作文件。\n'+error.message);
+  write(root,'ai/context-status.txt','上下文尚未生成。请在客户端检查项目存档，再到项目内容同步更新协作文件。\n'+error.message);
   writeAuthoringReadme(root);
   return {directory:root};
  }
  const archives=captured.document.archives,raw=JSON.stringify({schema:1,projectId:project.id,archives}),snapshotId=hash(raw),guide=marker+'\n'+model.gamecreatorGuide();
- const guidePath=file(root,'GAMECREATOR_GUIDE.md',true);if(fs.existsSync(guidePath)&&!read(root,'GAMECREATOR_GUIDE.md').startsWith(marker))throw new Error('已有自定义 GAMECREATOR_GUIDE.md，请先另存为其他名称，避免覆盖');
  const schedule=archives['project-schedule'];
  const developers=(schedule.personnel?.members||[]).map(m=>({id:m.id,name:m.name,active:m.active,permissions:m.permissions,profile:m.developer,projectModules:model.moduleGrants(m),credentials:(schedule.personnel?.credentials||[]).filter(k=>k.memberId===m.id).map(k=>({id:k.id,projectId:k.projectId,persistent:!!k.persistent,revoked:!!k.revokedAt,expiresAt:k.persistent?m.developer?.expiresAt:k.expiresAt}))}));
  // Baselines are registered in app storage, never trusted solely because a file names a hash.
@@ -51,9 +51,11 @@ function writeCollaborationFiles(root,project,storage,allowUnvalidated=false){
  write(root,'ai/changes/README.md','将签名提交放在本目录，由客户端读取并预览。不要直接修改项目存档。\n');
  write(root,'ai/receipts/README.md','客户端成功应用后写入回执。权威处理记录保存在项目存档中。\n');
  write(root,'GAMECREATOR_GUIDE.md',guide);
+ write(root,'PROJECT_STANDARDS.md',marker+'\n# '+project.name+'：完整项目规范\n\n'+model.projectStandardsMarkdown(archives['project-standards']));
  const readme=file(root,'README.md',true),old=fs.existsSync(readme)?read(root,'README.md'): '# '+project.name+'\n';
  if(!old.includes('[GameCreator 使用说明](GAMECREATOR_GUIDE.md)'))write(root,'README.md',old+'\n\n'+marker+'\n开始编写前请阅读 [GameCreator 使用说明](GAMECREATOR_GUIDE.md)。\n');
  const linked=read(root,'README.md');if(!linked.includes('(ai/README.md)'))write(root,'README.md',linked+'\n[AI 项目编写入口](ai/README.md)：目录说明、阅读顺序和校验提交命令。\n');
+ const withGuide=read(root,'README.md');if(!withGuide.includes('(PROJECT_STANDARDS.md)'))write(root,'README.md',withGuide+'\n[完整项目规范](PROJECT_STANDARDS.md)：内置通用规则与本项目自定义约定。\n');
  for(const e of captured.expectedEntries)if(storage.getItem(e.key)!==e.value)throw new Error('生成期间项目已变化，请重新生成');
  const registered=JSON.parse(storage.getItem(contextKey(project.id))||'{"snapshotIds":[]}');
  storage.setItem(contextKey(project.id),JSON.stringify({schema:1,projectId:project.id,snapshotIds:[...new Set([...registered.snapshotIds,snapshotId])].slice(-100)}));

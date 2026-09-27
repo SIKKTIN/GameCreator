@@ -7,4 +7,6 @@ export const updateSteps:string[][];
 export function emptyProjectStandards():ProjectStandardsStore;
 export function validateProjectStandards(value:unknown):ProjectStandardsStore;
 export function projectStandardsMarkdown(store?:ProjectStandardsStore):string;
+export function builtinStandardsMarkdown():string;
+export function projectCustomStandardsMarkdown(store?:ProjectStandardsStore):string;
 export function validateCompatibility(value:unknown,required?:boolean):void;

@@ -24,7 +24,6 @@
   .gitignore                         # 加入 /gamecreator/personal/
   gamecreator/
     README.md                        # 完整工作流与目标 GameCreator 路径
-    GAMECREATOR_GUIDE.md              # 指向管理项目的编写入口
     project.json                     # 项目身份、公开上下文与 authoring 路径
     personal/
       README.md                      # 成员名称与凭证文件对应关系
@@ -38,8 +37,7 @@
     README.md                        # 工作流、目录位置与分类索引
     modules/
       overview.md
-      project-guide/                 # 项目规范、协作与写入入口
-      project-management/            # 工程连接、排期、人员
+      project-management/            # 本项目自定义规范、工程连接、排期、人员
       gameplay/                      # 玩法、关卡、原型、数值分析
       development/                   # 功能系统、开发工具、程序框架
       content/                       # 素材、故事与编排
@@ -48,13 +46,13 @@
 
 协作入口也可以设置为例如 `team`。此时入口 README 和 personal 位于 `team/`，README 链接到固定的 `gamecreator/README.md`。后续普通工程同步会继续维护此入口，文档目录变化后同步更新链接。开发反馈仍使用 `gamecreator/feedback`，不迁移反馈协议目录。
 
-初始化同时更新**绑定的 GameCreator 项目**中的 `GAMECREATOR_GUIDE.md`、`ai/README.md`、编写上下文、模板和校验提交脚本。内容编写工具仍属于这个管理项目，没有复制到引擎目录运行。
+初始化同时更新**绑定的 GameCreator 项目**中的 `GAMECREATOR_GUIDE.md`、`PROJECT_STANDARDS.md`、`ai/README.md`、编写上下文、模板和校验提交脚本。内容编写工具仍属于这个管理项目，没有复制到引擎目录运行。
 
 ## 日常工作循环
 
 1. AI 从引擎中的入口 README 开始，核对项目 ID、引擎目录和 GameCreator 项目目录，读取规范与当前文档。
 2. 设计需要新增、重组或修改多个模块时，进入 README 指定的 GameCreator 项目目录，阅读 `GAMECREATOR_GUIDE.md` 和 `ai/README.md`。刷新协作文件，基于当前快照编写内容批次，校验并使用自己的凭证签名提交到 `ai/changes`。
-3. 管理者在“使用说明 → 项目编写”读取并检查变更、处理冲突后应用。AI 查看该项目 `ai/receipts` 确认结果。
+3. 管理者在“项目内容同步 → 设计提交”读取并检查变更、处理冲突后应用。AI 查看该项目 `ai/receipts` 确认结果。
 4. 将通过检查的设计文档与协作上下文同步回引擎；正式配置文件另走“数据同步”。开发者在引擎中实现和测试。
 5. 进度、验收结论及现有需求建议写入引擎 `gamecreator/feedback`，在“工程同步 → 开发反馈”处理；后续再同步新的进度和上下文。
 

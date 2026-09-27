@@ -1,5 +1,5 @@
 import {authoringModules} from './project-authoring.mjs';
-export const guideVersion='2026-09-26.3';
+export const guideVersion='2026-09-27.1';
 export function authoringReadme(){return `# AI 项目编写入口
 
 这里是 GameCreator 生成的项目协作目录。通过这里的上下文、模板和提交工具编写项目内容；正式项目存档由客户端应用提交后更新。
@@ -8,7 +8,7 @@ export function authoringReadme(){return `# AI 项目编写入口
 
 1. 阅读 [GameCreator 使用说明](../GAMECREATOR_GUIDE.md)，了解编写协议、权限和应用流程。
 2. 读取 [project.json](project.json)，确认项目 ID、当前基准 snapshotId、支持模块、开发者权限和校验包版本。实际授权以客户端最新状态为准。
-3. 先读 [项目规范](context/content/project-standards.json) 和 [项目概览](context/content/project.json)，再读 [当前模块内容](context/content/)，检查已有条目和引用，决定复用、修改、新增及归档范围。
+3. 先读 [完整项目规范](../PROJECT_STANDARDS.md) 和 [项目概览](context/content/project.json)，再读 [当前模块内容](context/content/)，检查已有条目和引用，决定复用、修改、新增及归档范围。
 4. 参考 [变更模板](change-template.json)、[条目与嵌套模板](context/templates.json) 和 [枚举及初始值](context/template-options.json)。不要根据空数组猜测条目结构；复制模板后为新条目生成唯一 ID。
 5. 创建草稿、执行完整校验，再用本项目的长期开发者凭证签名提交。
 
@@ -47,11 +47,11 @@ node ai/submit-change.cjs submit ai/draft.json /私有位置/credential.json
 
 离线校验基于导出快照，检查内容结构、工作流字段、配置一致性和跨模块引用。失败时按诊断中的操作编号、模块、字段路径和允许值修正；submit 也会在签名前执行同样的校验。私有凭证单独保存，不写入草稿、README、上下文或 Git。
 
-签名完成后，在 GameCreator 的“使用说明 → 项目编写”点击“读取设计提交”，查看差异并解决冲突，再点击“应用整批变更”。成功后查看 [receipts/](receipts/) 下的同编号回执，以及客户端的处理记录。修正已签名内容时使用新提交编号重新签名。
+签名完成后，在 GameCreator 的“项目内容同步 → 设计提交”点击“读取设计提交”，查看差异并解决冲突，再点击“应用整批变更”。成功后查看 [receipts/](receipts/) 下的同编号回执，以及客户端的处理记录。修正已签名内容时使用新提交编号重新签名。
 
 ## 开始下一批工作
 
-项目内容、授权或客户端版本变化后，在客户端点击“更新协作文件”，重新读取 project.json 和当前模块内容。校验包缺失、版本不匹配或基准过期时，也使用这个入口更新，不手改摘要或版本号。
+项目内容、授权或客户端版本变化后，在客户端“项目内容同步”点击“更新协作文件”，重新读取 project.json 和当前模块内容。校验包缺失、版本不匹配或基准过期时，也使用这个入口更新，不手改摘要或版本号。
 
 本目录处理项目设计内容。游戏引擎中的开发进度反馈位于引擎工程的 gamecreator/feedback/，在“工程同步 → 开发反馈”处理，两者不要混放。设计已应用不代表开发已完成或里程碑已验收。
 
@@ -62,6 +62,12 @@ node ai/submit-change.cjs submit ai/draft.json /私有位置/credential.json
 export function gamecreatorGuide(){return `# GameCreator 使用说明与 AI 项目编写协议
 
 说明版本：${guideVersion}
+
+## 文档与操作入口
+
+软件级“使用帮助”位于侧栏底部，提供固定操作说明与通用规范，无需打开项目。项目自定义约定在“项目管理 → 项目规范”维护；设计提交、冲突处理、更新协作文件和处理记录在“数据与同步 → 项目内容同步”。实际开发者授权在“人员分配 → 权限查询”查看。
+
+GameCreator 项目根目录的 PROJECT_STANDARDS.md 包含完整通用规则与自定义约定。引擎只同步本项目自定义规范，README 指向管理项目的完整规范和本说明。
 
 ## 从哪里开始
 
@@ -80,11 +86,11 @@ AI 根据实际引擎效果决定修复实现还是调整正式需求。修改�
 ## 从零设计原型
 
 1. 在人员分配创建开发者。制作人可不分配任务，使用长期令牌；选择项目范围、修改项目内容与排期，并明确允许的模块。私有凭证单独下载给开发者。
-2. 在“使用说明 → 项目编写”点击“更新协作文件”，生成最新上下文。新建文件夹已包含起始上下文；人员或项目有变化时重新生成。
+2. 在“项目内容同步 → 设计提交”点击“更新协作文件”，生成最新上下文。新建文件夹已包含起始上下文；人员或项目有变化时重新生成。
 3. 先明确项目目标、范围与验收，再组织玩法核心、玩法文档、功能、配置、素材标准、任务与里程碑。已有项目优先复用已有分类、系统与稳定 ID。版本不作为所有模块的重复分类。
 4. 读取 ai/project.json 的 snapshotId、modules、developers 与 ai/context/templates.json、template-options.json。空数组的条目结构应从对应嵌套模板取得，不要猜测字符串或对象；新增条目需使用新的稳定 ID，补齐必填字段，保持未开发状态。
 5. 以 ai/change-template.json 为例编写一个跨模块 JSON 提交，先本地校验，再用凭证签名提交。
-6. 管理者在“使用说明 → 项目编写”读取提交、查看差异、处理冲突并应用。整批内容与引用检查通过后统一写入。回执位于 ai/receipts；更新上下文后再开始下一批。
+6. 管理者在“项目内容同步 → 设计提交”读取提交、查看差异、处理冲突并应用。整批内容与引用检查通过后统一写入。回执位于 ai/receipts；更新上下文后再开始下一批。
 
 ## 内容权限与反馈权限
 

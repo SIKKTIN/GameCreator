@@ -38,11 +38,11 @@ function createEngineFeedback({storage,context,manifest,read,writeMeta,checked,l
   }
   async function documents(ctx,input,settings) {
     const source=await sources(ctx,input.collaboration),{stableFeedbackJson,collaborationReadme}=await model();
-    const {projectContentModules}=await import('../shared/project-changes.mjs'),content={};for(const module of Object.keys(projectContentModules)){const state=readContent(storage,ctx.projectId,module);content[module]=structuredClone(state.value);if(module==='project-schedule'){delete content[module].personnel;delete content[module].feedbackHistory;}if(module==='development-tools')delete content[module].feedbackHistory;} const standardsStore=readContent(storage,ctx.projectId,'project-standards').value,{projectStandardsMarkdown}=await import('../shared/project-standards.mjs'),standards={revision:1,store:standardsStore,markdown:projectStandardsMarkdown(standardsStore)};const snapshot={schema:1,projectId:ctx.projectId,engine:ctx.engine,...source,content,standards};
+    const {projectContentModules}=await import('../shared/project-changes.mjs'),content={};for(const module of Object.keys(projectContentModules)){const state=readContent(storage,ctx.projectId,module);content[module]=structuredClone(state.value);if(module==='project-schedule'){delete content[module].personnel;delete content[module].feedbackHistory;}if(module==='development-tools')delete content[module].feedbackHistory;} const standardsStore=readContent(storage,ctx.projectId,'project-standards').value,standards={revision:2,store:standardsStore};const snapshot={schema:1,projectId:ctx.projectId,engine:ctx.engine,...source,content,standards};
     const bytes=Buffer.from(stableFeedbackJson(snapshot)),snapshotId=hash(bytes);
     const savedProject=JSON.parse(storage.getItem('gamecreator.projects.v1')||'null')?.projects?.find(p=>p.id===ctx.projectId);
-    const project={schema:1,projectId:ctx.projectId,projectName:input.document.projectName,engine:ctx.engine,snapshotId,documents:settings.docsDirectory,assets:settings.assetsDirectory,authoring:{projectDirectory:savedProject?.folderPath||'',guide:'GAMECREATOR_GUIDE.md',entry:'ai/README.md',changes:'ai/changes',receipts:'ai/receipts'}};
-    const workflow=(await import('../shared/engine-document-layout.mjs')).projectWorkflowMarkdown({projectId:ctx.projectId,projectName:project.projectName,projectDirectory:project.authoring.projectDirectory,engineDirectory:ctx.root,docsDirectory:settings.docsDirectory});
+    const project={schema:1,projectId:ctx.projectId,projectName:input.document.projectName,engine:ctx.engine,snapshotId,documents:settings.docsDirectory,assets:settings.assetsDirectory,projectStandards:settings.docsDirectory+'/modules/project-management/standards.md',authoring:{standards:'PROJECT_STANDARDS.md',projectDirectory:savedProject?.folderPath||'',guide:'GAMECREATOR_GUIDE.md',entry:'ai/README.md',changes:'ai/changes',receipts:'ai/receipts'}};
+    const workflow=(await import('../shared/engine-document-layout.mjs')).projectWorkflowMarkdown({projectId:ctx.projectId,projectName:project.projectName,projectDirectory:project.authoring.projectDirectory,engineDirectory:ctx.root,docsDirectory:settings.docsDirectory,entryPath:'gamecreator/README.md'});
     const json=v=>JSON.stringify(v,null,2)+'\n';
     const {inboxMarkdown,taskInbox}=await import('../shared/task-inbox.mjs');
     const files=[
@@ -53,8 +53,6 @@ function createEngineFeedback({storage,context,manifest,read,writeMeta,checked,l
       ['context/tools.json','工具开发上下文',json({schema:1,projectId:ctx.projectId,snapshotId,...source.tools})],
       ['context/snapshots/'+snapshotId+'.json','开发反馈比较基准',bytes],
       ['README.md','开发协作说明',workflow+'\n\n'+collaborationReadme(project)+'\n\n完整项目编写协议保存在绑定的 GameCreator 项目根目录 GAMECREATOR_GUIDE.md。\n'],
-      ['GAMECREATOR_GUIDE.md','GameCreator 使用说明入口',workflow],
-      ['project-standards.md','项目规范（更新前必读）',standards.markdown],
       ['project-changes.md','需求与项目修改说明',(await import('../shared/project-feedback-guide.mjs')).projectFeedbackGuide(project)],
       ['feedback/README.md','反馈提交目录','# 开发反馈\n\n将 UTF-8 JSON 反馈放在本目录。每个文件一项任务、工具或项目模块，每次使用新的 UUID。格式见 [协作说明](../README.md)。\n'],
       ['receipts/README.md','反馈处理回执目录','# 处理回执\n\nGameCreator 应用或忽略反馈后在此写入回执。回执可重新生成，请勿手动修改。\n'],
@@ -65,7 +63,7 @@ function createEngineFeedback({storage,context,manifest,read,writeMeta,checked,l
       const team=source.schedule.personnel;
       files.push(['context/team.json','AI 团队与授权',json({schema:1,projectId:ctx.projectId,positions:positionsOf(source.schedule),members:team.members,credentials:team.credentials.map(({publicKey,...c})=>c)})],['context/assignments.json','任务分配清单',json({schema:1,projectId:ctx.projectId,tasks:source.schedule.tasks.map(t=>({id:t.id,title:t.title,owner:t.owner,positionIds:t.positionIds||null,assignment:t.assignment||null,workCredentials:team.credentials.filter(k=>k.positionIds&&k.taskIds.includes(t.id)).map(k=>({credentialId:k.id,memberId:k.memberId,revokedAt:k.revokedAt,expiresAt:k.expiresAt}))}))})],['submit-feedback.cjs','AI 反馈签名工具',await fs.readFile(path.join(__dirname,'../shared/ai-feedback-client.cjs'))]);
       for(const key of team.credentials.filter(k=>k.positionIds&&k.projectId===ctx.projectId))files.push(['assignments/'+encodeURIComponent(key.id)+'.md',key.name+'工作分配',credentialMarkdown(source.schedule,key)]);
-      for(const member of team.members.filter(m=>m.active))files.push(['members/'+encodeURIComponent(member.id)+'.md',member.name+'工作说明',personnelMarkdown(source.schedule,member.id)+'\n\n'+inboxMarkdown(source.schedule,member.id)+'\n\n先阅读 ../project-standards.md、../README.md 和 ../context/tasks.json。完成任务后使用私有协作凭证签名反馈；凭证由管理者单独交付，不在此目录中。\n']);
+      for(const member of team.members.filter(m=>m.active))files.push(['members/'+encodeURIComponent(member.id)+'.md',member.name+'工作说明',personnelMarkdown(source.schedule,member.id)+'\n\n'+inboxMarkdown(source.schedule,member.id)+'\n\n先阅读 ../README.md 中链接的本项目自定义规范、通用规则入口和 ../context/tasks.json。完成任务后使用私有协作凭证签名反馈；凭证由管理者单独交付，不在此目录中。\n']);
     }
     return files.map(([file,label,content])=>({id:'collaboration:'+file,path:ROOT+'/'+file,bytes:Buffer.isBuffer(content)?content:Buffer.from(content),kind:'collaboration',label,version:''}));
   }

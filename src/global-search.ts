@@ -32,8 +32,8 @@ export function buildSearchIndex(s: SearchSources): SearchEntry[] {
   }
   if(s.project) add('项目概览',row(s.project),{id:'project',title:str(row(s.project).name)||'项目基本信息'});
   if(s.standards){
-    for(const r of projectStandardRules)add('项目规范',{...r,notes:row(row(s.standards).moduleNotes)[r.scope]},{kind:'rule',path:standardModules[r.scope]});
-    add('项目规范',{title:'本项目通用补充',notes:row(s.standards).notes},{id:'supplement',kind:'supplement'});
+    for(const r of projectStandardRules.filter(r=>r.scope!=='general')){const notes=row(row(s.standards).moduleNotes)[r.scope];if(str(notes).trim())add('项目规范',{id:r.id,title:standardModules[r.scope]+' · 项目约定',notes},{kind:'rule',path:standardModules[r.scope]});}
+    if(str(row(s.standards).notes).trim())add('项目规范',{title:'项目整体约定',notes:row(s.standards).notes},{id:'supplement',kind:'supplement'});
   }
   if(s.framework){
     add('程序框架',{...row(s.framework),title:'项目采用方案',status:row(s.framework).enabled?'已采用':'未采用'},{id:'settings',kind:'settings'});

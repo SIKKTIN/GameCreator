@@ -39,6 +39,7 @@ import { TaskFlows } from './TaskFlows';
 import { useTaskFlows } from './useTaskFlows';
 import { StoryDocuments } from './StoryDocuments';
 import { WorkspaceSidebar } from './WorkspaceSidebar';
+import {SoftwareHelp,isHelpPage,type HelpPage} from './SoftwareHelp';
 import { UserPermissions } from './UserPermissions';
 import { ServerManager, type ServerModuleNavigation } from './ServerManager';
 import { TeamProjectWorkspace } from './TeamWorkspace';
@@ -103,7 +104,7 @@ import { patchDataViewState, readDataViewState, resolveActiveDataset } from './d
 import { projectIdentity, type DatasetKey, type DataRecord, type DatasetDef, type ProjectData } from './data-model';
 import { WorkspaceShell, beforeLogoutEvent } from './auth';
 import {WorkspaceEntry,TeamProjectSelection} from './WorkspaceEntry';
-import {UsageGuide} from './UsageGuide';
+import {ProjectContentSync} from './ProjectContentSync';
 import {captureProjectPackage} from './project-package';
 import {ProjectStandards} from './ProjectStandards';
 import {useProjectStandards} from './useProjectStandards';
@@ -114,6 +115,7 @@ function WorkspaceController() {
   const username='本地';
   const [mode,setMode]=useState<'start'|'local'|'team'>('start');
   const [emptyKnowledge,setEmptyKnowledge]=useState(false);
+  const [emptyHelpPage,setEmptyHelpPage]=useState<HelpPage>();
   const teamOrigin=useRef<'start'|'local'>('local');
   const projects = useProjectCatalog();
   const team = useTeamConnection();
@@ -142,6 +144,8 @@ function WorkspaceController() {
       onBack={() => { leaveServer(); if (returnToConnection) team.resume(); }}
       onUseAddress={url => { setAddressRequest({ url }); leaveServer(); if (returnToConnection) team.resume(); else team.show(); }} /> : null,
   };
+  const openEmptyHelp=(name:string)=>{if(isHelpPage(name)&&canLeaveTeam()){leaveServer();setEmptyKnowledge(false);setEmptyHelpPage(name);}};
+  const emptyHelp=emptyHelpPage&&<main><header><div><div className="crumb">使用帮助 <span>/</span> {emptyHelpPage}</div><h1>{emptyHelpPage}</h1></div><button className="ps-secondary-button" onClick={()=>setEmptyHelpPage(undefined)}>返回项目选择</button></header><SoftwareHelp page={emptyHelpPage} onPage={setEmptyHelpPage}/></main>;
   const connectTeam = () => { if (allowSwitch()) { setCreateAfterConnection(false); setPublishAfterConnection(null); team.show(); } };
   const createTeam = () => {
     if (!allowSwitch()) return;
@@ -327,7 +331,7 @@ function WorkspaceController() {
     <ProjectPackageDialog state={transfer.state} onClose={transfer.close} />
     <PrototypeImportDialog open={prototypeOpen} busy={prototypeBusy} projects={options.filter(item => item.kind === 'local')}
       onClose={() => { if (!importingPrototype.current) setPrototypeOpen(false); }} onImport={importPrototype} />
-    {mode==='team'&&!selectedTeam&&team.session?<div className="app team-project"><WorkspaceSidebar team empty picker={<ProjectSwitcher projects={options} currentId={null} currentName="选择协作项目" busy={preparing||prototypeBusy||transfer.busy} canAdd={!projects.blocked} onSelect={selectProject} onAdd={addProject} onDelete={deleteProject} onConnectTeam={connectTeam} onCreateTeam={canManageTeam?createTeam:undefined}/>} active={serverNavigation.serverPage?serverNavigation.adminPageName??'服务器管理':''} onNavigate={()=>{}} onManageServer={serverNavigation.onManageServer} onManageUsers={serverNavigation.onManageUsers} footer={<div className="user"><div className="avatar">{team.session.user.username[0]}</div><span>{team.session.user.username}<small>团队协作</small></span></div>}/>{serverNavigation.serverPage}<div hidden={!!serverNavigation.serverPage} className="team-selection-content"><TeamProjectSelection session={team.session} projects={team.saved?.projects??[]} error={team.error} onSelect={openTeamProject} onRefresh={refreshDirectory} onConnect={connectTeam} onCreate={canManageTeam?createTeam:undefined}/></div></div>
+    {mode==='team'&&!selectedTeam&&team.session?<div className="app team-project"><WorkspaceSidebar team empty picker={<ProjectSwitcher projects={options} currentId={null} currentName="选择协作项目" busy={preparing||prototypeBusy||transfer.busy} canAdd={!projects.blocked} onSelect={selectProject} onAdd={addProject} onDelete={deleteProject} onConnectTeam={connectTeam} onCreateTeam={canManageTeam?createTeam:undefined}/>} active={serverNavigation.serverPage?serverNavigation.adminPageName??'服务器管理':emptyHelpPage||''} onNavigate={openEmptyHelp} onManageServer={serverNavigation.onManageServer} onManageUsers={serverNavigation.onManageUsers} footer={<div className="user"><div className="avatar">{team.session.user.username[0]}</div><span>{team.session.user.username}<small>团队协作</small></span></div>}/>{serverNavigation.serverPage||emptyHelp}<div hidden={!!serverNavigation.serverPage||!!emptyHelp} className="team-selection-content"><TeamProjectSelection session={team.session} projects={team.saved?.projects??[]} error={team.error} onSelect={openTeamProject} onRefresh={refreshDirectory} onConnect={connectTeam} onCreate={canManageTeam?createTeam:undefined}/></div></div>
     :selectedTeam && team.session ? <TeamProjectWorkspace key={`${team.session.serverId}:${team.session.user.id}:${selectedTeam.id}:${team.session.token}`} project={selectedTeam} session={team.session}
       {...serverNavigation}
       localProjects={(projects.blocked?[]:projects.catalog.projects).map(item => ({ ...item, name: options.find(option => option.id === item.id)?.name || item.name }))}
@@ -346,11 +350,11 @@ function WorkspaceController() {
     testSession={testSession} onLoadTest={load} onExitTest={exit} preparingTest={preparing || prototypeBusy || transfer.busy || projects.blocked}
     testError={error || projects.error || sessionError || (storedTest && !valid ? '测试会话信息无效，已回到正式工作区。' : '')} />
     : <div className="app local-workspace empty-project-workspace">
-      <WorkspaceSidebar active={serverNavigation.serverPage ? serverNavigation.adminPageName??'服务器管理' : emptyKnowledge?'美术知识库':''} onNavigate={name => {if(canLeaveTeam()){leaveServer();setEmptyKnowledge(name==='美术知识库');}}} onManageServer={serverNavigation.onManageServer} onManageUsers={serverNavigation.onManageUsers} empty
+      <WorkspaceSidebar active={serverNavigation.serverPage ? serverNavigation.adminPageName??'服务器管理' : emptyKnowledge?'美术知识库':emptyHelpPage||''} onNavigate={name => {if(canLeaveTeam()){leaveServer();setEmptyKnowledge(name==='美术知识库');setEmptyHelpPage(isHelpPage(name)?name:undefined);}}} onManageServer={serverNavigation.onManageServer} onManageUsers={serverNavigation.onManageUsers} empty
         picker={<ProjectSwitcher projects={options} teamNotice={teamNotice} currentId={null} currentName="未选择项目" canAdd={!projects.blocked} busy={prototypeBusy || transfer.busy}
           onSelect={selectProject} onAdd={addProject} onDelete={deleteProject} onConnectTeam={connectTeam} onCreateTeam={canManageTeam||!team.session?createTeam:undefined} onImportPrototype={openPrototypeImport} onImportProject={transfer.enabled ? transfer.openImport : undefined} />}
         footer={<div className="user"><div className="avatar">{username.slice(0, 1).toUpperCase()}</div><div><b>{username}</b><small>本地项目</small></div></div>} />
-      {serverNavigation.serverPage || (emptyKnowledge?<main style={{minWidth:0,padding:40}}><ArtKnowledge/></main>:<main className="empty-project-main"><FolderOpen size={40} /><h1>暂无本地项目</h1>
+      {serverNavigation.serverPage || emptyHelp || (emptyKnowledge?<main style={{minWidth:0,padding:40}}><ArtKnowledge/></main>:<main className="empty-project-main"><FolderOpen size={40} /><h1>暂无本地项目</h1>
         <p>从左上角项目菜单新建项目、导入原型示例或项目文件夹。</p>
         <p>也可以连接团队服务器，选择已有的协作项目。</p>
         <button type="button" className="ps-secondary-button" onClick={connectTeam}>连接团队服务器</button>
@@ -391,7 +395,7 @@ function WorkspaceApp({ contentReload,onContentReload,username, testSession, onL
   onExitTest: () => void; preparingTest: boolean; testError: string;
 } & ServerModuleNavigation) {
   useEffect(()=>{const save=(event:KeyboardEvent)=>{if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='s'){event.preventDefault();if(!testSession&&!preparingTest)onExportProject?.();}};window.addEventListener('keydown',save);return()=>window.removeEventListener('keydown',save);},[onExportProject,testSession,preparingTest]);
-  const [active, setActiveModule] = useState(contentReload?(sessionStorage.getItem('gamecreator.authoring-return')===formalProject.id?'使用说明':'工程同步'):testSession ? '枚举管理' : '项目概览');
+  const [active, setActiveModule] = useState(contentReload?(sessionStorage.getItem('gamecreator.authoring-return')===formalProject.id?'项目内容同步':'工程同步'):testSession ? '枚举管理' : '项目概览');
   const [connectionDirty, setConnectionDirty] = useState(false);
   const [searchNavigation, setSearchNavigation] = useState(0);
   const leaveSearch = () => setSearchNavigation(n => n + 1);
@@ -610,7 +614,7 @@ function WorkspaceApp({ contentReload,onContentReload,username, testSession, onL
         {narrative.error && active !== '故事编排' && active !== '工作区设置' && <div className="gp-save-error" role="alert"><span>{narrative.error}</span><button onClick={()=>setActive('工作区设置')}>处理故事存档</button></div>}
         {maps.error && active !== '地图设计' && active !== '工作区设置' && <div className="gp-save-error" role="alert"><span>{maps.error}</span><button onClick={()=>setActive('工作区设置')}>处理地图存档</button></div>}
         {schedule.error && active !== '项目排期' && <div className="gp-save-error" role="alert"><span>{schedule.error}</span><button onClick={() => setActive('项目排期')}>处理排期存档</button></div>}
-        {active === '任务清单' && <TaskInbox key={formalProject.id} controller={schedule} projectId={formalProject.id} config={engineConfig} collaboration={{schedule:schedule.store,tools:developmentTools.store}} blockedReason={aiExportBlocked} testMode={!!testSession} onOpenTask={id=>{setRequestedSchedule({kind:'task',id});setActive('项目排期');}} onOpenAuthoring={()=>setActive('使用说明')} onApplied={(reloadContent=false)=>{if(reloadContent){onContentReload?.();return true;}const s=schedule.reloadIfClean(),t=developmentTools.reloadIfClean();return s&&t;}}/>}
+        {active === '任务清单' && <TaskInbox key={formalProject.id} controller={schedule} projectId={formalProject.id} config={engineConfig} collaboration={{schedule:schedule.store,tools:developmentTools.store}} blockedReason={aiExportBlocked} testMode={!!testSession} onOpenTask={id=>{setRequestedSchedule({kind:'task',id});setActive('项目排期');}} onOpenAuthoring={()=>setActive('项目内容同步')} onApplied={(reloadContent=false)=>{if(reloadContent){onContentReload?.();return true;}const s=schedule.reloadIfClean(),t=developmentTools.reloadIfClean();return s&&t;}}/>}
         {active === '人员分配' && <AiPersonnel testMode={!!testSession} toolHistory={developmentTools.store.feedbackHistory} controller={schedule} projectId={formalProject.id} onOpenTask={id=>{setRequestedSchedule({kind:'task',id});setActive('项目排期');}}/>}
         {active === '项目排期' && <ProjectSchedule projectId={formalProject.id} controller={schedule} requested={requestedSchedule} sources={buildScheduleSources(gameplay.store.designs, functional.store, art.store, maps.store, prototype.store, developmentTools.store)} onOpenReference={ref => {
           if (ref.kind === 'gameplay') openGameplay(ref.targetId);
@@ -687,7 +691,8 @@ function WorkspaceApp({ contentReload,onContentReload,username, testSession, onL
         {active === '数据配置' && <DataVersions key={dataKey} registry={registry} onOpenSync={()=>setActive('数据同步')}><DataConfiguration key={dataKey} workspaceKey={dataKey} data={currentData}
           onChange={(next) => registry.updateData(next)}
           definitions={definitions} activeDataset={currentDataset} setActiveDataset={id=>{leaveSearch();setActiveDataset(id);}} registry={registry} onCreateTable={createDataset} onDeleteTable={deleteDataset} deletionReferences={datasetDeletionReferences} deletionBlocked={datasetDeletionBlocked} /></DataVersions>}
-        {active === '使用说明' && <UsageGuide onNavigate={setActive} testMode={!!testSession} project={formalProject} schedule={schedule.store} blockedReason={aiExportBlocked} snapshot={()=>captureProjectPackage(workspaceStorage,formalProject).expectedEntries} onApplied={()=>onContentReload?.()}/>}
+        {isHelpPage(active)&&<SoftwareHelp page={active} onPage={setActive}/>}
+        {active === '项目内容同步' && <ProjectContentSync onNavigate={setActive} testMode={!!testSession} project={formalProject} schedule={schedule.store} blockedReason={aiExportBlocked} snapshot={()=>captureProjectPackage(workspaceStorage,formalProject).expectedEntries} onApplied={()=>onContentReload?.()}/>}
         {active === '项目规范' && <ProjectStandards controller={standards} requestedId={requestedStandard} sources={{gameplay:gameplay.blocked?undefined:gameplay.store,core:core.blocked?undefined:core.store,functional:functional.blocked?undefined:functional.store,schedule:schedule.blocked?undefined:schedule.store}} sourceError={[gameplay,core,functional,schedule].some(c=>c.blocked||c.pending)?'部分来源尚未保存或暂不可读':''} onNavigate={setActive}/> }
         {active === '数据同步' && <DataSyncPanel projectId={formalProject.id} config={engineConfig} setConfig={onConfigChange} registry={registry} blocked={!!testSession} onOpenTable={name=>{setActiveDataset(name);setActive('数据配置');}}/>}
         {active === '枚举定义' && <EnumDefinitions registry={registry} />}
@@ -695,7 +700,7 @@ function WorkspaceApp({ contentReload,onContentReload,username, testSession, onL
         {active === '项目启动' && <ProjectStartup project={formalProject} build={exportAiContext} art={art.store} collaboration={{schedule:schedule.store,tools:developmentTools.store}} snapshot={()=>captureProjectPackage(workspaceStorage,formalProject).expectedEntries} blockedReason={testSession?'测试工作区不支持初始化正式工程':connectionDirty?'工程连接有未保存的修改':aiExportBlocked} onNavigate={setActive} onSaveProject={onExportProject}/>}
         {(active === '工程连接'||connectionDirty) && <fieldset hidden={active!=='工程连接'} disabled={!!testSession} style={{border:0,padding:0,margin:0,minWidth:0}}><EngineSettings config={engineConfig} setConfig={next=>testSession?Promise.resolve(false):onConfigChange(next)} registry={registry} onPickDirectory={window.desktopClient?.pickProjectDirectory} onDirtyChange={setConnectionDirty}/></fieldset>}
         {active === '工程同步' && <fieldset disabled={!!testSession} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>{testSession && <p>测试场景使用固定来源，请通过测试面板加载或重置场景。</p>}<EngineSyncPanel onOpenConnection={()=>setActive('工程连接')} initialFeedback={contentReload} collaboration={{schedule:schedule.store,tools:developmentTools.store}} onFeedbackApplied={(reloadContent=false)=>{if(reloadContent){onContentReload?.();return true;}const s=schedule.reloadIfClean(),t=developmentTools.reloadIfClean();return s&&t;}} onOpenAsset={id=>{setArtSelection({kind:'asset',id});setActive('素材资产');}} projectId={formalProject.id} build={exportAiContext} art={art.store} blockedReason={connectionDirty?'工程连接有未保存的修改，请先保存工程连接。':aiExportBlocked} config={engineConfig} registry={registry} onPickDirectory={window.desktopClient?.pickProjectDirectory} setConfig={(next) => testSession ? Promise.resolve(false) : onConfigChange(next)} /></fieldset>}
-        {active !== '美术知识库' && active !== '项目启动' && active !== '工程连接' && active !== '使用说明' && active !== '项目规范' && active !== '任务清单' && active !== '人员分配' && active !== '数据同步' && active !== '开发工具' && active !== '程序框架' && active !== '全局搜索' && active !== '数值分析' && active !== '项目排期' && active !== '地图设计' && active !== '工作区设置' && active !== '故事编排' && active !== '原型设计' && active !== '任务与流程' && active !== '项目概览' && active !== '玩法核心' && active !== '玩法设计' && active !== '功能系统' && active !== '素材资产' && active !== '故事文档' && active !== '数据配置' && active !== '枚举定义' && active !== '枚举管理' && active !== '工程同步' && (
+        {active !== '美术知识库' && !isHelpPage(active) && active !== '项目启动' && active !== '工程连接' && active !== '项目内容同步' && active !== '项目规范' && active !== '任务清单' && active !== '人员分配' && active !== '数据同步' && active !== '开发工具' && active !== '程序框架' && active !== '全局搜索' && active !== '数值分析' && active !== '项目排期' && active !== '地图设计' && active !== '工作区设置' && active !== '故事编排' && active !== '原型设计' && active !== '任务与流程' && active !== '项目概览' && active !== '玩法核心' && active !== '玩法设计' && active !== '功能系统' && active !== '素材资产' && active !== '故事文档' && active !== '数据配置' && active !== '枚举定义' && active !== '枚举管理' && active !== '工程同步' && (
           <section className="empty">
             <div className="empty-icon"><Layers size={34} /></div>
             <h2>{active}</h2>

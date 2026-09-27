@@ -51,3 +51,28 @@ test('ordinary synchronization maintains the initialized entry and updates its w
  await f.sync.apply({token:moved.token,decisions:{},removals:[]});assert.match(fs.readFileSync(path.join(f.engine,'team/README.md'),'utf8'),/design-docs/);
  await assert.rejects(f.sync.preview({...f.input(),config:f.project.config,settings:{...settings,docsDirectory:'Team'}}),/重叠/);
 });
+
+test('project files contain full rules while engine delivery contains only current custom rules, including collaboration-only sync',async t=>{
+ const f=await setup(t),key='gamecreator.workspace.v1:'+f.project.id+':project-standards';
+ f.storage.setItem(key,JSON.stringify({schema:1,notes:'坐标原点左上，能量按回合结算。',moduleNotes:{art:'角色使用统一色板。',data:'时间字段以毫秒存储。'}}));
+ const p=await f.preview();await f.startup.run('initialize',{projectId:f.project.id,token:p.plan.token});
+ const standardPath='docs/gamecreator/modules/project-management/standards.md',read=p=>fs.readFileSync(path.join(f.engine,p),'utf8');
+ assert.match(read(standardPath),/坐标原点左上/);assert.match(read(standardPath),/统一色板/);assert.match(read(standardPath),/时间字段以毫秒/);assert.doesNotMatch(read(standardPath),/先复用，再扩展/);
+ const full=fs.readFileSync(path.join(f.project.folderPath,'PROJECT_STANDARDS.md'),'utf8');assert.match(full,/先复用，再扩展/);assert.match(full,/坐标原点左上/);assert.match(fs.readFileSync(path.join(f.project.folderPath,'README.md'),'utf8'),/PROJECT_STANDARDS.md/);
+ assert.equal(fs.existsSync(path.join(f.engine,'gamecreator/GAMECREATOR_GUIDE.md')),false);assert.equal(fs.existsSync(path.join(f.engine,'gamecreator/project-standards.md')),false);
+ assert.match(read('gamecreator/README.md'),/\.\.\/docs\/gamecreator\/modules\/project-management\/standards.md/);
+ f.storage.setItem(key,JSON.stringify({schema:1,notes:'',moduleNotes:{art:'  '}}));const settings=JSON.parse(f.storage.getItem('gamecreator.workspace.v1:'+f.project.id+':engine-sync-'+f.project.config.engine));
+ const next=await f.sync.preview({...f.input(),config:f.project.config,settings:{...settings,documents:false,docsDirectory:'project specs'}});await f.sync.apply({token:next.token,decisions:{},removals:[]});
+ const empty=read('project specs/modules/project-management/standards.md');assert.match(empty,/尚未设置/);assert.doesNotMatch(empty,/统一色板|坐标原点|先复用/);assert.match(empty,/协作入口.*gamecreator\/README.md/);assert.equal(fs.existsSync(path.join(f.engine,'project specs/README.md')),false);for(const entry of ['gamecreator/README.md','gamecreator/project-changes.md'])assert.match(read(entry),/\.\.\/project%20specs\/modules\/project-management\/standards\.md/);
+});
+
+test('retired engine guide copies require reviewed removal and modified copies retain their content',async t=>{
+ const f=await setup(t),p=await f.preview();await f.startup.run('initialize',{projectId:f.project.id,token:p.plan.token});
+ const manifestPath=path.join(f.engine,'.gamecreator-sync/manifest.json'),manifest=JSON.parse(fs.readFileSync(manifestPath));
+ const hash=v=>require('node:crypto').createHash('sha256').update(v).digest('hex');
+ for(const name of ['GAMECREATOR_GUIDE.md','project-standards.md']){const copy={...manifest.files.find(r=>r.kind==='collaboration'),id:'collaboration:'+name,path:'gamecreator/'+name,hash:hash('old managed copy')};manifest.files.push(copy);fs.writeFileSync(path.join(f.engine,copy.path),'old managed copy');}
+ fs.writeFileSync(manifestPath,JSON.stringify(manifest));fs.writeFileSync(path.join(f.engine,'gamecreator/project-standards.md'),'manually edited legacy rules');
+ const next=await f.preview();assert.equal(next.plan.rows.find(r=>r.path==='gamecreator/project-standards.md').status,'conflict');assert.equal(next.plan.rows.find(r=>r.path==='gamecreator/GAMECREATOR_GUIDE.md').remove,true);
+ await f.startup.run('initialize',{projectId:f.project.id,token:next.plan.token,decisions:{'gamecreator/project-standards.md':'keep'},removals:[]});assert.equal(fs.readFileSync(path.join(f.engine,'gamecreator/project-standards.md'),'utf8'),'manually edited legacy rules');assert.ok(fs.existsSync(path.join(f.engine,'gamecreator/GAMECREATOR_GUIDE.md')));
+ const again=await f.preview();await f.startup.run('initialize',{projectId:f.project.id,token:again.plan.token,decisions:{'gamecreator/project-standards.md':'keep'},removals:['gamecreator/GAMECREATOR_GUIDE.md']});assert.equal(fs.existsSync(path.join(f.engine,'gamecreator/GAMECREATOR_GUIDE.md')),false);
+});

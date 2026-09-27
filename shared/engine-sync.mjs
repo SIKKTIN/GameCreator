@@ -1,5 +1,6 @@
 import {policySyncPath} from './config-data-policy.mjs';
 import {validName} from './ai-document-files.mjs';
+import {projectCustomStandardsMarkdown} from './project-standards.mjs';
 import {documentGroups,moduleDocumentPath,relativeDocumentPath,projectWorkflowMarkdown} from './engine-document-layout.mjs';
 
 export const defaultSyncSettings = {documents:true, assets:false, collaboration:true, includePlaceholders:true, docsDirectory:'docs/gamecreator', assetsDirectory:'assets/gamecreator', modules:[]};
@@ -28,7 +29,8 @@ export function syncSettings(input) {
 export function syncDocuments(document, modules, context={}) {
   if(!document||typeof document.projectName!=='string'||typeof document.version!=='string'||!Array.isArray(document.sections))throw new Error('项目文档无效');
   if(document.configDataPolicy!==undefined&&typeof document.configDataPolicy!=='string')throw new Error('配置数据规范格式无效');
-  const sections=document.sections.filter(s=>s.id==='standards'||modules.includes(s.id));
+  const sections=document.sections.filter(s=>!['standards','usage-guide'].includes(s.id)&&modules.includes(s.id));
+  sections.push({id:'standards',label:'本项目自定义规范',body:projectCustomStandardsMarkdown(document.projectStandards)});
   const seen=new Set();
   for(const s of sections) {
     if(!/^[a-z][a-z-]*$/.test(s.id)||typeof s.body!=='string'||typeof s.label!=='string'||seen.has(s.id))throw new Error('模块文档无效');
@@ -36,14 +38,14 @@ export function syncDocuments(document, modules, context={}) {
   }
   const header=`# ${document.projectName}\n\n> 项目版本：${document.version || '未填写'}\n> 由 GameCreator 同步，供开发查阅。\n\n`;
   const workflow=projectWorkflowMarkdown({...context,projectName:document.projectName});
-  const docs=[...sections,{id:'usage-guide',label:'协作流程与 GameCreator 写入入口',body:workflow},...(document.configDataPolicy?[{id:'config-data-policy',label:'配置数据管理与同步规范',body:document.configDataPolicy}]:[])];
+  const docs=[...sections,...(document.configDataPolicy?[{id:'config-data-policy',label:'配置数据管理与同步规范',body:document.configDataPolicy}]:[])];
   const docPath=id=>id==='overview'?'modules/overview.md':id==='config-data-policy'?policySyncPath:moduleDocumentPath(id);
   const list=items=>items.map(s=>`- [${s.label}](${docPath(s.id)})`).join('\n');
   const groups=documentGroups.map(g=>{const items=docs.filter(s=>g.modules.includes(s.id));return items.length?'### '+g.label+'\n\n'+list(items)+'\n':'';}).filter(Boolean);
   const others=docs.filter(s=>s.id!=='overview'&&!documentGroups.some(g=>g.modules.includes(s.id)));
   const feedback=context.collaboration?'\n开发进度与验收反馈见 [引擎协作入口]('+relativeDocumentPath((context.docsDirectory||'docs/gamecreator')+'/README.md','gamecreator/README.md')+')。\n':'';
   return [{id:'document:index',path:'README.md',content:header+workflow+feedback+'\n## 文档目录\n\n'+list(docs.filter(s=>s.id==='overview'))+'\n\n'+groups.join('\n')+(others.length?'\n### 其他模块\n\n'+list(others):'')},
-    ...docs.map(s=>{const p=docPath(s.id);return {id:'document:'+s.id,path:p,content:header+'[返回目录]('+relativeDocumentPath(p,'README.md')+')\n\n'+(s.id!=='standards'&&seen.has('standards')?'更新项目前先读 [项目规范]('+relativeDocumentPath(p,docPath('standards'))+')。\n\n':'')+(s.id==='art'?s.body.replace(/\.\.\/media\/([a-f0-9-]{36}\.[a-z0-9]{1,12})/g,(_,name)=>relativeDocumentPath(p,'media/'+name)):s.body)+'\n'};})];
+    ...docs.map(s=>{const p=docPath(s.id);return {id:'document:'+s.id,path:p,content:header+(context.documents===false?'[协作入口]('+relativeDocumentPath((context.docsDirectory||'docs/gamecreator')+'/'+p,'gamecreator/README.md')+')':'[返回目录]('+relativeDocumentPath(p,'README.md')+')')+'\n\n'+(s.id!=='standards'&&seen.has('standards')?'更新项目前先读 [项目规范]('+relativeDocumentPath(p,docPath('standards'))+')。\n\n':'')+(s.id==='art'?s.body.replace(/\.\.\/media\/([a-f0-9-]{36}\.[a-z0-9]{1,12})/g,(_,name)=>relativeDocumentPath(p,'media/'+name)):s.body)+'\n'};})];
 }
 
 export function adoptedSyncAssets(store,includePlaceholders) {

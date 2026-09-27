@@ -62,7 +62,7 @@ export function buildAiDocument(project: ExportProject, stories: ExportStory[], 
   for (const definition of definitions) { const rows = (data.datasets[definition.key] ?? []).map((record) => definition.columns.map((column) => String(record[column.key] ?? ''))); lines.push(`### ${definition.label}`, '', table(definition.columns.map((column) => column.label), rows), ''); }
   add('data',lines.join('\n'),!definitions.length);
   sections.sort((a,b)=>aiModules.findIndex(m=>m.id===a.id)-aiModules.findIndex(m=>m.id===b.id));
-  return {projectName:project.name,version:project.version,generatedAt:new Date().toISOString(),sections,configDataPolicy:configDataPolicyMarkdown(config)};
+  return {projectName:project.name,version:project.version,generatedAt:new Date().toISOString(),sections,projectStandards:structuredClone(standards),configDataPolicy:configDataPolicyMarkdown(config)};
 }
 
 export const aiModules = [
@@ -75,7 +75,7 @@ export const aiModules = [
 ] as const;
 export type AiModuleId = typeof aiModules[number]['id'];
 export type AiSection = {id:AiModuleId;label:string;body:string};
-export type AiDocument = {projectName:string;version:string;generatedAt:string;sections:AiSection[];configDataPolicy?:string};
+export type AiDocument = {projectName:string;version:string;generatedAt:string;sections:AiSection[];projectStandards?:ProjectStandardsStore;configDataPolicy?:string};
 export type AiExportNames = {folderName:string;summaryName:string;moduleNames:Partial<Record<AiModuleId,string>>};
 const heading=(doc:AiDocument,title:string)=>`# ${doc.projectName}：${title}\n\n> 项目版本：${doc.version||'未填写'}\n> 生成时间：${doc.generatedAt}\n> 本文件由 GameCreator 本地客户端生成，供 AI 检索和协作使用。\n\n`;
 export function buildAiMarkdown(...args:Parameters<typeof buildAiDocument>) {

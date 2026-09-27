@@ -63,7 +63,7 @@ test('producer defaults are explicit and other positions do not gain project wri
 
 test('new collaboration snapshots require compatibility plans and preserve them with signed review receipts',async t=>{
  const f=await fixture(t),draft=f.draft('spec_change',{acceptance:'新的验收标准'});delete draft.compatibility;await f.put(signFeedback(draft,f.secret));assert.equal((await f.scan()).entries.find(e=>e.path.endsWith(draft.id+'.json')).state,'invalid');
- assert.match(await fs.readFile(path.join(f.engine,'gamecreator/project-standards.md'),'utf8'),/先复用，再扩展/);assert.match(await fs.readFile(path.join(f.engine,'gamecreator/README.md'),'utf8'),/project-standards.md/);
+ assert.match(await fs.readFile(path.join(f.engine,'docs/gamecreator/modules/project-management/standards.md'),'utf8'),/本项目自定义规范/);assert.match(await fs.readFile(path.join(f.engine,'gamecreator/README.md'),'utf8'),/modules\/project-management\/standards.md/);
  const v=await f.post('spec_change',{description:'兼容已有模块的修改'}),entry=await f.entry(v.id);await f.apply(entry,{acceptProjectChange:true});assert.deepEqual(f.read('project-schedule').feedbackHistory[0].compatibility,v.compatibility);
  const forbidden=await f.post('project_change',{'/notes':JSON.stringify('取消通用规则')},{kind:'module',id:'project-standards'});assert.equal((await f.scan()).entries.find(e=>e.path.endsWith(forbidden.id+'.json')).state,'invalid');
 });
