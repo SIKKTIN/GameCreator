@@ -6312,7 +6312,7 @@ function assertContentReferences(before, after) {
 
 //#endregion
 //#region shared/gamecreator-guide.mjs
-const guideVersion = "2026-09-27.5";
+const guideVersion = "2026-09-27.6";
 function authoringReadme() {
 	return `# AI 项目编写入口
 
@@ -6338,7 +6338,7 @@ function authoringReadme() {
 | context/template-options.json | 关键枚举、初始状态与子项位置 | 配合模板查阅 |
 | change-template.json | 跨模块变更批次模板 | 复制成自己的草稿文件 |
 | WORKFLOW_MCP.md | AI 工作流工具连接与调用说明 | 读取、提交、应用与工程同步 |
-| workflow-mcp.cjs / workflow-service.json | stdio MCP 适配器与本机服务入口 | 按 mcp.config.example.json 配置身份凭证路径 |
+| workflow-mcp.cjs / workflow-service.json | 兼容旧版逐项目 MCP | 新接入优先从软件的“MCP 连接”复制全局配置 |
 | TEAM_MANAGEMENT.md | 制作人接手与团队管理命令 | 持有 team_manage 权限后阅读 |
 | manage-team.cjs / team-service.json | 本机签名团队管理工具与运行入口 | 客户端打开对应项目时使用；不手改入口 |
 | submit-change.cjs | 校验及签名提交命令 | 通过 Node.js 执行 |
@@ -6399,7 +6399,7 @@ ${producerBoundaries}
 
 ## AI 工作流工具
 
-管理项目 ai/WORKFLOW_MCP.md 说明 MCP 连接配置及读取、校验、提交、应用、协作导出和工程同步工具。ai/mcp.config.example.json 提供连接示例，凭证通过本机文件路径配置。使用帮助的“AI 工作流工具”展示同一份文档。
+管理项目 ai/WORKFLOW_MCP.md 说明 MCP 连接配置及读取、校验、提交、应用、协作导出和工程同步工具。软件左下角“MCP 连接”管理统一入口、项目身份连接及会话授权：先调用 gc_connections，核对接入码获准后，每次调用明确指定 connectionId。同一客户端进程可能被多个聊天共享，岗位隔离须使用独立进程并分别授权。ai/mcp.config.example.json 继续提供旧版逐项目配置。使用帮助的“AI 工作流工具”展示完整接入文档。
 
 ## 从哪里开始
 

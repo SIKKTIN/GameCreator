@@ -29,7 +29,7 @@ const projectPackages = createProjectPackages({dataDirectory, storage, resolveAs
 const aiDocuments = createAiDocuments({defaultDirectory:path.join(root,'generate')});
 const engineSync = createEngineSync({artFiles,storage});
 const packageTokens = new Map();
-let localServer, mainWindow, teamManagement, workflowServer, workflowGuard;
+let localServer, mainWindow, teamManagement, workflowServer, workflowGuard, mcpConnections, mcpConnectionError;
 let initializing = true;
 if (!app.requestSingleInstanceLock()) app.quit();
 else {
@@ -49,6 +49,7 @@ else {
     } catch { return false; } // An IPC frame may detach while a native dialog is open.
   };
   workflowGuard=require('./workflow-editor-guard.cjs').createWorkflowEditorGuard({ipcMain,window:()=>mainWindow,trusted,storage});
+  ipcMain.handle('mcp-connections',(event,operation,input)=>{if(!trusted(event))throw new Error('不允许管理 MCP 连接');if(!mcpConnections)throw new Error(mcpConnectionError||'MCP 服务正在准备，请稍后刷新');return mcpConnections.manage(operation,input);});
   let authoring;
   const projectAuthoring=()=>authoring??=require('./project-authoring.cjs').createProjectAuthoring({storage,folders});
   ipcMain.handle('project-authoring',(event,operation,input)=>{if(!trusted(event))throw new Error('不允许访问项目编写');return projectAuthoring().run(operation,input);});
@@ -270,6 +271,7 @@ else {
     folders.refreshRecent();
     await createWindow();
     workflowServer=await require('./workflow-service.cjs').createWorkflowServer({storage,folders,developers:developers(),artFiles,beforeMutation:id=>workflowGuard.begin(id)});
+    try{mcpConnections=await require('./mcp-connections.cjs').createMcpConnections({directory:path.join(app.getPath('userData'),'mcp'),storage,folders,developers:developers(),workflow:workflowServer.service});}catch(error){mcpConnectionError='MCP 服务启动失败，原连接配置已保留：'+error.message;}
     teamManagement=await require('./team-management.cjs').createTeamManagementServer({storage,folders,developers:developers(),onChanged:projectId=>mainWindow?.webContents.send('team-management-changed',projectId)});
     initializing = false;
   }).catch(error => {
@@ -277,6 +279,6 @@ else {
     app.quit();
   });
   app.on('window-all-closed', () => { if (!initializing && process.platform !== 'darwin') app.quit(); });
-  app.on('will-quit', () => { workflowServer?.close(); teamManagement?.close(); folders.close(); if (localServer) localServer.server.close(); });
+  app.on('will-quit', () => { mcpConnections?.close(); workflowServer?.close(); teamManagement?.close(); folders.close(); if (localServer) localServer.server.close(); });
   app.on('activate', () => { if (!initializing && !mainWindow) void createWindow(); });
 }

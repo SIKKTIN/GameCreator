@@ -7,6 +7,7 @@ function storageRequest(operation, key, value) {
   return result.value;
 }
 contextBridge.exposeInMainWorld('desktopClient', {
+  mcpConnections:(operation,input)=>ipcRenderer.invoke('mcp-connections',operation,input),
   workflowEditor:(projectId,prepare,finish)=>{
     const begin=async(_event,request)=>{if(request.projectId!==projectId)return;let answer;try{answer=await prepare();}catch(e){answer={error:e.message};}ipcRenderer.send('workflow-editor-answer',{id:request.id,...answer});};
     const end=(_event,result)=>{if(result.projectId===projectId)finish(result.reload);};

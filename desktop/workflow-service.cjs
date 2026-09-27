@@ -13,7 +13,7 @@ const key=(id,suffix)=>'gamecreator.workspace.v1:'+id+':'+suffix;
 function createWorkflowService({storage,folders,developers,artFiles,session=randomUUID(),beforeMutation=async()=>{},afterMutation=()=>{}}){
  const authoring=createProjectAuthoring({storage,folders,allowBackground:true});
  const applying=new Map();
- const checkEngine=ctx=>{const active=applying.get(ctx.projectId);if(active){const now=state(ctx.projectId);authenticate(active.request,now);if(now.revision!==active.revision)throw new Error('同步期间项目内容或授权已变化，请重新预览');}};
+ const checkEngine=ctx=>{const active=applying.get(ctx.projectId);if(active){active.guard();const now=state(ctx.projectId);authenticate(active.request,now);if(now.revision!==active.revision)throw new Error('同步期间项目内容或授权已变化，请重新预览');}};
  const engine=createEngineSync({storage,artFiles,maxPlans:64,beforeWrite:(_index,_row,ctx)=>checkEngine(ctx),beforeCommit:checkEngine});
  const startup=createProjectStartup({storage,folders,developers,engineSync:engine,allowBackground:true,maxPlans:64});
  const queues=new Map(),plans=new Map();
@@ -38,7 +38,7 @@ function createWorkflowService({storage,folders,developers,artFiles,session=rand
  function journal(id){return JSON.parse(storage.getItem(key(id,'workflow-operations'))||'[]');}
  function record(id,value){const rows=journal(id),index=rows.findIndex(r=>r.id===value.id);if(index<0)rows.push(value);else rows[index]=value;storage.setItem(key(id,'workflow-operations'),JSON.stringify(rows));}
  function ownedPlan(r){const p=plans.get(r.input?.token);if(!p||p.projectId!==r.projectId||p.memberId!==r.memberId||p.credentialId!==r.credentialId||Date.now()-p.at>600000)throw new Error('同步预览不存在、已过期或属于其他开发者');return p;}
- async function execute(r,s,m){
+ async function execute(r,s,m,guard=()=>{}){
   const input=r.input||{},base={projectId:r.projectId,expectedEntries:s.captured.expectedEntries};
   if(r.operation==='project_read'){
    const modules=input.modules||[];if(!Array.isArray(modules)||modules.some(k=>!Object.hasOwn(s.archives,k)))throw new Error('未知内容模块');
@@ -72,15 +72,16 @@ function createWorkflowService({storage,folders,developers,artFiles,session=rand
    fullWriter(m);const plan=ownedPlan(r);if(plan.credentials&&!m.permissions.includes('team_manage'))throw new Error('同步成员凭证需要 team_manage 权限');
    if(plan.revision!==s.revision)throw new Error('项目内容、授权或同步配置已变化，请重新预览');
    const payload={token:input.token,decisions:input.decisions||{},removals:input.removals||[]};
-   applying.set(r.projectId,{request:r,revision:s.revision});try{const result=plan.credentials?await startup.run('initialize',payload):await engine.apply(payload);plans.delete(input.token);return result;}finally{applying.delete(r.projectId);}
+   applying.set(r.projectId,{request:r,revision:s.revision,guard});try{const result=plan.credentials?await startup.run('initialize',payload):await engine.apply(payload);plans.delete(input.token);return result;}finally{applying.delete(r.projectId);}
   }
   throw new Error('未知工作流操作');
  }
- async function perform(r){
+ async function perform(r,guard){
+  guard();
   if(!operations.has(r?.operation))throw new Error('未知工作流操作');
   let s=state(r.projectId),m=authenticate(r,s);
-  const mutation=mutations.has(r.operation),digest=hash({operation:r.operation,input:r.input||{},projectId:r.projectId,memberId:r.memberId,credentialId:r.credentialId});
-  if(!mutation)return execute(r,s,m);
+  const mutation=mutations.has(r.operation),digest=hash({operation:r.operation,input:r.input||{},projectId:r.projectId,memberId:r.memberId,credentialId:r.credentialId,...(r.accessContext?{accessContext:r.accessContext}:{})});
+  if(!mutation)return execute(r,s,m,guard);
   const previous=journal(r.projectId).find(x=>x.id===r.id);
   if(previous){if(previous.digest!==digest)throw new Error('请求编号已用于不同内容');return {...previous,replayed:true};}
   if(journal(r.projectId).length>=10000)throw new Error('工作流记录已达上限，请先归档项目');
@@ -89,13 +90,13 @@ function createWorkflowService({storage,folders,developers,artFiles,session=rand
   else if(r.operation==='content_apply')proposalPermission(m,readProposal(s,r.input?.id));else fullWriter(m);
   const finish=await beforeMutation(r.projectId);let entry;
   try{
-   s=state(r.projectId);m=authenticate(r,s);
+   guard();s=state(r.projectId);m=authenticate(r,s);
    entry={id:r.id,digest,operation:r.operation,memberId:m.id,memberName:m.name,at:new Date().toISOString(),status:'running'};record(r.projectId,entry);
-   const result=await execute(r,s,m);entry={...entry,status:'succeeded',result};record(r.projectId,entry);return entry;
+   const result=await execute(r,s,m,guard);entry={...entry,status:'succeeded',result};record(r.projectId,entry);return entry;
   }catch(error){if(entry)record(r.projectId,{...entry,status:'failed',error:error.message,diagnostics:error.diagnostics||[]});throw error;}
   finally{try{await afterMutation(r.projectId);}finally{await finish?.();}}
  }
- function run(r){const id=r?.projectId,job=(queues.get(id)||Promise.resolve()).then(()=>perform(r));const settled=job.catch(()=>{});queues.set(id,settled);void settled.then(()=>{if(queues.get(id)===settled)queues.delete(id);});return job;}
+ function run(r,guard=()=>{}){const id=r?.projectId,job=(queues.get(id)||Promise.resolve()).then(()=>perform(r,guard));const settled=job.catch(()=>{});queues.set(id,settled);void settled.then(()=>{if(queues.get(id)===settled)queues.delete(id);});return job;}
  return {run,session};
 }
 async function createWorkflowServer(options){

@@ -38,6 +38,7 @@ import { prototypeFromMaps, prototypeSource } from './prototype-design';
 import { TaskFlows } from './TaskFlows';
 import { useTaskFlows } from './useTaskFlows';
 import { StoryDocuments } from './StoryDocuments';
+import {McpConnections} from './McpConnections';
 import { WorkspaceSidebar } from './WorkspaceSidebar';
 import {SoftwareHelp,isHelpPage,type HelpPage} from './SoftwareHelp';
 import { UserPermissions } from './UserPermissions';
@@ -125,20 +126,22 @@ function WorkspaceController() {
   const [publishingProject, setPublishingProject] = useState<SavedProject | null>(null), [publishAfterConnection, setPublishAfterConnection] = useState<SavedProject | null>(null);
   const lastTeamProject = useRef<{ key: string; project: TeamProject } | null>(null);
   const [serverOpen, setServerOpen] = useState(false), [returnToConnection, setReturnToConnection] = useState(false);
+  const [mcpOpen,setMcpOpen]=useState(false);
   const [usersOpen,setUsersOpen] = useState(false),[usersAfterConnection,setUsersAfterConnection] = useState(false);
   const [addressRequest, setAddressRequest] = useState<{ url: string } | null>(null);
   const allowSwitch = () => window.dispatchEvent(new Event(beforeLogoutEvent, { cancelable: true })) && canLeaveTeam();
-  const leaveServer = () => { setServerOpen(false); setUsersOpen(false); setReturnToConnection(false); };
+  const leaveServer = () => { setMcpOpen(false); setServerOpen(false); setUsersOpen(false); setReturnToConnection(false); };
   const openServer = (fromConnection = false) => {
     if (!canManageHost || !allowSwitch()) return;
     if (fromConnection) team.close();
-    setReturnToConnection(fromConnection); setUsersOpen(false); setServerOpen(true);
+    setMcpOpen(false);setReturnToConnection(fromConnection); setUsersOpen(false); setServerOpen(true);
   };
   const serverNavigation: ServerModuleNavigation = {
     onManageServer: canManageHost ? () => openServer() : undefined, onLeaveServer: leaveServer,
-    onManageUsers:canManageTeam?()=>{if(allowSwitch()){setUsersOpen(true);setServerOpen(false);setReturnToConnection(false);}}:undefined,
-    adminPageName:usersOpen?'用户与权限':'服务器管理',
-    serverPage: usersOpen?<UserPermissions session={team.session} onBack={leaveServer} onChanged={()=>void team.refreshProjects().catch(()=>{})}
+    onManageUsers:canManageTeam?()=>{if(allowSwitch()){setMcpOpen(false);setUsersOpen(true);setServerOpen(false);setReturnToConnection(false);}}:undefined,
+    onManageMcp:window.desktopClient?.mcpConnections?()=>{if(allowSwitch()){leaveServer();setMcpOpen(true);}}:undefined,
+    adminPageName:mcpOpen?'MCP 连接':usersOpen?'用户与权限':'服务器管理',
+    serverPage: mcpOpen?<McpConnections onBack={leaveServer}/>:usersOpen?<UserPermissions session={team.session} onBack={leaveServer} onChanged={()=>void team.refreshProjects().catch(()=>{})}
       onConnect={()=>{if(allowSwitch()){setUsersAfterConnection(true);setCreateAfterConnection(false);setPublishAfterConnection(null);team.show(null,true);}}}/>:serverOpen ? <ServerManager returnToConnection={returnToConnection}
       onBack={() => { leaveServer(); if (returnToConnection) team.resume(); }}
       onUseAddress={url => { setAddressRequest({ url }); leaveServer(); if (returnToConnection) team.resume(); else team.show(); }} /> : null,
@@ -330,7 +333,7 @@ function WorkspaceController() {
     <ProjectPackageDialog state={transfer.state} onClose={transfer.close} />
     <PrototypeImportDialog open={prototypeOpen} busy={prototypeBusy} projects={options.filter(item => item.kind === 'local')}
       onClose={() => { if (!importingPrototype.current) setPrototypeOpen(false); }} onImport={importPrototype} />
-    {mode==='team'&&!selectedTeam&&team.session?<div className="app team-project"><WorkspaceSidebar team empty picker={<ProjectSwitcher projects={options} currentId={null} currentName="选择协作项目" busy={preparing||prototypeBusy||transfer.busy} canAdd={!projects.blocked} onSelect={selectProject} onAdd={addProject} onDelete={deleteProject} onConnectTeam={connectTeam} onCreateTeam={canManageTeam?createTeam:undefined}/>} active={serverNavigation.serverPage?serverNavigation.adminPageName??'服务器管理':emptyHelpPage||''} onNavigate={openEmptyHelp} onManageServer={serverNavigation.onManageServer} onManageUsers={serverNavigation.onManageUsers} footer={<div className="user"><div className="avatar">{team.session.user.username[0]}</div><span>{team.session.user.username}<small>团队协作</small></span></div>}/>{serverNavigation.serverPage||emptyHelp}<div hidden={!!serverNavigation.serverPage||!!emptyHelp} className="team-selection-content"><TeamProjectSelection session={team.session} projects={team.saved?.projects??[]} error={team.error} onSelect={openTeamProject} onRefresh={refreshDirectory} onConnect={connectTeam} onCreate={canManageTeam?createTeam:undefined}/></div></div>
+    {mode==='team'&&!selectedTeam&&team.session?<div className="app team-project"><WorkspaceSidebar team empty picker={<ProjectSwitcher projects={options} currentId={null} currentName="选择协作项目" busy={preparing||prototypeBusy||transfer.busy} canAdd={!projects.blocked} onSelect={selectProject} onAdd={addProject} onDelete={deleteProject} onConnectTeam={connectTeam} onCreateTeam={canManageTeam?createTeam:undefined}/>} active={serverNavigation.serverPage?serverNavigation.adminPageName??'服务器管理':emptyHelpPage||''} onNavigate={openEmptyHelp} onManageServer={serverNavigation.onManageServer} onManageMcp={serverNavigation.onManageMcp} onManageUsers={serverNavigation.onManageUsers} footer={<div className="user"><div className="avatar">{team.session.user.username[0]}</div><span>{team.session.user.username}<small>团队协作</small></span></div>}/>{serverNavigation.serverPage||emptyHelp}<div hidden={!!serverNavigation.serverPage||!!emptyHelp} className="team-selection-content"><TeamProjectSelection session={team.session} projects={team.saved?.projects??[]} error={team.error} onSelect={openTeamProject} onRefresh={refreshDirectory} onConnect={connectTeam} onCreate={canManageTeam?createTeam:undefined}/></div></div>
     :selectedTeam && team.session ? <TeamProjectWorkspace key={`${team.session.serverId}:${team.session.user.id}:${selectedTeam.id}:${team.session.token}`} project={selectedTeam} session={team.session}
       {...serverNavigation}
       localProjects={(projects.blocked?[]:projects.catalog.projects).map(item => ({ ...item, name: options.find(option => option.id === item.id)?.name || item.name }))}
@@ -349,7 +352,7 @@ function WorkspaceController() {
     testSession={testSession} onLoadTest={load} onExitTest={exit} preparingTest={preparing || prototypeBusy || transfer.busy || projects.blocked}
     testError={error || projects.error || sessionError || (storedTest && !valid ? '测试会话信息无效，已回到正式工作区。' : '')} />
     : <div className="app local-workspace empty-project-workspace">
-      <WorkspaceSidebar active={serverNavigation.serverPage ? serverNavigation.adminPageName??'服务器管理' : emptyKnowledge?'美术知识库':emptyHelpPage||''} onNavigate={name => {if(canLeaveTeam()){leaveServer();setEmptyKnowledge(name==='美术知识库');setEmptyHelpPage(isHelpPage(name)?name:undefined);}}} onManageServer={serverNavigation.onManageServer} onManageUsers={serverNavigation.onManageUsers} empty
+      <WorkspaceSidebar active={serverNavigation.serverPage ? serverNavigation.adminPageName??'服务器管理' : emptyKnowledge?'美术知识库':emptyHelpPage||''} onNavigate={name => {if(canLeaveTeam()){leaveServer();setEmptyKnowledge(name==='美术知识库');setEmptyHelpPage(isHelpPage(name)?name:undefined);}}} onManageServer={serverNavigation.onManageServer} onManageMcp={serverNavigation.onManageMcp} onManageUsers={serverNavigation.onManageUsers} empty
         picker={<ProjectSwitcher projects={options} teamNotice={teamNotice} currentId={null} currentName="未选择项目" canAdd={!projects.blocked} busy={prototypeBusy || transfer.busy}
           onSelect={selectProject} onAdd={addProject} onDelete={deleteProject} onConnectTeam={connectTeam} onCreateTeam={canManageTeam||!team.session?createTeam:undefined} onImportPrototype={openPrototypeImport} onImportProject={transfer.enabled ? transfer.openImport : undefined} />}
         footer={<div className="user"><div className="avatar">{username.slice(0, 1).toUpperCase()}</div><div><b>{username}</b><small>本地项目</small></div></div>} />
@@ -382,7 +385,7 @@ function ProjectDataUpgrade(props: ComponentProps<typeof WorkspaceApp>) {
 }
 
 const initialTestProject = { ...initialProject, name: '枚举测试工作区' };
-function WorkspaceApp({ contentReload,onContentReload,username, testSession, onLoadTest, onExitTest, preparingTest, testError, formalProject, projectOptions, onSelectProject, onAddProject, onDeleteProject, onConfigChange, onRenameProject, onConnectTeam, onCreateTeam, onPublishProject, teamNotice, onImportPrototype, onImportProject, onExportProject, onSaveAsProject, serverPage, onManageServer, onLeaveServer, adminPageName, onManageUsers }: {
+function WorkspaceApp({ contentReload,onContentReload,username, testSession, onLoadTest, onExitTest, preparingTest, testError, formalProject, projectOptions, onSelectProject, onAddProject, onDeleteProject, onConfigChange, onRenameProject, onConnectTeam, onCreateTeam, onPublishProject, teamNotice, onImportPrototype, onImportProject, onExportProject, onSaveAsProject, serverPage, onManageServer, onManageMcp, onLeaveServer, adminPageName, onManageUsers }: {
   contentReload?:boolean;onContentReload?:()=>void;onReloadCatalog?:()=>boolean;onImportProject?: () => void; onExportProject?: () => void; onSaveAsProject?: () => void;
   teamNotice?: string;
   onPublishProject: () => void;
@@ -588,7 +591,7 @@ function WorkspaceApp({ contentReload,onContentReload,username, testSession, onL
       <WorkspaceSidebar picker={<ProjectSwitcher projects={projectOptions} teamNotice={teamNotice} currentId={testSession ? null : formalProject.id} currentName={project.name}
           testName={testSession ? testScenarios.find(item=>item.id===testSession.scenario)?.name : undefined}
           canAdd busy={preparingTest || registry.busy || registry.loading || gameplay.pending || functional.pending || functional.blocked || art.pending || art.blocked || core.pending || prototype.pending || tasks.pending || narrative.pending || maps.pending || schedule.pending || analysis.pending || standards.pending || framework.pending || developmentTools.pending || storyState.pending} onSelect={onSelectProject} onAdd={onAddProject} onDelete={onDeleteProject} onConnectTeam={onConnectTeam} onCreateTeam={onCreateTeam} onPublishProject={!testSession && !storageError ? onPublishProject : undefined} onImportPrototype={onImportPrototype} onImportProject={onImportProject} onExportProject={!testSession && !storageError ? onExportProject : undefined} onSaveAsProject={!testSession && !storageError ? onSaveAsProject : undefined} />} active={serverPage ? adminPageName??'服务器管理' : active}
-        mapEnabled={maps.store.enabled} storyEnabled={narrative.store.enabled} onNavigate={name => { if(canLeaveTeam()){onLeaveServer(); setRequestedSchedule(undefined); setRequestedTool(undefined); if (name === '素材资产') { setRequestedArtStyle(undefined); setArtSelection(null); setArtHomeRevision(value => value + 1); } setActive(name);} }} onManageServer={onManageServer} onManageUsers={onManageUsers} onWorkspaceSettings={()=>{if(canLeaveTeam()){onLeaveServer();setActive('工作区设置');}}} footer={<>
+        mapEnabled={maps.store.enabled} storyEnabled={narrative.store.enabled} onNavigate={name => { if(canLeaveTeam()){onLeaveServer(); setRequestedSchedule(undefined); setRequestedTool(undefined); if (name === '素材资产') { setRequestedArtStyle(undefined); setArtSelection(null); setArtHomeRevision(value => value + 1); } setActive(name);} }} onManageServer={onManageServer} onManageMcp={onManageMcp} onManageUsers={onManageUsers} onWorkspaceSettings={()=>{if(canLeaveTeam()){onLeaveServer();setActive('工作区设置');}}} footer={<>
         <div className="user"><div className="avatar">G</div><span>{username}<small>本地项目</small></span></div>
       </>} />
 

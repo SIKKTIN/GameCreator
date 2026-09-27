@@ -19,24 +19,26 @@ const specs=[
 ];
 const tools=specs.map(([name,description,properties,required])=>({name:'gc_'+name,description,inputSchema:{type:'object',properties,required,additionalProperties:false}}));
 function read(file){return JSON.parse(fs.readFileSync(file,'utf8').replace(/^\uFEFF/,''));}
-function createClient({projectDirectory,credentialFile}){
+function createClient({projectDirectory,credentialFile,readSecret,readEndpoint,dispatch,accessContext}){
  async function call(name,args={}){
   const spec=specs.find(s=>'gc_'+s[0]===name);if(!spec)throw new Error('未知工作流工具');
   if(!args||typeof args!=='object'||Array.isArray(args)||Object.keys(args).some(k=>!Object.hasOwn(spec[2],k))||spec[3].some(k=>!Object.hasOwn(args,k)))throw new Error('工具参数缺失或包含未知字段');
-  const secret=read(credentialFile),endpoint=read(path.join(projectDirectory,'ai/workflow-service.json'));
-  if(secret.schema!==2||secret.projectId!==endpoint.projectId||!/^http:\/\/127\.0\.0\.1:\d+\/workflow$/.test(endpoint.endpoint))throw new Error('工作流端点与开发者凭证不匹配');
+  const secret=readSecret?readSecret():read(credentialFile),endpoint=readEndpoint?readEndpoint():read(path.join(projectDirectory,'ai/workflow-service.json'));
+  if(secret.schema!==2||secret.projectId!==endpoint.projectId||!dispatch&&!/^http:\/\/127\.0\.0\.1:\d+\/workflow$/.test(endpoint.endpoint))throw new Error('工作流端点与开发者凭证不匹配');
   const privateKey=createPrivateKey({key:Buffer.from(secret.privateKey,'base64'),type:'pkcs8',format:'der'});if(privateKey.asymmetricKeyType!=='ed25519')throw new Error('凭证密钥格式无效');
   const {requestId,...input}=args;
   if(spec[0]==='operation_status')input.requestId=requestId;
   if(input.draft){const {identity,...draft}=input.draft;const proposal={...draft,author:secret.memberName,identity:{memberId:secret.memberId,credentialId:secret.credentialId}};proposal.identity.signature=sign(null,Buffer.from(canonical(proposal)),privateKey).toString('base64');input.proposal=proposal;delete input.draft;}
   const body={schema:1,session:endpoint.session,id:spec[0]==='operation_status'?randomUUID():requestId||randomUUID(),at:new Date().toISOString(),projectId:secret.projectId,memberId:secret.memberId,credentialId:secret.credentialId,operation:spec[0],input};
+  if(accessContext)body.accessContext=accessContext;
   body.signature=sign(null,Buffer.from(canonical(body)),privateKey).toString('base64');
+  if(dispatch)return dispatch(body);
   const response=await fetch(endpoint.endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(60000),redirect:'error'}),result=await response.json();
   if(!response.ok){const error=new Error(result.error||'工作流操作失败');error.diagnostics=result.diagnostics||[];throw error;}return result;
  }
  return {call};
 }
-function serve(client){
+function serve(client,options={}){
  let initialized=false;
  const output=v=>process.stdout.write(JSON.stringify(v)+'\n');
  const rl=readline.createInterface({input:process.stdin,crlfDelay:Infinity});
@@ -45,13 +47,14 @@ function serve(client){
   if(r.id===undefined)return;
   const respond=result=>output({jsonrpc:'2.0',id:r.id,result}),fail=(code,message)=>output({jsonrpc:'2.0',id:r.id,error:{code,message}});
   if(r.jsonrpc!=='2.0'||typeof r.method!=='string')return fail(-32600,'无效请求');
-  if(r.method==='initialize'){initialized=true;return respond({protocolVersion:['2024-11-05','2025-03-26','2025-06-18'].includes(r.params?.protocolVersion)?r.params.protocolVersion:'2025-06-18',capabilities:{tools:{}},serverInfo:{name:'gamecreator-workflow',version:'1.0.0'},instructions:'先读取 gc_project_read。使用当前快照提交设计，查看差异再应用；工程同步使用独立预览 token。每项写入使用稳定的 requestId，超时先查询状态。'});}
+  if(r.method==='initialize'){initialized=true;options.onInitialize?.(r.params?.clientInfo);return respond({protocolVersion:['2024-11-05','2025-03-26','2025-06-18'].includes(r.params?.protocolVersion)?r.params.protocolVersion:'2025-06-18',capabilities:{tools:{}},serverInfo:{name:options.name||'gamecreator-workflow',version:options.version||'1.0.0'},instructions:options.instructions||'先读取 gc_project_read。使用当前快照提交设计，查看差异再应用；工程同步使用独立预览 token。每项写入使用稳定的 requestId，超时先查询状态。'});}
   if(r.method==='ping')return respond({});if(!initialized)return fail(-32000,'请先初始化 MCP 连接');
-  if(r.method==='tools/list')return respond({tools});
+  if(r.method==='tools/list')return respond({tools:options.tools||tools});
   if(r.method!=='tools/call')return fail(-32601,'未知 MCP 方法');
   try{const value=await client.call(r.params?.name,r.params?.arguments||{});respond({content:[{type:'text',text:JSON.stringify(value)}],structuredContent:value,isError:false});}
   catch(error){respond({isError:true,content:[{type:'text',text:JSON.stringify({error:error.message,diagnostics:error.diagnostics||[],hint:'检查项目绑定和当前权限；超时后使用原 requestId 查询 gc_operation_status。'})}]});}
  });
+ rl.on('close',()=>options.onClose?.());
 }
 if(require.main===module){
  const args=process.argv.slice(2),option=k=>args[args.indexOf(k)+1];

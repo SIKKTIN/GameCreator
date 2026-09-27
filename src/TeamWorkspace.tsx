@@ -25,7 +25,7 @@ import './team.css';
 const displayTime = (value: string) => new Date(value).toLocaleString('zh-CN', { hour12: false });
 type Draft = { base: TeamStory; fields: TeamStoryFields };
 
-export function TeamProjectWorkspace({ project, session, picker, localProjects, onConnection, onDisconnect, serverPage, onManageServer, onLeaveServer, adminPageName, onManageUsers }: {
+export function TeamProjectWorkspace({ project, session, picker, localProjects, onConnection, onDisconnect, serverPage, onManageServer, onManageMcp, onLeaveServer, adminPageName, onManageUsers }: {
   project: TeamProject; session: TeamSession; picker: ReactNode; localProjects: SavedProject[]; onConnection: () => void; onDisconnect: () => void;
 } & ServerModuleNavigation) {
   const [stories, setStories] = useState<TeamStory[]>([]), [selectedId, setSelectedId] = useState('');
@@ -108,7 +108,7 @@ export function TeamProjectWorkspace({ project, session, picker, localProjects, 
 
   return <GlobalSearchProvider navigationRevision={searchNavigation} activeModule={serverPage ? '服务器管理' : active} blocked={accessBlocked} sources={{stories:loaded&&!accessBlocked?stories:undefined,gameplay:gameplayEnabled&&!accessBlocked&&gameplay.remote?gameplay.remote.store:undefined}} warning={[!loaded?'故事文档正在加载':syncError,gameplayEnabled?gameplay.syncError||(!gameplay.loaded?'玩法设计正在加载':''):'', '仅搜索当前团队已共享且可访问的模块；未提交草稿不计入搜索。'].filter(Boolean).join('；')} onNavigate={()=>{if(!canLeaveTeam())return false;onLeaveServer();setActiveModule('全局搜索');}} onOpen={openSearchTarget}><div className="app team-project">
     {manageMembers && !accessBlocked && role === 'admin' && <TeamProjectDialog session={session} project={project} onClose={() => setManageMembers(false)} onSaved={() => setRefresh(value => value + 1)} />}
-    <WorkspaceSidebar picker={picker} team teamSchedule={scheduleEnabled} teamGameplay={gameplayEnabled} teamOverview={overviewEnabled} teamCore={(session.apiVersion ?? 0) >= 7} active={serverPage ? adminPageName??'服务器管理' : active} onManageServer={onManageServer} onManageUsers={onManageUsers}
+    <WorkspaceSidebar picker={picker} team teamSchedule={scheduleEnabled} teamGameplay={gameplayEnabled} teamOverview={overviewEnabled} teamCore={(session.apiVersion ?? 0) >= 7} active={serverPage ? adminPageName??'服务器管理' : active} onManageServer={onManageServer} onManageMcp={onManageMcp} onManageUsers={onManageUsers}
       onNavigate={name=>{if(canLeaveTeam()){onLeaveServer();setActive(name);}}} footer={<>
       <div className="user"><div className="avatar">{session.user.username[0].toUpperCase()}</div><span>{session.user.username}<small>团队成员 · {roleLabels[role]}</small></span></div>
       <details className="team-members"><summary>项目成员 · {members.length}</summary>{members.map(item => <p key={item.username}>{item.username}<small>{roleLabels[item.role]}</small></p>)}</details>
