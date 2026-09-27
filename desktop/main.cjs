@@ -29,7 +29,7 @@ const projectPackages = createProjectPackages({dataDirectory, storage, resolveAs
 const aiDocuments = createAiDocuments({defaultDirectory:path.join(root,'generate')});
 const engineSync = createEngineSync({artFiles,storage});
 const packageTokens = new Map();
-let localServer, mainWindow;
+let localServer, mainWindow, teamManagement;
 let initializing = true;
 if (!app.requestSingleInstanceLock()) app.quit();
 else {
@@ -87,6 +87,7 @@ else {
       if (!trusted(event)) throw new Error('不允许访问本地存档');
       if (request?.operation === 'get') event.returnValue = { ok: true, value: storage.getItem(request.key) };
       else if (request?.operation === 'set') {
+        if(request.key?.endsWith(':project-schedule')&&Object.hasOwn(request,'expected')&&storage.getItem(request.key)!==request.expected)throw new Error('团队或排期已变化，请保留草稿并重新读取');
         const active=JSON.parse(storage.getItem('gamecreator.projects.v1')||'null')?.activeId;
         if(active&&(request.key==='gamecreator.projects.v1'||require('./folder-projects.cjs').owned(request.key,active)))require('./project-changes.cjs').assertNoPendingContent(storage,active);
         storage.setItem(request.key, request.value); event.returnValue = { ok: true };
@@ -266,12 +267,13 @@ else {
     await migrateLegacy({ userData: app.getPath('userData'), dataDirectory, storage, BrowserWindow, session: session.defaultSession });
     folders.refreshRecent();
     await createWindow();
+    teamManagement=await require('./team-management.cjs').createTeamManagementServer({storage,folders,developers:developers(),onChanged:projectId=>mainWindow?.webContents.send('team-management-changed',projectId)});
     initializing = false;
   }).catch(error => {
     dialog.showErrorBox('本地存档加载失败', '未覆盖现有数据。请检查磁盘空间和存档目录权限后重试。\n' + error.message);
     app.quit();
   });
   app.on('window-all-closed', () => { if (!initializing && process.platform !== 'darwin') app.quit(); });
-  app.on('will-quit', () => { folders.close(); if (localServer) localServer.server.close(); });
+  app.on('will-quit', () => { teamManagement?.close(); folders.close(); if (localServer) localServer.server.close(); });
   app.on('activate', () => { if (!initializing && !mainWindow) void createWindow(); });
 }

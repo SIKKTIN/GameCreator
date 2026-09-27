@@ -375,7 +375,7 @@ function defaultAiPositions() {
 			"producer",
 			"制作人",
 			[],
-			"控制版本范围、统筹分工、审查交付；提出排期与分配建议。"
+			"建立项目设计与验收基线，创建开发团队并授权、分配任务，依据引擎效果组织迭代与验收。"
 		],
 		[
 			"planning",
@@ -675,12 +675,13 @@ function validateProjectSchedule(value) {
 	};
 	const bounded = (v, max = 200) => typeof v === "string" && v.length <= max;
 	const ids = (v, max = 2e3) => Array.isArray(v) && v.length <= max && v.every((x) => bounded(x) && x.trim()) && new Set(v).size === v.length;
-	const permissions = (v) => ids(v, 5) && v.every((x) => [
+	const permissions = (v) => ids(v, 6) && v.every((x) => [
 		"progress",
 		"review",
 		"propose",
 		"spec_change",
-		"project_write"
+		"project_write",
+		"team_manage"
 	].includes(x));
 	const stamp = (v) => bounded(v, 50) && Number.isFinite(Date.parse(v));
 	if (record(value) && value.authoringHistory !== void 0) {
@@ -690,6 +691,20 @@ function validateProjectSchedule(value) {
 	if (record(value) && value.personnel !== void 0) {
 		const p = value.personnel;
 		if (!record(p) || p.schema !== 1 || !Array.isArray(p.members) || p.members.length > 200 || !Array.isArray(p.credentials) || p.credentials.length > 1e3) return fail();
+		if (p.managementHistory !== void 0) {
+			const h = p.managementHistory;
+			if (!Array.isArray(h) || h.length > 1e4 || new Set(h.map((r) => record(r) ? r.id : null)).size !== h.length || h.some((r) => !record(r) || !bounded(r.id, 100) || !/^\w[\w-]{7,99}$/.test(r.id) || !bounded(r.digest, 64) || !/^[a-f0-9]{64}$/.test(r.digest) || !bounded(r.memberId) || !bounded(r.memberName, 100) || ![
+				"create",
+				"update",
+				"rotate",
+				"revoke",
+				"position"
+			].includes(r.operation) || !stamp(r.at) || !record(r.result) || Object.keys(r.result).some((k) => ![
+				"memberId",
+				"credentialId",
+				"positionId"
+			].includes(k)) || Object.values(r.result).some((v) => !bounded(v)))) return fail();
+		}
 		if (p.positionPreset !== void 0 && !["basic", "production"].includes(p.positionPreset)) return fail();
 		if (p.positions !== void 0) {
 			if (!Array.isArray(p.positions) || p.positions.length > 100) return fail();
@@ -4075,7 +4090,7 @@ function assertContentReferences(before, after) {
 
 //#endregion
 //#region shared/gamecreator-guide.mjs
-const guideVersion = "2026-09-27.1";
+const guideVersion = "2026-09-27.2";
 function authoringReadme() {
 	return `# AI 项目编写入口
 
@@ -4100,6 +4115,8 @@ function authoringReadme() {
 | context/templates.json | 完整条目及常用嵌套子项模板 | 复制后填写新 ID、字段和引用 |
 | context/template-options.json | 关键枚举、初始状态与子项位置 | 配合模板查阅 |
 | change-template.json | 跨模块变更批次模板 | 复制成自己的草稿文件 |
+| TEAM_MANAGEMENT.md | 制作人接手与团队管理命令 | 持有 team_manage 权限后阅读 |
+| manage-team.cjs / team-service.json | 本机签名团队管理工具与运行入口 | 客户端打开对应项目时使用；不手改入口 |
 | submit-change.cjs | 校验及签名提交命令 | 通过 Node.js 执行 |
 | validator.cjs | 与编辑器同源的离线校验包 | 由提交工具调用，不手改 |
 | changes/ | 已签名、待客户端处理的提交 | submit 自动生成；不要再修改签名文件 |
@@ -4148,6 +4165,12 @@ function gamecreatorGuide() {
 
 GameCreator 项目根目录的 PROJECT_STANDARDS.md 包含完整通用规则与自定义约定。引擎只同步本项目自定义规范，README 指向管理项目的完整规范和本说明。
 
+## 制作人接手与团队授权
+
+制作人是项目推进负责人。没有个人任务时，先检查项目设计、验收基线和团队缺口，再建立计划并创建开发者，而不是等待分配或立即开始铺开程序。详见 ai/TEAM_MANAGEMENT.md。岗位工作文档是公开说明，personal 中的 JSON 才是私有签名凭证。
+
+新建制作人默认获得独立的 team_manage 权限，可通过 ai/manage-team.cjs 创建或编辑开发者、选择多个岗位与任务、签发或撤销令牌。已有身份不会自动扩权；按当前有效授权核验，不能授予超出自身范围的权限。团队管理命令成功即生效，项目正文变更仍需在项目内容同步核对并应用。
+
 ## 从哪里开始
 
 GameCreator 项目文件夹以 project.gamecreator 为入口，archives 保存应用存档，assets 保存历史附件。先在客户端打开项目，再阅读本说明、项目规范和 ai/context/content 中的当前内容。不要直接编辑哈希存档、锁文件或私有凭证。
@@ -4173,7 +4196,7 @@ AI 根据实际引擎效果决定修复实现还是调整正式需求。修改�
 
 ## 内容权限与反馈权限
 
-progress 报告开发成果；review 提交验收结论；propose 建议分工或排期；spec_change 建议修改已有任务说明和验收标准；project_write 编写获准模块的正式项目内容。
+progress 报告开发成果；review 提交验收结论；propose 建议分工或排期；spec_change 建议修改已有任务说明和验收标准；project_write 编写获准模块的正式项目内容；team_manage 通过独立签名命令管理开发者、授权与令牌。
 
 project_write 支持新增、修改、重新分类、关联、归档、删除未交付条目及跨模块批次。完成或交付历史不允许通过删除条目抹除；应保留旧成果并归档。人员、岗位授权、令牌、引擎连接、文件访问、稳定发布与验收结果由各自管理流程维护。
 

@@ -48,6 +48,8 @@ function writeCollaborationFiles(root,project,storage,allowUnvalidated=false){
  write(root,'ai/change-template.json',JSON.stringify(template(project.id,snapshotId),null,2));
  write(root,'ai/submit-change.cjs',fs.readFileSync(path.join(__dirname,'../shared/submit-content-change.cjs'),'utf8'));
  writeAuthoringReadme(root);
+ write(root,'ai/manage-team.cjs',fs.readFileSync(path.join(__dirname,'../shared/manage-team.cjs'),'utf8'));
+ write(root,'ai/TEAM_MANAGEMENT.md',fs.readFileSync(path.join(__dirname,'../docs/team-management.md'),'utf8'));
  write(root,'ai/changes/README.md','将签名提交放在本目录，由客户端读取并预览。不要直接修改项目存档。\n');
  write(root,'ai/receipts/README.md','客户端成功应用后写入回执。权威处理记录保存在项目存档中。\n');
  write(root,'GAMECREATOR_GUIDE.md',guide);

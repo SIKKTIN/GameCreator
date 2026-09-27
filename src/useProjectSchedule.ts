@@ -40,6 +40,12 @@ export function useProjectSchedule(workspaceId: string, legacyDefaults: unknown[
       unsaved.current=false;setLoadError(''); setSaveError(''); setOperationError(''); return true;
     } catch (error) { setLoadError(String(error)); return false; }
   };
+  useEffect(()=>window.desktopClient?.onTeamManagementChanged?.(projectId=>{
+    if(projectId!==workspaceId)return;
+    if(unsaved.current){setOperationError('团队已被制作人更新，请保留本地草稿并重新读取后核对');return;}
+    if(document.querySelector('dialog[open]')){setOperationError('团队已更新；请关闭编辑窗口并重新读取，避免覆盖最新分工');return;}
+    reload();
+  }),[workspaceId]);
   const pending = !!saveError;
   useEffect(() => {
     if (!pending) return;

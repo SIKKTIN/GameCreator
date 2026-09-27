@@ -1,5 +1,5 @@
 import {authoringModules} from './project-authoring.mjs';
-export const guideVersion='2026-09-27.1';
+export const guideVersion='2026-09-27.2';
 export function authoringReadme(){return `# AI 项目编写入口
 
 这里是 GameCreator 生成的项目协作目录。通过这里的上下文、模板和提交工具编写项目内容；正式项目存档由客户端应用提交后更新。
@@ -23,6 +23,8 @@ export function authoringReadme(){return `# AI 项目编写入口
 | context/templates.json | 完整条目及常用嵌套子项模板 | 复制后填写新 ID、字段和引用 |
 | context/template-options.json | 关键枚举、初始状态与子项位置 | 配合模板查阅 |
 | change-template.json | 跨模块变更批次模板 | 复制成自己的草稿文件 |
+| TEAM_MANAGEMENT.md | 制作人接手与团队管理命令 | 持有 team_manage 权限后阅读 |
+| manage-team.cjs / team-service.json | 本机签名团队管理工具与运行入口 | 客户端打开对应项目时使用；不手改入口 |
 | submit-change.cjs | 校验及签名提交命令 | 通过 Node.js 执行 |
 | validator.cjs | 与编辑器同源的离线校验包 | 由提交工具调用，不手改 |
 | changes/ | 已签名、待客户端处理的提交 | submit 自动生成；不要再修改签名文件 |
@@ -69,6 +71,12 @@ export function gamecreatorGuide(){return `# GameCreator 使用说明与 AI 项�
 
 GameCreator 项目根目录的 PROJECT_STANDARDS.md 包含完整通用规则与自定义约定。引擎只同步本项目自定义规范，README 指向管理项目的完整规范和本说明。
 
+## 制作人接手与团队授权
+
+制作人是项目推进负责人。没有个人任务时，先检查项目设计、验收基线和团队缺口，再建立计划并创建开发者，而不是等待分配或立即开始铺开程序。详见 ai/TEAM_MANAGEMENT.md。岗位工作文档是公开说明，personal 中的 JSON 才是私有签名凭证。
+
+新建制作人默认获得独立的 team_manage 权限，可通过 ai/manage-team.cjs 创建或编辑开发者、选择多个岗位与任务、签发或撤销令牌。已有身份不会自动扩权；按当前有效授权核验，不能授予超出自身范围的权限。团队管理命令成功即生效，项目正文变更仍需在项目内容同步核对并应用。
+
 ## 从哪里开始
 
 GameCreator 项目文件夹以 project.gamecreator 为入口，archives 保存应用存档，assets 保存历史附件。先在客户端打开项目，再阅读本说明、项目规范和 ai/context/content 中的当前内容。不要直接编辑哈希存档、锁文件或私有凭证。
@@ -94,7 +102,7 @@ AI 根据实际引擎效果决定修复实现还是调整正式需求。修改�
 
 ## 内容权限与反馈权限
 
-progress 报告开发成果；review 提交验收结论；propose 建议分工或排期；spec_change 建议修改已有任务说明和验收标准；project_write 编写获准模块的正式项目内容。
+progress 报告开发成果；review 提交验收结论；propose 建议分工或排期；spec_change 建议修改已有任务说明和验收标准；project_write 编写获准模块的正式项目内容；team_manage 通过独立签名命令管理开发者、授权与令牌。
 
 project_write 支持新增、修改、重新分类、关联、归档、删除未交付条目及跨模块批次。完成或交付历史不允许通过删除条目抹除；应保留旧成果并归档。人员、岗位授权、令牌、引擎连接、文件访问、稳定发布与验收结果由各自管理流程维护。
 

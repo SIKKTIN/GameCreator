@@ -1,11 +1,12 @@
 import type {ProjectScheduleStore,ProductionTask} from '../src/project-schedule.ts';
-export type AiPermission='progress'|'review'|'propose'|'spec_change'|'project_write';
+export type AiPermission='progress'|'review'|'propose'|'spec_change'|'project_write'|'team_manage';
 export type AiDeveloperProfile={artPermissions?:import('./art-permissions.mjs').ArtPermission[];projectModules?:string[];positionIds:string[];taskIds:string[];scope:'assigned'|'positions'|'project';expiresAt:string};
 export type AiMember={developer?:AiDeveloperProfile;id:string;name:string;roles:string[];duties:string;active:boolean;scope:'project'|'assigned';permissions:AiPermission[];createdAt:string};
 export type AiAssignment={primaryId:string;collaboratorIds:string[];reviewerId:string};
 export type AiPosition={id:string;name:string;duties:string;active:boolean;taskKinds:string[]};
 export type AiCredential={persistent?:true;positionIds?:string[];workDescription?:string;id:string;projectId:string;memberId:string;name:string;publicKey:string;permissions:AiPermission[];taskIds:string[];createdAt:string;expiresAt:string;revokedAt:string};
-export type AiPersonnel={positionPreset?:PositionPresetId;positions?:AiPosition[];schema:1;members:AiMember[];credentials:AiCredential[]};
+export type TeamManagementReceipt={id:string;digest:string;memberId:string;memberName:string;operation:string;at:string;result:{memberId?:string;credentialId?:string;positionId?:string}};
+export type AiPersonnel={managementHistory?:TeamManagementReceipt[];positionPreset?:PositionPresetId;positions?:AiPosition[];schema:1;members:AiMember[];credentials:AiCredential[]};
 export const aiRoles:string[];
 export const aiPermissionLabels:Record<AiPermission,string>;
 export function nextAiName(members:AiMember[],role:string):string;

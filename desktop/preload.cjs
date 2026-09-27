@@ -1,7 +1,9 @@
 const { contextBridge, ipcRenderer } = require('electron');
+const scheduleReads=new Map();
 function storageRequest(operation, key, value) {
-  const result = ipcRenderer.sendSync('workspace-storage', { operation, key, value });
+  const result = ipcRenderer.sendSync('workspace-storage', { operation, key, value, ...(key?.endsWith(':project-schedule')&&scheduleReads.has(key)?{expected:scheduleReads.get(key)}:{}) });
   if (!result?.ok) throw new Error(result?.error || '本地存档服务无响应');
+  if(key?.endsWith(':project-schedule')){if(operation==='get')scheduleReads.set(key,result.value);if(operation==='set')scheduleReads.set(key,value);}
   return result.value;
 }
 contextBridge.exposeInMainWorld('desktopClient', {
@@ -14,6 +16,7 @@ contextBridge.exposeInMainWorld('desktopClient', {
     stop: () => ipcRenderer.invoke('collaboration-host', 'stop'),
   },
   storage: { getItem: key => storageRequest('get', key), setItem: (key, value) => storageRequest('set', key, value), info: key => storageRequest('info', key) },
+  onTeamManagementChanged:listener=>{const handler=(_event,id)=>listener(id);ipcRenderer.on('team-management-changed',handler);return()=>ipcRenderer.removeListener('team-management-changed',handler);},
   developerCredentials:(operation,input)=>ipcRenderer.invoke('ai-developer',operation,input),
   issueAiCredential:input=>ipcRenderer.invoke('ai-credential-issue',input),
   artKnowledge:{list:()=>ipcRenderer.invoke('art-knowledge','list'),importImages:()=>ipcRenderer.invoke('art-knowledge','import'),choose:()=>ipcRenderer.invoke('art-knowledge','choose'),backup:()=>ipcRenderer.invoke('art-knowledge','backup'),reveal:()=>ipcRenderer.invoke('art-knowledge','reveal'),update:(id,revision,metadata)=>ipcRenderer.invoke('art-knowledge','update',{id,revision,metadata}),preview:id=>ipcRenderer.invoke('art-knowledge','preview',{id}),snapshot:(id,workspaceId)=>ipcRenderer.invoke('art-knowledge','snapshot',{id,workspaceId})},

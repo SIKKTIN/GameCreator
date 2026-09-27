@@ -83,4 +83,4 @@ function createProjectStartup({storage,folders,developers,engineSync}){
  }
  return {run};
 }
-module.exports={createProjectStartup};
+module.exports={createProjectStartup,safeFile,writeFile};

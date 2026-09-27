@@ -22,4 +22,4 @@ export function assertArtPermission(member,before,after){
   }else structural();
  }
 }
-export function artPermissionsMarkdown(member){const g=artGrants(member);return ['## 素材操作权限',...(g.length?g.map(k=>'- '+artPermissionLabels[k]):['- 未授予专项权限']),'- 新增、删除、归档或改变素材分类与关联：提交任务建议，不直接改写素材结构。','- 上传已有素材的交付版本属于制作交付，沿用版本与验收流程。','- 风格草稿和技术方案提交仍由客户端核对差异；签名不代表自动审批。'].join('\n');}
+export function artPermissionsMarkdown(member){const g=artGrants(member),full=member.permissions?.includes('project_write')&&member.developer?.scope==='project'&&(member.developer.projectModules===undefined||member.developer.projectModules.includes('art-assets'));return ['## 素材操作权限',...(g.length?g.map(k=>'- '+artPermissionLabels[k]):['- 未授予专项权限']),full?'- 已有素材模块完整编写权：可按项目编写协议提交新增、修改、归档及关联变更，由客户端核对应用。':'- 未获素材模块完整编写权时，结构调整需通过已授权的建议入口交由负责人处理；专项权限仅覆盖明确列出的操作。','- 美术资产直接在引擎工程制作与验证，按任务反馈交付路径、结果及待验收状态，不要求上传交付版本图片。','- 风格与制作方案的设计提交仍需核对差异，签名不代表已应用或已验收。'].join('\n');}

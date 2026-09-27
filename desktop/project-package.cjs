@@ -436,7 +436,7 @@ function validateProjectScheduleArchive(value) {
         return false; const n = Date.parse(v + 'T00:00:00Z'); return Number.isFinite(n) && new Date(n).toISOString().slice(0, 10) === v; };
     const bounded = (v, max = 200) => typeof v === 'string' && v.length <= max;
     const ids = (v, max = 2000) => Array.isArray(v) && v.length <= max && v.every(x => bounded(x) && x.trim()) && new Set(v).size === v.length;
-    const permissions = (v) => ids(v, 5) && v.every(x => ['progress', 'review', 'propose', 'spec_change', 'project_write'].includes(x));
+    const permissions = (v) => ids(v, 6) && v.every(x => ['progress', 'review', 'propose', 'spec_change', 'project_write', 'team_manage'].includes(x));
     const stamp = (v) => bounded(v, 50) && Number.isFinite(Date.parse(v));
     if (record(value) && value.authoringHistory !== undefined) {
         const history = value.authoringHistory;
@@ -447,6 +447,11 @@ function validateProjectScheduleArchive(value) {
         const p = value.personnel;
         if (!record(p) || p.schema !== 1 || !Array.isArray(p.members) || p.members.length > 200 || !Array.isArray(p.credentials) || p.credentials.length > 1000)
             return fail();
+        if (p.managementHistory !== undefined) {
+            const h = p.managementHistory;
+            if (!Array.isArray(h) || h.length > 10000 || new Set(h.map(r => record(r) ? r.id : null)).size !== h.length || h.some(r => !record(r) || !bounded(r.id, 100) || !/^\w[\w-]{7,99}$/.test(r.id) || !bounded(r.digest, 64) || !/^[a-f0-9]{64}$/.test(r.digest) || !bounded(r.memberId) || !bounded(r.memberName, 100) || !['create', 'update', 'rotate', 'revoke', 'position'].includes(r.operation) || !stamp(r.at) || !record(r.result) || Object.keys(r.result).some(k => !['memberId', 'credentialId', 'positionId'].includes(k)) || Object.values(r.result).some(v => !bounded(v))))
+                return fail();
+        }
         if (p.positionPreset !== undefined && !['basic', 'production'].includes(p.positionPreset))
             return fail();
         if (p.positions !== undefined) {
