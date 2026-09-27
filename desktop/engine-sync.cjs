@@ -160,6 +160,8 @@ function createEngineSync({artFiles,storage,beforeWrite=async()=>{},beforeRebind
       const {validateProductionDocs}=await import('../shared/material-production.mjs');
       const images=new Map();
       for(const doc of validateProductionDocs(input.art?.productionDocs))for(const file of doc.images)if(doc.content.includes('material-image:'+file.storagePath))images.set(file.storagePath,file);
+      const {validateReferenceBoards}=await import('../shared/art-knowledge.mjs');
+      for(const board of validateReferenceBoards(input.art?.referenceBoards))for(const r of board.references)if(r.active&&r.deliverImage)images.set(r.image.storagePath,r.image);
       let imageBytes=0;
       for(const file of images.values()){
         const bytes=await artFiles.readBytes('project:'+ctx.projectId,file.storagePath);imageBytes+=bytes.length;

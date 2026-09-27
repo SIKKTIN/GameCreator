@@ -45,7 +45,7 @@ export function WorkspaceSidebar({ picker, active, onNavigate, team = false, emp
       </div>)}
     </nav>
     {saveError && <p className="workspace-nav-save-error" role="status">菜单展开状态暂未保存，当前仍可使用。</p>}
-    <div className="side-bottom">{(onManageServer || onManageUsers) && <nav className="workspace-admin-nav" aria-label="管理模块">
+    <div className="side-bottom">{!team&&<nav aria-label="工作区资料"><button type="button" className={active==='美术知识库'?'active':''} onClick={()=>onNavigate('美术知识库')}><Palette size={17}/>美术知识库</button></nav>}{(onManageServer || onManageUsers) && <nav className="workspace-admin-nav" aria-label="管理模块">
       <span>管理</span>{onManageServer&&<button type="button" className={active === '服务器管理' ? 'active' : ''} aria-current={active === '服务器管理' ? 'page' : undefined} onClick={onManageServer}><Server size={17} />本机服务器</button>}
       {onManageUsers&&<button type="button" className={active==='用户与权限'?'active':''} aria-current={active==='用户与权限'?'page':undefined} onClick={onManageUsers}><Users size={17}/>用户与权限</button>}
     </nav>}{footer}</div>

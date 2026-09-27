@@ -164,3 +164,11 @@ test('configuration policy syncs without framework adoption, respects scope, dir
  p=await f.preview();assert.equal(p.rows.find(r=>r.path===target).status,'updated');await f.apply(p);assert.match(await f.read(target),/settings\/rules/);
  await fs.writeFile(path.join(f.engine,target),'manual edit');p=await f.preview();assert.equal(p.rows.find(r=>r.path===target).status,'conflict');await assert.rejects(f.apply(p),/处理所有冲突/);
 });
+
+
+test('reference images sync only as opted-in documentation attachments, never as adopted game assets',async t=>{
+ const f=await fixture(t),PNG=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/aV8AAAAASUVORK5CYII=','base64'),a=await f.asset('reference.png',PNG),image=a.versions[0].files[0];
+ const ref={id:'ref',libraryId:'library',referenceId:'source',revision:1,hash:digest(PNG),at:new Date().toISOString(),metadata:{name:'参考',description:'',source:'原始作品',creator:'',work:'',sourceType:'artwork',usage:'reference',usageNotes:'内部参考',tags:[]},image,use:'配色',take:'暖色',avoid:'描边',strength:'inspiration',active:true,deliverImage:false};
+ f.input.art={schema:1,assets:[],requirements:[],links:[],referenceBoards:[{id:'b',name:'整体',categoryId:'',references:[ref]}]};f.input.settings.modules=['art'];f.input.document.sections=[{id:'art',label:'素材资产',body:'参考说明'}];let plan=await f.preview();assert.ok(!plan.rows.some(r=>r.path.includes('/media/')||r.kind==='asset'));await f.apply(plan);
+ ref.deliverImage=true;plan=await f.preview();const row=plan.rows.find(r=>r.path.includes('/media/'));assert.equal(row.kind,'document');assert.ok(!plan.rows.some(r=>r.kind==='asset'));await f.apply(plan);assert.deepEqual(await fs.readFile(path.join(f.engine,row.path)),PNG);
+});

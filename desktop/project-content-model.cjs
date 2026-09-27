@@ -222,6 +222,7 @@ function mutate(root, op) {
 	at.parent[at.key] = structuredClone(op.value);
 }
 const lockedKeys = /* @__PURE__ */ new Set([
+	"referenceBoards",
 	"dispatchHistory",
 	"personnel",
 	"authoringHistory",
@@ -2444,6 +2445,79 @@ function validateFunctionalSystems(value) {
 }
 
 //#endregion
+//#region shared/art-knowledge.mjs
+const knowledgeTags = {
+	"medium:pixel": "媒介 · 像素",
+	"medium:handdrawn": "媒介 · 手绘",
+	"medium:3d": "媒介 · 三维",
+	"rendering:flat": "表现 · 平面",
+	"rendering:painterly": "表现 · 绘画感",
+	"rendering:cel": "表现 · 卡通渲染",
+	"perspective:side": "视角 · 侧视",
+	"perspective:top": "视角 · 俯视",
+	"perspective:isometric": "视角 · 等距",
+	"subject:character": "主体 · 角色",
+	"subject:environment": "主体 · 场景",
+	"subject:ui": "主体 · UI",
+	"subject:vfx": "主体 · 特效",
+	"theme:fantasy": "题材 · 奇幻",
+	"theme:scifi": "题材 · 科幻",
+	"theme:rural": "题材 · 田园",
+	"mood:cozy": "氛围 · 温馨",
+	"mood:dark": "氛围 · 阴郁",
+	"mood:playful": "氛围 · 活泼",
+	"color:warm": "色彩 · 暖色",
+	"color:cool": "色彩 · 冷色",
+	"color:muted": "色彩 · 低饱和",
+	"shape:round": "造型 · 圆润",
+	"shape:angular": "造型 · 棱角",
+	"shape:organic": "造型 · 有机",
+	"lighting:bright": "光照 · 明亮",
+	"lighting:contrast": "光照 · 强对比",
+	"production:bone": "制作 · 骨骼动画",
+	"production:tiles": "制作 · 瓦片",
+	"production:lowpoly": "制作 · 低多边形"
+};
+const referenceSourceTypes = {
+	unknown: "未登记",
+	screenshot: "游戏截图",
+	artwork: "美术作品",
+	internal: "内部创作",
+	generated: "生成图片"
+};
+const referenceUsages = {
+	unknown: "尚未确认",
+	reference: "仅供参考",
+	permitted: "已登记使用许可"
+};
+const text$2 = (v, n = 4e3) => typeof v === "string" && v.length <= n;
+function validateKnowledgeMetadata(v) {
+	if (!v || !text$2(v.name, 200) || !v.name.trim() || !text$2(v.description) || !text$2(v.source, 2e3) || !text$2(v.creator, 200) || !text$2(v.work, 200) || !text$2(v.usageNotes) || !Object.hasOwn(referenceSourceTypes, v.sourceType) || !Object.hasOwn(referenceUsages, v.usage) || !Array.isArray(v.tags) || v.tags.length > 30 || new Set(v.tags).size !== v.tags.length || v.tags.some((t) => !Object.hasOwn(knowledgeTags, t))) throw new Error("参考资料名称、来源或标签无效");
+	return v;
+}
+function validateReferenceBoards(value) {
+	if (value === void 0) return [];
+	if (!Array.isArray(value) || value.length > 50) throw new Error("项目参考板格式无效");
+	const ids = /* @__PURE__ */ new Set();
+	for (const b of value) {
+		if (!b || !text$2(b.id, 200) || !b.id || ids.has(b.id) || !text$2(b.name, 200) || !b.name.trim() || !text$2(b.categoryId, 200) || !Array.isArray(b.references) || b.references.length > 100) throw new Error("参考板名称或内容无效");
+		ids.add(b.id);
+		const refs = /* @__PURE__ */ new Set();
+		for (const r of b.references) {
+			validateKnowledgeMetadata(r.metadata);
+			const f = r.image;
+			if (!text$2(r.id, 200) || !r.id || refs.has(r.id) || !text$2(r.libraryId, 200) || !text$2(r.referenceId, 200) || !Number.isSafeInteger(r.revision) || r.revision < 1 || !/^[a-f0-9]{64}$/.test(r.hash) || !text$2(r.at, 50) || !Number.isFinite(Date.parse(r.at)) || !text$2(r.use, 200) || !text$2(r.take, 2e3) || !text$2(r.avoid, 2e3) || !["required", "inspiration"].includes(r.strength) || typeof r.active !== "boolean" || typeof r.deliverImage !== "boolean" || !f || !text$2(f.id, 200) || !text$2(f.name, 300) || !/^[a-f0-9-]{36}\.[a-z0-9]{1,12}$/.test(f.storagePath) || !Number.isSafeInteger(f.size) || f.size < 1 || f.size > 20971520 || ![
+				"image/png",
+				"image/jpeg",
+				"image/webp"
+			].includes(f.mime)) throw new Error("参考图快照无效");
+			refs.add(r.id);
+		}
+	}
+	return value;
+}
+
+//#endregion
 //#region shared/material-production.mjs
 function validateProductionDocs(value) {
 	if (value === void 0) return [];
@@ -2753,6 +2827,7 @@ function validateArtAssets(value) {
 		"note"
 	]))) throw new Error("素材资产存档格式异常，已停止写入");
 	validateProductionDocs(value.productionDocs);
+	validateReferenceBoards(value.referenceBoards);
 	validateArtStyle(value.style);
 	for (const item of [...value.requirements, ...value.assets]) {
 		validateMaterialDocumentFields(item);
@@ -3566,7 +3641,7 @@ function validateProjectPackage(value) {
 	validateFunctionalSystems(archives["functional-systems"]);
 	const art = validateArtAssets(archives["art-assets"]);
 	const fileMetadata = /* @__PURE__ */ new Map();
-	for (const asset of art.assets) for (const version of asset.versions) for (const file of version.files) {
+	for (const asset of [...art.assets, { versions: [...(art.productionDocs || []).map((d) => ({ files: d.images })), ...(art.referenceBoards || []).map((b) => ({ files: b.references.map((r) => r.image) }))] }]) for (const version of asset.versions) for (const file of version.files) {
 		requireValid(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.[a-z0-9]{1,12}$/.test(file.storagePath), "素材文件路径无效：" + file.name);
 		const metadata = JSON.stringify([file.size, file.mime]);
 		requireValid(!fileMetadata.has(file.storagePath) || fileMetadata.get(file.storagePath) === metadata, "相同素材文件的元数据不一致");

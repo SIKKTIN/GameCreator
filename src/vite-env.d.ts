@@ -13,6 +13,7 @@ interface Window {
       stop: () => Promise<import('./ServerManager').HostStatus>;
     };
     storage?: { getItem: (key: string) => string | null; setItem: (key: string, value: string) => void; info?: (key: string) => { directory: string; file: string; modifiedAt: string | null } };
+    artKnowledge?:import('../shared/art-knowledge.mjs').KnowledgeAPI;
     artFiles?: {
       importFiles: (workspaceId: string) => Promise<import('./art-assets').ArtFile[] | null>;
       readPreview: (workspaceId: string, storagePath: string) => Promise<{ dataUrl: string } | null>;
