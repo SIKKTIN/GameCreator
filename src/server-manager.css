@@ -2,7 +2,7 @@
 .authenticated-shell > .app { height: calc(100vh - 36px); }
 .workspace-sidebar > nav { min-height: 0; overflow-y: auto; flex: 1; align-content: start; scrollbar-width: thin; scrollbar-color: #494357 transparent; }
 .workspace-sidebar > .side-bottom { flex-shrink: 0; padding-top: 12px; border-top: 1px solid #292936; }
-.workspace-sidebar .side-bottom > nav { margin: 0 0 5px; padding: 0; border: 0; }
+.workspace-sidebar .workspace-utility-scroll > nav { margin: 0 0 5px; padding: 0; border: 0; }
 .workspace-admin-nav > span { padding: 0 13px 6px; color: #77768a; font-size: 10px; letter-spacing: 1px; }
 .server-manager-page { min-width: 0; }
 .server-manager-page > header { gap: 20px; }

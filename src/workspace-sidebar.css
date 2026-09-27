@@ -9,3 +9,8 @@
 .workspace-sidebar .workspace-nav-submenu svg { flex-shrink: 0; }
 .workspace-sidebar .workspace-nav-group button:focus-visible { outline: 2px solid #a797ee; outline-offset: -2px; }
 .workspace-sidebar .workspace-nav-save-error { color: #e7c388; font-size: 11px; line-height: 1.6; padding: 0 12px; margin: 8px 0; }
+
+.workspace-utility-scroll { min-height: 0; max-height: 30vh; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: #494357 transparent; }
+.workspace-utility-scroll > button { width: 100%; }
+.workspace-utility-scroll > button.active { background: #292640; color: #b9b0ff; }
+.workspace-utility-scroll:focus-visible { outline: 2px solid #a797ee; outline-offset: -2px; }
