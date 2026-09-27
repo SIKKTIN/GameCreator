@@ -12,7 +12,7 @@ const MEDIA=/\.(png|jpe?g|webp|gif|svg|bmp|tga|exr|hdr|dds|ktx|wav|ogg|mp3|flac|
 const HASH=/^[a-f0-9]{64}$/;
 const UUID=/^[a-f0-9-]{36}$/;
 
-function createEngineSync({artFiles,storage,beforeWrite=async()=>{},beforeRebind=async()=>{},beforeFeedbackCommit,beforeDataWrite}) {
+function createEngineSync({artFiles,storage,beforeWrite=async()=>{},beforeRebind=async()=>{},beforeFeedbackCommit,beforeDataWrite,maxPlans=4,beforeCommit=async()=>{}}) {
   const plans=new Map(),bindings=new Map();
   const feedback=require('./engine-feedback.cjs').createEngineFeedback({storage,context,manifest,read,writeMeta,checked,locked,hash,beforeFeedbackCommit});
   const data=require('./data-sync.cjs').createDataSync({storage,context,manifest,read,writeMeta,checked,locked,hash,beforeDataWrite});
@@ -217,7 +217,7 @@ function createEngineSync({artFiles,storage,beforeWrite=async()=>{},beforeRebind
       for(const row of rows)if(row.id==='document:ignore'&&row.remove){row.label='解除 Godot 文档目录隐藏';row.reason=row.status==='conflict'?'旧版忽略文件已被修改，请确认是否移除':'移除此旧版忽略文件后，Godot 才能显示文档目录';}
     }
     const token=randomUUID(),now=Date.now();for(const [key,p] of plans)if(now-p.created>600000)plans.delete(key);
-    if(plans.size>=4)plans.delete(plans.keys().next().value);
+    if(plans.size>=maxPlans)plans.delete(plans.keys().next().value);
     plans.set(token,{ctx,m,rows,created:now});
     return {token,root:ctx.root,rows:rows.map(({bytes,...f})=>f),warnings,history:m.value.history};
   }
@@ -300,7 +300,7 @@ function createEngineSync({artFiles,storage,beforeWrite=async()=>{},beforeRebind
       let committed=false;
       try {
         for(const [index,r] of chosen.entries()) {
-          await beforeWrite(index,r);await assertCurrent(ctx,r);
+          await beforeWrite(index,r,ctx);await assertCurrent(ctx,r);
           const filename=await checked(ctx,r.path,true);
           if(r.remove){if(r.currentHash!==null)await fs.unlink(filename);}
           else {
@@ -310,6 +310,7 @@ function createEngineSync({artFiles,storage,beforeWrite=async()=>{},beforeRebind
             else await fs.rename(stage,filename);
           }
         }
+        await beforeCommit(ctx);
         const next=structuredClone(m.value);
         for(const r of chosen) {
           next.files=next.files.filter(f=>f.path.toLowerCase()!==r.path.toLowerCase());

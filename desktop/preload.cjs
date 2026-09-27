@@ -7,6 +7,12 @@ function storageRequest(operation, key, value) {
   return result.value;
 }
 contextBridge.exposeInMainWorld('desktopClient', {
+  workflowEditor:(projectId,prepare,finish)=>{
+    const begin=async(_event,request)=>{if(request.projectId!==projectId)return;let answer;try{answer=await prepare();}catch(e){answer={error:e.message};}ipcRenderer.send('workflow-editor-answer',{id:request.id,...answer});};
+    const end=(_event,result)=>{if(result.projectId===projectId)finish(result.reload);};
+    ipcRenderer.on('workflow-editor-prepare',begin);ipcRenderer.on('workflow-editor-finish',end);ipcRenderer.send('workflow-editor-ready',projectId);
+    return()=>{ipcRenderer.removeListener('workflow-editor-prepare',begin);ipcRenderer.removeListener('workflow-editor-finish',end);ipcRenderer.send('workflow-editor-ready','');};
+  },
   projectAuthoring:(operation,input)=>ipcRenderer.invoke('project-authoring',operation,input),
   projectStartup:(operation,input)=>ipcRenderer.invoke('project-startup',operation,input),
   platform: 'electron', localFiles: true,

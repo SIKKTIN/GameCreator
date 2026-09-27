@@ -48,6 +48,9 @@ function writeCollaborationFiles(root,project,storage,allowUnvalidated=false){
  write(root,'ai/change-template.json',JSON.stringify(template(project.id,snapshotId),null,2));
  write(root,'ai/submit-change.cjs',fs.readFileSync(path.join(__dirname,'../shared/submit-content-change.cjs'),'utf8'));
  writeAuthoringReadme(root);
+ write(root,'ai/workflow-mcp.cjs',fs.readFileSync(path.join(__dirname,'../shared/workflow-mcp.cjs'),'utf8'));
+ write(root,'ai/WORKFLOW_MCP.md',fs.readFileSync(path.join(__dirname,'../docs/workflow-mcp.md'),'utf8'));
+ write(root,'ai/mcp.config.example.json',JSON.stringify({mcpServers:{gamecreator:{command:'node',args:[path.join(root,'ai/workflow-mcp.cjs'),'--project',root],env:{GAMECREATOR_CREDENTIAL_FILE:'填写分配给此助手的凭证文件绝对路径'}}}},null,2));
  write(root,'ai/manage-team.cjs',fs.readFileSync(path.join(__dirname,'../shared/manage-team.cjs'),'utf8'));
  write(root,'ai/TEAM_MANAGEMENT.md',fs.readFileSync(path.join(__dirname,'../docs/team-management.md'),'utf8'));
  write(root,'ai/changes/README.md','将签名提交放在本目录，由客户端读取并预览。不要直接修改项目存档。\n');
@@ -63,12 +66,12 @@ function writeCollaborationFiles(root,project,storage,allowUnvalidated=false){
  storage.setItem(contextKey(project.id),JSON.stringify({schema:1,projectId:project.id,snapshotIds:[...new Set([...registered.snapshotIds,snapshotId])].slice(-100)}));
  return {directory:root};
 }
-function createProjectAuthoring({storage,folders}){
- function active(input){const catalog=JSON.parse(storage.getItem('gamecreator.projects.v1')||'null');if(!input||catalog?.activeId!==input.projectId)throw new Error('请在当前本地项目操作');const project=folders.verify(input.projectId);if(!project.folderPath)throw new Error('请先保存为项目文件夹');return project;}
+function createProjectAuthoring({storage,folders,allowBackground=false}){
+ function active(input){const catalog=JSON.parse(storage.getItem('gamecreator.projects.v1')||'null');if(!input||(!allowBackground&&catalog?.activeId!==input.projectId))throw new Error('请在当前本地项目操作');const project=folders.verify(input.projectId);if(!project.folderPath)throw new Error('请先保存为项目文件夹');return project;}
  function clean(input){if(!Array.isArray(input.expectedEntries)||!input.expectedEntries.length)throw new Error('缺少当前编辑器快照');for(const e of input.expectedEntries)if(storage.getItem(e.key)!==e.value)throw new Error('项目已变化，请等待保存完成并重新读取');}
  function loadProposal(project,id){if(typeof id!=='string'||!/^\w[\w-]{7,99}$/.test(id))throw new Error('提交编号无效');const raw=read(project.folderPath,'ai/changes/'+id+'.json',2*1024*1024),p=JSON.parse(raw);model.validateAuthoringProposal(p);if(p.id!==id||p.projectId!==project.id)throw new Error('提交属于另一个项目或文件名不匹配');return{p,digest:hash(raw)};}
- function preview(project,id,decisions){
-  const {p,digest}=loadProposal(project,id),captured=context(storage,project),current=captured.document.archives,schedule=current['project-schedule'];
+ function preview(project,id,decisions,supplied){
+  const {p,digest}=supplied?{p:supplied,digest:hash(JSON.stringify(supplied))}:loadProposal(project,id),captured=context(storage,project),current=captured.document.archives,schedule=current['project-schedule'];
   const history=schedule.authoringHistory||[],previous=history.find(r=>r.id===p.id);
   if(previous){if(previous.digest!==digest)throw new Error('已处理编号的内容发生变化，不允许重放');return {processed:true,receipt:previous};}
   const identity=verifyAiFeedback(p,schedule);if(!identity?.verified)throw new Error('内容编写需要有效的长期开发者签名');
@@ -78,7 +81,7 @@ function createProjectAuthoring({storage,folders}){
   const base=JSON.parse(raw);if(base.projectId!==project.id)throw new Error('基准属于其他项目');
   const result=model.validateContentChange(p,base.archives,current,decisions);
   if(p.operations.some(op=>op.module==='art-assets')&&!grants.includes('art-assets')){model.assertArtPermission(member,base.archives['art-assets'],result.incoming['art-assets']);model.assertArtPermission(member,current['art-assets'],result.next['art-assets']);}
-  return {p,digest,captured,reviewId:hash(model.canonical(captured.expectedEntries)),...result,summary:p.summary,memberName:identity.memberName,compatibility:p.compatibility,id:p.id};
+  return {p,digest,captured,reviewId:hash(model.canonical(allowBackground?{project,entries:captured.expectedEntries.filter(e=>e.key!=='gamecreator.projects.v1')}:captured.expectedEntries)),...result,summary:p.summary,memberName:identity.memberName,compatibility:p.compatibility,id:p.id};
  }
  function receipt(root,r){write(root,'ai/receipts/'+r.id+'.json',JSON.stringify(r,null,2));}
  function run(operation,input){
@@ -86,6 +89,18 @@ function createProjectAuthoring({storage,folders}){
   if(operation==='recover'){const recovered=recoverContent(storage,project.id);return {recovered};}
   clean(input);
   if(operation==='export')return writeCollaborationFiles(root,project,storage);
+  if(['validate','submit'].includes(operation)){
+   model.validateAuthoringProposal(input.proposal);if(input.proposal.projectId!==project.id)throw new Error('提交属于另一个项目');
+   const r=preview(project,input.proposal.id,input.decisions||{},input.proposal);
+   if(r.processed)return {applied:true,receipt:r.receipt};
+   if(operation==='submit'){
+    const target=file(root,'ai/changes/'+input.proposal.id+'.json',true),text=JSON.stringify(input.proposal);
+    if(fs.existsSync(target)){if(read(root,'ai/changes/'+input.proposal.id+'.json')!==text)throw new Error('提交编号已存在且内容不同');}
+    else fs.writeFileSync(target,text,{flag:'wx',mode:0o600});
+   }
+   const {id,digest,reviewId,summary,memberName,compatibility,rows,unresolved}=r;
+   return {submitted:operation==='submit',items:[{id,digest,reviewId,summary,memberName,compatibility,rows,unresolved}]};
+  }
   if(operation==='scan'){
    const current=context(storage,project),history=current.document.archives['project-schedule'].authoringHistory||[],items=[];
    const directory=file(root,'ai/changes/README.md');const files=fs.readdirSync(path.dirname(directory)).filter(n=>n.endsWith('.json'));if(files.length>500)throw new Error('待扫描文件超过 500 个，请归档已处理文件');

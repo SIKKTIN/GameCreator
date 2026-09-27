@@ -13,10 +13,10 @@ function safeFile(root,relative,create=false){
 function readFile(root,relative){const p=safeFile(root,relative);if(!fs.existsSync(p))return null;if(fs.statSync(p).size>1024*1024)throw new Error('初始化文件过大：'+relative);return fs.readFileSync(p,'utf8');}
 function writeFile(root,relative,text){const p=safeFile(root,relative,true),tmp=safeFile(root,relative+'.'+randomUUID()+'.tmp',true);try{fs.writeFileSync(tmp,text,{flag:'wx',mode:0o600});safeFile(root,relative);fs.renameSync(tmp,p);}finally{if(fs.existsSync(tmp))fs.unlinkSync(tmp);}}
 
-function createProjectStartup({storage,folders,developers,engineSync}){
+function createProjectStartup({storage,folders,developers,engineSync,allowBackground=false,maxPlans=4}){
  const plans=new Map();
- function project(input){const c=JSON.parse(storage.getItem('gamecreator.projects.v1')||'null');if(!input||c?.activeId!==input.projectId)throw new Error('请打开当前本地项目进行工程同步');return folders.verify(input.projectId);}
- function clean(entries){if(!Array.isArray(entries)||!entries.length)throw new Error('缺少当前项目快照');for(const e of entries)if(storage.getItem(e.key)!==e.value)throw new Error('项目内容已变化，请等待保存完成后重新检查');}
+ function project(input){const c=JSON.parse(storage.getItem('gamecreator.projects.v1')||'null');if(!input||(!allowBackground&&c?.activeId!==input.projectId))throw new Error('请打开当前本地项目进行工程同步');return folders.verify(input.projectId);}
+ function clean(entries){if(!Array.isArray(entries)||!entries.length)throw new Error('缺少当前项目快照');for(const e of entries)if(!(allowBackground&&e.key==='gamecreator.projects.v1')&&storage.getItem(e.key)!==e.value)throw new Error('项目内容已变化，请等待保存完成后重新检查');}
  async function inspect(input){
   const p=project(input),saved=JSON.parse(storage.getItem(key(p.id))||'null'),{syncPath,defaultSyncSettings,syncSettings}=await import('../shared/engine-sync.mjs');
   let entryDirectory=syncPath(input.entryDirectory??input.settings?.entryDirectory??saved?.entryDirectory??'gamecreator');
@@ -52,7 +52,7 @@ function createProjectStartup({storage,folders,developers,engineSync}){
    const s=await inspect(input);if(s.blockers.length)throw new Error(s.blockers.join('\n'));clean(input.expectedEntries);
    const privatePlan=credentialPlan({root:s.binding.root,entryDirectory:s.entryDirectory,members:s.members,projectId:s.p.id,saved:s.saved,developers,readFile});
    const sync=await engineSync.preview({projectId:s.p.id,config:s.p.config,document:input.document,art:input.art,collaboration:input.collaboration,settings:s.settings},s.entryDirectory);
-   const token=randomUUID();for(const [id,p]of plans)if(Date.now()-p.at>600000){engineSync.release(p.sync.token);plans.delete(id);}if(plans.size>=4){const id=plans.keys().next().value;engineSync.release(plans.get(id).sync.token);plans.delete(id);}
+   const token=randomUUID();for(const [id,p]of plans)if(Date.now()-p.at>600000){engineSync.release(p.sync.token);plans.delete(id);}if(plans.size>=maxPlans){const id=plans.keys().next().value;engineSync.release(plans.get(id).sync.token);plans.delete(id);}
    plans.set(token,{s,sync,at:Date.now(),expectedEntries:input.expectedEntries,source:JSON.stringify({config:s.p.config,folder:s.p.folderPath}),settingsRaw:storage.getItem(s.settingsKey),savedRaw:storage.getItem(key(s.p.id)),privatePlan});
    return {...publicStatus(s),plan:{...sync,token,rows:[...sync.rows,...plans.get(token).privatePlan.rows]}};
   }

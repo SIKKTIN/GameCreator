@@ -1,6 +1,7 @@
 import {createElement,useEffect,useState} from 'react';
 import workflowOverview from '../docs/workflow-overview.md?raw';
 import artWorkflow from '../docs/art-workflow.md?raw';
+import workflowMcp from '../docs/workflow-mcp.md?raw';
 import teamManagement from '../docs/team-management.md?raw';
 import {Copy,Download} from 'lucide-react';
 import {gamecreatorGuide,guideVersion} from '../shared/gamecreator-guide.mjs';
@@ -10,14 +11,14 @@ import './usage-guide.css';
 import './project-standards.css';
 import './software-help.css';
 
-export const helpPages=['工作流总览','美术工作流','制作人与团队管理','操作说明','通用规范'] as const;
+export const helpPages=['工作流总览','美术工作流','制作人与团队管理','AI 工作流工具','操作说明','通用规范'] as const;
 export type HelpPage=typeof helpPages[number];
 export function isHelpPage(page:string):page is HelpPage{return helpPages.some(p=>p===page);}
 export function SoftwareHelp({page,onPage}:{page:HelpPage;onPage:(page:HelpPage)=>void}){
  const [scope,setScope]=useState<StandardScope>('general'),[notice,setNotice]=useState('');
  useEffect(()=>setNotice(''),[page]);
- const text=page==='工作流总览'?workflowOverview:page==='美术工作流'?artWorkflow:page==='制作人与团队管理'?teamManagement:page==='操作说明'?gamecreatorGuide():builtinStandardsMarkdown();
- const download=()=>{const url=URL.createObjectURL(new Blob([text],{type:'text/markdown;charset=utf-8'})),a=document.createElement('a');a.href=url;a.download=page==='工作流总览'?'GAMECREATOR_WORKFLOW.md':page==='美术工作流'?'GAMECREATOR_ART_WORKFLOW.md':page==='制作人与团队管理'?'GAMECREATOR_TEAM_MANAGEMENT.md':page==='操作说明'?'GAMECREATOR_GUIDE.md':'GAMECREATOR_RULES.md';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+ const text=page==='AI 工作流工具'?workflowMcp:page==='工作流总览'?workflowOverview:page==='美术工作流'?artWorkflow:page==='制作人与团队管理'?teamManagement:page==='操作说明'?gamecreatorGuide():builtinStandardsMarkdown();
+ const download=()=>{const url=URL.createObjectURL(new Blob([text],{type:'text/markdown;charset=utf-8'})),a=document.createElement('a');a.href=url;a.download=page==='AI 工作流工具'?'GAMECREATOR_WORKFLOW_MCP.md':page==='工作流总览'?'GAMECREATOR_WORKFLOW.md':page==='美术工作流'?'GAMECREATOR_ART_WORKFLOW.md':page==='制作人与团队管理'?'GAMECREATOR_TEAM_MANAGEMENT.md':page==='操作说明'?'GAMECREATOR_GUIDE.md':'GAMECREATOR_RULES.md';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
  return <section className="software-help usage-guide" aria-label="使用帮助">
   <div className="help-heading"><small>GAMECREATOR HELP</small><h2>使用帮助</h2><p>从工作流总览了解全程，再查阅美术工作流、制作人与团队管理、操作说明及通用规范。</p></div>
   <div className="ps-tabs" role="tablist" aria-label="使用帮助文档">{helpPages.map(p=><button key={p} role="tab" aria-selected={page===p} onClick={()=>{setNotice('');onPage(p);}}>{p}</button>)}</div>

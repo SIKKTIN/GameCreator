@@ -65,6 +65,16 @@ function assertArtPermission(member, before, after) {
 		} else structural();
 	}
 }
+function artPermissionsMarkdown(member) {
+	const g = artGrants(member), full = member.permissions?.includes("project_write") && member.developer?.scope === "project" && (member.developer.projectModules === void 0 || member.developer.projectModules.includes("art-assets"));
+	return [
+		"## 素材操作权限",
+		...g.length ? g.map((k) => "- " + artPermissionLabels[k]) : ["- 未授予专项权限"],
+		full ? "- 已有素材模块完整编写权：可按项目编写协议提交新增、修改、归档及关联变更，由客户端核对应用。" : "- 未获素材模块完整编写权时，结构调整需通过已授权的建议入口交由负责人处理；专项权限仅覆盖明确列出的操作。",
+		"- 美术资产直接在引擎工程制作与验证，按任务反馈交付路径、结果及待验收状态，不要求上传交付版本图片。",
+		"- 风格与制作方案的设计提交仍需核对差异，签名不代表已应用或已验收。"
+	].join("\n");
+}
 
 //#endregion
 //#region shared/project-changes.mjs
@@ -369,6 +379,42 @@ function authoringPreview(p, base, current, decisions = {}) {
 
 //#endregion
 //#region shared/ai-personnel.mjs
+const aiPermissionLabels = {
+	progress: "提交制作进度",
+	review: "提交验收结论",
+	propose: "提交排期与分配建议",
+	spec_change: "提交需求与验收变更建议",
+	project_write: "修改项目内容与排期",
+	team_manage: "管理开发团队与令牌"
+};
+const taskAssignment = (t) => t.assignment || {
+	primaryId: "",
+	collaboratorIds: [],
+	reviewerId: ""
+};
+const memberTasks = (schedule, id) => schedule.tasks.filter((t) => {
+	const a = taskAssignment(t);
+	return a.primaryId === id || a.reviewerId === id || a.collaboratorIds.includes(id);
+});
+function personnelMarkdown(schedule, onlyMemberId) {
+	const people = schedule.personnel?.members || [], members = onlyMemberId ? people.filter((m) => m.id === onlyMemberId) : people;
+	const lines = [
+		...onlyMemberId ? [] : [positionsMarkdown(schedule), ""],
+		"## AI 执行者与协作分配",
+		""
+	];
+	if (!members.length) lines.push("尚未签发执行者凭证。到协作令牌中命名 AI 并选择工作。");
+	for (const m of members) {
+		lines.push("### " + m.name, "- 成员 ID：" + m.id, "- 状态：" + (m.active ? "启用" : "停用"));
+		const keys = (schedule.personnel?.credentials || []).filter((k) => k.memberId === m.id);
+		for (const key of keys) lines.push("", credentialMarkdown(schedule, key));
+		const legacy = memberTasks(schedule, m.id);
+		if (legacy.length) lines.push("历史成员任务：", ...legacy.map((t) => "- " + t.title + " [" + t.id + "] · " + t.status));
+		if (!keys.length && !legacy.length) lines.push("暂无工作分配。");
+		lines.push("");
+	}
+	return lines.join("\n");
+}
 function defaultAiPositions() {
 	return [
 		[
@@ -420,6 +466,94 @@ function positionsOf(schedule) {
 }
 function taskPositionIds(schedule, task) {
 	return task.positionIds ?? positionsOf(schedule).filter((p) => p.taskKinds.includes(task.kind)).map((p) => p.id);
+}
+function positionTasks(schedule, positionId) {
+	return schedule.tasks.filter((t) => taskPositionIds(schedule, t).includes(positionId));
+}
+function credentialTasks(schedule, key) {
+	if (key.persistent) {
+		const m = schedule.personnel?.members.find((m) => m.id === key.memberId);
+		return schedule.tasks.filter((t) => m?.developer?.taskIds.includes(t.id));
+	}
+	return key.positionIds ? schedule.tasks.filter((t) => key.taskIds.includes(t.id)) : memberTasks(schedule, key.memberId).filter((t) => !key.taskIds.length || key.taskIds.includes(t.id));
+}
+function positionsMarkdown(schedule) {
+	const lines = ["## 岗位与工作内容", ""];
+	for (const p of positionsOf(schedule)) {
+		lines.push("### " + p.name, "- 岗位 ID：" + p.id, "- 职责：" + p.duties, "- 状态：" + (p.active ? "启用" : "停用"));
+		const tasks = positionTasks(schedule, p.id);
+		for (const t of tasks) lines.push("- " + t.title + " [" + t.id + "] · " + t.status);
+		if (!tasks.length) lines.push("- 暂无工作任务，可在岗位详情中选择任务。");
+		lines.push("");
+	}
+	return lines.join("\n");
+}
+function credentialMarkdown(schedule, key) {
+	const member = schedule.personnel?.members.find((m) => m.id === key.memberId);
+	const profile = key.persistent ? member?.developer : void 0;
+	return [
+		"# " + (member?.name || key.name) + " · 工作分配",
+		"",
+		"- 执行者 ID：" + key.memberId,
+		"- 令牌 ID：" + key.id,
+		"- 绑定项目：" + key.projectId,
+		"- 撤销记录：" + (key.revokedAt || "未撤销"),
+		"- 岗位：" + (profile?.positionIds || key.positionIds || []).map((id) => positionsOf(schedule).find((p) => p.id === id)?.name || id).join("、"),
+		"- 工作说明：" + (key.persistent ? member?.duties || positionsOf(schedule).filter((p) => (profile?.positionIds || key.positionIds || []).includes(p.id)).map((p) => p.duties).join("；") || "按岗位职责与已分配任务开展工作" : key.workDescription || member?.duties || positionsOf(schedule).filter((p) => (profile?.positionIds || key.positionIds || []).includes(p.id)).map((p) => p.duties).join("；") || "按岗位职责与已分配任务开展工作"),
+		"- 访问范围：" + (profile ? {
+			assigned: "已分配任务",
+			positions: "所选岗位（包含后续任务）",
+			project: "项目范围"
+		}[profile.scope] : "旧版任务范围"),
+		"- 反馈权限：" + (key.persistent ? member?.permissions || [] : key.permissions).map((p) => aiPermissionLabels[p]).join("、"),
+		...member ? [artPermissionsMarkdown(member)] : [],
+		"- 内容编写模块：" + (moduleGrants(member).map((id) => authoringModules[id]).join("、") || "未授权"),
+		"- 有效期：" + (credentialExpiry(schedule, key) || "长期有效，直至停用或撤销"),
+		"",
+		roleOnboarding(schedule, key, member),
+		"",
+		"## 已分配任务",
+		...credentialTasks(schedule, key).length ? [] : ["暂无具体任务。开发者身份持续保留；允许反馈的范围见上方访问范围。"],
+		...credentialTasks(schedule, key).flatMap((t) => [
+			"### " + t.title,
+			"- ID：" + t.id,
+			"- 当前状态：" + t.status,
+			"- 内容：" + t.description,
+			"- 前置任务：" + (t.dependencyIds.join("、") || "无"),
+			"- 验收要求：" + (t.acceptance || "待补充")
+		]),
+		"",
+		"只提交获准任务的反馈。私有凭证由管理者单独交付；提交方式见 ../README.md。"
+	].join("\n");
+}
+function credentialExpiry(schedule, key) {
+	return key.persistent ? schedule.personnel?.members.find((m) => m.id === key.memberId)?.developer?.expiresAt || "" : key.expiresAt;
+}
+function roleOnboarding(schedule, key, member) {
+	const producer = member?.developer?.positionIds.includes("producer") || member?.roles.includes("制作管理");
+	const intro = [
+		"## 接手顺序",
+		"这份 Markdown 是公开岗位工作说明，不是令牌。私有凭证是 personal 中的 JSON；只使用交付给自己的身份。",
+		"以引擎工程为开发主目录，先读引擎协作入口 README，再进入其绑定的 GameCreator 管理项目，阅读 GAMECREATOR_GUIDE.md、PROJECT_STANDARDS.md 和 ai/context/content。实际权限以客户端当前有效授权为准。"
+	];
+	if (!producer) return [...intro, "核对职责、任务依赖和验收标准，按约定交付引擎成果并反馈待验收。没有具体任务时先核对岗位范围和团队安排，不自行扩大工作范围。"].join("\n\n");
+	const tasks = schedule.tasks, stage = !tasks.length ? "尚未建立制作排期（请同时核对已有设计，勿覆盖已有内容）" : tasks.every((t) => t.status === "已完成") ? "任务已完成，需检查里程碑验收与下一轮目标" : tasks.some((t) => [
+		"进行中",
+		"待验收",
+		"受阻"
+	].includes(t.status)) ? "开发与验收推进中" : "已建立计划，准备组织制作";
+	return [
+		...intro,
+		"## 制作人行动清单",
+		"当前排期判断：" + stage + "。这只是排期快照，不能代替引擎实际检查。",
+		"制作人负责推动项目从目标、设计、团队到交付。零个人任务不等于等待指派，也不意味着直接开始全面编码。",
+		"1. 检查用户目标、工程现状和现有设计；明确最小体验、范围边界、验收标准与风险。",
+		"2. 空项目先形成设计基线；已有项目先说明复用、修改、新增与归档方案。通过管理项目 ai/changes 提交玩法、功能、素材文档、配置与排期，并区分已提交和已应用。",
+		"3. 根据职责建立策划、程序、主美、美术、测试等开发者，明确授权、任务依赖和交付要求。",
+		key.persistent && member.permissions.includes("team_manage") ? "4. 已授予团队管理权限：进入管理项目 ai/TEAM_MANAGEMENT.md，使用 manage-team.cjs 读取实时团队，创建身份、签发凭证并多选任务；不需要让用户逐个手工创建。" : "4. 当前未授予可执行的团队管理权限：先形成成员与权限方案，请本地管理者明确授权 team_manage 或代为创建；名称叫制作人不自动授权。",
+		"5. 开发中检查运行效果、阻塞和变更影响；收尾以测试证据和验收标准审查任务与里程碑，推动下一轮迭代。",
+		"首轮交付：项目现状与目标、最小设计基线、成员职责和授权、任务依赖与验收、提交应用状态以及下一步。创建身份不等于启动外部 AI 会话，凭证须分别交付。"
+	].join("\n\n");
 }
 
 //#endregion
@@ -620,9 +754,46 @@ function validateDevelopmentTools(value) {
 	}
 	return value;
 }
+function developmentToolsMarkdown(store) {
+	const lines = [
+		"## 开发工具",
+		"",
+		"> 面向制作人员的工具需求与交付记录。关联制作任务全部完成后同步为可使用；停用和归档工具保持原状态。",
+		""
+	];
+	for (const t of store.tools) {
+		lines.push("### " + (t.name || "未命名工具"), "- ID：" + t.id, "- 分类：" + t.kind + "；状态：" + t.status + "；优先级：" + t.priority + "；归档：" + (t.archived ? "是" : "否"), "- 负责人：" + (t.owner || "未分配"), "- 使用人员：" + (t.audience || "待填写"));
+		for (const [key, label] of [
+			["purpose", "用途"],
+			["scope", "功能范围"],
+			["environment", "运行环境与兼容性"],
+			["inputs", "输入"],
+			["outputs", "输出"],
+			["acceptance", "验收标准"],
+			["usage", "使用说明"],
+			["delivery", "交付位置与版本"]
+		]) lines.push("#### " + label, t[key] || "待补充", "");
+		lines.push("- 关联程序功能：" + (t.capabilityIds.join("、") || "无"), "");
+	}
+	return lines.join("\n");
+}
 
 //#endregion
 //#region src/project-schedule.ts
+const scheduleReferenceLabels = {
+	gameplay: "玩法文档",
+	capability: "程序功能",
+	tool: "开发工具",
+	requirement: "素材需求",
+	asset: "素材资产",
+	map: "地图",
+	prototype: "原型场景"
+};
+const emptyProjectSchedule = () => ({
+	schema: 1,
+	tasks: [],
+	milestones: []
+});
 function createProductionTask(title) {
 	if (!title.trim()) throw new Error("请填写制作任务名称");
 	return {
@@ -661,6 +832,14 @@ function isScheduleDate(date) {
 	const n = Date.parse(date + "T00:00:00Z");
 	return /^\d{4}-\d{2}-\d{2}$/.test(date) && Number.isFinite(n) && new Date(n).toISOString().slice(0, 10) === date;
 }
+const scheduleToday = () => {
+	const d = /* @__PURE__ */ new Date();
+	return [
+		d.getFullYear(),
+		String(d.getMonth() + 1).padStart(2, "0"),
+		String(d.getDate()).padStart(2, "0")
+	].join("-");
+};
 function validateProjectSchedule(value) {
 	const fail = () => {
 		throw new Error("项目排期存档格式异常，已停止写入");
@@ -885,6 +1064,133 @@ function scheduleFromMilestones(value) {
 		})
 	});
 }
+function buildScheduleSources(designs, functional, art, maps, prototype, tools = emptyDevelopmentTools()) {
+	return {
+		tool: tools.tools.map((t) => ({
+			id: t.id,
+			name: t.name,
+			status: "工具：" + t.status,
+			unavailable: t.archived || t.status === "停用"
+		})),
+		gameplay: designs.map((d) => ({
+			id: d.id,
+			name: d.title,
+			status: "设计：" + d.status,
+			unavailable: d.archived
+		})),
+		capability: functional.capabilities.map((c) => ({
+			id: c.id,
+			name: c.name,
+			status: "实现：" + c.status,
+			unavailable: c.archived || !!functional.systems.find((s) => s.id === c.systemId)?.archived
+		})),
+		requirement: art.requirements.map((r) => ({
+			id: r.id,
+			name: r.name,
+			status: "需求：" + r.status,
+			unavailable: r.archived
+		})),
+		asset: art.assets.map((a) => ({
+			id: a.id,
+			name: a.name,
+			status: a.adoptedVersionId ? "已有采用版本" : "未采用版本",
+			unavailable: a.archived
+		})),
+		map: maps.maps.map((m) => ({
+			id: m.id,
+			name: m.name,
+			unavailable: !maps.enabled
+		})),
+		prototype: prototype.scenes.map((s) => ({
+			id: s.id,
+			name: s.name
+		}))
+	};
+}
+function scheduleReference(ref, sources) {
+	const item = sources[ref.kind].find((s) => s.id === ref.targetId);
+	return {
+		label: item?.name || "来源已删除：" + ref.targetId,
+		available: !!item && !item.unavailable,
+		status: item?.unavailable ? item.status || "来源已归档或模块已关闭" : item?.status || ""
+	};
+}
+function projectScheduleIssues(store, today = scheduleToday(), sources) {
+	const issues = [], byId = new Map(store.tasks.map((t) => [t.id, t]));
+	const reaches = (from, target) => {
+		const seen = /* @__PURE__ */ new Set(), pending = [from];
+		while (pending.length) {
+			const id = pending.pop();
+			if (id === target) return true;
+			if (seen.has(id)) continue;
+			seen.add(id);
+			pending.push(...byId.get(id)?.dependencyIds || []);
+		}
+		return false;
+	};
+	for (const t of store.tasks) {
+		const add = (kind, message) => issues.push({
+			taskId: t.id,
+			kind,
+			message
+		});
+		if (!t.title.trim()) add("review", "制作任务尚未命名");
+		if (t.status !== "已完成" && t.end && t.end < today) add("overdue", "已超过计划完成日期");
+		if (t.status === "受阻") add("blocked", "任务标记为受阻");
+		if (t.status === "已完成" && !t.result.trim()) add("review", "已标记完成，尚未填写验收结果");
+		if (t.milestoneId && !store.milestones.some((m) => m.id === t.milestoneId)) add("reference", "所属里程碑已失效");
+		if (t.dependencyIds.some((id) => reaches(id, t.id))) add("conflict", "前置任务存在循环依赖");
+		for (const id of t.dependencyIds) {
+			const d = byId.get(id);
+			if (!d) {
+				add("reference", "前置任务已失效：" + id);
+				continue;
+			}
+			if (d.status !== "已完成") add("blocked", "前置未完成：" + d.title);
+			if (t.start && d.end && t.start <= d.end) add("conflict", "计划重叠：应在「" + d.title + "」完成后的日期开始");
+		}
+		if (sources) for (const ref of t.references) {
+			const r = scheduleReference(ref, sources);
+			if (!r.available) add("reference", r.label + (r.status ? " · " + r.status : ""));
+		}
+	}
+	for (const m of store.milestones) {
+		const linked = store.tasks.filter((t) => t.milestoneId === m.id);
+		const add = (kind, message) => issues.push({
+			milestoneId: m.id,
+			kind,
+			message
+		});
+		if (!m.title.trim()) add("review", "里程碑尚未命名");
+		if (m.releaseId && !store.releases?.some((r) => r.id === m.releaseId)) add("reference", "所属版本已失效，请重新选择");
+		if (m.due && m.due < today && m.status !== "已验收") add("overdue", "里程碑已超过目标日期");
+		if (m.due && linked.some((t) => t.end && t.end > m.due)) add("conflict", "包含晚于目标日期完成的任务");
+		if (!m.acceptance.trim()) add("review", "请填写明确的验收条件");
+		if (m.status === "已验收" && (linked.some((t) => t.status !== "已完成") || !m.review.trim())) add("review", "验收记录待补充，或仍有未完成的制作任务");
+	}
+	return issues;
+}
+function projectScheduleMarkdown(store, sources) {
+	const lines = [
+		"## 项目排期",
+		"",
+		"> 制作计划与人工验收记录；设计、程序、美术和试玩状态分别维护。前置任务按完成后的下一日开始计算，拖动不自动改动其他任务。",
+		""
+	];
+	for (const r of store.releases ?? []) lines.push("### 版本：" + r.title, r.description, "");
+	for (const m of store.milestones) lines.push("### 里程碑：" + m.title, "- 所属版本：" + (store.releases?.find((r) => r.id === m.releaseId)?.title || "未分组"), "- 目标：" + (m.due || "未排期") + "；负责人：" + (m.owner || "未分配") + "；" + m.status, m.description, "- 验收条件：" + (m.acceptance || "待填写"), "- 验收记录：" + (m.review || "未填写"), "");
+	for (const t of store.tasks) {
+		lines.push("### 制作任务：" + t.title, "- ID：" + t.id, "- " + t.kind + "；" + t.priority + "；" + t.status + "；负责人：" + (t.owner || "未分配"), "- 里程碑：" + (store.milestones.find((m) => m.id === t.milestoneId)?.title || "未分组"), "- 计划：" + (t.start || "未定") + " → " + (t.end || "未定"), "- 实际：" + (t.actualStart || "未记录") + " → " + (t.actualEnd || "未记录"), t.description, "- 验收条件：" + (t.acceptance || "待填写"), "- 验收结果：" + (t.result || "未填写"), "- 前置任务：" + (t.dependencyIds.map((id) => (store.tasks.find((d) => d.id === id)?.title || "已失效") + " [" + id + "]").join("、") || "无"));
+		if (t.positionIds) lines.push("- 工作岗位：" + t.positionIds.join("、"));
+		if (t.assignment) lines.push("- AI 分配：主负责人 " + (t.assignment.primaryId || "未分配") + "；协作者 " + (t.assignment.collaboratorIds.join("、") || "无") + "；验收负责人 " + (t.assignment.reviewerId || "未指定"));
+		for (const p of t.proposals || []) lines.push("- AI 分工/排期建议 [" + p.memberId + "]：" + p.text);
+		for (const r of t.references) lines.push("- 来源：" + scheduleReferenceLabels[r.kind] + " / " + (sources ? scheduleReference(r, sources).label : r.targetId) + " [" + r.targetId + "]");
+		lines.push("");
+	}
+	const issues = projectScheduleIssues(store, scheduleToday(), sources);
+	if (issues.length) lines.push("### 排期待处理", ...issues.map((i) => "- " + (store.tasks.find((t) => t.id === i.taskId)?.title || store.milestones.find((m) => m.id === i.milestoneId)?.title || "") + "：" + i.message));
+	return lines.join("\n");
+}
 
 //#endregion
 //#region shared/engine-config.mjs
@@ -952,6 +1258,168 @@ function validateEngineScanMetadata(scan) {
 }
 
 //#endregion
+//#region shared/program-framework-library.mjs
+const frameworkLibrary = {
+	"id": "package-core",
+	"version": "1.0",
+	"title": "通用游戏项目框架",
+	"documents": [
+		{
+			"id": "intro",
+			"path": "README.md",
+			"title": "通用游戏项目框架",
+			"group": "开始阅读",
+			"kind": "reference",
+			"content": "# 通用游戏项目框架\n\n> 版本：1.0 评审稿 · 更新日期：2026-09-21  \n> 定位：以 Package / Core 为基础的游戏项目架构与开发规范。  \n> 交付类型：文档框架，包含规则、目录模板和伪代码示例；不包含已经实现的运行时库、生成器或引擎插件。\n\n这套框架规定业务如何组织、数据由谁负责、模块如何合作，以及如何验证结果。单机项目可以直接使用；引擎、语言、存档方式和网络模式由项目选择。\n\n**基础规范不要求客户端 / 服务端划分，不要求集中数据注册，不要求统一 DataCore，不要求自动生成，也不要求建立完整引擎抽象层。**\n\n## 1. 核心约定\n\n1. **Package 拥有业务**：例如背包、种植、任务、战斗。它负责自己的规则、状态与公开行为。\n2. **Core 提供公共机制**：只有真实需要统一管理的跨业务机制才进入 Core。简单工具函数可以独立存在。\n3. **包外通过公开契约合作**：不直接读写其他包的私有状态，不依赖其内部目录。\n4. **查询与修改职责明确**：Query 不改变可观察业务状态；命令明确说明结果、副作用和失败语义。\n5. **数据与运行对象分开理解**：由业务决定数据含义，按需要选择存储与宿主，不预设特定引擎类。\n6. **功能按需增加**：小项目可以手工装配、直接持有数据，只拆分有实际作用的目录和文件。\n\n本框架中的 Registry 指“一个包的逻辑公共入口”，不是“中央数据注册表”。可使用 Registry、Facade、Service 或目标语言惯用命名。\n\n## 2. 如何开始\n\n首次阅读建议顺序：\n\n1. [架构总纲](基础规范/01_架构总纲.md)：理解 Package / Core 的责任与边界。\n2. [Package 组织与公共接口](基础规范/02_Package组织与公共接口.md)：建立第一个业务包。\n3. [数据与配置](基础规范/04_数据与配置.md)：确定数据所有权与读写方式。\n4. [最小项目结构](示例/02_最小项目结构.md)：按实际复杂度搭建目录。\n5. [单机种植与背包](示例/01_单机种植与背包.md)：查看完整交互与失败处理。\n\n开始实现时，只需要选择一个业务、定义公开行为、在项目入口装配并验证结果。不必先实现所有 Core 或所有扩展。\n\n## 3. 文档目录\n\n| 文档 | 解决的问题 |\n| --- | --- |\n| [架构总纲](基础规范/01_架构总纲.md) | 哪些内容属于业务，哪些属于公共机制 |\n| [Package 组织与公共接口](基础规范/02_Package组织与公共接口.md) | 包如何划分、对外提供什么、内部怎么组织 |\n| [Core 边界与公共机制](基础规范/03_Core边界与公共机制.md) | 什么时候应当抽取 Core，如何防止变成业务杂物箱 |\n| [数据与配置](基础规范/04_数据与配置.md) | 私有状态、默认值、配置、常量与数据寿命 |\n| [调用与事件](基础规范/05_调用与事件.md) | 查询、命令、通知和失败如何表达 |\n| [依赖与生命周期](基础规范/06_依赖与生命周期.md) | 如何装配、初始化、更新、销毁与切换场景 |\n| [开发测试与调试](开发规范/01_开发测试与调试.md) | 如何验证业务及引擎接入 |\n| [评审与交付检查](开发规范/02_评审与交付检查.md) | 哪些事项需要检查、哪些可以不适用 |\n| [配置数据管理与同步规范](开发规范/03_配置数据管理与同步规范.md) | GameCreator 管理配置的目录、读写与同步交付约定，独立于框架采用 |\n| [存档与数据迁移](可选扩展/01_存档与数据迁移.md) | 需要跨运行保存时怎么接入 |\n| [数据注册与集中管理](可选扩展/02_数据注册与集中管理.md) | 何时值得统一管理，注册范围如何控制 |\n| [模块声明与自动装配](可选扩展/03_模块声明与自动装配.md) | 从手工装配演进到声明与生成 |\n| [联机与状态同步](可选扩展/04_联机与状态同步.md) | 仅在联网需求出现时建立执行端与同步规则 |\n| [引擎接入原则](引擎接入/01_接入原则.md) | 保留引擎优势，隔离真实存在的差异 |\n| [绿洲启元补充](引擎接入/02_绿洲启元补充.md) | 如何理解原有 Lua / UGC / DataCore 约定 |\n| [单机种植与背包](示例/01_单机种植与背包.md) | 不引入服务器和中央数据表的具体示例 |\n| [最小项目结构](示例/02_最小项目结构.md) | 最小、成长后、开启扩展后的结构 |\n| [从原规范迁移](迁移指南.md) | 保留已有价值，逐步移出引擎绑定 |\n\n## 4. 基础与扩展的关系\n\n| 项目情况 | 推荐起点 | 暂不需要 |\n| --- | --- | --- |\n| 无存档单机原型 | Package、公开接口、直接数据、手工装配 | 网络、保存注册、生成器 |\n| 有存档单机游戏 | 基础 + 存档扩展 | 客户端 / 服务端、复制字段 |\n| 多团队大型工程 | 基础 + 按需声明、检查或集中机制 | 未必需要网络，也未必需要统一数据后端 |\n| 多人游戏 | 基础 + 联机扩展 + 对应引擎接入 | 没有需求的复杂预测、回滚和跨服能力 |\n| 绿洲启元现有项目 | 基础 + 绿洲补充，保留兼容实现 | 不需要为了“通用”立即重写已验证代码 |\n\n可选扩展彼此独立。启用存档不等于启用中央数据管理，使用元数据不等于必须代码生成，使用本地事件不等于需要网络传输。\n\n## 5. 阅读规则\n\n- “必须 / 不得”只在所属能力启用且相关场景存在时适用。\n- “建议”允许项目根据复杂度调整，调整理由记录在项目说明中。\n- 示例中的接口和目录是模板，不是已存在的 API，也不是必须采用的名字。\n- 各文档讨论通用职责；具体语法、引擎对象、资源格式和版本放在项目或引擎补充中。\n- 本目录是新的通用规范。此前《多引擎游戏项目框架设计方案》作为分析与扩展参考保留，不作为本基础规范的隐含必选要求。\n\n## 6. 最小采用声明\n\n项目可以在自己的 README 中记录：\n\n```text\n采用规范：通用游戏项目框架 1.0\n引擎与语言：由项目填写具体版本\n运行模式：单机\n业务包：种植、背包\n公共机制：直接使用引擎日志；其他按需\n状态持有：各业务包自己的实例\n装配方式：项目入口手工装配\n可选扩展：无\n项目例外：无，或列出实际差异\n```\n\n本规范不规定 Git 分支命名、提交方式或发布权限，沿用项目已有协作约定。\n"
+		},
+		{
+			"id": "architecture",
+			"path": "基础规范/01_架构总纲.md",
+			"title": "架构总纲",
+			"group": "基础规范",
+			"kind": "base",
+			"content": "# 架构总纲\n\n[返回目录](../README.md)\n\n## 1. 架构目标\n\n让一个功能的规则、状态和行为有明确归属；让调用方只依赖必要的接口；让实现能在不扩散修改的情况下演进。\n\n跨引擎通用首先指组织方式和行为契约通用。若项目采用不同语言，通常需要重新实现代码；不能仅凭目录相同就认定源码可移植。\n\n## 2. 最小结构\n\n```text\n项目入口 / UI / 场景交互\n              ↓\n       Package 公开接口\n              ↓\n      业务规则与私有状态\n              ↓ 按需使用\n     Core 或引擎提供的能力\n```\n\n项目入口负责组装实例、连接场景和触发生命周期。它可以直接装配少量 Package，不需要先建立模块扫描器或依赖容器。\n\n## 3. Package 与 Core\n\n| 判断维度 | Package | Core |\n| --- | --- | --- |\n| 主要回答 | 这个游戏功能应该做什么 | 多个业务共同需要的机制如何工作 |\n| 规则例子 | 作物成熟条件、物品堆叠、任务完成条件 | 事件派发、存档读写调度、诊断 |\n| 数据例子 | 作物状态、背包内容、任务进度 | 订阅表、存档槽位索引、调度状态 |\n| 修改原因 | 玩法和业务需求变化 | 通用机制、可靠性或平台接入变化 |\n| 不应出现 | 任意访问其他包私有状态 | 特定作物、武器、任务的判断分支 |\n\nCombat 即使被玩家、敌人、陷阱共同调用，仍可能是 Package，因为伤害和战斗规则属于业务。一个 Clamp 数学函数即使全项目使用，也可以只是工具函数。\n\n## 4. 通用规则\n\n1. 每段可变业务状态有明确所有者；其他包只能通过其公开契约查询或修改。\n2. 一个包可以依赖另一个包的公共接口，依赖关系明确且避免循环。\n3. 公共接口承诺行为，不泄露调用方不需要知道的内部组织。\n4. 查询不产生可观察的业务修改，命令说明是否发生变化及失败后状态。\n5. 事件用于通知事实，不承担需要结果的隐式命令。\n6. 初始化、运行和清理责任明确；没有对应需求就不增加相应回调。\n7. 外部配置进入业务前验证，运行状态与默认配置分开。\n8. 失败可观察，不把缺失、非法输入、无变化和执行失败都混成同一个含糊结果。\n\n## 5. 通用不等于必选\n\n框架不要求所有数据走一个 DataCore，也不要求所有包都拥有数据库、事件、存档和 Tick。\n\n以下内容作为扩展使用：保存与迁移、集中数据管理、自动装配、网络通信、复杂跨包提交。对简单单机项目，直接调用和局部状态往往足够。\n\n框架也不要求每一次引擎调用都经过自建接口。可复用规则尽量少依赖引擎，具体场景与表现可以采用引擎惯用结构。只有出现替换实现、隔离副作用或独立测试需求时，再抽取接入边界。\n\n## 6. Package 的粒度\n\n按独立规则和修改原因划分，而不是按每个实体或每个界面划分。\n\n- 推荐：Inventory 管理不同容器实例；Planting 管理不同地块与作物实例。\n- 通常不推荐：每株作物创建一个 Package，每个背包格子创建一个 Package。\n- UI 可以按页面组织；业务包按领域组织；两者不要求一一对应。\n- 对高频批量计算，允许包内部使用数组、组件或目标引擎的数据导向方式，不强制每个对象一次门面调用。\n\n## 7. “独立”不等于“随时可卸载”\n\n一个 Package 的职责独立，不代表它不依赖任何业务，也不代表可以在运行中任意关闭。是否可选、何时可关闭、关闭后数据如何保留，应在项目需要模块开关时明确设计。\n\nGameCreator 的故事编排、地图设计等编辑模块与游戏运行时 Package 是不同层次。编辑内容可以由多个运行时包协作使用。\n\n## 8. 判断新代码放在哪里\n\n| 问题 | 归属建议 |\n| --- | --- |\n| 它描述具体玩法或领域规则吗 | 对应 Package |\n| 它是无状态的通用计算吗 | 工具函数或现有标准库 |\n| 它是跨业务统一机制吗 | 评估 Core |\n| 它是输入、显示或场景对象绑定吗 | 表现或引擎接入部分 |\n| 它是可调整参数吗 | 配置，交所属业务验证 |\n| 它是源码可重建的索引吗 | 启用生成扩展后的生成目录 |\n\n暂时无法证明需要公共机制时，优先保留在拥有规则的业务中，再根据真实重复提取。\n"
+		},
+		{
+			"id": "package",
+			"path": "基础规范/02_Package组织与公共接口.md",
+			"title": "Package 组织与公共接口",
+			"group": "基础规范",
+			"kind": "base",
+			"content": "# Package 组织与公共接口\n\n[返回目录](../README.md)\n\n## 1. 最小要求\n\n每个包应能够回答：负责什么、不负责什么、如何调用、持有哪些状态、依赖谁、何时创建和释放。\n\n最小逻辑组成只有职责说明、公共入口和实现。文件可以合并，不要求必有 Meta、Data、Query、System 或 Tests 目录。\n\n```text\nPackages/Planting/\n  README.md\n  Planting.<语言扩展名>     # 简单包可在一个文件中实现公开方法和私有状态\n```\n\n## 2. 规模增长后的拆分\n\n```text\nPackages/Planting/\n  README.md\n  Public/                  # 公开入口、结果类型和事件契约\n  Query/                   # 只读查询\n  System/                  # 修改与业务流程\n  Data/                    # 私有状态、结构、默认值和校验\n  Tests/                   # 或放在项目统一测试目录\n```\n\n按需增加目录。`System` 在这里表示业务操作实现，不要求采用 ECS，也不意味着所有 System 每帧执行。Model、Handler 等名称只在项目确有对应责任时使用。\n\n## 3. 公共入口\n\nRegistry / Facade 代表一个逻辑边界，不强制一个巨大文件。公开类型可以由多个文件提供，但调用方不需要知道包内部 Query 和 System 的目录。\n\n公开方法需要说明：\n\n| 信息 | 示例 |\n| --- | --- |\n| 作用对象与输入 | Water(plotId) |\n| 结果 | 已浇水、已经浇水、地块不存在、不能浇水 |\n| 数据影响 | 修改所选地块的浇水状态 |\n| 失败状态 | 本命令失败时不改变地块 |\n| 同步性 | 本例同步执行 |\n| 生命周期前提 | 当前种植实例已创建且未释放 |\n\n语言支持静态类型时优先使用类型检查。不为了统一接口而把所有方法改成字符串名、任意字典和运行时反射。\n\n## 4. Query 与命令\n\n```text\nPlanting.GetPlotView(plotId)     # 查询：返回展示需要的值\nPlanting.Water(plotId)           # 命令：执行规则并返回结果\n```\n\nQuery 可以有不影响业务的内部缓存，但不得发奖、推进时间、修改任务进度或把查询当作初始化玩家状态的隐蔽入口。\n\n命令先验证再修改。若命令允许部分完成，必须明确返回实际完成范围；不允许出现“返回失败但调用方不知道已经扣了部分资源”的行为。\n\n## 5. 数据边界\n\n- 包可以直接持有自己的实例状态，不必中央注册。\n- 返回集合时使用值、只读视图或快照，避免调用者通过引用绕过接口写入。\n- 高性能路径可以采用受控只读借用等语言机制，但要明确寿命和禁止修改规则。\n- 包内部字段名不是天然公共协议；存档与网络需要时另行定义稳定表示。\n\n## 6. 包之间合作\n\n允许 A 直接依赖 B 的公开接口，例如 Planting 在需要容量信息时查询 Inventory。依赖通过构造、初始化参数或明确的语言模块导入体现。\n\n当一个操作同时协调多个独立包且放在任何一方都会形成循环时，可由更上层的业务流程协调。例如“收获作物”流程明确调用 Planting 和 Inventory。小项目可以是一个清晰函数，不必立刻建立一个大型编排框架。\n\n协调者也不拥有参与包的内部数据，不能替它们直接写字段。\n\n## 7. README 建议模板\n\n```text\n职责：\n不在范围内：\n公共查询：\n公共命令及结果：\n私有数据与有效范围：\n依赖：\n创建与释放：\n可选扩展：\n关键验收案例：\n已知限制：\n```\n\n没有存档、事件或更新需求时，直接写“不使用”，不创建空文件占位。\n"
+		},
+		{
+			"id": "core",
+			"path": "基础规范/03_Core边界与公共机制.md",
+			"title": "Core 边界与公共机制",
+			"group": "基础规范",
+			"kind": "base",
+			"content": "# Core 边界与公共机制\n\n[返回目录](../README.md)\n\n## 1. 提取条件\n\n一个能力进入 Core，应有跨业务使用的实际需求，并且需要统一的行为、资源管理或生命周期。不能仅因名字听起来基础、被多个文件调用，就放入 Core。\n\n常见候选包括事件派发、保存调度、资源加载协调和诊断。项目可以直接采用引擎或库已经提供的机制；Core 目录可以很小，甚至暂时没有自定义实现。\n\n## 2. 机制与业务的区别\n\n| 可以是 Core 的责任 | 应由业务负责 |\n| --- | --- |\n| 调度存档读写、报告失败 | 作物和背包保存哪些字段 |\n| 派发事件、解除订阅 | 达成何种条件才算任务完成 |\n| 管理计时与取消句柄 | 某种作物生长需要多久 |\n| 协调资源加载与释放 | 某个敌人使用哪种外观 |\n| 通用对象缓存机制 | 哪种怪物何时出现 |\n\n枪械、护甲、任务记录等专项兼容逻辑应由相应业务或项目迁移模块负责，不能成为通用存档机制中固定的分支。\n\n## 3. 接口与依赖\n\n- Core 不导入具体 Package 的内部实现。\n- 需要业务参与时，接受回调或公共接口，例如保存参与者；机制只认识约定，不认识作物和武器。\n- Package 可以使用 Core 公共接口，不能依赖其内部实现文件。\n- Core 之间也应有明确依赖，不能因为属于基础设施就允许循环。\n- 不提供一个让所有代码随处查找任意业务对象的万能 Core。\n\n## 4. 实例与寿命\n\nCore 不天然等于单例。一次会话、一个世界或一个测试可以拥有自己的机制实例。多个存档或世界同时存在时，不应共享不该共享的可变状态。\n\n需要全局共享的只读配置、日志入口或引擎原生设施可以按项目规则共享；共享的范围和替换方式应明确。\n\n## 5. 错误和清理\n\n资源加载、磁盘保存等可能失败的机制必须返回可判断的结果。不得仅打印错误后让业务继续认为成功。\n\n监听、任务、缓存和资源句柄需要明确所有者与释放时机。调用 Stop / Dispose 多次时，不应重复保存、重复发奖或触发已清理对象。\n\n## 6. 避免两种过度设计\n\n第一种是把所有业务都放入 Core，逐渐形成无法拆分的总控制器。第二种是为引擎每一个 API 都写一个只有一行转发的自建接口。\n\n提取之前说明它实际解决的重复、替换或生命周期问题。若没有清晰收益，保留直接调用或普通工具函数即可。\n"
+		},
+		{
+			"id": "data",
+			"path": "基础规范/04_数据与配置.md",
+			"title": "数据与配置",
+			"group": "基础规范",
+			"kind": "base",
+			"content": "# 数据与配置\n\n[返回目录](../README.md)\n\n## 1. 数据默认由业务包拥有\n\n种植包拥有地块和作物状态，背包包拥有容器与物品状态。数据可以是类实例、结构体、表、数组或引擎适合的对象。\n\n通用规范不要求将数据统一挂载到玩家控制器、游戏状态对象或中央字典，也不要求每个数据类型先注册才能使用。\n\n## 2. 区分四类内容\n\n| 类型 | 含义 | 示例 |\n| --- | --- | --- |\n| 运行状态 | 随本次游戏变化的内容 | 已浇水、当前生命、任务进度 |\n| 默认值与结构 | 新建状态时的起点及字段约束 | 地块默认未浇水，数量不得为负 |\n| 配置 | 可由项目或策划调整的规则参数 | 生长天数、价格、冷却时间 |\n| 稳定标识 | 持续指代同一概念的 ID | 作物 ID、物品 ID、事件类型 |\n\n一份作物配置可被许多作物使用，但每株作物的生长进度不能写回共享配置。新建可变默认状态时必须产生独立实例，避免多个角色共享同一张默认表。\n\n## 3. Define 的作用\n\nDefine 可以包含领域类型、固定约束、默认状态创建和纯校验函数。它不负责启动服务、加载存档或发出玩法事件。\n\n小型稳定配置可以和定义放在一起。只有出现策划编辑、覆盖、重载或来源管理需求时，才增加外置 Config。\n\n## 4. 配置进入业务的流程\n\n```text\n默认值与外部配置\n    ↓\n解析与明确的覆盖规则\n    ↓\n所属 Package 校验\n    ↓\n形成只读的有效配置\n```\n\n必须说明哪些来源优先，如何处理缺失和非法值。可以在非关键字段上回退默认值，也可以拒绝整条记录；选择应可观察，不能静默把非法配置变成意外玩法。\n\nConfig 不调用业务命令，不在读取价格时扣钱。校验所需的领域定义应能独立加载，避免“配置依赖定义、定义又初始化配置”的循环。\n\n## 5. 数据寿命\n\n先按业务需要决定寿命：整个应用、当前游戏会话、当前世界、角色实例、场景或短期操作。项目只使用实际需要的范围，不要求全部建立对应管理器。\n\n重要规则：\n\n- 切换场景不应意外清空需要继续保留的业务状态。\n- 结束会话不应让上一会话的异步结果写入下一会话。\n- 同一游戏中的多个容器、地块或世界应有可区分的身份。\n- 保存寿命可能长于运行对象寿命；需要时接入存档扩展。\n\n“玩家数据 / 世界数据”是可用的业务分类，但不是客户端 / 服务端分类，也不自动决定保存和复制方式。\n\n## 6. 访问与修改\n\n包外查询只获得需要的值或受控视图。修改通过拥有状态的包执行，保证其校验和副作用不会被绕过。\n\n只读视图是否随内部状态变化、快照是否固定在查询时刻，应在需要时说明。不要把可以直接修改的内部表标注成“只读”后就认为边界已得到保护。\n\n对于引擎中必须持有的资源或对象引用，明确它们是运行时引用及其有效期。需要保存时另行输出稳定 ID 和纯数据，而不是直接序列化整个运行对象。\n\n## 7. 不必提前加入的机制\n\n没有跨会话保存需求时，不必引入 schemaVersion 和迁移链。没有多写入方或并发问题时，不必给每个字段附加版本号。没有统一观察需求时，不必每次修改都广播通用数据变化事件。\n\n这些机制可以在需求出现后通过公开接口逐步增加，不改变“业务包拥有数据含义”的原则。\n"
+		},
+		{
+			"id": "events",
+			"path": "基础规范/05_调用与事件.md",
+			"title": "调用与事件",
+			"group": "基础规范",
+			"kind": "base",
+			"content": "# 调用与事件\n\n[返回目录](../README.md)\n\n## 1. 三种合作方式\n\n| 需要 | 使用方式 | 示例 |\n| --- | --- | --- |\n| 获取结果但不改业务状态 | 直接查询 | 背包是否有足够容量 |\n| 执行操作并判断结果 | 直接命令 | 放入物品、浇水、完成任务 |\n| 通知多个关注者一个事实 | 事件或目标引擎的通知机制 | 作物已收获、任务已完成 |\n\nEvent 是一种可选通信方式；包只有一个明确调用者时，可以直接通过返回结果刷新界面，不必先搭建事件总线。\n\n## 2. 命令结果\n\n简单命令可以使用枚举或语言常见结果类型，不要求所有函数套相同结构。结果必须足以让调用方区分它需要处理的情况。\n\n```text\nWaterResult:\n  Watered          # 成功，状态改变\n  AlreadyWatered   # 合法请求，状态不变\n  PlotMissing      # 目标不存在\n  NotWaterable     # 业务条件不允许\n```\n\n业务上预期的失败优先用可处理结果表达。异常用于意料之外的程序或环境故障，不能只捕获并忽略。\n\n## 3. 失败与一致性\n\n单个命令尽量先验证全部条件，再执行修改。对外承诺“失败不改变状态”的命令必须符合这个约定。\n\n一个批量操作可以选择全有或全无，也可以允许部分成功，但必须提前说明并返回具体结果。框架不要求所有命令都通过统一事务引擎。\n\n多包合作时，协调者负责整体流程；各包仍负责自己的规则。同步、无重入的简单操作可以通过准备与提交完成；出现异步、并发或独立存储时，要增加适合实际需求的版本检查、预留或补偿机制，不能继续假设前置检查后状态永远不变。\n\n## 4. 事件规则\n\n- 名称表达事实，例如 HarvestCompleted，不使用模糊的 DoSomething 代替命令。\n- 事件在对应事实成立后发出，说明指内存提交还是已持久化。\n- 发起方不依赖监听顺序或监听返回值决定原命令成功与否。\n- 事件载荷优先使用身份和值，避免暴露可随意修改的内部状态。\n- 谁订阅谁负责清理，或者由明确的拥有者统一释放。\n- 监听回调发生错误时应记录并隔离，不伪造原操作未发生。\n\n若某一步必须成功才能完成命令，它应是显式调用的流程步骤，不应藏在普通通知监听器里。\n\n## 5. 事件与依赖\n\n订阅事件仍然依赖事件契约。契约可以由发布包公开，或在多个包共同使用时放入明确的共享契约位置。\n\n不要通过 A 发事件要求 B 执行、B 再发事件要求 A 回答，绕过循环依赖检查。需要双方协调的业务应有一个明确的上层流程。\n\n## 6. 同步、异步与线程\n\n本地纯计算保持同步即可。资源、磁盘和网络等长操作按引擎能力采用异步，并明确等待、取消、超时和结果归属。\n\n异步回调必须检查目标上下文是否仍有效。界面关闭、场景销毁或会话替换后，不得继续写入失效对象。\n\n需要主线程执行的引擎操作不能直接在任意后台线程调用。这属于引擎接入约定，不要求所有业务本身都理解线程调度。\n"
+		},
+		{
+			"id": "lifecycle",
+			"path": "基础规范/06_依赖与生命周期.md",
+			"title": "依赖与生命周期",
+			"group": "基础规范",
+			"kind": "base",
+			"content": "# 依赖与生命周期\n\n[返回目录](../README.md)\n\n## 1. 依赖必须看得见\n\n可以通过语言模块导入、构造参数、初始化参数或明确的项目装配代码表达依赖。没有自动装配需求时，不强制额外写 Meta 文件重复记录同一事实。\n\n允许 Package 依赖其他包的公开接口和 Core 公共入口，不允许依赖它们的私有实现文件。避免隐式全局可变对象成为无法追踪的依赖。\n\n公开接口与共享常量可以被多方使用，但全局契约目录不能变成所有领域内部类型的集中堆放处。\n\n## 2. 手工装配是合法起点\n\n```text\n创建当前会话需要的机制\n创建 Inventory 实例\n创建 Planting 实例\n连接收获流程\n将公开接口交给 UI / 场景\n开始运行\n```\n\n这里只有几个对象时，显式代码通常比扫描文件、解析元数据和生成索引更清楚。对象增多、目标组合变化或接入遗漏频繁时，再采用装配扩展。\n\n## 3. 最小生命周期责任\n\n| 阶段 | 责任 | 是否每包都要实现方法 |\n| --- | --- | --- |\n| 创建 | 建立实例与私有状态 | 按语言和引擎正常创建即可 |\n| 初始化 | 连接依赖、校验配置、读取必要状态 | 按需 |\n| 开始 | 接收输入、注册监听、启动更新 | 按需 |\n| 更新 | 执行确实需要逐帧或固定步长的逻辑 | 不需要就不注册 |\n| 停止与释放 | 取消任务、解绑事件、释放资源 | 有所拥有的资源时必须处理 |\n\n名称可以遵循引擎习惯。框架规定责任，不要求一套新的基类替代所有引擎回调。\n\n## 4. 初始化顺序\n\n先准备被依赖的能力，再开放依赖它们的包。初始化失败时，不让使用它的界面继续提供必然失败的操作。\n\n如果某个函数用于创建默认状态，它应能独立于监听注册和逐帧运行执行。启用存档时，数据恢复完成后才开放依赖该数据的业务。\n\n重复触发生命周期事件时应有保护，避免重复订阅和重复启动计时。幂等不代表每次初始化都清空已有状态。\n\n## 5. 清理与场景切换\n\n按照依赖的逆序停止相关对象。一个清理步骤失败时，尽量继续清理其余对象并报告错误。\n\n场景对象只持有当前绑定；需要跨场景保留的业务实例由更长寿命的项目上下文拥有。框架不强制建立 Application / Session / World 全套类，只要求项目能说清这些对象何时有效。\n\n销毁后将未完成任务标记为失效或取消，解除订阅，并阻止旧回调继续作用于新实例。\n\n## 6. 更新与性能\n\n- 不为纯查询包或静态配置包添加空 Tick。\n- 普通帧更新、物理更新、游戏时间推进按真实语义区分。\n- 游戏暂停时哪些计时继续、哪些停止，由玩法说明。\n- 允许事件驱动和批量更新，不要求所有实体都独立注册。\n\n例如作物按“游戏日”成长，可以在推进一天时集中计算，不需要每帧扫描全部作物。\n\n## 7. 功能关闭\n\n若项目提供可选功能，明确是在启动前选择还是允许运行中切换。基础规范默认不提供任意热卸载保证。\n\n关闭功能前要处理依赖和引用；需要保留的数据不能因为入口隐藏而删除。正在运行的流程是否取消或等待结束，由具体扩展说明。\n"
+		},
+		{
+			"id": "testing",
+			"path": "开发规范/01_开发测试与调试.md",
+			"title": "开发、测试与调试",
+			"group": "开发规范",
+			"kind": "base",
+			"content": "# 开发、测试与调试\n\n[返回目录](../README.md)\n\n## 1. 开发步骤\n\n1. 明确可观察行为和边界，例如“地块已浇水时再次操作不会重复消耗资源”。\n2. 找到拥有该规则的 Package，先扩展已有职责，再判断是否需要新包。\n3. 定义公开查询、命令结果和必要依赖。\n4. 完成最小实现，不先创建没有需求的机制。\n5. 验证成功、失败和生命周期边界，再接入真实场景。\n6. 更新受影响的说明；使用生成扩展时重建并检查结果。\n\n## 2. 按风险选择验证\n\n| 变化 | 合适的验证 |\n| --- | --- |\n| 纯规则和数据计算 | 独立于引擎的单元或公共接口测试 |\n| 多包合作 | 集成测试，重点检查整体失败后状态 |\n| 资源与场景绑定 | 引擎内运行和必要的人工交互 |\n| 旧档兼容 | 固定旧档样本、迁移与失败恢复测试 |\n| 网络命令 | 权限、重复、乱序、断线等对应测试 |\n| 简单文案或目录调整 | 针对性的检查，不编写无实际价值的测试 |\n\n不要求每个文件都配一个测试文件。测试应证明用户可观察行为和风险，不只是复制实现中的判断。\n\n## 3. 测试隔离\n\n每个测试使用自己的业务实例和数据。随机与时间影响结果时，按需要注入可控来源，不要求所有生产代码先增加抽象接口。\n\n测试不得依赖固定执行顺序或上一例残留状态。setup / teardown 出错应报告，失败和取消后也应尝试清理。\n\n单 Case 默认清理；需要保留现场时使用明确的调试模式。没有断言或明确预期的测试不能静默算作有效验收。\n\n## 4. 等待与异步\n\n优先等待明确条件并设置超时，避免用固定休眠掩盖时序错误。异步测试应覆盖对象释放后结果返回、取消和执行失败。\n\n不要用真实玩家存档作为可随意覆盖的测试材料。存储测试使用隔离位置和固定样本。\n\n## 5. 调试信息\n\n日志应能回答：哪个操作、哪个业务实例、输入是什么、失败在哪里、结果是否提交。必要时带对象 ID 和操作 ID。\n\n不要求每个函数打印日志，不在每帧输出大量正常信息。涉及存档或账户数据时避免记录无关敏感内容。\n\n调试命令可以创建场景和数据；测试负责断言；人工检查负责交互、画面和声音。三者可以合作，但不能互相冒充。\n\n## 6. 引擎测试与可移植性\n\n业务测试通过只能说明规则在当前测试环境中成立。引擎接入还需要验证真实生命周期、资源和导出包行为。\n\n若要证明跨引擎通用，至少在第二个目标环境运行同一组行为案例。不同语言可以有不同实现，但结果、失败语义和数据约束应一致。\n"
+		},
+		{
+			"id": "review",
+			"path": "开发规范/02_评审与交付检查.md",
+			"title": "评审与交付检查",
+			"group": "开发规范",
+			"kind": "base",
+			"content": "# 评审与交付检查\n\n[返回目录](../README.md)\n\n本清单按实际改动使用。没有启用的扩展标记为“不适用”，不为了勾选清单而引入功能。\n\n## 1. 基础检查\n\n- [ ] 业务责任有明确归属，没有让公共机制包含具体玩法分支。\n- [ ] 包外调用公开接口，没有直接访问其他包的私有数据。\n- [ ] 查询与修改可区分，命令结果和失败后状态明确。\n- [ ] 新建可变状态不会与其他实例共享默认对象。\n- [ ] 依赖可追踪，没有新增循环和隐式全局状态。\n- [ ] 配置校验和非法值处理符合项目约定。\n- [ ] 需要清理的监听、任务和资源有拥有者与释放时机。\n- [ ] 有针对性的验证能覆盖本次改动的风险。\n\n## 2. 条件检查\n\n| 本次涉及 | 检查内容 |\n| --- | --- |\n| 事件 | 事实成立后通知，清理订阅，监听不决定原命令返回值 |\n| 多包修改 | 明确整体一致性，覆盖中途失败和可能重入 |\n| 存档 | 数据版本、旧档恢复、保存失败和备份策略 |\n| 中央数据管理 | 没有绕过拥有者的业务校验，没有未经约定的双写 |\n| 自动装配 | 声明与实际依赖一致，缺失与循环可诊断，生成无漂移 |\n| 联机 | 可信身份、执行端、可见性与重复消息处理 |\n| 引擎接入 | 对象有效期、主线程要求、资源导出与实际运行 |\n| 可选功能 | 关闭后引用可诊断，保存数据按约定保留 |\n\n## 3. 交付说明模板\n\n```text\n解决的问题：\n最终行为：\n公开接口或数据变化：\n启用或调整的扩展：\n验证结果：\n已知限制与后续事项：\n```\n\n报告真实完成的验证，不把“生成成功”写成“玩法测试通过”，不把一份设计文档写成已有运行时实现。\n\n## 4. 不适用项示例\n\n单机无存档的塔防原型，可以将存档、网络复制、存档迁移、数据注册和自动装配全部标记为不适用。它仍然可以完整遵循 Package / Core 的基础规范。\n"
+		},
+		{
+			"id": "config-data-policy",
+			"path": "开发规范/03_配置数据管理与同步规范.md",
+			"title": "配置数据管理与同步规范",
+			"group": "开发规范",
+			"kind": "reference",
+			"content": "# 配置数据管理与同步规范\n\n[返回目录](../README.md)\n\n> 规范版本：1.1。适用于使用 GameCreator 数据同步管理配置的项目，不以采用 Package / Core 为前提。具体游戏、编程语言和引擎由项目决定。\n\n## 1. 适用范围\n\n纳入 GameCreator 同步管理、供游戏加载的配置文件，必须放在当前连接工程的数据同步指定目录内。配置包括可调整的规则参数、内容定义、数值表与业务规则描述；具体配置清单由项目记录，不按某一种游戏的对象命名。\n\n运行状态、玩家存档、用户设置、缓存、日志及临时文件分别由对应系统管理，不写回共享配置目录。图片、音频、场景等资源遵循素材交付及引擎资源组织约定。不是所有程序内部常量和引擎资源都需要转换为配置表；确有独立来源的配置应记录范围和原因，避免同一项配置存在两份独立可写的权威来源。\n\n## 2. 目录唯一依据\n\n实际位置由“已保存的工程根目录 + 数据同步指定的相对目录”确定。开发者和 AI 必须先阅读本项目导出文档中的目录约定，不得自行假设目录名或沿用其他项目的路径。\n\n未连接工程或目录无效时，先完成设置再落地同步文件，不猜测绝对路径。Godot 的 res:// 表示工程根目录，不是另外一份资源目录。修改目录后，应同步检查配置加载路径、工具输出位置和文件清单，重新预览并建立正确的同步关系；修改设置不会自动搬迁旧文件。\n\n## 3. 当前同步契约\n\n当前数据同步模块处理 JSON，直接读取指定目录的 JSON 文件，不递归读取子文件夹。每个文件名（不含 .json）对应配置表标识；新增或重命名文件前，应核对已有表及程序读取入口。目录内只放需要管理的配置 JSON，工具报告、缓存和临时 JSON 另存。\n\n支持根数组记录表、含 rows 的对象记录表和普通对象配置。记录表的 id 必须为非空且唯一的字符串，不能随排序自动重编号。对象配置不强制添加 id 或 rows。数字、布尔、字符串、空值、数组、对象以及缺失字段需要保持原类型和含义；大整数采用字符串，避免精度丢失。\n\n不允许重复字段、重复记录 ID 或无效 JSON。字段改名应检查映射及引用，不能未经确认把改名理解为新增并删除。嵌套对象可以保留结构；数组当前按整体值比较。所用格式或目录不受当前模块支持时，不得宣称已经接入同步。\n\n## 4. 程序读取与业务校验\n\n程序从约定的配置文件加载有效配置，统一维护读取入口，避免在脚本、场景默认值或另一份表里重复维护同一组可调规则。允许明确记录的默认值及降级策略，但缺文件、解析错误、必填字段缺失和无效引用必须可观察，不能静默回退掩盖同步失败。\n\n配置加载后作为只读规则使用。游戏过程中的状态变化写入实例或存档，不能修改共享配置。配置表之间使用稳定 ID 引用；业务系统负责范围、约束和组合规则校验，文件同步成功不代表玩法规则已通过验证。\n\n## 5. 修改、生成与冲突\n\nGameCreator 和工程侧都可以产生配置修改，但交付必须先预览差异，再确认采用哪一侧。未经审阅不得直接覆盖另一侧修改。删除字段、记录或表前检查引用与实际影响；删除本地表不等于删除工程源文件，再次导入可重新创建。\n\n如有配置生成脚本，项目必须说明唯一输入、输出目录及运行时机。不得让旧脚本、Markdown 生成流程和人工编辑同时覆盖同一批文件。派生配置需要明确生成关系，不能把设计说明导出的表格默认为新的数值来源。\n\n自动导出只适用于已绑定且满足安全条件的修改；它不是自动导入，也不代替冲突审阅。同步前备份、失败恢复和历史记录遵循数据同步模块的实际行为。\n\n## 6. 项目需补充的约定\n\n- 实际引擎、已保存的工程根目录、数据相对目录和文件格式。\n- 纳入管理的配置清单、文件标识、字段类型与引用关系。\n- 程序加载入口、加载时机、校验策略及缺失处理。\n- 如有生成工具，写清输入、输出、执行顺序和责任人。\n- 目录或字段迁移步骤、兼容策略及验证记录。\n\n自动附带的项目参数只反映生成时已保存的设置，不代表目录已经存在、文件已经同步或游戏已使用这些配置。未能自动获知的加载入口与业务规则由项目补充。\n\n## 7. 交付检查\n\n确认配置位于指定目录，文件名与表标识对应；改变一项测试配置后验证实际游戏读取结果；检查缺失、无效类型和失效引用的错误提示；确认打包后的游戏仍包含并能读取这些配置。验证同步往返不改变字段类型，且未选中项、存档和运行时状态不受影响。\n\n本规范仅规定配置组织与交付，不自动移动现有文件，不执行游戏工程脚本，也不自动改变程序读取逻辑。\n\n\n## 8. 开发版、稳定版与结构升级\n\n配置数据的日常编辑和从引擎导入均写入开发版。稳定版是发布时包含表结构、记录及枚举上下文的只读快照，不随开发编辑变化。历史版本可恢复到开发版，重新验证后发布新版本；不直接改写历史。\n\n字段新增、删除、改名、类型或嵌套结构调整，先在开发版设计，再导出完整字段说明给程序或 AI 实现。引擎完成接入后，从引擎导入核对。普通“同步配置”只能在结构一致时同步记录新增、值修改和记录删除，不能创建引擎表或顺带改变字段结构。自动同步同样受此限制。\n\n完整字段说明位于数据同步目录的 `_gamecreator/development-schema.json`。该子目录不参与配置表扫描，说明文件不能被游戏当成配置表。导出说明表示开发期望，不证明引擎已经适配。未填完的字段可能显示 `unknown` 或 warning，开发者需补充实际类型。\n\n空表、空数组、null、混合类型不能单靠样本可靠推断结构。引擎开发者需核对实现，并在同一子目录维护 `_gamecreator/engine-schema.json`：顶层 `schema: 1`、`kind: \"gamecreator-engine-schema\"`，`tables` 以表 key 索引，每张表包含 `contract`。可参考开发说明的结构，但不得未经实现验证就当作引擎声明。字段名称使用 GameCreator 映射后的 key。\n\n`contract.shape` 为 `array`、`rows` 或 `object`。记录表通过 `record` 定义每条记录，通过 `metadata` 定义 rows 包装的其余属性；对象配置通过 `value` 定义。节点包含 `type`（string / number / boolean / null / object / array）；object 还需 `properties` 和 `required` 数组，array 还需 `items`。正式声明不得保留 unknown。`constraints` 可显式声明枚举选项、枚举值及引用目标；引擎明确声明时须与开发版一致。普通 JSON 不携带这些编辑器约束，未声明不等于冲突，不能仅因缺少 constraints 阻止同步。GameCreator 仍检查实际枚举值与引用目标是否合法。现有字段标签与排列顺序不影响结构判断。\n\n例如无包装的记录表声明：\n\n```json\n{\n  \"schema\": 1,\n  \"kind\": \"gamecreator-engine-schema\",\n  \"tables\": {\n    \"example\": {\n      \"contract\": {\n        \"shape\": \"array\",\n        \"record\": {\n          \"type\": \"object\",\n          \"properties\": {\"id\": {\"type\": \"string\"}, \"amount\": {\"type\": \"number\"}},\n          \"required\": [\"id\", \"amount\"]\n        },\n        \"metadata\": {\"type\": \"object\", \"properties\": {}, \"required\": []}\n      }\n    }\n  }\n}\n```\n\n结构检查同时验证引擎实际数据，声明不能豁免不匹配的值。发现新增、缺少或类型不符的字段时，禁止同步并列出原因；同结构的双侧数据修改仍需审阅冲突，删除仍需明确确认。预览后数据或声明变化必须重新预览。\n\n发布前，全部开发配置必须与连接工程一致，无结构问题或未处理的数据差异；由负责人确认已在引擎运行验证，填写唯一版本号与发布说明。软件不能代替游戏运行测试。发布仅生成稳定快照，不改写引擎文件。\n"
+		},
+		{
+			"id": "save",
+			"path": "可选扩展/01_存档与数据迁移.md",
+			"title": "可选扩展：存档与数据迁移",
+			"group": "可选扩展",
+			"kind": "extension",
+			"content": "# 可选扩展：存档与数据迁移\n\n[返回目录](../README.md)\n\n## 1. 何时启用\n\n当状态需要跨游戏运行、跨场景重新加载或作为检查点恢复时启用。单机完全可以使用本扩展，不需要客户端 / 服务端划分。\n\n启用存档不要求引入中央 DataCore。数据可以继续由各 Package 持有，保存时提供快照，读取时按包恢复。\n\n## 2. 两种合理起点\n\n| 方式 | 适合 | 工作方式 |\n| --- | --- | --- |\n| 项目保存流程直接调用 | 包较少，保存规则稳定 | 明确调用各包导出和恢复方法 |\n| 保存参与者注册 | 包较多，组合经常变化 | SaveCore 调度登记的保存参与者 |\n\n注册仅用于发现保存入口，不意味着 SaveCore 接管所有运行时字段，也不要求每次修改都经过它。\n\n## 3. 责任边界\n\n| 责任 | 所有者 |\n| --- | --- |\n| 哪些字段需要保存、字段含义 | Package |\n| 新档默认值、旧数据迁移、有效性验证 | Package |\n| 存档槽位、读写调度、结果和备份 | 项目保存流程或 SaveCore |\n| 真实文件或平台接口 | 当前环境的保存实现 |\n\n业务快照不得包含引擎对象、函数、句柄或可被后续继续修改的共享引用。对象关系使用项目约定的稳定 ID。\n\n## 4. 最小概念接口\n\n```text\nCaptureSaveData() -> 纯数据快照\nPrepareRestore(version, data) -> 验证后的待恢复状态，或错误\nApplyRestore(preparedState) -> 应用已验证状态\nCreateDefaultState() -> 新状态\n```\n\n这些是语义示例，具体方法可以合并或改名。恢复分成准备和应用，是为了在某个包校验失败时不让整个游戏只恢复了一半；若项目选择其他等效方案，需保证相同失败行为。\n\n## 5. 存档结构示意\n\n```json\n{\n  \"formatVersion\": 1,\n  \"projectId\": \"sample-game\",\n  \"packages\": {\n    \"planting\": {\n      \"schemaVersion\": 1,\n      \"data\": { \"plots\": [] }\n    },\n    \"inventory\": {\n      \"schemaVersion\": 1,\n      \"data\": { \"items\": [] }\n    }\n  }\n}\n```\n\n存档格式版本与包数据版本分别管理。文件格式、压缩、加密、云存档和槽位数由项目选择，不属于最小规范。\n\n## 6. 保存流程\n\n1. 选择一致的保存时刻，或冻结 / 复制本次保存涉及的状态快照。\n2. 收集所有必需包的数据并验证可序列化性。\n3. 使用当前存储实现写入，成功后更新有效存档记录。\n4. 明确报告成功、失败或仅进入等待队列。\n\n本地文件可按平台能力采用临时文件、替换与备份；需要检验实际平台保证。不能因为调用了写文件函数就宣称拥有跨文件事务或断电安全。\n\n“已请求自动保存”和“已完成保存”是不同状态。游戏可以允许内存继续运行并重试保存，但界面与命令契约不能把未保存说成已保存。\n\n## 7. 加载与迁移\n\n```text\n读取 → 识别项目与版本 → 迁移 → 校验全部必需数据\n     → 应用恢复状态 → 恢复场景绑定 → 开放交互\n```\n\n- 新存档缺少整个包时，可以创建该包的默认状态。\n- 已有包缺少字段时，使用明确迁移或兼容规则，不用默认初始化覆盖全部旧数据。\n- 遇到更新的、不支持的存档版本时拒绝覆盖并报告不兼容。\n- 迁移失败保留原始存档；迁移过程中不发奖、不触发普通玩法事件。\n- 关闭可选包时按项目约定保留它的数据，不能在下一次保存时静默丢弃。\n- 跨包迁移若有顺序依赖，应明确声明，并在全部准备成功后开放业务。\n\n## 8. 验收\n\n至少覆盖：新档、旧档、缺失包、非法数据、更新版本、保存失败、恢复失败、可选包重新启用。\n\n要支持自动保存或多个保存任务时，还需验证旧保存不能晚到后覆盖新保存。项目没有并发保存需求时，可以先串行执行。\n"
+		},
+		{
+			"id": "state",
+			"path": "可选扩展/02_数据注册与集中管理.md",
+			"title": "可选扩展：数据注册与集中管理",
+			"group": "可选扩展",
+			"kind": "extension",
+			"content": "# 可选扩展：数据注册与集中管理\n\n[返回目录](../README.md)\n\n## 1. 首先分清三件事\n\n1. **Package 装配登记**：项目有哪些业务模块。\n2. **保存参与者登记**：哪些业务参与存档，如何导出和恢复。\n3. **集中运行时数据管理**：状态实际由统一后端持有，业务通过它读取和提交。\n\n这三件事可以分别存在，不应因为用了一个就自动要求另外两个。\n\n## 2. 何时值得统一管理运行数据\n\n当多个业务确实需要同一种状态检查、调试观察、回放、变更追踪或提交机制时，可以评估集中管理。没有这些需求时，各包直接持有自己的状态通常更简单。\n\n数据包和字段多，本身不等于必须使用中央字典。先判断已有语言类型、引擎对象或数据库是否已经满足需要。\n\n## 3. 注册的最小内容\n\n按用途选择以下信息，而不是全部必填：\n\n| 信息 | 何时需要 |\n| --- | --- |\n| 稳定身份与业务拥有者 | 区分记录和责任 |\n| 默认状态创建 | 管理器负责创建记录时 |\n| 校验规则 | 后端统一接收状态写入时 |\n| 保存导出与恢复 | 使用统一保存调度时 |\n| 数据版本与迁移 | 需要持久化兼容时 |\n| 调试展示 | 需要开发工具观察时 |\n\n注册声明不应自动执行业务初始化、发奖或启动场景。调试格式化和数据迁移是不同责任，不能混用同一个回调。\n\n## 4. 所有权保持不变\n\n集中后端持有存储，并不获得业务解释权。Inventory 仍决定物品能否转移，Planting 仍决定作物是否成熟。\n\n包外调用仍通过业务公共接口，不绕过业务直接用通用路径写入别人的字段。否则统一数据管理反而破坏了 Package 边界。\n\n## 5. 避免双份权威状态\n\n必须明确哪个表示是本次业务操作的事实来源：包内实例或统一后端。若存在缓存、视图或镜像，明确更新、失效和恢复规则。\n\n不允许两个地方都独立修改同一业务状态，再依靠偶尔同步来保持一致。只读快照可以存在，但不得被当成可写主数据。\n\n## 6. 接口必须说明的行为\n\n- 查询返回内部引用、受控只读视图还是副本。\n- 批量写入是全有或全无，还是逐项报告。\n- 未变化、输入无效、版本冲突、目标缺失如何区分。\n- 通知是在修改前、提交后还是保存后发出。\n- 是否保存、何时保存；内存成功不默认等于持久化成功。\n- 使用并发、异步或重入时如何防止覆盖新状态。\n\n第一版可以只支持简单同步写入，不需要立即提供通用事务引擎。但必须如实说明其保证，不让调用者误以为失败会自动回滚。\n\n## 7. 与绿洲数据模式的关系\n\nPlayerController / GameState 宿主、蓝图属性、复制列表和 UGC 存档是特定接入方式，应放在绿洲补充中。\n\n在单机项目中，集中后端可以只是本地对象，也可以完全不启用。不能为了复用原有 DataCore 接口人为制造“本地服务器”概念。\n"
+		},
+		{
+			"id": "assembly",
+			"path": "可选扩展/03_模块声明与自动装配.md",
+			"title": "可选扩展：模块声明与自动装配",
+			"group": "可选扩展",
+			"kind": "extension",
+			"content": "# 可选扩展：模块声明与自动装配\n\n[返回目录](../README.md)\n\n## 1. 何时启用\n\n模块数量或组合增多、手工接入经常遗漏、需要自动检查依赖或生成目标引擎绑定时启用。\n\n手工装配可以长期使用。声明文件、自动检查和代码生成是三个递进能力，可以只采用其中需要的部分。\n\n## 2. 最小声明示例\n\n```json\n{\n  \"id\": \"planting\",\n  \"description\": \"管理地块、浇水和生长规则\",\n  \"dependsOn\": []\n}\n```\n\n格式可选 JSON、静态表或其他项目惯用方式。示例中的种植包不直接依赖背包，收获流程在上层组合二者，因此这里没有必需包依赖。\n\n只有实际使用对应机制时，才增加版本、作用域、保存参与入口或可选集成信息。不要为了模仿绿洲 Meta，把 playerData / gameData 强制放进所有项目的包声明。\n\n## 3. 声明与实际代码一致\n\n依赖指包真正调用或导入的公共契约，不能只登记初始化顺序却漏掉运行时业务依赖。\n\n若依赖信息同时存在于导入和清单中，应使用检查或评审发现不一致。声明解析不执行业务副作用；需要绑定函数时，在装配阶段完成，而不是通过启动业务来发现它。\n\n## 4. 可选模块\n\n- 必需依赖缺失时，拒绝装配依赖它的功能并给出原因。\n- 可选集成缺失时，使用已经定义的无集成行为。\n- 关闭模块不能静默删除数据或内容引用。\n- 第一版可以只支持启动前配置，运行中切换另行设计。\n\n业务模块是否可选与编辑器入口是否隐藏分别管理。隐藏界面不代表运行时数据已经卸载。\n\n## 5. 生成行为\n\n```text\n源码 / 声明 / 项目选择\n    → 校验\n    → 计算启用模块与初始化顺序\n    → 预览\n    → 生成装配代码或固定索引\n    → 编译与运行检查\n```\n\n生成目录可以继续叫 Setting，也可以叫 Generated。必须与业务 Config 区分，生成结果不手工添加逻辑。\n\n同一输入产生稳定输出；不把每次变化的时间戳写入需要比较的结果。稳定 ID 不应因目录排序改变而重新编号，删除与重命名需要兼容策略。\n\n生成失败时不发布半份有效索引。生成成功只代表装配结构通过相应检查，不能代替玩法测试。\n\n## 6. 建议检查\n\n缺失依赖、循环、引用私有模块、重复 ID、缺失绑定、禁用模块被必需引用，以及输出过期。\n\n本目录没有提供这些检查器或生成器的实现。采用本扩展的项目应明确已实现的检查范围；动态调用和反射未被覆盖时，不能声称完成了全量依赖验证。\n\n生成文件是否提交版本库由项目固定选择：构建可靠生成可不提交，构建依赖预生成结果则提交。两种情况都必须保证输入与结果一致。\n"
+		},
+		{
+			"id": "network",
+			"path": "可选扩展/04_联机与状态同步.md",
+			"title": "可选扩展：联机与状态同步",
+			"group": "可选扩展",
+			"kind": "extension",
+			"content": "# 可选扩展：联机与状态同步\n\n[返回目录](../README.md)\n\n## 1. 启用边界\n\n只有项目需要多人联网或远程权威执行时使用。本扩展不属于单机基础规范。\n\n联网结构不一定都是相同的客户端 / 独立服务器模式。项目先确定主机、服务器、对等端或平台托管方式，再明确各项规则由谁执行。\n\n## 2. 保留 Package 边界\n\n```text\n本地输入\n  → 网络请求入口\n  → 验证身份与操作权限\n  → 权威执行处调用业务公开接口\n  → 返回结果与必要状态\n  → 界面更新\n```\n\n网络入口负责把外部请求转换成可信上下文；业务包负责玩法规则。不要只在客户端检查条件，也不要相信请求正文中自报的身份和权限。\n\n单机可以直接调用同样的业务接口，但不要求单机增加网络传输或伪造服务器角色。\n\n## 3. 三种通道分开\n\n| 通道 | 用途 |\n| --- | --- |\n| 本地函数调用 | 同一运行环境内查询和命令 |\n| 本地事件 | 已发生事实的进程内通知 |\n| 网络消息与复制 | 跨端请求、结果和状态传播 |\n\n不把所有本地事件自动广播到网络。每类消息应明确发送者、接收者、数据结构、可见性和兼容版本。\n\n## 4. 命令与状态\n\n- 哪些状态由谁最终决定，需要明确。\n- 客户端请求表示意图，不能直接写入任意字段。\n- 权限与输入验证覆盖目标对象、数量、频率和当前业务条件。\n- 可能重复的命令使用适合该业务的去重方式；不能全靠客户端不重复点击。\n- 明确乱序、超时和断线时的状态。超时不一定表示远端没有执行。\n- 玩家私有数据、公开数据和仅服务器可见数据分别处理。\n\n## 5. 按需能力\n\n预测、回滚、重连、主机迁移、跨服和反作弊是独立需求，不因为“支持联机”就默认已具备。\n\n采用引擎现成复制机制时仍需验证其对象寿命、可见性和更新规则。框架不统一底层网络 API。\n\n## 6. 验收\n\n启用的能力至少覆盖正常请求、无权限、非法输入、重复请求、对象失效，以及项目支持范围内的断线恢复。\n\n未支持的情况写入项目限制，不在文档或界面中暗示已完成。\n"
+		},
+		{
+			"id": "engine",
+			"path": "引擎接入/01_接入原则.md",
+			"title": "引擎接入原则",
+			"group": "引擎接入",
+			"kind": "base",
+			"content": "# 引擎接入原则\n\n[返回目录](../README.md)\n\n## 1. 组织规则通用，接入方式遵循引擎\n\nPackage / Core 用于明确职责，不代替引擎已有的场景、组件、资源和生命周期机制。\n\n项目使用何种引擎和语言，由实际开发需要决定。本框架不要求为复用 Lua 引入额外解释器，也不要求所有语言生成完全相同的文件结构。\n\n## 2. 哪些内容值得保持独立\n\n优先让数值计算、物品规则、任务条件、种植进度等纯业务规则脱离场景对象。这样更容易测试，也更容易迁移。\n\nUI、动画、物理、音效与场景交互可以直接使用引擎惯用结构。业务确实需要查询世界或发起资源操作时，可以由接入函数或小范围接口提供，不预先建立完整引擎替代层。\n\n## 3. 何时创建适配接口\n\n满足以下实际需求之一再评估：\n\n- 同一业务需要在两个环境运行。\n- 外部副作用使规则测试困难，需要可替换实现。\n- 多个业务需要统一的错误、取消或资源释放语义。\n- 项目正在迁移引擎，确有需要保持稳定的业务契约。\n\n没有这些需求时，集中、清晰的直接接入也可以接受。不要为每个引擎函数机械生成转发方法。\n\n## 4. 接入需要说明的内容\n\n| 内容 | 项目应回答 |\n| --- | --- |\n| 启动入口 | 何处创建和连接业务实例 |\n| 生命周期 | 何时开始使用、何时停止与清理 |\n| 对象身份 | 引擎对象如何对应业务实体 |\n| 资源 | 配置中的标识如何找到实际资源 |\n| 线程与异步 | 哪些操作需主线程，如何取消迟到结果 |\n| 保存 | 是否启用，使用什么平台能力 |\n| 网络 | 是否启用，按什么架构执行 |\n| 工具与导出 | 编辑器中有效的引用能否进入最终运行包 |\n\n## 5. 常见引擎方向\n\n以下为接入建议，不代表本目录提供了对应实现。实际项目记录具体引擎版本并核对 API。\n\n| 环境 | 接入建议 |\n| --- | --- |\n| Unity | 用必要的 MonoBehaviour 或启动对象连接生命周期；规则可使用普通 C# 类型，不要求每包一个组件 |\n| Godot | 场景交互由 Node 承担，纯规则与可保存数据按需分离；不要求每包成为 Autoload |\n| Unreal | 根据寿命、反射和复制需求选择 Actor、组件或其他宿主；不统一把状态挂在 PlayerController |\n| 绿洲启元 | 保留有用的 Lua 组织与 UGC 接入，将宿主、复制和平台存档约定放在专用规范 |\n\nUnity 的执行阶段、Godot 场景树回调和 Unreal 的游戏框架对象各有语义，不能仅把方法名字替换为 Initialize / Update 就认为生命周期完全一致。\n\n## 6. 验证跨引擎适用性\n\n选择一个不依赖复杂表现的业务包，在两个目标环境中实现同一组成功、失败和数据恢复案例。\n\n验收关注公开行为与数据约束一致，而不是内部目录逐字相同。原生资源、渲染和编辑器插件通常需要分别实现，不能把业务契约通用误写成整套工程可直接搬迁。\n\n## 7. 官方参考\n\n- [Unity 执行顺序](https://docs.unity3d.com/Manual/execution-order.html)\n- [Godot Node](https://docs.godotengine.org/en/stable/classes/class_node.html)\n- [Unreal Gameplay Framework](https://dev.epicgames.com/documentation/en-us/unreal-engine/gameplay-framework-in-unreal-engine)\n\n这些资料用于理解引擎差异。本文架构建议不是引擎官方强制规范。\n"
+		},
+		{
+			"id": "oasis",
+			"path": "引擎接入/02_绿洲启元补充.md",
+			"title": "绿洲启元补充",
+			"group": "引擎接入",
+			"kind": "engine",
+			"content": "# 绿洲启元补充\n\n[返回目录](../README.md)\n\n## 1. 适用范围与证据\n\n本节仅适用于沿用原 PackageGuider 约定的绿洲启元 / Lua 项目。说明依据原六份文档，没有在本次工作中核查运行时代码或测试具体行为。\n\n原资料目录：`PackageGuider/`。\n\n这些约定不是其他引擎或单机项目必须采用的基础规范。\n\n## 2. 可以保留\n\n- Registry 作为 Lua Package 对外入口，内部模块使用 local / require。\n- Query、System、Data 的职责拆分，按复杂度决定是否创建目录。\n- Core 负责通用机制，Package 负责业务含义。\n- Config 经领域规则校验，生成 Setting 与业务配置分开。\n- GenKit、PackageKit、AutoTestKit 已有接入方式，在明确其能力范围的前提下使用。\n\n## 3. 仅在当前接入中需要\n\n| 约定 | 所属范围 |\n| --- | --- |\n| PlayerController / GameState 挂载数据 | 引擎数据宿主 |\n| Lua 字段与蓝图属性保持一致 | 引擎对象绑定 |\n| GetReplicatedProperties 中登记字段 | 当前网络复制接入 |\n| 服务端修改、客户端查询或表现 | 当前执行权限与同步模式 |\n| UGC 平台存档 API | 平台保存实现 |\n| BeginPlay / Tick 注册索引 | 当前生命周期与工具接入 |\n\n通用规范不要求复制这些名称或关系。已有项目有上述依赖时，也不能只删除服务端判断或复制字段就认为完成了通用化。\n\n## 4. Meta 和数据入口\n\n现有 Package_Meta 包含 dependsOn、playerData、gameData 等内容，并使用 Lua 函数引用绑定 DataInit / DataFormat。\n\n- 对原项目，可以继续使用符合现有工具的格式。\n- 对新单机项目，Meta 和数据登记可不启用。\n- 希望跨语言生成时，再设计可静态解析声明及目标语言绑定。\n- DataFormat 按原文档是调试打印，不是存档迁移函数。\n- 读取声明及其依赖时应避免顶层业务副作用，不能因为 Meta 自己只返回表就默认所有 require 都无副作用。\n\n## 5. DataCore 现状需要牢记\n\n原文档说明：QueryPackage 可能返回实际可变表；批量修改不提供通用事务；保存失败不自动回滚；旧存档恢复后不自动运行默认初始化；没有统一数据版本迁移回调。\n\n因此不得在新说明中声称这些保证已经存在。需要只读边界、全有或全无、旧档补字段时，在公开接口或后续扩展中明确实现并验证。\n\n原保存链路中的枪械、护甲快照和历史任务数据清理属于项目业务或兼容需求。迁移时由对应业务或项目迁移层承担，先保留数据键和旧档行为，再逐步调整调用位置。\n\n## 6. 关于“不要增加引擎中间层”\n\n原 Package_Structure 用这条规则避免无意义的等价转发。新的通用规范保留这个目的，同时允许因多环境、测试隔离或统一生命周期而产生的真实适配边界。\n\n不能据此要求每个引擎调用都加一层，也不能据此禁止所有必要适配。\n\n## 7. 工具验证边界\n\n原文档明确 PackageKit 不等于完整循环依赖与架构方向分析，GenKit 生成成功也不等于业务正确。AutoTestKit 的单 Case 清理和 setup / teardown 异常行为应按实际实现评估。\n\n继续使用原工具时，在项目 README 写清已覆盖的检查与人工补充，不把新规范中的目标能力当成原工具已有实现。\n\n## 8. 原文入口\n\n- Project_Architecture.md（原框架参考资料）\n- Package_Structure.md（原框架参考资料）\n- Package_Meta.md（原框架参考资料）\n- DataCore_Guide.md（原框架参考资料）\n- Development_Test_Debug_Guide.md（原框架参考资料）\n- OasisGuide.md（原框架参考资料）\n\n以上列出原框架参考资料名称，原始资料未随本规范库提供。框架自身的导航使用相对链接，可随文件夹一起移动。\n"
+		},
+		{
+			"id": "planting",
+			"path": "示例/01_单机种植与背包.md",
+			"title": "示例：单机种植与背包",
+			"group": "示例",
+			"kind": "reference",
+			"content": "# 示例：单机种植与背包\n\n[返回目录](../README.md)\n\n## 1. 范围\n\n本例是伪代码和行为契约，不是可直接运行的某种语言实现。游戏支持地块种植、浇水、按游戏日生长以及收获进入背包。\n\n默认离线、单次会话、同步操作。没有服务器、网络复制、中央数据注册或自动装配。存档在最后单独增加。\n\n## 2. 业务划分\n\n| 部分 | 责任 | 不负责 |\n| --- | --- | --- |\n| Planting | 地块、浇水、生长、成熟与收获规则 | 背包存储、具体 UI |\n| Inventory | 物品容器、容量、堆叠与增加规则 | 作物何时成熟 |\n| HarvestFlow | 协调收获与入包这个完整操作 | 直接修改两包私有字段 |\n| 项目入口 | 创建实例、绑定输入、推进游戏日 | 各种作物的规则判断 |\n| UI / 场景 | 显示地块、发送操作、反馈结果 | 直接给地块或背包字段赋值 |\n\nHarvestFlow 可以是一个小函数或业务文件；只有流程规模扩大后才考虑独立编排包。\n\n## 3. 私有数据\n\n```text\nPlanting 私有状态：\n  plots[plotId] = { cropId, growthDays, wateredToday, harvested }\n\nInventory 私有状态：\n  items[itemId] = count\n  capacity\n\n作物配置：\n  cropId, requiredGrowthDays, harvestItemId, harvestCount\n```\n\n配置可由代码定义或外部文件读取，并在使用前校验。每个包创建独立状态实例，不把进度写入配置，也不把内部可变表交给 UI。\n\n## 4. 最小装配\n\n```text\ncropRules = LoadAndValidateCropRules()\ninventory = CreateInventory(capacity)\nplanting = CreatePlanting(cropRules)\nharvestFlow = CreateHarvestFlow(planting, inventory)\nBindScene(planting, harvestFlow)\n```\n\n`LoadAndValidateCropRules` 等只是语义名称。可以直接调用项目函数，不需要实现一个配置 Core 才能开始。\n\n## 5. 查询与浇水\n\n```text\nGetPlotView(plotId):\n  找不到地块 → 返回 PlotMissing\n  找到地块 → 返回界面需要的值快照\n\nWater(plotId):\n  找不到地块 → 返回 PlotMissing\n  地块不可浇水 → 返回 NotWaterable\n  今天已经浇水 → 返回 AlreadyWatered，不改变状态\n  否则设置 wateredToday = true\n  返回 Watered\n```\n\n本例浇水不消耗背包资源。若增加水量消耗，需明确整体操作失败语义并协调相关拥有者，不能在 UI 中先扣水再直接改地块。\n\n只有当前界面需要立即更新时，可以根据返回值重新查询。多个系统需要响应时，再增加事实通知。\n\n## 6. 游戏日推进\n\n本例选择“每个完成的游戏日结算一次”，不依赖真实帧率：\n\n```text\nAdvanceDay(dayId):\n  dayId 已结算 → 返回 AlreadyApplied\n  遍历需要生长的作物\n  按规则根据 wateredToday 推进 growthDays\n  清除当天浇水状态\n  记录已结算 dayId\n  返回变化摘要\n```\n\ndayId 的来源和结算触发由项目时间流程确定。保存功能启用后，结算身份和相关进度也要按实际规则保存，防止读档重复结算。\n\n## 7. 收获与入包\n\n必须满足：未成熟或背包容量不足时，不移除作物，也不增加物品。不能先清空作物，再发现背包装不下。\n\n### 7.1 本例采用的同步契约\n\n两包提供只读的准备接口，分别校验并生成内部认可的操作计划。准备不修改状态，不触发回调。随后在同一个同步、无重入片段中提交两份计划，再刷新界面或发布通知。\n\n```text\nTryHarvestToInventory(plotId):\n  harvestPlan = Planting.PrepareHarvest(plotId)\n  harvestPlan 失败 → 返回对应结果\n\n  addPlan = Inventory.PrepareAdd(harvestPlan.item, harvestPlan.count)\n  addPlan 失败 → 返回对应结果，两包均未变化\n\n  在无等待、无外部回调的片段中：\n    Planting.ApplyPreparedHarvest(harvestPlan)\n    Inventory.ApplyPreparedAdd(addPlan)\n\n  此时才公开成功通知\n  返回 Harvested\n```\n\n计划由拥有者产生和校验，协调者不写内部字段。提交阶段不再执行可能出现预期业务拒绝的操作，不调用磁盘、资源加载或网络，也不在第一步提交时通知外部监听者。\n\n### 7.2 适用限制\n\n这段流程依赖同步、无并发修改、无重入、提交前完成预期失败验证。它不是通用事务引擎，也没有承诺崩溃恢复或任意程序异常下自动回滚。\n\n如果实际实现中的提交可能出现其他可恢复失败，应增加快照补偿或更明确的提交单元后再承诺整体失败不变；如果引入异步和并发，需增加预留或版本校验。不能只捕获异常并返回“失败”，却留下单边修改。\n\n对小项目也可以采用其他简单且能证明一致性的流程，但必须通过相同验收案例。\n\n## 8. 按需增加存档\n\n项目保存入口调用 Planting 和 Inventory 的快照导出，写入一份当前会话存档。两个包仍持有自己的状态，不必迁入中央字典。\n\n需要恢复时，先验证两份数据，全部准备好后应用，再重建场景绑定。保存涉及的同一收获过程不得只捕获一半状态。\n\n## 9. 验收案例\n\n| 情况 | 预期 |\n| --- | --- |\n| 合法浇水 | 只有目标地块变为已浇水 |\n| 同一天重复浇水 | 状态不再改变，返回可区分结果 |\n| 重复结算同一游戏日 | 不重复生长 |\n| 未成熟收获 | 作物与背包都不改变 |\n| 背包不足 | 作物与背包都不改变 |\n| 正常收获 | 作物完成收获，背包增加正确物品数量 |\n| 重复收获 | 不重复获得物品 |\n| 两个独立游戏实例 | 数据互不影响 |\n| 场景重新绑定 | 不重复注册输入，不意外重建会话数据 |\n| 开启存档后恢复 | 两包状态一致，不能重复结算或重复收获 |\n\n这些案例可以在不同引擎中重用，具体场景节点、对象和语法可以不同。\n"
+		},
+		{
+			"id": "structure",
+			"path": "示例/02_最小项目结构.md",
+			"title": "示例：最小项目结构",
+			"group": "示例",
+			"kind": "reference",
+			"content": "# 示例：最小项目结构\n\n[返回目录](../README.md)\n\n所有路径都是逻辑模板。实际文件扩展名、程序集、资源目录与引擎工程布局按项目调整，不要求照搬一套 Script 目录。\n\n## 1. 两个业务包的起点\n\n```text\n项目/\n  README.md\n  Entry/                        # 项目装配和运行入口\n  Packages/\n    Planting/\n      README.md\n      Planting.<ext>            # 公开方法及私有实现\n    Inventory/\n      README.md\n      Inventory.<ext>\n  Gameplay/\n    HarvestFlow.<ext>           # 上层收获协调\n  Presentation/                 # 场景、UI 和输入绑定\n  Tests/                        # 按测试框架实际位置放置\n```\n\n不必预先创建 Core、Meta、Generated 或 Network 空目录。引擎已经有合适日志、时间或事件能力时，可以直接使用。\n\n## 2. 包复杂后再拆\n\n```text\nPackages/Planting/\n  README.md\n  Public/\n    PlantingApi.<ext>\n    PlantingResults.<ext>\n  Query/\n    PlotQueries.<ext>\n  System/\n    Watering.<ext>\n    Growth.<ext>\n    Harvest.<ext>\n  Data/\n    PlotState.<ext>\n    CropDefinition.<ext>\n    CropValidation.<ext>\n```\n\n调用方仍然使用公开接口，内部拆分不应要求所有调用方改为直接引用 System。没有对应复杂度就不拆。\n\n## 3. 公共机制出现后\n\n```text\nCore/\n  Save/                         # 需要统一保存调度时\n  Diagnostics/                  # 引擎原生能力不足时\nConfig/\n  Planting/                     # 需要策划编辑或外部覆盖时\n```\n\n文件夹存在不代表所有包都必须依赖它。Save 也不接管所有包的运行状态。\n\n## 4. 装配扩展启用后\n\n```text\nPackages/Planting/\n  package.manifest.json         # 选择声明机制后才新增\nBindings/                       # 实际实现与清单之间的绑定\nTools/                          # 已实现的检查或生成工具\nGenerated/                      # 或沿用项目既有 Setting 名称\n```\n\n项目 README 记录生成入口、输入、输出、检查范围和生成文件提交策略。没有实现的工具不应写成“运行后自动完成”。\n\n## 5. 引擎目录\n\n引擎原生资源、场景、预制体、蓝图、脚本和导入配置按各引擎惯例保存。框架可以使用命名空间、资源分组或约定表达职责，不要求额外包一层同名文件夹。\n\n只需要当前引擎的接入实现，不在一个小项目中预建所有其他引擎的空目录。\n\n## 6. 文档同步\n\n项目根 README 写实际采用的能力；包 README 写职责与接口。框架版本更新不自动修改已有项目，涉及接口和数据变化时按项目自己的流程迁移并验证。\n"
+		},
+		{
+			"id": "migration",
+			"path": "迁移指南.md",
+			"title": "从原 PackageGuider 迁移",
+			"group": "迁移指南",
+			"kind": "reference",
+			"content": "# 从原 PackageGuider 迁移\n\n[返回目录](README.md)\n\n## 1. 目标\n\n保留 Package / Core、公共入口、业务所有权、显式依赖等已有价值，将特定引擎和可选机制从基础必选规则中移出。\n\n迁移不要求立即替换 DataCore、删除 Meta、改存档键或重写工具。本目录是新的规范文件夹，没有执行任何项目代码迁移。\n\n## 2. 对照表\n\n| 原规范内容 | 新规范处理 |\n| --- | --- |\n| Package / Core 分工 | 保留，强调实际业务与机制边界 |\n| Registry 作为公共门面 | 保留逻辑边界，名称和语言形式可调整 |\n| Query / System / Data | 保留职责，目录按复杂度选用 |\n| Define / Config / Const | 保留区别，不强制全部外置或全局化 |\n| Event 表达事实 | 保留，事件机制可按需采用 |\n| 所有 Package 必有 Meta | 调整为声明与装配扩展，简单项目可手工装配 |\n| PlayerData / GameData 注册 | 移至数据管理和绿洲接入说明 |\n| 数据固定挂 PlayerController / GameState | 仅作为原引擎宿主约定 |\n| 所有修改集中经 DataCore | 作为集中管理选项，允许包直接持有状态 |\n| 服务端校验与复制字段 | 移至联机与对应引擎扩展 |\n| GenKit / Setting | 保留可用工具；生成装配不再是所有项目的前置条件 |\n| AutoTestKit / DebugKit | 保留项目实现，提取通用测试与诊断要求 |\n| 禁止引擎等价中间层 | 保留避免无意义转发的目的，允许有实际需要的适配 |\n\n## 3. 新项目采用步骤\n\n1. 写清引擎、语言、游戏运行模式和当前功能范围。\n2. 确定最小业务包及其公开行为。\n3. 采用最直接的状态持有和装配方式。\n4. 验证一条完整玩家操作流程。\n5. 根据出现的实际需求启用扩展，记录理由与保证。\n\n纯单机项目从这里开始即可，不需要先阅读和实现绿洲数据规范。\n\n## 4. 已有绿洲项目迁移步骤\n\n### 第一步：记录现状\n\n列出已有 Package、Core、数据键、宿主字段、保存链路、复制关系和工具生成文件。依据真实代码确认，而不是只依据规范描述推断。\n\n### 第二步：只整理文档边界\n\n把引擎要求、网络要求和项目历史兼容逻辑标明。已验证运行行为保持稳定，不因更换文档就删除检查或字段。\n\n### 第三步：从一个低风险业务切入\n\n选择边界明确的包，收紧公共接口和私有状态访问。已有 DataCore 可以继续作为内部存储实现，调用方不需要知道它是否已经替换。\n\n### 第四步：按需调整机制\n\n确认需要独立保存入口、纯规则测试或第二引擎运行后，再逐步拆分绑定。旧数据结构有变化时先准备迁移和回归样本。\n\n### 第五步：验证与收敛\n\n验证业务结果、旧档和必要网络行为；再删除已无调用的旧入口。生成文件通过现有工具更新，避免手工改生成区产生双份事实来源。\n\n## 5. 不能机械执行的调整\n\n- 不能仅把 PlayerData 重命名为 LocalData 就认定已经脱离引擎。\n- 不能删除服务端校验却继续接收原有网络请求。\n- 不能取消集中管理却同时保留两份独立可写状态。\n- 不能改 dataKey 后让旧存档静默丢失。\n- 不能把已有的自动生成职责移除后漏掉手工装配。\n\n## 6. 与上一份设计方案的关系\n\n此前《多引擎游戏项目框架设计方案》包含统一状态后端、Authority、元数据生成和跨包提交等较完整的扩展方向。\n\n本目录按本次讨论收敛基础要求：这些能力只在需要时采用，不作为开始开发的门槛。单机项目无需实现 Authority 抽象、网络角色或中央 DataCore 才能符合本框架。\n\n两份资料有表达差异时，当前这套通用规范的“基础与可选”划分作为本目录的采用依据；项目已有行为与实际迁移仍需独立评估。\n\n## 7. 验收目标\n\n能用少量文件实现一个遵循业务边界的单机功能；增加存档或网络时能定位新增责任；已有引擎项目迁移时能保持数据和已验证行为。这三件事比目录名字完全统一更重要。\n"
+		}
+	]
+};
+
+//#endregion
 //#region shared/program-framework.mjs
 const frameworkExtensions = [
 	{
@@ -1002,6 +1470,61 @@ function validateProgramFramework(value) {
 	].includes(k))) fail();
 	return value;
 }
+function adoptedFrameworkDocuments(store, engine) {
+	validateProgramFramework(store);
+	return !store.enabled ? [] : frameworkLibrary.documents.filter((d) => d.kind === "base" || d.kind === "extension" && store.extensions.includes(d.id) || d.id === "oasis" && store.oasisSupplement && engine === "oasis-lua");
+}
+function resolveFrameworkLink(fromPath, href) {
+	if (!href || /^(?:[a-z][a-z0-9+.-]*:|\/|\\)/i.test(href)) return void 0;
+	let decoded;
+	try {
+		decoded = decodeURIComponent(href.split("#")[0]);
+	} catch {
+		return;
+	}
+	const parts = fromPath.split("/");
+	parts.pop();
+	for (const part of decoded.split("/")) if (part === "..") {
+		if (!parts.length) return void 0;
+		parts.pop();
+	} else if (part && part !== ".") parts.push(part);
+	return frameworkLibrary.documents.find((d) => d.path === parts.join("/"));
+}
+function frameworkDocumentBody(doc, selected) {
+	let code = false;
+	return doc.content.split("\n").filter((line) => line !== "[返回目录](../README.md)" && line !== "[返回目录](README.md)").map((line) => {
+		if (/^```/.test(line)) {
+			code = !code;
+			return line;
+		}
+		if (code) return line;
+		return line.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (all, label, href) => {
+			if (/^https?:\/\//i.test(href)) return all;
+			const target = resolveFrameworkLink(doc.path, href);
+			return target ? label + (selected.some((d) => d.id === target.id) ? "（见本模块对应规范）" : "（规范库参考，未纳入本项目）") : label;
+		}).replace(/^(#{1,6}) /, (_, marks) => "#".repeat(Math.min(6, marks.length + 2)) + " ");
+	}).join("\n").trim();
+}
+function programFrameworkMarkdown(store, engine) {
+	const docs = adoptedFrameworkDocuments(store, engine);
+	const lines = [
+		"## 程序框架",
+		"",
+		`- 内置规范：${frameworkLibrary.title} ${store.templateVersion}`,
+		`- 采用状态：${store.enabled ? "已采用" : "未采用"}`,
+		`- 运行模式：${store.runtime === "singleplayer" ? "单机" : "多人 / 联机"}`,
+		""
+	];
+	if (!store.enabled) lines.push("当前项目尚未采用内置规范，下方项目约定仅为设计记录。未启用任何内置扩展。", "");
+	else {
+		lines.push("Package / Core 为基础；以下仅包含本项目采用的规范。未选扩展和示例不作为实现要求。", "", "- 可选扩展：" + (store.extensions.map((id) => frameworkExtensions.find((e) => e.id === id).label).join("、") || "无"));
+		if (store.oasisSupplement && engine !== "oasis-lua") lines.push("- 绿洲补充因当前引擎不匹配而未纳入。");
+		lines.push("");
+	}
+	lines.push("### 项目约定与例外", "", store.notes.trim() || "尚未补充。", "");
+	for (const doc of docs) lines.push(frameworkDocumentBody(doc, docs), "");
+	return lines.join("\n").trim();
+}
 
 //#endregion
 //#region src/story-library.ts
@@ -1033,6 +1556,198 @@ function validateStoryExtras(v) {
 }
 
 //#endregion
+//#region src/analysis-expression.ts
+function parseExpression(source) {
+	if (!source.trim() || source.length > 1e3) throw new Error("公式不能为空，且最多 1000 个字符");
+	const tokens = [];
+	let at = 0;
+	while (at < source.length) {
+		const match = /^\s*(\d+(?:\.\d*)?(?:[eE][+-]?\d+)?|\.\d+(?:[eE][+-]?\d+)?|[A-Za-z_][A-Za-z_0-9]*|>=|<=|==|!=|[+\-*/^(),<>])/.exec(source.slice(at));
+		if (!match) {
+			if (!source.slice(at).trim()) break;
+			throw new Error("无法识别公式位置 " + (at + 1));
+		}
+		tokens.push(match[1]);
+		at += match[0].length;
+		if (tokens.length > 300) throw new Error("公式过于复杂");
+	}
+	let i = 0, depth = 0;
+	const precedence = {
+		"==": 1,
+		"!=": 1,
+		"<": 1,
+		">": 1,
+		"<=": 1,
+		">=": 1,
+		"+": 2,
+		"-": 2,
+		"*": 3,
+		"/": 3,
+		"^": 4
+	};
+	function expr(min = 0) {
+		if (++depth > 40) throw new Error("公式嵌套过深");
+		const token = tokens[i++];
+		let left;
+		if (token === "+" || token === "-") left = {
+			kind: "unary",
+			op: token,
+			value: expr(4)
+		};
+		else if (token === "(") {
+			left = expr();
+			if (tokens[i++] !== ")") throw new Error("缺少右括号");
+		} else if (token && /^[\d.]/.test(token)) left = {
+			kind: "number",
+			value: Number(token)
+		};
+		else if (token && /^[A-Za-z_]/.test(token)) {
+			if (tokens[i] === "(") {
+				i++;
+				const args = [];
+				if (tokens[i] !== ")") do {
+					args.push(expr());
+					if (tokens[i] !== ",") break;
+					i++;
+				} while (i < tokens.length);
+				if (tokens[i++] !== ")") throw new Error("函数参数缺少右括号");
+				left = {
+					kind: "call",
+					name: token,
+					args
+				};
+			} else left = {
+				kind: "name",
+				name: token
+			};
+		} else throw new Error("缺少数字、参数或表达式");
+		while (Object.prototype.hasOwnProperty.call(precedence, tokens[i]) && precedence[tokens[i]] >= min) {
+			const op = tokens[i++];
+			left = {
+				kind: "binary",
+				op,
+				left,
+				right: expr(precedence[op] + (op === "^" ? 0 : 1))
+			};
+		}
+		depth--;
+		return left;
+	}
+	const result = expr();
+	if (i !== tokens.length) throw new Error("公式包含多余内容：" + tokens[i]);
+	return result;
+}
+const expressionFunctions = [
+	"min",
+	"max",
+	"abs",
+	"floor",
+	"ceil",
+	"round",
+	"sqrt",
+	"pow",
+	"clamp",
+	"if",
+	"diceChance",
+	"storyChance"
+];
+function evaluateExpression(node, resolve, custom) {
+	let result;
+	if (node.kind === "number") result = node.value;
+	else if (node.kind === "name") result = resolve(node.name);
+	else if (node.kind === "unary") result = (node.op === "-" ? -1 : 1) * evaluateExpression(node.value, resolve, custom);
+	else if (node.kind === "binary") {
+		const a = evaluateExpression(node.left, resolve, custom), b = evaluateExpression(node.right, resolve, custom);
+		if (node.op === "/" && b === 0) throw new Error("除数不能为 0");
+		switch (node.op) {
+			case "+":
+				result = a + b;
+				break;
+			case "-":
+				result = a - b;
+				break;
+			case "*":
+				result = a * b;
+				break;
+			case "/":
+				result = a / b;
+				break;
+			case "^":
+				result = a ** b;
+				break;
+			case ">":
+				result = +(a > b);
+				break;
+			case "<":
+				result = +(a < b);
+				break;
+			case ">=":
+				result = +(a >= b);
+				break;
+			case "<=":
+				result = +(a <= b);
+				break;
+			case "==":
+				result = +(a === b);
+				break;
+			default: result = +(a !== b);
+		}
+	} else if (node.name === "if") {
+		if (node.args.length !== 3) throw new Error("if 需要 3 个参数");
+		result = evaluateExpression(node.args[evaluateExpression(node.args[0], resolve, custom) ? 1 : 2], resolve, custom);
+	} else {
+		const args = node.args.map((arg) => evaluateExpression(arg, resolve, custom));
+		const arities = {
+			abs: 1,
+			floor: 1,
+			ceil: 1,
+			round: 1,
+			sqrt: 1,
+			pow: 2,
+			clamp: 3,
+			diceChance: 5,
+			storyChance: 0
+		};
+		if (!expressionFunctions.includes(node.name)) throw new Error("未知函数：" + node.name);
+		if (Object.prototype.hasOwnProperty.call(arities, node.name) && args.length !== arities[node.name] || ["min", "max"].includes(node.name) && !args.length) throw new Error(node.name + " 参数数量不正确");
+		const [a, b, c] = args;
+		switch (node.name) {
+			case "min":
+				result = Math.min(...args);
+				break;
+			case "max":
+				result = Math.max(...args);
+				break;
+			case "abs":
+				result = Math.abs(a);
+				break;
+			case "floor":
+				result = Math.floor(a);
+				break;
+			case "ceil":
+				result = Math.ceil(a);
+				break;
+			case "round":
+				result = Math.round(a);
+				break;
+			case "sqrt":
+				result = Math.sqrt(a);
+				break;
+			case "pow":
+				result = a ** b;
+				break;
+			case "clamp":
+				if (b > c) throw new Error("clamp 最小值大于最大值");
+				result = Math.max(b, Math.min(c, a));
+				break;
+			default: result = custom(node.name, args);
+		}
+	}
+	if (!Number.isFinite(result)) throw new Error("计算结果不是有限数字");
+	return result;
+}
+
+//#endregion
 //#region src/story-characters.ts
 const characterColors = [
 	"#a78bfa",
@@ -1061,9 +1776,62 @@ function createStoryCharacter(name, index = 0) {
 		}
 	};
 }
+/** Old stories retain their local speaker IDs. Reading never writes or merges unrelated people by name. */
+function withCharacterLibrary(input) {
+	const store = structuredClone(input);
+	store.characters ??= [];
+	store.relationships ??= [];
+	for (const story of store.stories) for (const actor of story.actors) {
+		actor.kind ??= actor.id.startsWith("voice:") ? "voice" : "character";
+		if (actor.kind === "voice") {
+			actor.voiceType ??= "内心声音";
+			continue;
+		}
+		if (actor.characterId) continue;
+		const character = createStoryCharacter(actor.name, store.characters.length);
+		character.id = `character:${story.id}:${actor.id}`;
+		character.description = actor.description;
+		if (store.characters.some((c) => c.id === character.id)) throw new Error("旧人物迁移标识冲突，请检查人物库");
+		store.characters.push(character);
+		actor.characterId = character.id;
+	}
+	return store;
+}
+function resolveStoryActors(store, story) {
+	return {
+		...story,
+		actors: story.actors.map((a) => {
+			const character = store.characters?.find((c) => c.id === a.characterId);
+			return character ? {
+				...a,
+				name: character.name,
+				description: character.description
+			} : a;
+		})
+	};
+}
+const isStoryFlag = (v) => v.kind === "flag";
+const storyValueText = (v, value) => isStoryFlag(v) && (value === 0 || value === 1) ? value ? v.trueLabel || "是" : v.falseLabel || "否" : String(value);
+function storyCharacterIssues(store) {
+	const ids = new Set(store.characters?.map((c) => c.id)), issues = [];
+	for (const story of store.stories) {
+		for (const a of story.actors) if (a.characterId && !ids.has(a.characterId)) issues.push(`${story.title}：人物引用已失效（${a.name}）`);
+		for (const v of story.variables) if (v.characterId && !ids.has(v.characterId)) issues.push(`${story.title}：状态关联人物已失效（${v.name}）`);
+	}
+	for (const r of store.relationships || []) if (!ids.has(r.fromId) || !ids.has(r.toId) || r.fromId === r.toId) issues.push(`关系端点待修复：${r.label}`);
+	return issues;
+}
 
 //#endregion
 //#region src/story-orchestration.ts
+const nodeKindNames = {
+	dialogue: "对白",
+	narration: "旁白",
+	inner: "叙事插话",
+	hub: "互动入口",
+	ending: "故事结果",
+	return: "返回中断前内容"
+};
 const emptyStoryOrchestration = () => ({
 	schema: 1,
 	enabled: false,
@@ -1240,6 +2008,177 @@ function validateStoryOrchestration(value) {
 	}
 	return value;
 }
+function predicateMet(predicate, state) {
+	return !predicate.groups.length || predicate.groups.some((group) => group.every((c) => {
+		if (!Object.prototype.hasOwnProperty.call(state, c.variableId) || !Number.isFinite(state[c.variableId])) return false;
+		const value = state[c.variableId];
+		return {
+			eq: value === c.value,
+			neq: value !== c.value,
+			gt: value > c.value,
+			gte: value >= c.value,
+			lt: value < c.value,
+			lte: value <= c.value
+		}[c.op];
+	}));
+}
+function predicateText(p, story) {
+	const symbols = {
+		eq: "=",
+		neq: "≠",
+		gt: ">",
+		gte: "≥",
+		lt: "<",
+		lte: "≤"
+	};
+	return p.groups.map((g) => "(" + g.map((c) => {
+		const v = story.variables.find((v) => v.id === c.variableId);
+		return (v?.name || "失效变量：" + c.variableId) + " " + symbols[c.op] + " " + (v ? storyValueText(v, c.value) : c.value);
+	}).join(" 且 ") + ")").join(" 或 ") || "无附加条件";
+}
+function effectsText(effects, story) {
+	return effects.map((e) => {
+		const v = story.variables.find((v) => v.id === e.variableId);
+		return (v?.name || "失效变量：" + e.variableId) + (e.op === "set" ? " 设为 " : " 增减 ") + (v && e.op === "set" ? storyValueText(v, e.value) : e.value);
+	}).join("；") || "无状态变化";
+}
+function narrativeIssues(story, tasks) {
+	const issues = [], add = (message, nodeId) => issues.push({
+		message,
+		nodeId
+	});
+	const nodes = new Map(story.nodes.map((n) => [n.id, n])), vars = new Set(story.variables.map((v) => v.id)), checks = new Map(story.checks.map((c) => [c.id, c]));
+	if (!story.title.trim()) add("故事尚未命名");
+	if (!nodes.has(story.entryId)) add("故事入口未设置或已失效");
+	if (story.clockId && !vars.has(story.clockId)) add("故事时钟已失效");
+	const conditions = (p, label, nodeId) => {
+		for (const g of p.groups) for (const c of g) if (!vars.has(c.variableId)) add(label + "引用了失效变量：" + c.variableId, nodeId);
+	};
+	const effects = (es, label, nodeId) => {
+		for (const e of es) if (!vars.has(e.variableId)) add(label + "引用了失效变量：" + e.variableId, nodeId);
+	};
+	const taskRefs = (ids, nodeId) => {
+		if (tasks) for (const id of ids) {
+			const t = tasks.find((t) => t.id === id);
+			if (!t || t.archived) add("关联任务已失效或归档：" + (t?.title || id), nodeId);
+		}
+	};
+	taskRefs(story.taskIds);
+	for (const c of story.checks) {
+		if (!vars.has(c.variableId) || c.retryVariableIds.some((id) => !vars.has(id))) add("检定的技能或重试来源已失效：" + c.name);
+		if (!nodes.has(c.successId) || !nodes.has(c.failureId)) add("检定后继未设置或已失效：" + c.name);
+		effects(c.successEffects, c.name);
+		effects(c.failureEffects, c.name);
+		c.modifiers.forEach((m) => conditions(m.condition, c.name));
+	}
+	const outgoing = /* @__PURE__ */ new Map();
+	for (const c of story.choices) {
+		const check = checks.get(c.checkId), targets = c.checkId ? check ? [check.successId, check.failureId] : [] : [c.toId];
+		if (!nodes.has(c.fromId) || !targets.length || targets.some((id) => !nodes.has(id))) add("选项后继未设置或已失效：" + (c.label || c.id), c.fromId);
+		if (!c.label.trim()) add("选项文本待补充", c.fromId);
+		if (c.passive && (c.checkId || c.cost || c.effects.length)) add("自动插话只展示内容，请将检定、成本和后果放在玩家选项中", c.fromId);
+		conditions(c.condition, c.label, c.fromId);
+		effects(c.effects, c.label, c.fromId);
+		if (nodes.get(c.fromId)?.kind !== "ending") outgoing.set(c.fromId, [...outgoing.get(c.fromId) || [], ...targets]);
+	}
+	for (const i of story.interrupts) {
+		if (!nodes.has(i.nodeId)) add("中断入口已失效：" + i.name);
+		conditions(i.condition, i.name);
+	}
+	const seen = /* @__PURE__ */ new Set(), pending = [story.entryId, ...story.interrupts.map((i) => i.nodeId)];
+	while (pending.length) {
+		const id = pending.pop();
+		if (seen.has(id)) continue;
+		seen.add(id);
+		pending.push(...outgoing.get(id) || []);
+	}
+	for (const n of story.nodes) {
+		if (!n.title.trim() || !n.text.trim()) add("片段标题或正文待补充：" + (n.title || n.id), n.id);
+		if (!story.scenes.some((s) => s.id === n.sceneId)) add("所属场景已失效：" + n.title, n.id);
+		if (n.speakerId && !story.actors.some((a) => a.id === n.speakerId)) add("说话人已失效：" + n.title, n.id);
+		if (!seen.has(n.id)) add("从入口无法到达：" + n.title, n.id);
+		if (!["ending", "return"].includes(n.kind) && !outgoing.get(n.id)?.length) add("片段没有后续选项：" + n.title, n.id);
+		if (n.kind === "ending" && story.choices.some((c) => c.fromId === n.id)) add("故事结果不再推进，请调整后续选项", n.id);
+		taskRefs(n.taskIds, n.id);
+	}
+	return issues;
+}
+function storyOrchestrationMarkdown(store) {
+	if (!store.enabled) return "";
+	store = withCharacterLibrary(store);
+	const out = [
+		"## 故事编排",
+		"",
+		"> 条件、选项和后果是故事设计；独立试玩进度不保存到项目。",
+		""
+	];
+	for (const issue of storyCharacterIssues(store)) out.push("- 待修复：" + issue);
+	for (const c of store.characters || []) out.push(`### 人物：${c.name} [${c.id}]`, c.description, `- 身份：${c.role}；阵营：${c.faction}`, `- 背景：${c.background}`, `- 动机：${c.motivation}`, `- 性格：${c.personality}`, `- 说话风格：${c.speech}`, `- 肖像引用：${c.portrait ? JSON.stringify(c.portrait) : "未指定"}`);
+	for (const r of store.relationships || []) out.push(`- 人物关系：${store.characters?.find((c) => c.id === r.fromId)?.name || r.fromId} ${r.directed ? "→" : "↔"} ${store.characters?.find((c) => c.id === r.toId)?.name || r.toId}；${r.label}；${r.description}；隐情：${r.secret}`);
+	for (const original of store.stories) {
+		const s = resolveStoryActors(store, original);
+		const title = (id) => s.nodes.find((n) => n.id === id)?.title || "失效片段：" + id;
+		out.push("### " + s.title + (s.archived ? "（已归档）" : ""), s.summary, "- 入口：" + title(s.entryId), "- 关联任务：" + s.taskIds.join("、"));
+		for (const actor of s.actors) out.push(`- ${actor.kind === "voice" ? "叙事发言者（" + (actor.voiceType || "自定义") + "）" : "出场人物"}：${actor.name} [${actor.id}]；${actor.description}${actor.characterId ? "；人物库：" + actor.characterId : ""}`);
+		for (const v of s.variables) out.push(`- 状态：${v.name} [${v.id}]；${v.category}；初值 ${storyValueText(v, v.initial)}；范围 ${v.minimum ?? "不限"} 至 ${v.maximum ?? "不限"}${v.characterId ? "；关联人物：" + v.characterId : ""}`);
+		const orphanedSceneIds = [...new Set(s.nodes.filter((n) => !s.scenes.some((scene) => scene.id === n.sceneId)).map((n) => n.sceneId))];
+		const scenes = [...s.scenes, ...orphanedSceneIds.map((id) => ({
+			id,
+			title: "失效场景：" + id,
+			chapter: "待修复",
+			description: "以下片段保留完整正文，请重新指定所属场景。"
+		}))];
+		for (const scene of scenes) {
+			out.push("", "#### " + scene.chapter + " / " + scene.title, scene.description);
+			for (const n of s.nodes.filter((n) => n.sceneId === scene.id)) {
+				out.push("", `##### ${n.title} [${n.id}]`, `${nodeKindNames[n.kind]} · ${s.actors.find((a) => a.id === n.speakerId)?.name || "旁白"}`, n.text);
+				if (n.outcome || n.kind === "ending") out.push("- 叙事结果：" + n.outcome);
+				if (n.taskStatus !== "unchanged" || n.taskIds.length || n.kind === "ending") out.push("- 任务状态：" + n.taskStatus + "；目标：" + n.taskIds.join("、"));
+				for (const c of s.choices.filter((c) => c.fromId === n.id)) out.push(`- ${c.passive ? "自动插话" : "选项"}：${c.label} → ${c.checkId ? "检定：" + c.checkId : title(c.toId)}；${predicateText(c.condition, s)}；后果：${effectsText(c.effects, s)}；时间 ${c.cost}；${c.once ? "仅首次提交后果" : "每次提交后果"}`);
+			}
+		}
+		for (const c of s.checks) out.push(`- 检定 ${c.name} [${c.id}]：${c.variableId}；规则：${c.mode === "threshold" ? "数值＋条件修正" : `${c.diceCount ?? 2}d${c.diceSides ?? 6}＋数值＋条件修正；极值成败${c.criticals ?? true ? "开启" : "关闭"}`}；难度 ${c.difficulty}；重试 ${c.retry}；来源 ${c.retryVariableIds.join("、")}；成功→${title(c.successId)}：${effectsText(c.successEffects, s)}；失败→${title(c.failureId)}：${effectsText(c.failureEffects, s)}`, ...c.modifiers.map((m) => `  - 修正 ${m.value}：${predicateText(m.condition, s)}`), c.notes);
+		if (s.clockId) out.push(`- 时钟：${s.clockId}；上限：${s.timeLimit || "无"}`);
+		for (const i of s.interrupts) out.push(`- 中断：${i.name}；${predicateText(i.condition, s)} → ${title(i.nodeId)}`);
+		for (const issue of narrativeIssues(s)) out.push("- 待完善：" + issue.message);
+	}
+	return out.join("\n");
+}
+
+//#endregion
+//#region src/story-check.ts
+function narrativeCheckScore(check, state) {
+	const score = state[check.variableId] + check.modifiers.filter((m) => predicateMet(m.condition, state)).reduce((n, m) => n + m.value, 0);
+	if (!Number.isFinite(score)) throw new Error("检定引用了失效变量");
+	return score;
+}
+const distributions = /* @__PURE__ */ new Map();
+function diceChance(skill, difficulty, count, sides, criticals) {
+	if (!Number.isFinite(skill) || !Number.isFinite(difficulty) || !Number.isInteger(count) || count < 1 || count > 10 || !Number.isInteger(sides) || sides < 2 || sides > 100 || ![0, 1].includes(criticals)) throw new Error("骰子规则无效：1～10 颗、2～100 面，极值规则为 0 或 1");
+	const key = count + ":" + sides;
+	let dist = distributions.get(key);
+	if (!dist) {
+		dist = [1];
+		for (let n = 0; n < count; n++) {
+			const next = Array((n + 1) * sides + 1).fill(0);
+			for (let sum = 0; sum < dist.length; sum++) for (let face = 1; face <= sides; face++) next[sum + face] += dist[sum] / sides;
+			dist = next;
+		}
+		if (distributions.size >= 64) distributions.delete(distributions.keys().next().value);
+		distributions.set(key, dist);
+	}
+	let chance = dist.reduce((p, mass, sum) => p + (skill + sum >= difficulty ? mass : 0), 0);
+	if (criticals) {
+		const extreme = sides ** -count;
+		if (skill + count >= difficulty) chance -= extreme;
+		if (skill + count * sides < difficulty) chance += extreme;
+	}
+	return Math.max(0, Math.min(1, chance));
+}
+function narrativeCheckChance(check, state) {
+	const score = narrativeCheckScore(check, state);
+	return check.mode === "threshold" ? +(score >= check.difficulty) : diceChance(score, check.difficulty, check.diceCount ?? 2, check.diceSides ?? 6, +(check.criticals ?? true));
+}
 
 //#endregion
 //#region src/numerical-analysis.ts
@@ -1321,9 +2260,206 @@ function validateNumericalAnalysis(value) {
 	}
 	return value;
 }
+function numericCell(raw, type) {
+	if (typeof raw !== "string" || !/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?%?$/.test(raw.trim())) throw new Error("不是有效数字：" + String(raw ?? "缺失"));
+	const percent = raw.trim().endsWith("%");
+	if (percent && type !== "percent") throw new Error("百分比字段需选择百分比类型");
+	const n = Number(percent ? raw.trim().slice(0, -1) : raw.trim()) / (percent ? 100 : 1);
+	if (!Number.isFinite(n)) throw new Error("数值超出范围");
+	return n;
+}
+function parameterInput(p, sources, batchId, batchTable = "") {
+	const b = p.binding;
+	if (b.kind === "constant") return {
+		value: p.value,
+		origin: "试算常量"
+	};
+	if (b.kind === "variable") {
+		if (!sources.narrative.enabled) throw new Error("故事编排未启用");
+		const story = sources.narrative.stories.find((s) => s.id === b.storyId), v = story?.variables.find((v) => v.id === b.variableId);
+		if (!v) throw new Error("故事状态已失效：" + b.variableId);
+		return {
+			value: v.initial,
+			origin: story.title + " / " + v.name
+		};
+	}
+	const rowId = b.rowId === "$row" ? batchId : b.rowId.startsWith("$row.") ? sources.data.datasets[batchTable]?.find((r) => r.id === batchId)?.[b.rowId.slice(5)] : b.rowId, rows = sources.data.datasets[b.table];
+	if (!sources.data.columns[b.table]?.some((c) => c.key === b.field)) throw new Error("字段已失效：" + b.table + "." + b.field);
+	const matches = rows?.filter((r) => r.id === rowId);
+	if (!matches?.length) throw new Error("记录已失效：" + b.table + "/" + rowId);
+	if (matches.length !== 1) throw new Error("记录 ID 重复：" + rowId);
+	const row = matches[0];
+	if (b.field === "value" && row.unit?.trim() && p.unit.trim() && row.unit.trim() !== p.unit.trim()) throw new Error("单位不匹配：来源为 " + row.unit + "，参数为 " + p.unit);
+	return {
+		value: numericCell(row[b.field], p.type),
+		origin: b.table + " / " + rowId + " / " + b.field
+	};
+}
+function validParameter(p, value, sources) {
+	if (!Number.isFinite(value) || p.type === "integer" && !Number.isInteger(value) || p.minimum !== null && value < p.minimum || p.maximum !== null && value > p.maximum) throw new Error("不满足参数类型或有效范围");
+	if (p.binding.kind === "variable") {
+		const b = p.binding, v = sources.narrative.stories.find((s) => s.id === b.storyId)?.variables.find((v) => v.id === b.variableId);
+		if (v && (isStoryFlag(v) && ![0, 1].includes(value) || v.minimum !== null && value < v.minimum || v.maximum !== null && value > v.maximum)) throw new Error("超出故事状态范围");
+	}
+}
+function runAnalysis(plan, sources, variantId = "") {
+	const errors = [], rows = [], variant = plan.variants.find((v) => v.id === variantId);
+	if (variantId && !variant) errors.push("试算方案已失效");
+	for (const key of Object.keys(variant?.overrides ?? {})) if (!plan.parameters.some((p) => p.id === key)) errors.push("试算参数已失效：" + key);
+	let cases = [{
+		id: "",
+		label: "当前值"
+	}];
+	let sweep = [0];
+	if (plan.batch) {
+		const records = sources.data.datasets[plan.batch.table];
+		if (!records) errors.push("批量来源表已失效");
+		cases = (plan.batch.rowIds.length ? plan.batch.rowIds : (records ?? []).map((r) => r.id)).map((id) => ({
+			id,
+			label: records?.find((r) => r.id === id)?.name || id
+		}));
+		if (!cases.length) errors.push("批量来源没有记录");
+		if (cases.length > 100) errors.push("一次最多比较 100 条记录，请选择记录范围");
+		if (new Set(cases.map((c) => c.id)).size !== cases.length) errors.push("批量来源存在重复 ID");
+	}
+	if (plan.sweep) {
+		const s = plan.sweep;
+		if (!plan.parameters.some((p) => p.id === s.parameterId)) errors.push("曲线参数已失效");
+		if (s.step <= 0 || s.end < s.start || !Number.isFinite((s.end - s.start) / s.step) || (s.end - s.start) / s.step > 100) errors.push("曲线范围无效：步长须大于 0，最多 101 个采样点");
+		else sweep = Array.from({ length: Math.floor((s.end - s.start) / s.step + 1e-9) + 1 }, (_, i) => Number((s.start + i * s.step).toPrecision(12)));
+	}
+	if (cases.length * sweep.length > 1e3) errors.push("一次最多计算 1000 组结果，请缩小范围");
+	const parsed = /* @__PURE__ */ new Map();
+	for (const m of plan.metrics) try {
+		parsed.set(m.id, parseExpression(m.formula));
+	} catch (e) {
+		errors.push(m.name + "：" + e.message);
+	}
+	if (!plan.metrics.length) errors.push("请添加至少一个计算指标");
+	const story = plan.check ? sources.narrative.stories.find((s) => s.id === plan.check.storyId) : void 0;
+	const check = story?.checks.find((c) => c.id === plan.check?.checkId);
+	if (plan.check && (!sources.narrative.enabled || !check)) errors.push("关联故事检定已失效或模块未启用");
+	const checkVariables = new Set(check ? [check.variableId, ...check.modifiers.flatMap((m) => m.condition.groups.flatMap((g) => g.map((c) => c.variableId)))] : []);
+	if (story) {
+		for (const id of checkVariables) if (!story.variables.some((v) => v.id === id)) errors.push("检定状态引用已失效：" + id);
+	}
+	if (!errors.length) for (const c of cases) for (const x of sweep) {
+		const r = {
+			key: JSON.stringify([c.id, plan.sweep ? x : null]),
+			label: plan.sweep ? (plan.batch ? c.label + " · " : "") + x : c.label,
+			x: plan.sweep ? x : rows.length,
+			inputs: {},
+			origins: {},
+			values: {},
+			errors: [],
+			outside: []
+		};
+		for (const p of plan.parameters) try {
+			const source = parameterInput(p, sources, c.id, plan.batch?.table);
+			let value = source.value, origin = source.origin;
+			if (variant && Object.prototype.hasOwnProperty.call(variant.overrides, p.id)) {
+				value = variant.overrides[p.id];
+				origin += " → 试算覆盖";
+			}
+			if (plan.sweep?.parameterId === p.id) {
+				value = x;
+				origin += " → 曲线采样";
+			}
+			validParameter(p, value, sources);
+			r.inputs[p.id] = value;
+			r.origins[p.id] = origin;
+		} catch (e) {
+			r.errors.push(p.name + "：" + e.message);
+		}
+		const visiting = /* @__PURE__ */ new Set();
+		const resolve = (name) => {
+			if (Object.prototype.hasOwnProperty.call(r.inputs, name)) return r.inputs[name];
+			if (Object.prototype.hasOwnProperty.call(r.values, name)) return r.values[name];
+			const ast = parsed.get(name);
+			if (!ast) throw new Error("未知参数或指标：" + name);
+			if (visiting.has(name)) throw new Error("指标循环依赖：" + [...visiting, name].join(" → "));
+			visiting.add(name);
+			try {
+				const result = evaluateExpression(ast, resolve, (fn, args) => {
+					if (fn === "diceChance") return diceChance(args[0], args[1], args[2], args[3], args[4]);
+					if (!story || !check) throw new Error("请关联故事检定");
+					const state = Object.fromEntries(story.variables.map((v) => [v.id, v.initial]));
+					const assigned = /* @__PURE__ */ new Set();
+					for (const p of plan.parameters) if (p.binding.kind === "variable" && p.binding.storyId === story.id) {
+						if (assigned.has(p.binding.variableId) && state[p.binding.variableId] !== r.inputs[p.id]) throw new Error("同一故事状态有不同试算值：" + p.binding.variableId);
+						state[p.binding.variableId] = r.inputs[p.id];
+						assigned.add(p.binding.variableId);
+					}
+					return narrativeCheckChance(check, state);
+				});
+				r.values[name] = result;
+				return result;
+			} finally {
+				visiting.delete(name);
+			}
+		};
+		if (!r.errors.length) for (const m of plan.metrics) try {
+			const value = resolve(m.id);
+			if (m.minimum !== null && value < m.minimum || m.maximum !== null && value > m.maximum) r.outside.push(m.id);
+		} catch (e) {
+			r.errors.push(m.name + "：" + e.message);
+		}
+		rows.push(r);
+	}
+	return {
+		rows,
+		signature: JSON.stringify({
+			parameters: plan.parameters,
+			metrics: plan.metrics,
+			batch: plan.batch,
+			sweep: plan.sweep,
+			check,
+			storyVariables: story?.variables.filter((v) => checkVariables.has(v.id)),
+			variants: variant?.overrides,
+			rows: rows.map((r) => ({
+				key: r.key,
+				inputs: r.inputs,
+				errors: r.errors
+			})),
+			errors
+		}),
+		errors
+	};
+}
+function numericalAnalysisMarkdown(store, sources) {
+	const lines = ["## 数值分析", ""];
+	for (const p of store.plans) {
+		lines.push("### " + p.name, "", p.notes, "", "- 关联玩法：" + (p.gameplayId || "无"));
+		for (const v of p.parameters) lines.push("- 参数 " + v.id + "（" + v.name + "）：" + JSON.stringify(v.binding) + "；单位 " + v.unit + "；范围 " + v.minimum + "～" + v.maximum);
+		for (const m of p.metrics) lines.push("- " + m.name + "：`" + m.formula + "`；单位 " + m.unit + "；目标 " + m.minimum + "～" + m.maximum);
+		for (const v of [{
+			id: "",
+			name: "当前配置"
+		}, ...p.variants]) {
+			const result = runAnalysis(p, sources, v.id);
+			lines.push("", "#### " + v.name, ...result.errors.map((e) => "- 错误：" + e), ...result.rows.slice(0, 100).map((r) => "- " + r.label + "：" + JSON.stringify(r.values) + (r.errors.length ? "；错误 " + r.errors.join("；") : "") + (r.outside.length ? "；超出目标 " + r.outside.join("、") : "")));
+			if (result.rows.length > 100) lines.push("- 其余结果请从分析界面导出 CSV。");
+		}
+		for (const s of p.snapshots) lines.push("- 已保存结果：" + s.name + "，" + s.createdAt + "，" + (runAnalysis(p, sources, s.variantId).signature === s.signature ? "与当前输入一致" : "输入或规则已变化"));
+		lines.push("");
+	}
+	if (!store.plans.length) lines.push("暂无分析方案。");
+	return lines.join("\n");
+}
 
 //#endregion
 //#region src/spatial-layout.ts
+const spatialViews = {
+	grid: "网格布局",
+	free: "自由二维",
+	rooms: "房间连接"
+};
+const spatialLayout = (s) => s.spatial ?? {
+	version: 1,
+	view: "grid",
+	rooms: [],
+	connections: []
+};
 const finite = (n, min = -1e6, max = 1e6) => typeof n === "number" && Number.isFinite(n) && n >= min && n <= max;
 const record$5 = (x) => !!x && typeof x === "object" && !Array.isArray(x);
 function validateSpatial(s) {
@@ -1365,6 +2501,30 @@ function validateSpatial(s) {
 		"ruleId"
 	]) && ["one", "both"].includes(c.direction), 500)) fail();
 }
+function objectGeometry(o, s) {
+	if (o.geometry) return o.geometry;
+	return {
+		x: (o.anchor === "left" ? -1 : o.anchor === "right" ? s.columns : o.column - 1) * s.cellSize,
+		y: (o.row - 1) * s.cellSize,
+		width: (o.anchor === "cell" ? o.width : 1) * s.cellSize,
+		height: (o.anchor === "cell" ? o.height : 1) * s.cellSize,
+		rotation: {
+			right: 0,
+			down: 90,
+			left: 180,
+			up: -90
+		}[o.direction],
+		shape: "rect",
+		range: o.range * s.cellSize,
+		innerRange: 0,
+		arc: 90
+	};
+}
+function spatialObjectLocation(o, s) {
+	const room = spatialLayout(s).rooms.find((r) => r.id === o.roomId);
+	const g = objectGeometry(o, s);
+	return (room ? room.name + " / " : "") + (o.geometry ? `(${g.x}, ${g.y}) ${s.unit}` : o.anchor === "cell" ? `R${o.row} C${o.column}` : `第 ${o.row} 行${o.anchor === "left" ? "左" : "右"}侧边界外`);
+}
 function createSpatialRoom(index) {
 	return {
 		id: crypto.randomUUID(),
@@ -1375,6 +2535,42 @@ function createSpatialRoom(index) {
 		sourceDesignId: "",
 		notes: ""
 	};
+}
+function roomSource(room, design, designs) {
+	return room.sourceDesignId ? designs.find((d) => d.id === room.sourceDesignId) : design;
+}
+function roomObjects(room, design, designs) {
+	const source = roomSource(room, design, designs);
+	return source ? source.space.objects.filter((o) => room.sourceDesignId ? !o.roomId : o.roomId === room.id) : [];
+}
+function spatialIssues(d, designs) {
+	const s = d.space, a = spatialLayout(s), issues = [];
+	for (const o of s.objects) {
+		const room = a.rooms.find((r) => r.id === o.roomId);
+		if (o.roomId && !room) issues.push("对象所属房间已失效：" + o.name);
+		if (room?.sourceDesignId) issues.push("引用房间不能包含本地对象：" + o.name);
+	}
+	for (const r of a.rooms) {
+		if (!r.name.trim()) issues.push("有房间尚未命名");
+		if (r.sourceDesignId === d.id) issues.push("房间不能引用自身玩法：" + r.name);
+		const source = roomSource(r, d, designs);
+		if (!source) issues.push("房间来源玩法已失效：" + r.name);
+		else if (source.archived && source.id !== d.id) issues.push("房间来源玩法已归档：" + r.name);
+	}
+	for (const c of a.connections) {
+		const from = a.rooms.find((r) => r.id === c.from), to = a.rooms.find((r) => r.id === c.to);
+		if (!from || !to) issues.push("房间连接端点已失效：" + (c.name || "未命名"));
+		if (c.fromObjectId && from && !roomObjects(from, d, designs).some((o) => o.id === c.fromObjectId)) issues.push("连接出口已失效：" + c.name);
+		if (c.toObjectId && to && !roomObjects(to, d, designs).some((o) => o.id === c.toObjectId)) issues.push("连接入口已失效：" + c.name);
+		if (c.ruleId && !d.conditionRules.some((r) => r.id === c.ruleId)) issues.push("连接条件规则已失效：" + c.name);
+	}
+	return issues;
+}
+function spatialMarkdown(s) {
+	const a = spatialLayout(s), lines = [`空间视图：${spatialViews[a.view]}`];
+	for (const r of a.rooms) lines.push(`- 房间：${r.name} [${r.id}]；内部视图：${spatialViews[r.view]}；来源：${r.sourceDesignId || "本地房间"}；${r.notes}`);
+	for (const c of a.connections) lines.push(`- 连接：${a.rooms.find((r) => r.id === c.from)?.name || c.from} ${c.direction === "both" ? "↔" : "→"} ${a.rooms.find((r) => r.id === c.to)?.name || c.to}；${c.name}；出口：${c.fromObjectId || "未指定"}；入口：${c.toObjectId || "未指定"}；条件：${c.condition || "无"}；规则：${c.ruleId || "无"}`);
+	return lines;
 }
 
 //#endregion
@@ -1580,6 +2776,91 @@ function validateMapDesign(value) {
 	}
 	return value;
 }
+function mapSource(m, designs) {
+	const owner = designs.find((d) => d.id === m.sourceDesignId), room = owner && spatialLayout(owner.space).rooms.find((r) => r.id === m.roomId);
+	const source = owner && (m.roomId ? room ? roomSource(room, owner, designs) : void 0 : owner);
+	return {
+		owner,
+		room,
+		source,
+		objects: source ? room && owner ? roomObjects(room, owner, designs) : source.space.objects.filter((o) => !o.roomId) : []
+	};
+}
+function mapObjectStage(o) {
+	return {
+		id: o.id,
+		name: o.name,
+		kind: o.kind === "portal" ? "spawn" : o.kind === "obstacle" || o.kind === "terrain" || o.kind === "building" ? "obstacle" : o.kind === "npc" || o.kind === "enemy" ? "actor" : o.kind === "task" ? "goal" : "note",
+		color: o.color,
+		anchor: "cell",
+		row: 1,
+		column: 1,
+		width: 1,
+		height: 1,
+		direction: "right",
+		rangeShape: "none",
+		range: 0,
+		notes: o.notes,
+		geometry: {
+			x: o.x,
+			y: o.y,
+			width: o.width,
+			height: o.height,
+			rotation: 0,
+			shape: "rect",
+			range: 0,
+			innerRange: 0,
+			arc: 90
+		}
+	};
+}
+function mapStage(m, designs, visibleOnly = false) {
+	const { source, objects } = mapSource(m, designs);
+	const inherited = !visibleOnly || m.sourceVisible ? objects.map((o) => ({
+		...o,
+		roomId: "",
+		geometry: objectGeometry(o, source.space)
+	})) : [];
+	const local = m.layers.flatMap((l) => !visibleOnly || l.visible ? m.objects.filter((o) => o.layerId === l.id).map(mapObjectStage) : []);
+	return {
+		rows: source?.space.rows ?? m.rows,
+		columns: source?.space.columns ?? m.columns,
+		cellSize: source?.space.cellSize ?? m.cellSize,
+		unit: source?.space.unit ?? m.unit,
+		description: m.description,
+		objects: [...inherited, ...local]
+	};
+}
+function mapMarkdown(store, designs) {
+	if (!store.enabled) return "";
+	const lines = ["## 地图设计", ""];
+	if (store.world) lines.push(`世界总览类型：${store.world.perspective === "side" ? "横版高度空间（纵轴向下）" : "俯视平面（纵轴向南）"}；世界单位：${store.world.unit}；吸附：${store.world.snap}`);
+	for (const m of store.maps) if (m.placement) {
+		const space = mapStage(m, designs);
+		lines.push(`- ${m.name} 世界原点：(${m.placement.x}, ${m.placement.y})；世界尺寸：${space.columns * space.cellSize * m.placement.scale} × ${space.rows * space.cellSize * m.placement.scale}；每个局部单位 = ${m.placement.scale} 世界单位`);
+	}
+	if (store.world?.actor) lines.push(`通行角色：宽 ${store.world.actor.width}，高 ${store.world.actor.height}；跳高 ${store.world.actor.jumpRise}，跳远 ${store.world.actor.jumpGap}，安全落差 ${store.world.actor.maxDrop}`);
+	for (const m of store.maps) {
+		for (const o of m.openings ?? []) lines.push(`- ${m.name} / ${o.name}：物理开口 ${o.side}，边缘位置 ${o.offset}，宽 ${o.width}`);
+		for (const v of m.surfaces ?? []) lines.push(`- ${m.name} 对象 ${v.objectId} 的通行属性：${v.kind}`);
+	}
+	for (const c of store.connections) {
+		lines.push(`- ${c.name}：物理开口 ${c.fromOpeningId || "待完善"} → ${c.toOpeningId || "待完善"}；连接结构 ${c.structure || "open"}`);
+		if (c.direction === "both") lines.push(`  返程：${c.reverseFromObjectId ?? c.toObjectId} → ${c.reverseToObjectId ?? c.fromObjectId}；条件 ${c.reverseCondition ?? c.condition}`);
+	}
+	for (const c of store.connections) if (c.travel) lines.push(`- ${c.name} 出入口侧面：${c.fromSide || "auto"} → ${c.toSide || "auto"}；正向移动：${c.travel.forward}；反向移动：${c.travel.reverse}；上升 / 水平跨度 / 下落限制：${c.travel.maxRise} / ${c.travel.maxGap} / ${c.travel.maxDrop}`);
+	for (const m of store.maps) {
+		lines.push("### " + m.name, `区域：${m.region}；视角：${m.perspective === "side" ? "横版" : "俯视"}；来源玩法：${m.sourceDesignId || "独立地图"}；来源房间：${m.roomId || "无"}`, m.description);
+		for (const l of m.layers) lines.push(`- 图层：${l.name}；${l.visible ? "显示" : "隐藏"}；${l.locked ? "锁定" : "可编辑"}`);
+		for (const o of mapStage(m, designs).objects) {
+			const g = objectGeometry(o, mapStage(m, designs));
+			lines.push(`- ${o.name} [${o.id}]：(${g.x}, ${g.y})，${g.width} × ${g.height}；${o.notes}`);
+		}
+		for (const o of m.objects) for (const r of o.references) lines.push(`- ${o.name} 关联 ${r.kind}：${r.targetId}`);
+	}
+	for (const c of store.connections) lines.push(`- ${store.maps.find((m) => m.id === c.from)?.name || c.from} ${c.direction === "both" ? "↔" : "→"} ${store.maps.find((m) => m.id === c.to)?.name || c.to}：${c.name}；出入口 ${c.fromObjectId} → ${c.toObjectId}；通行条件：${c.condition || "无"}`);
+	return lines.join("\n");
+}
 
 //#endregion
 //#region src/prototype-design.ts
@@ -1677,6 +2958,25 @@ function validatePrototypeDesign(value) {
 	}
 	return value;
 }
+function prototypeMarkdown(store) {
+	return [
+		"## 原型设计",
+		"",
+		"启动场景：" + (store.scenes.find((s) => s.id === store.entryId)?.name || "未指定"),
+		"点击预览用于验证界面与场景流转；条件由预览者确认。",
+		...store.scenes.flatMap((s) => [
+			"",
+			"### " + s.name,
+			s.description,
+			`画面：${s.width} × ${s.height}；空间来源：${s.sourceDesignId || "独立界面"}；房间：${s.roomId || "无"}；玩法核心：${s.coreNodeId || "未关联"}`,
+			...s.elements.map((e) => `- ${e.name}：${e.text}；${prototypeKinds[e.kind]}；${prototypeActions[e.action.kind]} → ${e.action.targetId || "无"}；条件：${e.action.condition || "无"}；位置：${e.x}, ${e.y}；空间对象：${e.sourceObjectId || "无"}；素材文件：${[
+				e.assetId,
+				e.versionId,
+				e.fileId
+			].filter(Boolean).join("/") || "无"}`)
+		])
+	].join("\n");
+}
 
 //#endregion
 //#region src/task-flow.ts
@@ -1701,6 +3001,13 @@ const referenceKinds = [
 	"asset",
 	"table"
 ];
+const referenceLabels = {
+	gameplay: "玩法",
+	capability: "程序功能",
+	story: "故事",
+	asset: "素材资产",
+	table: "配置表"
+};
 const emptyTaskFlows = () => ({
 	schema: 1,
 	tasks: []
@@ -1788,6 +3095,108 @@ function validateTaskFlows(value) {
 		}
 	}
 	return value;
+}
+function taskReferenceLabel(ref, sources) {
+	if (ref.kind === "table") {
+		const table = sources.definitions.find((d) => d.key === ref.targetId), rows = sources.data.datasets[ref.targetId];
+		const row = Array.isArray(rows) ? rows.find((r) => r.id === ref.recordId) : void 0;
+		return {
+			label: (table?.label ?? "配置表已失效") + (ref.recordId ? " / " + (row?.name || row?.title || row?.id || "记录已失效：" + ref.recordId) : ""),
+			available: !!table && (!ref.recordId || !!row)
+		};
+	}
+	const item = (ref.kind === "gameplay" ? sources.designs : ref.kind === "capability" ? sources.capabilities : ref.kind === "story" ? sources.stories : sources.assets).find((i) => i.id === ref.targetId);
+	return {
+		label: item ? (item.title || item.name || "未命名内容") + (item.archived ? "（已归档）" : "") : "引用已失效：" + ref.targetId,
+		available: !!item && !item.archived
+	};
+}
+function taskFlowIssues(store, sources) {
+	const issues = [], byId = new Map(store.tasks.map((t) => [t.id, t]));
+	const unlockable = /* @__PURE__ */ new Set();
+	let changed = true;
+	while (changed) {
+		changed = false;
+		for (const task of store.tasks.filter((t) => !t.archived)) if (!unlockable.has(task.id) && (!task.prerequisiteIds.length || (task.prerequisiteMode === "all" ? task.prerequisiteIds.every((id) => unlockable.has(id)) : task.prerequisiteIds.some((id) => unlockable.has(id))))) {
+			unlockable.add(task.id);
+			changed = true;
+		}
+	}
+	for (const task of store.tasks) {
+		const add = (message, stageId) => issues.push({
+			taskId: task.id,
+			stageId,
+			message
+		});
+		if (!task.title.trim()) add("任务尚未命名");
+		for (const id of task.prerequisiteIds) if (id === task.id) add("不能以前置条件依赖自身");
+		else if (!byId.has(id)) add("前置任务已失效：" + id);
+		else if (byId.get(id).archived) add("前置任务已归档：" + byId.get(id).title);
+		if (!task.archived && task.prerequisiteIds.length && !unlockable.has(task.id)) add("前置关系无法解锁，请检查循环或失效的前置任务");
+		const stages = new Map(task.stages.map((s) => [s.id, s]));
+		if (!stages.has(task.startId)) add("请选择有效的起始阶段");
+		const validEdges = task.transitions.filter((e) => stages.has(e.fromId) && stages.has(e.toId));
+		for (const edge of task.transitions) if (!stages.has(edge.fromId) || !stages.has(edge.toId)) add("分支端点已失效：" + (edge.label || edge.id));
+		const traverse = (seeds, backwards = false) => {
+			const seen = /* @__PURE__ */ new Set(), pending = [...seeds];
+			while (pending.length) {
+				const id = pending.pop();
+				if (seen.has(id)) continue;
+				seen.add(id);
+				pending.push(...validEdges.filter((e) => stages.get(e.fromId)?.kind === "objective" && (backwards ? e.toId === id : e.fromId === id)).map((e) => backwards ? e.fromId : e.toId));
+			}
+			return seen;
+		};
+		const reachable = traverse(stages.has(task.startId) ? [task.startId] : []), canFinish = traverse(task.stages.filter((s) => s.kind !== "objective").map((s) => s.id), true);
+		for (const stage of task.stages) {
+			const name = stage.title || "未命名阶段";
+			if (!stage.title.trim()) add("阶段尚未命名", stage.id);
+			if (!reachable.has(stage.id)) add("起点无法到达：" + name, stage.id);
+			if (stage.kind === "objective") {
+				if (!canFinish.has(stage.id)) add("无法到达完成或失败结果：" + name, stage.id);
+				if (!stage.objectives.length) add("尚未填写阶段目标：" + name, stage.id);
+			} else {
+				if (!stage.result.trim()) add("尚未填写完成结果：" + name, stage.id);
+				if (stage.objectives.length) add("结果阶段不应包含目标：" + name, stage.id);
+				if (task.transitions.some((e) => e.fromId === stage.id)) add("结果阶段不应继续流转：" + name, stage.id);
+			}
+			for (const objective of stage.objectives) if (!objective.title.trim() || !objective.condition.trim()) add("目标名称或达成条件待补充：" + (objective.title || name), stage.id);
+			const exits = task.transitions.filter((e) => e.fromId === stage.id);
+			if (exits.length > 1 && exits.some((e) => !e.condition.trim())) add("多条分支需明确各自条件：" + name, stage.id);
+		}
+		if (sources) for (const ref of task.references) {
+			const resolved = taskReferenceLabel(ref, sources);
+			if (!resolved.available) add(resolved.label);
+		}
+	}
+	return issues;
+}
+function taskFlowsMarkdown(store, sources) {
+	const lines = [
+		"## 任务与流程",
+		"",
+		"> 设计定义；手动预览的计数与路径不作为玩家进度保存。条件和结果由游戏实现解释。",
+		""
+	];
+	for (const task of store.tasks) {
+		const name = (id) => task.stages.find((s) => s.id === id)?.title || "已失效：" + id;
+		lines.push("### " + task.title + (task.archived ? "（已归档）" : ""), "", `- ID：${task.id}；${task.kind}；${task.scope}；${task.status}`, task.summary, "- 开放条件：" + (task.availability || "无额外条件"), "- 前置任务（" + (task.prerequisiteMode === "all" ? "全部" : "任一") + "）：" + (task.prerequisiteIds.map((id) => (store.tasks.find((t) => t.id === id)?.title || "已失效") + " [" + id + "]").join("、") || "无"), "- 起始阶段：" + name(task.startId));
+		for (const stage of task.stages) {
+			lines.push("", "#### " + stage.title + " [" + stage.id + "]", "- 类型：" + {
+				objective: "目标阶段",
+				success: "成功结果",
+				failure: "失败结果"
+			}[stage.kind], stage.description, "- 目标满足方式：" + (stage.mode === "all" ? "全部" : "任一"));
+			for (const o of stage.objectives) lines.push(`- ${o.title}；目标数量：${o.target}；达成条件：${o.condition}`);
+			if (stage.result) lines.push("- 完成结果：" + stage.result);
+		}
+		for (const e of task.transitions) lines.push(`- 分支：${name(e.fromId)} → ${name(e.toId)}；${e.label || "继续"}；条件：${e.condition || "目标达成后"}`);
+		for (const ref of task.references) lines.push("- " + referenceLabels[ref.kind] + "：" + taskReferenceLabel(ref, sources).label + ` [${ref.targetId}${ref.recordId ? "/" + ref.recordId : ""}]`);
+		lines.push("");
+	}
+	const issues = taskFlowIssues(store, sources);
+	if (issues.length) lines.push("### 待完善内容", ...issues.map((i) => "- " + (store.tasks.find((t) => t.id === i.taskId)?.title || i.taskId) + "：" + i.message));
+	return lines.join("\n");
 }
 
 //#endregion
@@ -1918,6 +3327,86 @@ function validateGameplayCore(value) {
 	if (seen.size !== store.graphs.length) return invalid();
 	return store;
 }
+function coreIssues(store, designs) {
+	const issues = [], designsById = new Map(designs.map((d) => [d.id, d]));
+	for (const graph of store.graphs) {
+		const add = (message, nodeId) => issues.push({
+			graphId: graph.id,
+			...nodeId ? { nodeId } : {},
+			message
+		});
+		if (!graph.title.trim()) add("循环图尚未命名");
+		const entries = graph.nodes.filter((n) => n.kind === "entry");
+		if (!entries.length) add("尚未放置入口节点");
+		else if (entries.length > 1) add("存在多个入口，请明确此循环的主入口");
+		const outgoing = /* @__PURE__ */ new Map();
+		for (const edge of graph.edges) outgoing.set(edge.fromId, [...outgoing.get(edge.fromId) || [], edge.toId]);
+		const reached = /* @__PURE__ */ new Set(), pending = entries.map((n) => n.id);
+		while (pending.length) {
+			const id = pending.pop();
+			if (reached.has(id)) continue;
+			reached.add(id);
+			pending.push(...outgoing.get(id) || []);
+		}
+		for (const node of graph.nodes) {
+			const name = node.title.trim() || "未命名节点";
+			if (!node.title.trim()) add("节点尚未命名", node.id);
+			if (entries.length && !reached.has(node.id)) add("从入口无法到达：" + name, node.id);
+			if (node.kind === "module" && !node.childGraphId) add("循环模块尚未建立内部流程：" + name, node.id);
+			for (const id of node.gameplayIds) {
+				const design = designsById.get(id);
+				if (!design) add("关联玩法已失效：" + id, node.id);
+				else if (design.archived) add("关联玩法已归档：" + (design.title || id), node.id);
+			}
+		}
+	}
+	return issues;
+}
+function gameplayCoreMarkdown(store, designs) {
+	validateGameplayCore(store);
+	const lines = [
+		"## 玩法核心",
+		"",
+		"> 从游戏入口逐层展开玩法循环。流程允许回环与持续经营，不要求每个循环有结束节点。",
+		""
+	];
+	const byId = new Map(store.graphs.map((g) => [g.id, g])), designsById = new Map(designs.map((d) => [d.id, d]));
+	const pending = [{
+		id: store.rootId,
+		path: ""
+	}];
+	while (pending.length) {
+		const { id, path } = pending.pop(), graph = byId.get(id), title = graph.title.trim() || "未命名循环";
+		const fullPath = path ? path + " / " + title : title;
+		lines.push("### " + fullPath, "", "- 循环图 ID：" + graph.id, "- 说明：" + (graph.summary.trim() || "待补充"), "", "节点：");
+		if (!graph.nodes.length) lines.push("- 暂无节点。");
+		const nodesById = new Map(graph.nodes.map((n) => [n.id, n]));
+		for (const node of graph.nodes) {
+			lines.push("- " + (node.title.trim() || "未命名节点") + " [" + coreNodeLabels[node.kind] + "；节点 ID：" + node.id + "]");
+			if (node.description.trim()) lines.push("  - 说明：" + node.description);
+			if (node.kind === "module") lines.push("  - 内部循环：" + (node.childGraphId ? (byId.get(node.childGraphId)?.title || "未命名循环") + " [图 ID：" + node.childGraphId + "]" : "尚未建立"));
+			for (const designId of node.gameplayIds) {
+				const design = designsById.get(designId);
+				lines.push("  - 关联玩法：" + (design ? (design.title || "未命名玩法") + (design.archived ? "（已归档）" : "") : "已失效") + " [玩法 ID：" + designId + "]");
+			}
+		}
+		lines.push("", "流程连线：");
+		if (!graph.edges.length) lines.push("- 暂无连线。");
+		for (const edge of graph.edges) lines.push("- " + (nodesById.get(edge.fromId)?.title || "未命名节点") + " → " + (nodesById.get(edge.toId)?.title || "未命名节点") + (edge.label ? "；操作：" + edge.label : "") + (edge.condition ? "；条件：" + edge.condition : "") + " [连线 ID：" + edge.id + "]");
+		lines.push("");
+		for (const node of [...graph.nodes].reverse()) if (node.childGraphId) pending.push({
+			id: node.childGraphId,
+			path: fullPath
+		});
+	}
+	const issues = coreIssues(store, designs);
+	if (issues.length) {
+		lines.push("### 待完善内容", "");
+		for (const issue of issues) lines.push("- " + (byId.get(issue.graphId)?.title || "未命名循环") + "：" + issue.message);
+		lines.push("");
+	}
+	return lines.join("\n");
+}
 
 //#endregion
 //#region src/content-validation.ts
@@ -2027,6 +3516,7 @@ function validateGameplayLibrary(value) {
 	}
 	for (const d of value.designs) if (!record(d) || d.categoryId !== void 0 && typeof d.categoryId !== "string" || d.tags !== void 0 && (!Array.isArray(d.tags) || d.tags.some((t) => typeof t !== "string" || !t.trim()) || new Set(d.tags).size !== d.tags.length)) return fail();
 }
+const categoryName = (design, categories) => categories.find((c) => c.id === design.categoryId)?.name || "未分类";
 
 //#endregion
 //#region src/gameplay-stage.ts
@@ -2157,6 +3647,85 @@ function validateStage(value) {
 	c.finish("空间布局或时间轴存档格式异常，已停止写入");
 	return value;
 }
+function spaceOwner(design, designs) {
+	return !design.timeline.spaceOwnerId || design.timeline.spaceOwnerId === design.id ? design : designs.find((d) => d.id === design.timeline.spaceOwnerId);
+}
+function objectFits(o, s) {
+	return !!o.geometry || o.row + o.height - 1 <= s.rows && (o.anchor === "cell" ? o.column + o.width - 1 <= s.columns : o.width === 1 && o.height === 1);
+}
+const rounded = (n) => Math.round(n * 1e6) / 1e6;
+function eventLastStart(e) {
+	return rounded(e.start + (e.repeat - 1) * e.interval);
+}
+function eventEnd(e) {
+	return rounded(eventLastStart(e) + e.duration);
+}
+function dueOccurrences(e, time) {
+	return time + 1e-7 < e.start ? 0 : e.interval === 0 ? e.repeat : Math.min(e.repeat, Math.floor((time - e.start + 1e-7) / e.interval) + 1);
+}
+function activeOccurrences(e, time) {
+	if (!e.duration) return 0;
+	return dueOccurrences(e, time) - dueOccurrences(e, time - e.duration);
+}
+function timelineStats(t, time = t.duration) {
+	return {
+		occurrences: t.events.reduce((n, e) => n + e.repeat, 0),
+		quantity: t.events.reduce((n, e) => n + e.repeat * e.quantity, 0),
+		due: t.events.reduce((n, e) => n + dueOccurrences(e, time), 0),
+		dueQuantity: t.events.reduce((n, e) => n + dueOccurrences(e, time) * e.quantity, 0),
+		active: t.events.reduce((n, e) => n + activeOccurrences(e, time), 0),
+		last: Math.max(0, ...t.events.map(eventEnd))
+	};
+}
+function stageIssues(design, designs) {
+	const issues = spatialIssues(design, designs);
+	const s = design.space, t = design.timeline, owner = spaceOwner(design, designs);
+	for (const o of s.objects) {
+		if (!o.name.trim()) issues.push("有空间对象尚未命名");
+		if (!objectFits(o, s)) issues.push("对象超出布局边界：" + (o.name || "未命名"));
+	}
+	if (t.spaceOwnerId && !owner) issues.push("空间来源玩法已失效");
+	else if (owner?.archived && owner.id !== design.id) issues.push("空间来源玩法已归档：" + owner.title);
+	if (!t.clock.trim() && t.events.length) issues.push("补充计时基准");
+	for (const track of t.tracks) if (!track.name.trim()) issues.push("有时间轨道尚未命名");
+	for (const e of t.events) {
+		if (!e.name.trim()) issues.push("有时间事件尚未命名");
+		if (!t.tracks.some((x) => x.id === e.trackId)) issues.push("事件轨道已失效：" + (e.name || "未命名"));
+		if (eventEnd(e) > t.duration) issues.push("事件超出计划时长：" + (e.name || "未命名"));
+		if (e.objectId && !owner?.space.objects.some((o) => o.id === e.objectId)) issues.push("事件的空间对象已失效：" + (e.name || "未命名"));
+	}
+	return [...new Set(issues)];
+}
+function stageMarkdown(d, designs) {
+	const s = d.space, t = d.timeline, owner = spaceOwner(d, designs), lines = [
+		"#### 空间布局",
+		"",
+		`${s.rows} 行 × ${s.columns} 列；每格 ${s.cellSize} ${s.unit || "单位"}。行从上到下，列从左到右。`,
+		s.description,
+		...spatialMarkdown(s),
+		""
+	];
+	if (!s.objects.length) lines.push("暂无空间对象。");
+	for (const o of s.objects) {
+		if (o.geometry || o.roomId) {
+			const g = objectGeometry(o, s);
+			lines.push(`- ${o.name}（${stageKinds[o.kind]}）：${spatialObjectLocation(o, s)}；尺寸 ${g.width}×${g.height} ${s.unit}；角度 ${g.rotation}°；形状 ${g.shape}；范围 ${o.rangeShape} ${g.innerRange}–${g.range} ${s.unit}，夹角 ${g.arc}°。${o.notes}`);
+			continue;
+		}
+		lines.push(`- ${o.name || "未命名"}（${stageKinds[o.kind]}）：${o.anchor === "cell" ? `R${o.row} C${o.column}，占 ${o.width}×${o.height} 格` : `第 ${o.row} 行${o.anchor === "left" ? "左" : "右"}侧边界外`}；朝向 ${o.direction}；范围 ${o.rangeShape === "none" ? "无" : (o.rangeShape === "line" ? "直线 " : "圆形半径 ") + o.range + " 格"}。${o.notes}`);
+	}
+	const stats = timelineStats(t);
+	lines.push("", "#### 时间轴", "", `计时基准：${t.clock || "待补充"}；计划时长：${t.duration} 秒。`, `空间来源：${owner?.title || "已失效"}。`, `计划触发 ${stats.occurrences} 次，计划数量 ${stats.quantity}（按事件数量累加）；最后事件结束于 ${stats.last} 秒。`, "> 时间预览只计算计划触发，不执行条件，不模拟战斗或推算存活数量。", "");
+	if (!t.events.length) lines.push("暂无时间事件。");
+	for (const track of t.tracks) {
+		lines.push("", `轨道：${track.name || "未命名"}`);
+		for (const e of t.events.filter((e) => e.trackId === track.id)) lines.push(`- ${e.name || "未命名"}：${e.start} 秒开始，持续 ${e.duration} 秒，每 ${e.interval} 秒重复，共 ${e.repeat} 次，每次 ${e.quantity}；最后触发 ${eventLastStart(e)} 秒；位置 ${e.objectId ? owner?.space.objects.find((o) => o.id === e.objectId)?.name || "关联已失效" : "未指定"}；条件 ${e.condition || "无附加条件"}。${e.notes}`);
+	}
+	for (const e of t.events.filter((e) => !t.tracks.some((x) => x.id === e.trackId))) lines.push(`- 未分配轨道事件：${e.name || "未命名"}（轨道已失效），${e.start} 秒开始，持续 ${e.duration} 秒，共 ${e.repeat} 次，间隔 ${e.interval} 秒，每次 ${e.quantity}。`);
+	const issues = stageIssues(d, designs);
+	if (issues.length) lines.push("", "空间/时间检查：", ...issues.map((i) => "- " + i));
+	return lines.join("\n");
+}
 
 //#endregion
 //#region src/gameplay-structure.ts
@@ -2248,6 +3817,97 @@ function validateStructure(value) {
 	}
 	c.finish("玩法关系、规则或状态存档格式异常，已停止写入");
 	return value;
+}
+function dependencyIssues(design, designs) {
+	const issues = [];
+	const seen = /* @__PURE__ */ new Set();
+	const reaches = (id, goal, kind, visited = /* @__PURE__ */ new Set()) => {
+		if (id === goal) return true;
+		if (visited.has(id)) return false;
+		visited.add(id);
+		return !!designs.find((d) => d.id === id)?.dependencies.some((edge) => edge.kind === kind && reaches(edge.targetId, goal, kind, visited));
+	};
+	for (const link of design.dependencies) {
+		const target = designs.find((d) => d.id === link.targetId);
+		const key = link.kind + ":" + link.targetId;
+		if (seen.has(key)) issues.push("重复关系：" + (target?.title || link.targetId));
+		seen.add(key);
+		if (link.targetId === design.id) issues.push("玩法不能关联自身");
+		else if (!target) issues.push("关联玩法已失效：" + (link.targetId || "尚未选择"));
+		else {
+			if (target.archived) issues.push("关联玩法已归档：" + (target.title || "未命名玩法"));
+			if (link.kind !== "collaborates" && reaches(target.id, design.id, link.kind)) issues.push(dependencyKinds$1[link.kind] + "存在循环：" + (target.title || "未命名玩法"));
+		}
+	}
+	return [...new Set(issues)];
+}
+function ruleIssues(rule) {
+	const issues = [];
+	if (!rule.name.trim()) issues.push("补充规则名称");
+	if (!rule.trigger.trim()) issues.push("补充触发事件");
+	if (rule.mode === "any" && !rule.conditions.length) issues.push("“任一条件”至少需要一个条件");
+	rule.conditions.forEach((c, i) => {
+		if (!c.subject.trim() || !["exists", "missing"].includes(c.operator) && !c.value.trim()) issues.push(`条件 ${i + 1} 尚未填写完整`);
+	});
+	if (!rule.actions.length || rule.actions.some((a) => !a.text.trim())) issues.push("补充条件满足时的动作");
+	if (rule.otherwise.some((a) => !a.text.trim())) issues.push("补充条件不满足时的动作");
+	return issues;
+}
+function stateFlowIssues(flow) {
+	if (!flow.states.length && !flow.transitions.length && !flow.initialStateId) return [];
+	const issues = [], ids = new Set(flow.states.map((s) => s.id)), names = /* @__PURE__ */ new Set();
+	if (!ids.has(flow.initialStateId)) issues.push("请选择有效的起始状态");
+	for (const s of flow.states) {
+		const name = s.name.trim();
+		if (!name) issues.push("有状态尚未命名");
+		else if (names.has(name)) issues.push("状态名称重复：" + name);
+		names.add(name);
+	}
+	for (const [index, t] of flow.transitions.entries()) {
+		if (!ids.has(t.fromId) || !ids.has(t.toId)) issues.push(`转移 ${index + 1} 的起点或终点未选择或已失效`);
+		if (!t.event.trim()) issues.push(`转移 ${index + 1} 尚未填写触发事件`);
+	}
+	if (ids.has(flow.initialStateId)) {
+		const visited = /* @__PURE__ */ new Set([flow.initialStateId]);
+		let changed = true;
+		while (changed) {
+			changed = false;
+			for (const t of flow.transitions) if (visited.has(t.fromId) && ids.has(t.toId) && !visited.has(t.toId)) {
+				visited.add(t.toId);
+				changed = true;
+			}
+		}
+		for (const s of flow.states) if (!visited.has(s.id)) issues.push("从起始状态无法到达：" + (s.name || "未命名状态"));
+	}
+	return [...new Set(issues)];
+}
+const conditionText = (c) => `${c.subject.trim() || "待填对象"} ${conditionOperators[c.operator]}${["exists", "missing"].includes(c.operator) ? "" : " " + (c.value.trim() || "待填值")}`;
+function structureMarkdown(design, designs) {
+	const lines = ["#### 玩法依赖关联", ""];
+	for (const edge of design.dependencies) {
+		const target = designs.find((d) => d.id === edge.targetId);
+		lines.push(`- ${dependencyKinds$1[edge.kind]}：${target?.title || "关联已失效（" + edge.targetId + "）"}${target?.archived ? "（已归档）" : ""}${edge.note ? " — " + edge.note : ""}`);
+	}
+	if (!design.dependencies.length) lines.push("暂无玩法关联。");
+	const incoming = designs.flatMap((d) => d.dependencies.filter((e) => e.targetId === design.id).map((e) => `- ${d.title || "未命名玩法"} → ${dependencyKinds$1[e.kind]} → 当前玩法`));
+	if (incoming.length) lines.push("", "反向引用：", ...incoming);
+	lines.push("", "#### 条件规则", "", "> 以下是设计规则，不执行代码；规则按列表顺序描述，动作按列出顺序执行。", "");
+	if (!design.conditionRules.length) lines.push("暂无结构化条件规则。", "");
+	design.conditionRules.forEach((r, i) => {
+		lines.push(`${i + 1}. ${r.name || "未命名规则"}`, "", `触发：${r.trigger || "待补充"}`, `条件组合：${r.mode === "all" ? "全部满足（AND）" : "任一满足（OR）"}`);
+		lines.push(...r.conditions.length ? r.conditions.map((c) => "- " + conditionText(c)) : [r.mode === "all" ? "- 无附加条件（触发后直接进入满足分支）" : "- 缺少条件，无法判断任一满足"], "", "满足时：");
+		lines.push(...r.actions.length ? r.actions.map((a, n) => `${n + 1}. ${a.text || "待补充"}`) : ["待补充"], "", "不满足时：");
+		lines.push(...r.otherwise.length ? r.otherwise.map((a, n) => `${n + 1}. ${a.text || "待补充"}`) : ["不执行动作"], "");
+		if (ruleIssues(r).length) lines.push("规则检查：" + ruleIssues(r).join("；"), "");
+	});
+	const flow = design.stateFlow, name = (id) => flow.states.find((s) => s.id === id)?.name || "未选择/已失效";
+	lines.push("#### 状态流程", "", `起始状态：${flow.states.length ? name(flow.initialStateId) : "暂无"}`, "", "状态：");
+	for (const state of flow.states) lines.push(`- ${state.name || "未命名状态"}${state.kind === "outcome" ? "（结算状态，允许重开转移）" : ""}：${state.description || "待补充"}`);
+	lines.push("", "转移（优先级数值越小越先判断，同优先级按列表顺序）：");
+	for (const t of flow.transitions) lines.push(`- ${name(t.fromId)} → ${name(t.toId)}｜事件：${t.event || "待补充"}｜条件：${t.condition || "无附加条件"}｜动作：${t.action || "无"}｜优先级：${t.priority}`);
+	const issues = [...dependencyIssues(design, designs), ...stateFlowIssues(flow)];
+	if (issues.length) lines.push("", "关系/流程检查：", ...issues.map((s) => "- " + s));
+	return lines.join("\n") + "\n";
 }
 
 //#endregion
@@ -2370,6 +4030,26 @@ function validateGameplay(value) {
 		...value.categories !== void 0 ? { categories: value.categories } : {}
 	};
 }
+function gameplayLinkName(link, sources) {
+	return link.kind === "story" ? sources.stories.find((s) => s.id === link.targetId)?.title : sources.datasets.find((d) => d.key === link.targetId)?.label;
+}
+function gameplayMarkdown(designs, sources, implementation, categories = []) {
+	const text = (s) => s.trim() || "待补充";
+	const lines = ["## 玩法设计", ""];
+	if (categories.length) lines.push("### 文档分类", "", ...categories.map((c) => "- " + c.name + (c.description ? "：" + c.description : "")), "");
+	if (!designs.length) lines.push("暂无玩法设计。", "");
+	for (const design of designs) {
+		lines.push("### " + text(design.title), "", "- 分类：" + categoryName(design, categories), ...design.tags?.length ? ["- 标签：" + design.tags.join("、")] : [], "- 状态：" + design.status + (design.archived ? "（已归档）" : ""), "- 最后编辑：" + design.updatedAt, "", text(design.summary), "", structureMarkdown(design, designs), "", stageMarkdown(design, designs), "", "#### 体验目标", "", text(design.experience), "", "#### 核心循环", "");
+		lines.push(...design.loop.length ? design.loop.map((s, i) => `${i + 1}. ${text(s.text)}`) : ["待补充"], "", "#### 玩法规则", "", text(design.rules), "", "- 胜利条件：" + text(design.winCondition), "- 失败条件：" + text(design.loseCondition), "", "#### 原型范围", "");
+		lines.push(...design.prototype.length ? design.prototype.map((i) => `- [${i.done ? "x" : " "}] ${text(i.text)}`) : ["待补充"], "", "暂缓内容：", "", text(design.deferred), "", "#### 验证记录", "");
+		if (!design.checks.length) lines.push("尚未记录试玩验证。", "");
+		for (const [i, check] of design.checks.entries()) lines.push(`${i + 1}. ${text(check.question)}（${check.result}）`, "", "试玩步骤：", text(check.steps), "", "预期结果：", text(check.expected), "", "实际结果：", text(check.actual), "");
+		if (implementation) lines.push(implementation(design), "");
+		lines.push("#### 关联内容", "");
+		lines.push(...design.links.length ? design.links.map((link) => `- ${link.kind === "story" ? "故事文档" : "配置表"}：${gameplayLinkName(link, sources) ?? "关联已失效（" + link.targetId + "）"}`) : ["暂无关联"], "");
+	}
+	return lines.join("\n");
+}
 
 //#endregion
 //#region src/functional-systems.ts
@@ -2477,6 +4157,223 @@ function validateFunctionalSystems(value) {
 	].includes(u.sourceKind) && (u.sourceKind !== "design" || u.sourceId === ""))) throw new Error("功能系统存档格式异常，已停止写入");
 	return value;
 }
+const capabilityLabel = (id, store) => {
+	const capability = store.capabilities.find((c) => c.id === id);
+	if (!capability) return "功能已失效（" + (id || "尚未选择") + "）";
+	const system = store.systems.find((s) => s.id === capability.systemId);
+	return (system?.name || "所属系统已失效") + " / " + (capability.name || "未命名功能") + (capability.archived ? "（功能已归档）" : system?.archived ? "（系统已归档）" : "");
+};
+const isArchived = (id, store) => {
+	const capability = store.capabilities.find((c) => c.id === id);
+	return !!(capability?.archived || store.systems.find((s) => s.id === capability?.systemId)?.archived);
+};
+function configParts(ref, sources) {
+	const table = sources.definitions.find((d) => d.key === ref.datasetKey);
+	const rawRows = sources.data.datasets[ref.datasetKey], rawColumns = sources.data.columns[ref.datasetKey];
+	const rows = Array.isArray(rawRows) ? rawRows : void 0, columns = Array.isArray(rawColumns) ? rawColumns : void 0;
+	const row = ref.rowId ? rows?.find((r) => r.id === ref.rowId) : void 0;
+	const column = ref.columnKey ? columns?.find((c) => c.key === ref.columnKey) : void 0;
+	const issues = [];
+	if (!table || !rows || !columns) issues.push("配置表已失效（" + (ref.datasetKey || "尚未选择") + "）");
+	if (rows && ref.rowId && !row) issues.push("配置记录已失效（" + ref.rowId + "）");
+	if (columns && ref.columnKey && !column) issues.push("配置字段已失效（" + ref.columnKey + "）");
+	if (row && column && !Object.prototype.hasOwnProperty.call(row, column.key)) issues.push("配置值缺失（" + ref.rowId + "." + ref.columnKey + "）");
+	return {
+		table,
+		rows,
+		columns,
+		row,
+		column,
+		issues
+	};
+}
+function configReferenceText(ref, sources) {
+	const { table, rows, columns, row, column, issues } = configParts(ref, sources);
+	const path = [
+		table?.label || ref.datasetKey || "未选择配置表",
+		ref.rowId,
+		column?.label || ref.columnKey
+	].filter(Boolean).join(" / ");
+	if (issues.length) return path + "：" + issues.join("；") + (ref.note ? " — " + ref.note : "");
+	const value = row && column ? row[column.key] : row ? columns.map((c) => c.label + "=" + (Object.prototype.hasOwnProperty.call(row, c.key) ? row[c.key] : "值缺失")).join("；") : column ? rows.map((r) => r.id + "=" + (Object.prototype.hasOwnProperty.call(r, column.key) ? r[column.key] : "值缺失")).join("；") : rows.length + " 条记录；字段：" + columns.map((c) => c.label).join("、");
+	return path + "：" + (value || "（空）") + (ref.note ? " — " + ref.note : "");
+}
+function usageParts(usage, sources) {
+	const design = sources.designs.find((d) => d.id === usage.gameplayId);
+	const source = !design || usage.sourceKind === "design" ? void 0 : usage.sourceKind === "rule" ? design.conditionRules.find((r) => r.id === usage.sourceId) : usage.sourceKind === "state" ? design.stateFlow.states.find((s) => s.id === usage.sourceId) : design.timeline.events.find((e) => e.id === usage.sourceId);
+	const kind = {
+		design: "玩法说明",
+		rule: "条件规则",
+		state: "状态",
+		event: "时间事件"
+	}[usage.sourceKind];
+	const issues = [];
+	if (!design) issues.push("玩法已失效（" + (usage.gameplayId || "尚未选择") + "）");
+	else {
+		if (design.archived) issues.push("来源玩法已归档：" + design.title);
+		if (usage.sourceKind !== "design" && !source) issues.push(kind + "来源已失效（" + (usage.sourceId || "尚未选择") + "）");
+	}
+	return {
+		design,
+		source,
+		kind,
+		issues
+	};
+}
+function usageSourceText(usage, sources) {
+	const { design, source, kind } = usageParts(usage, sources);
+	const name = design?.title || "玩法已失效（" + (usage.gameplayId || "尚未选择") + "）";
+	const origin = usage.sourceKind === "design" ? kind : kind + "：" + (source ? source.name || "未命名来源" : "来源已失效（" + (usage.sourceId || "尚未选择") + "）");
+	return name + " / " + origin + (design?.archived ? "（玩法已归档）" : "");
+}
+function functionalIssues(store, sources) {
+	const issues = [];
+	for (const system of store.systems) if (!system.name.trim()) issues.push("有系统尚未命名");
+	for (const capability of store.capabilities) {
+		if (!capability.name.trim()) issues.push("有功能尚未命名");
+		if (!store.systems.some((s) => s.id === capability.systemId)) issues.push("功能所属系统已失效：" + (capability.name || capability.id));
+		const seen = /* @__PURE__ */ new Set();
+		for (const ref of capability.configRefs) {
+			const key = JSON.stringify([
+				ref.datasetKey,
+				ref.rowId,
+				ref.columnKey
+			]);
+			if (seen.has(key)) issues.push("重复配置引用：" + capabilityLabel(capability.id, store) + " / " + configReferenceText(ref, sources));
+			seen.add(key);
+			issues.push(...configParts(ref, sources).issues.map((i) => capabilityLabel(capability.id, store) + "：" + i));
+		}
+	}
+	const dependencies = /* @__PURE__ */ new Set();
+	for (const d of store.dependencies) {
+		const key = JSON.stringify([
+			d.fromId,
+			d.toId,
+			d.kind
+		]);
+		if (dependencies.has(key)) issues.push("重复依赖：" + capabilityLabel(d.fromId, store) + " → " + dependencyKinds[d.kind] + " → " + capabilityLabel(d.toId, store));
+		dependencies.add(key);
+		if (d.fromId === d.toId) issues.push("功能不能依赖自身：" + capabilityLabel(d.fromId, store));
+		for (const id of [d.fromId, d.toId]) if (!store.capabilities.some((c) => c.id === id)) issues.push("依赖功能已失效：" + (id || "尚未选择"));
+		else if (isArchived(id, store)) issues.push("依赖包含已归档功能或系统：" + capabilityLabel(id, store));
+	}
+	const finished = /* @__PURE__ */ new Set(), visiting = /* @__PURE__ */ new Set(), path = [];
+	const visit = (id) => {
+		if (finished.has(id)) return;
+		if (visiting.has(id)) {
+			issues.push("调用依赖存在循环：" + [...path.slice(path.indexOf(id)), id].map((p) => capabilityLabel(p, store)).join(" → "));
+			return;
+		}
+		visiting.add(id);
+		path.push(id);
+		for (const edge of store.dependencies.filter((d) => d.kind === "call" && d.fromId === id && d.toId !== id)) if (store.capabilities.some((c) => c.id === edge.toId)) visit(edge.toId);
+		path.pop();
+		visiting.delete(id);
+		finished.add(id);
+	};
+	store.capabilities.forEach((c) => visit(c.id));
+	const usages = /* @__PURE__ */ new Set();
+	for (const usage of store.usages) {
+		const key = JSON.stringify([
+			usage.gameplayId,
+			usage.capabilityId,
+			usage.sourceKind,
+			usage.sourceId
+		]);
+		if (usages.has(key)) issues.push("重复玩法引用：" + usageSourceText(usage, sources) + " → " + capabilityLabel(usage.capabilityId, store));
+		usages.add(key);
+		if (!store.capabilities.some((c) => c.id === usage.capabilityId)) issues.push("玩法引用的功能已失效：" + usageSourceText(usage, sources) + " → " + (usage.capabilityId || "尚未选择"));
+		else if (isArchived(usage.capabilityId, store)) issues.push("玩法引用了已归档功能或系统：" + capabilityLabel(usage.capabilityId, store));
+		issues.push(...usageParts(usage, sources).issues);
+	}
+	return [...new Set(issues)];
+}
+const text$4 = (value) => value.trim() || "待补充";
+function sourceDetails(usage, sources) {
+	const design = sources.designs.find((d) => d.id === usage.gameplayId);
+	if (!design) return "";
+	if (usage.sourceKind === "design") return design.summary;
+	if (usage.sourceKind === "rule") {
+		const rule = design.conditionRules.find((r) => r.id === usage.sourceId);
+		return rule ? `触发：${text$4(rule.trigger)}；条件：${rule.mode === "all" ? "全部满足" : "任一满足"} ${rule.conditions.map((c) => [
+			c.subject,
+			c.operator,
+			c.value
+		].filter(Boolean).join(" ")).join("；") || (rule.mode === "all" ? "无附加条件" : "缺少条件，无法判断任一满足")}；执行：${rule.actions.map((a) => a.text).join("；") || "待补充"}；否则：${rule.otherwise.map((a) => a.text).join("；") || "无动作"}` : "";
+	}
+	if (usage.sourceKind === "state") return design.stateFlow.states.find((s) => s.id === usage.sourceId)?.description || "";
+	const event = design.timeline.events.find((e) => e.id === usage.sourceId);
+	const track = design.timeline.tracks.find((t) => t.id === event?.trackId);
+	return event ? `轨道：${track?.name || "已失效"}；开始 ${event.start} 秒，持续 ${event.duration} 秒，重复 ${event.repeat} 次，间隔 ${event.interval} 秒；条件：${event.condition || "无附加条件"}；${event.notes}` : "";
+}
+function gameplayFunctionalMarkdown(gameplayId, store, sources) {
+	const usages = store.usages.filter((u) => u.gameplayId === gameplayId);
+	const lines = ["#### 实现功能", ""];
+	if (!usages.length) lines.push("暂无关联功能。");
+	for (const usage of usages) lines.push(`- ${capabilityLabel(usage.capabilityId, store)} [功能 ID：${usage.capabilityId || "未选择"}]；来源：${usageSourceText(usage, sources)}；使用方式：${text$4(usage.note)}`);
+	return lines.join("\n") + "\n";
+}
+function functionalSystemsMarkdown(store, sources, renderReferences) {
+	const lines = [
+		"## 功能系统",
+		"",
+		"> 功能定义按所属系统集中维护。实现状态独立于玩法验证状态；关联配置展示导出时的当前值。",
+		""
+	];
+	if (!store.systems.length && !store.capabilities.length) lines.push("暂无功能系统。", "");
+	const renderCapability = (capability) => {
+		lines.push("#### " + text$4(capability.name), "", "- 功能 ID：" + capability.id, "- 所属系统：" + (store.systems.find((s) => s.id === capability.systemId)?.name || "已失效（" + capability.systemId + "）"), "- 实现状态：" + capability.status + (isArchived(capability.id, store) ? "（已归档，只读）" : ""), "- 最后编辑：" + capability.updatedAt, "");
+		for (const [label, value] of [
+			["用途", capability.purpose],
+			["触发与输入", capability.input],
+			["执行条件", capability.conditions],
+			["处理流程", capability.process],
+			["结果与输出", capability.output],
+			["打断与失败处理", capability.failure],
+			["关键状态", capability.state],
+			["验收标准", capability.acceptance]
+		]) lines.push("##### " + label, "", text$4(value), "");
+		if (renderReferences) lines.push(renderReferences(capability), "");
+		lines.push("##### 当前配置引用", "");
+		if (!capability.configRefs.length) lines.push("暂无配置引用。");
+		for (const ref of capability.configRefs) lines.push("- " + configReferenceText(ref, sources));
+		lines.push("", "##### 依赖谁", "");
+		const outgoing = store.dependencies.filter((d) => d.fromId === capability.id);
+		if (!outgoing.length) lines.push("暂无直接依赖。");
+		for (const edge of outgoing) lines.push(`- ${dependencyKinds[edge.kind]}：${capabilityLabel(edge.toId, store)} [功能 ID：${edge.toId}]；用途：${text$4(edge.note)}`);
+		lines.push("", "##### 谁使用它", "");
+		const incoming = store.dependencies.filter((d) => d.toId === capability.id);
+		if (!incoming.length) lines.push("暂无功能使用者。");
+		for (const edge of incoming) lines.push(`- ${capabilityLabel(edge.fromId, store)} [功能 ID：${edge.fromId}] → ${dependencyKinds[edge.kind]}；用途：${text$4(edge.note)}`);
+		lines.push("", "##### 关联玩法与需求来源", "");
+		const usages = store.usages.filter((u) => u.capabilityId === capability.id);
+		if (!usages.length) lines.push("暂无关联玩法。");
+		for (const usage of usages) {
+			lines.push(`- ${usageSourceText(usage, sources)} [玩法 ID：${usage.gameplayId}]；使用方式：${text$4(usage.note)}`);
+			const detail = sourceDetails(usage, sources);
+			if (detail) lines.push("  需求内容：" + detail);
+		}
+		lines.push("");
+	};
+	for (const system of store.systems) {
+		lines.push("### " + text$4(system.name) + (system.archived ? "（已归档）" : ""), "", "- 系统 ID：" + system.id, "", "职责：" + text$4(system.purpose), "", "边界：" + text$4(system.boundary), "");
+		const capabilities = store.capabilities.filter((c) => c.systemId === system.id);
+		if (!capabilities.length) lines.push("暂无功能。", "");
+		capabilities.forEach(renderCapability);
+	}
+	const orphans = store.capabilities.filter((c) => !store.systems.some((s) => s.id === c.systemId));
+	if (orphans.length) {
+		lines.push("### 所属系统已失效的功能", "");
+		orphans.forEach(renderCapability);
+	}
+	const lostEdges = store.dependencies.filter((d) => !store.capabilities.some((c) => c.id === d.fromId || c.id === d.toId));
+	if (lostEdges.length) lines.push("### 两端功能已失效的依赖", "", ...lostEdges.map((d) => "- " + capabilityLabel(d.fromId, store) + " → " + dependencyKinds[d.kind] + " → " + capabilityLabel(d.toId, store) + "；用途：" + text$4(d.note)), "");
+	const unresolved = store.usages.filter((u) => !store.capabilities.some((c) => c.id === u.capabilityId));
+	if (unresolved.length) lines.push("### 功能已失效的玩法引用", "", ...unresolved.map((u) => "- " + usageSourceText(u, sources) + " → " + capabilityLabel(u.capabilityId, store) + "；" + text$4(u.note)), "");
+	const issues = functionalIssues(store, sources);
+	if (issues.length) lines.push("### 引用与依赖检查", "", ...issues.map((issue) => "- " + issue), "");
+	return lines.join("\n");
+}
 
 //#endregion
 //#region shared/art-knowledge.mjs
@@ -2524,9 +4421,9 @@ const referenceUsages = {
 	reference: "仅供参考",
 	permitted: "已登记使用许可"
 };
-const text$2 = (v, n = 4e3) => typeof v === "string" && v.length <= n;
+const text$3 = (v, n = 4e3) => typeof v === "string" && v.length <= n;
 function validateKnowledgeMetadata(v) {
-	if (!v || !text$2(v.name, 200) || !v.name.trim() || !text$2(v.description) || !text$2(v.source, 2e3) || !text$2(v.creator, 200) || !text$2(v.work, 200) || !text$2(v.usageNotes) || !Object.hasOwn(referenceSourceTypes, v.sourceType) || !Object.hasOwn(referenceUsages, v.usage) || !Array.isArray(v.tags) || v.tags.length > 30 || new Set(v.tags).size !== v.tags.length || v.tags.some((t) => !Object.hasOwn(knowledgeTags, t))) throw new Error("参考资料名称、来源或标签无效");
+	if (!v || !text$3(v.name, 200) || !v.name.trim() || !text$3(v.description) || !text$3(v.source, 2e3) || !text$3(v.creator, 200) || !text$3(v.work, 200) || !text$3(v.usageNotes) || !Object.hasOwn(referenceSourceTypes, v.sourceType) || !Object.hasOwn(referenceUsages, v.usage) || !Array.isArray(v.tags) || v.tags.length > 30 || new Set(v.tags).size !== v.tags.length || v.tags.some((t) => !Object.hasOwn(knowledgeTags, t))) throw new Error("参考资料名称、来源或标签无效");
 	return v;
 }
 function validateReferenceBoards(value) {
@@ -2534,13 +4431,13 @@ function validateReferenceBoards(value) {
 	if (!Array.isArray(value) || value.length > 50) throw new Error("项目参考板格式无效");
 	const ids = /* @__PURE__ */ new Set();
 	for (const b of value) {
-		if (!b || !text$2(b.id, 200) || !b.id || ids.has(b.id) || !text$2(b.name, 200) || !b.name.trim() || !text$2(b.categoryId, 200) || !Array.isArray(b.references) || b.references.length > 100) throw new Error("参考板名称或内容无效");
+		if (!b || !text$3(b.id, 200) || !b.id || ids.has(b.id) || !text$3(b.name, 200) || !b.name.trim() || !text$3(b.categoryId, 200) || !Array.isArray(b.references) || b.references.length > 100) throw new Error("参考板名称或内容无效");
 		ids.add(b.id);
 		const refs = /* @__PURE__ */ new Set();
 		for (const r of b.references) {
 			validateKnowledgeMetadata(r.metadata);
 			const f = r.image;
-			if (!text$2(r.id, 200) || !r.id || refs.has(r.id) || !text$2(r.libraryId, 200) || !text$2(r.referenceId, 200) || !Number.isSafeInteger(r.revision) || r.revision < 1 || !/^[a-f0-9]{64}$/.test(r.hash) || !text$2(r.at, 50) || !Number.isFinite(Date.parse(r.at)) || !text$2(r.use, 200) || !text$2(r.take, 2e3) || !text$2(r.avoid, 2e3) || !["required", "inspiration"].includes(r.strength) || typeof r.active !== "boolean" || typeof r.deliverImage !== "boolean" || !f || !text$2(f.id, 200) || !text$2(f.name, 300) || !/^[a-f0-9-]{36}\.[a-z0-9]{1,12}$/.test(f.storagePath) || !Number.isSafeInteger(f.size) || f.size < 1 || f.size > 20971520 || ![
+			if (!text$3(r.id, 200) || !r.id || refs.has(r.id) || !text$3(r.libraryId, 200) || !text$3(r.referenceId, 200) || !Number.isSafeInteger(r.revision) || r.revision < 1 || !/^[a-f0-9]{64}$/.test(r.hash) || !text$3(r.at, 50) || !Number.isFinite(Date.parse(r.at)) || !text$3(r.use, 200) || !text$3(r.take, 2e3) || !text$3(r.avoid, 2e3) || !["required", "inspiration"].includes(r.strength) || typeof r.active !== "boolean" || typeof r.deliverImage !== "boolean" || !f || !text$3(f.id, 200) || !text$3(f.name, 300) || !/^[a-f0-9-]{36}\.[a-z0-9]{1,12}$/.test(f.storagePath) || !Number.isSafeInteger(f.size) || f.size < 1 || f.size > 20971520 || ![
 				"image/png",
 				"image/jpeg",
 				"image/webp"
@@ -2549,6 +4446,25 @@ function validateReferenceBoards(value) {
 		}
 	}
 	return value;
+}
+function referenceBoardsMarkdown(boards) {
+	validateReferenceBoards(boards);
+	return (boards || []).flatMap((b) => [
+		"### 参考板：" + b.name,
+		"适用范围：" + (b.categoryId || "整体项目"),
+		"参考板是制作参考；是否纳入正式标准，以已确认美术风格为准。",
+		...b.references.filter((r) => r.active).flatMap((r) => [
+			"#### " + r.metadata.name,
+			"- 用途：" + (r.use || "待填写") + " · " + (r.strength === "required" ? "必须遵守" : "仅供启发"),
+			"- 借鉴：" + (r.take || "待填写"),
+			"- 排除：" + (r.avoid || "无"),
+			"- 来源：" + (r.metadata.source || "未登记") + " · " + r.metadata.creator,
+			"- 使用说明：" + referenceUsages[r.metadata.usage] + "；" + r.metadata.usageNotes,
+			"- 资料快照：" + r.libraryId + "/" + r.referenceId + " @" + r.revision,
+			r.deliverImage ? "![参考图片](material-image:" + r.image.storagePath + ")" : "参考图片保存在项目中，未选择随开发文档同步。",
+			""
+		])
+	]).join("\n");
 }
 
 //#endregion
@@ -2608,10 +4524,10 @@ const artStyleFields = {
 	avoid: "应避免的表现"
 };
 const object = (v) => !!v && typeof v === "object" && !Array.isArray(v);
-const text$1 = (v, max = 4e3) => typeof v === "string" && v.length <= max;
+const text$2 = (v, max = 4e3) => typeof v === "string" && v.length <= max;
 const date = (v) => typeof v === "string" && Number.isFinite(Date.parse(v));
 const exact = (v, keys) => object(v) && Object.keys(v).every((k) => keys.includes(k));
-const list = (xs, max, check) => Array.isArray(xs) && xs.length <= max && new Set(xs.map((x) => x?.id)).size === xs.length && xs.every((x) => object(x) && text$1(x.id, 200) && !!x.id.trim() && ![
+const list = (xs, max, check) => Array.isArray(xs) && xs.length <= max && new Set(xs.map((x) => x?.id)).size === xs.length && xs.every((x) => object(x) && text$2(x.id, 200) && !!x.id.trim() && ![
 	"__proto__",
 	"constructor",
 	"prototype"
@@ -2633,22 +4549,22 @@ function validateStyleDefinition(v) {
 		"palette",
 		"references",
 		"categories"
-	]) || Object.keys(artStyleFields).some((k) => !text$1(v[k])) || !list(v.palette, 32, (x) => exact(x, [
+	]) || Object.keys(artStyleFields).some((k) => !text$2(v[k])) || !list(v.palette, 32, (x) => exact(x, [
 		"id",
 		"name",
 		"color",
 		"usage"
-	]) && text$1(x.name, 200) && text$1(x.usage, 1e3) && (x.color === "" || typeof x.color === "string" && /^#[0-9a-f]{6}$/i.test(x.color))) || !list(v.references, 30, (x) => exact(x, [
+	]) && text$2(x.name, 200) && text$2(x.usage, 1e3) && (x.color === "" || typeof x.color === "string" && /^#[0-9a-f]{6}$/i.test(x.color))) || !list(v.references, 30, (x) => exact(x, [
 		"id",
 		"title",
 		"source",
 		"take",
 		"avoid"
-	]) && text$1(x.title, 200) && [
+	]) && text$2(x.title, 200) && [
 		"source",
 		"take",
 		"avoid"
-	].every((k) => text$1(x[k], 2e3))) || !list(v.categories, 100, (x) => exact(x, ["id", "rules"]) && text$1(x.rules, 6e3))) throw new Error("美术风格定义无效，请检查字段、色值和分类补充");
+	].every((k) => text$2(x[k], 2e3))) || !list(v.categories, 100, (x) => exact(x, ["id", "rules"]) && text$2(x.rules, 6e3))) throw new Error("美术风格定义无效，请检查字段、色值和分类补充");
 	return v;
 }
 function validateArtStyle(v) {
@@ -2665,13 +4581,13 @@ function validateArtStyle(v) {
 			"at",
 			"note",
 			"definition"
-		]) || version.revision !== i + 1 || !date(version.at) || !text$1(version.note, 2e3) || !version.note.trim()) throw new Error("美术风格版本记录无效");
+		]) || version.revision !== i + 1 || !date(version.at) || !text$2(version.note, 2e3) || !version.note.trim()) throw new Error("美术风格版本记录无效");
 		validateStyleDefinition(version.definition);
 		if (!version.definition.direction.trim()) throw new Error("已确认的风格必须明确整体方向");
 	}
 }
 function validateStyleItem(item) {
-	if (item.styleException !== void 0 && (!exact(item.styleException, ["requirements", "reason"]) || !text$1(item.styleException.requirements, 3e3) || !text$1(item.styleException.reason, 3e3))) throw new Error("素材风格特殊要求格式无效");
+	if (item.styleException !== void 0 && (!exact(item.styleException, ["requirements", "reason"]) || !text$2(item.styleException.requirements, 3e3) || !text$2(item.styleException.reason, 3e3))) throw new Error("素材风格特殊要求格式无效");
 	if (item.styleReview !== void 0) {
 		const r = item.styleReview;
 		if (!exact(r, [
@@ -2679,10 +4595,43 @@ function validateStyleItem(item) {
 			"categoryId",
 			"at",
 			"exception"
-		]) || !Number.isSafeInteger(r.revision) || r.revision < 1 || !text$1(r.categoryId, 200) || !date(r.at)) throw new Error("素材风格复核记录无效");
+		]) || !Number.isSafeInteger(r.revision) || r.revision < 1 || !text$2(r.categoryId, 200) || !date(r.at)) throw new Error("素材风格复核记录无效");
 		validateStyleItem({ styleException: r.exception });
 		if (!r.exception) throw new Error("风格复核缺少特殊要求快照");
 	}
+}
+const stableStyle = (v) => Array.isArray(v) ? "[" + v.map(stableStyle).join(",") + "]" : object(v) ? "{" + Object.keys(v).sort().map((k) => JSON.stringify(k) + ":" + stableStyle(v[k])).join(",") + "}" : JSON.stringify(v);
+const currentArtStyle = (style) => style?.versions.at(-1);
+const styleDraftChanged = (style) => !!style && stableStyle(style.draft) !== stableStyle(currentArtStyle(style)?.definition || emptyStyleDefinition());
+const styleExceptionOf = (item) => item?.styleException || {
+	requirements: "",
+	reason: ""
+};
+const relevant = (definition, categoryId) => ({
+	...definition,
+	categories: definition.categories.filter((c) => c.id === categoryId)
+});
+function styleReviewState(style, item, categoryId) {
+	const current = currentArtStyle(style);
+	if (!current) return "unconfirmed";
+	const review = item?.styleReview;
+	if (!review) return "pending";
+	const previous = style.versions.find((v) => v.revision === review.revision);
+	return previous && review.categoryId === categoryId && stableStyle(review.exception) === stableStyle(styleExceptionOf(item)) && stableStyle(relevant(previous.definition, categoryId)) === stableStyle(relevant(current.definition, categoryId)) ? "reviewed" : "changed";
+}
+const styleReviewLabels = {
+	unconfirmed: "风格待确定",
+	pending: "待风格复核",
+	changed: "风格已更新 · 待复核",
+	reviewed: "风格已复核"
+};
+function styleDefinitionMarkdown(definition, categories = [], categoryId) {
+	const lines = Object.entries(artStyleFields).map(([k, label]) => `- ${label}：${definition[k] || "待确定"}`);
+	lines.push("", "色板：", ...definition.palette.map((c) => `- ${c.name || "未命名色"} · ${c.color || "色值待确定"}：${c.usage || "用途待确定"}`));
+	if (!definition.palette.length) lines.push("- 待确定");
+	for (const c of definition.categories.filter((c) => categoryId === void 0 || c.id === categoryId)) lines.push("", `分类补充 · ${categories.find((x) => x.id === c.id)?.name || "分类已移除（" + c.id + "）"}：`, c.rules || "无额外要求");
+	if (definition.references.length) lines.push("", "参考与反例：", ...definition.references.map((r) => `- ${r.title || "未命名参考"}；来源：${r.source || "未填写"}\n  采用：${r.take || "待确定"}\n  避免：${r.avoid || "未填写"}`));
+	return lines.join("\n");
 }
 
 //#endregion
@@ -2721,6 +4670,8 @@ function artLibrary(store) {
 		assets
 	};
 }
+const artCategoryId = (library, kind, id) => (kind === "requirement" ? library.requirements : library.assets)[id] || "";
+const artCategoryName = (library, id) => library.categories.find((c) => c.id === id)?.name || "未分类";
 function validateArtLibrary(value, store) {
 	const object = (x) => !!x && typeof x === "object" && !Array.isArray(x);
 	const fail = () => {
@@ -2742,6 +4693,66 @@ function validateArtLibrary(value, store) {
 		const itemIds = new Set(items.map((i) => i.id));
 		for (const [id, category] of Object.entries(mapping)) if (!itemIds.has(id) || typeof category !== "string" || category !== "" && !ids.has(category)) return fail();
 	}
+}
+
+//#endregion
+//#region src/art-style.ts
+function itemStyleContext(store, kind, id) {
+	const item = store[kind === "requirement" ? "requirements" : "assets"].find((v) => v.id === id), library = artLibrary(store), categoryId = artCategoryId(library, kind, id);
+	return {
+		item,
+		library,
+		categoryId,
+		version: currentArtStyle(store.style),
+		state: styleReviewState(store.style, item || {}, categoryId)
+	};
+}
+function itemStyleMarkdown(store, kind, id) {
+	const { item, library, categoryId, version, state } = itemStyleContext(store, kind, id);
+	if (!item) return "素材引用已失效，无法确定适用风格。";
+	const exception = styleExceptionOf(item);
+	return [
+		"适用美术风格 · " + item.name,
+		version ? "项目基准 V" + version.revision + " · " + styleReviewLabels[state] : "项目美术风格待确定，请先明确基准，不自行猜测像素、卡通或写实。",
+		"所属分类：" + artCategoryName(library, categoryId),
+		version ? styleDefinitionMarkdown(version.definition, library.categories, categoryId) : "",
+		exception.requirements ? "单项特殊要求：" + exception.requirements + "\n原因：" + (exception.reason || "待补充，不能作为已确认例外") : "单项无特殊要求，继承项目与分类规则。"
+	].filter(Boolean).join("\n\n");
+}
+function artStyleMarkdown(store) {
+	const version = currentArtStyle(store.style), categories = artLibrary(store).categories, lines = [
+		"### 美术风格",
+		"",
+		version ? "当前已确认基准：V" + version.revision + " · " + version.at + "\n\n确认说明：" + version.note : "美术风格待确定。请明确整体方向后确认基准，不由 AI 自行选择。"
+	];
+	if (version) lines.push("", styleDefinitionMarkdown(version.definition, categories));
+	if (styleDraftChanged(store.style)) lines.push("", "#### 待确认草稿（不作为当前制作标准）", "", styleDefinitionMarkdown(store.style.draft, categories));
+	if (store.style?.versions.length) lines.push("", "#### 风格变更记录", "", ...store.style.versions.map((v) => `- V${v.revision} · ${v.at} · ${v.note}`));
+	if (store.referenceBoards?.length) lines.push("", referenceBoardsMarkdown(store.referenceBoards).replace(/material-image:([a-f0-9-]{36}\.[a-z0-9]{1,12})/g, "../media/$1"));
+	return lines.join("\n");
+}
+function productionStyleMarkdown(store, doc) {
+	const requirementIds = new Set(doc.requirementIds), assetIds = [];
+	for (const id of doc.assetIds) {
+		const asset = store.assets.find((a) => a.id === id), users = store.links.filter((l) => l.assetId === id).map((l) => store.requirements.find((r) => r.id === l.requirementId)).filter((r) => r && !r.archived);
+		users.forEach((r) => requirementIds.add(r.id));
+		if (!users.length || asset?.styleException?.requirements.trim()) assetIds.push(id);
+	}
+	const targets = [...[...requirementIds].map((id) => ({
+		kind: "requirement",
+		id
+	})), ...[...new Set(assetIds)].map((id) => ({
+		kind: "asset",
+		id
+	}))];
+	return targets.length ? targets.map((t) => itemStyleMarkdown(store, t.kind, t.id)).join("\n\n") : artStyleMarkdown(store) + "\n\n此方案尚未关联具体素材，分类与单项要求需在关联后核对。";
+}
+
+//#endregion
+//#region src/material-prompt.ts
+function materialPromptText(value) {
+	if (!value) return "";
+	return [value.prompt.trim(), value.negative.trim() ? "避免内容：\n" + value.negative.trim() : ""].filter(Boolean).join("\n\n");
 }
 
 //#endregion
@@ -2870,6 +4881,188 @@ function validateArtAssets(value) {
 	if (Object.prototype.hasOwnProperty.call(value, "library")) validateArtLibrary(value.library, value);
 	return value;
 }
+const canAdoptVersion = (version) => version.files.length > 0 && (version.placeholder || version.review === "已通过");
+const sourceKinds = {
+	design: "整体说明",
+	rule: "条件规则",
+	state: "状态",
+	event: "时间事件",
+	object: "空间对象"
+};
+function sourceParts(source, sources) {
+	const issues = [];
+	if (source.kind === "capability") {
+		const capability = sources.functional.capabilities.find((c) => c.id === source.targetId);
+		const system = sources.functional.systems.find((s) => s.id === capability?.systemId);
+		if (!capability) issues.push("功能来源已失效（" + (source.targetId || "尚未选择") + "）");
+		else {
+			if (!system) issues.push("来源功能的所属系统已失效：" + capability.name);
+			if (capability.archived || system?.archived) issues.push("功能来源已归档：" + capability.name);
+		}
+		return {
+			title: capability ? (system?.name || "所属系统已失效") + " / " + (capability.name || "未命名功能") : "功能已失效（" + (source.targetId || "尚未选择") + "）",
+			detail: capability?.purpose || "",
+			issues
+		};
+	}
+	const design = sources.designs.find((d) => d.id === source.targetId);
+	if (!design) {
+		issues.push("玩法来源已失效（" + (source.targetId || "尚未选择") + "）");
+		return {
+			title: "玩法已失效（" + (source.targetId || "尚未选择") + "）",
+			detail: "",
+			issues
+		};
+	}
+	if (design.archived) issues.push("玩法来源已归档：" + design.title);
+	const specific = source.sourceKind === "rule" ? design.conditionRules.find((r) => r.id === source.sourceId) : source.sourceKind === "state" ? design.stateFlow.states.find((s) => s.id === source.sourceId) : source.sourceKind === "event" ? design.timeline.events.find((e) => e.id === source.sourceId) : source.sourceKind === "object" ? design.space.objects.find((o) => o.id === source.sourceId) : void 0;
+	if (source.sourceKind !== "design" && !specific) issues.push(sourceKinds[source.sourceKind] + "来源已失效（" + (source.sourceId || "尚未选择") + "）");
+	let detail = design.summary;
+	if (source.sourceKind === "rule") {
+		const rule = design.conditionRules.find((r) => r.id === source.sourceId);
+		detail = rule ? "触发：" + rule.trigger + "；动作：" + rule.actions.map((a) => a.text).join("；") : "";
+	} else if (source.sourceKind === "state") detail = design.stateFlow.states.find((s) => s.id === source.sourceId)?.description || "";
+	else if (source.sourceKind === "event") {
+		const event = design.timeline.events.find((e) => e.id === source.sourceId);
+		detail = event ? `开始 ${event.start} 秒，持续 ${event.duration} 秒；条件：${event.condition || "无附加条件"}；${event.notes}` : "";
+	} else if (source.sourceKind === "object") {
+		const object = design.space.objects.find((o) => o.id === source.sourceId);
+		detail = object ? `${!object.geometry && !object.roomId && object.anchor === "cell" ? `R${object.row} / C${object.column}` : spatialObjectLocation(object, design.space)}，${objectGeometry(object, design.space).width}×${objectGeometry(object, design.space).height} ${design.space.unit}；${object.notes}` : "";
+	}
+	return {
+		title: (design.title || "未命名玩法") + " / " + sourceKinds[source.sourceKind] + (source.sourceKind === "design" ? "" : "：" + (specific ? specific.name || "未命名来源" : "来源已失效（" + (source.sourceId || "尚未选择") + "）")),
+		detail,
+		issues
+	};
+}
+function artSourceText(source, sources) {
+	const resolved = sourceParts(source, sources);
+	const archived = resolved.issues.some((i) => i.includes("已归档"));
+	return resolved.title + (archived ? "（已归档）" : "");
+}
+function artIssues(store, sources) {
+	const issues = [], pairs = /* @__PURE__ */ new Set();
+	for (const requirement of store.requirements) {
+		if (!requirement.name.trim()) issues.push("有素材需求尚未命名");
+		const seen = /* @__PURE__ */ new Set();
+		for (const source of requirement.sources) {
+			const tuple = JSON.stringify([
+				source.kind,
+				source.targetId,
+				source.sourceKind,
+				source.sourceId
+			]);
+			if (seen.has(tuple)) issues.push("需求存在重复来源：" + requirement.name + " / " + artSourceText(source, sources));
+			seen.add(tuple);
+			issues.push(...sourceParts(source, sources).issues.map((i) => requirement.name + "：" + i));
+		}
+	}
+	for (const asset of store.assets) {
+		if (!asset.name.trim()) issues.push("有素材资产尚未命名");
+		for (const version of asset.versions) if (!version.files.length) issues.push(asset.name + " / " + version.name + "：版本没有文件");
+		if (asset.adoptedVersionId) {
+			const adopted = asset.versions.find((v) => v.id === asset.adoptedVersionId);
+			if (!adopted) issues.push(asset.name + "：采用版本已失效（" + asset.adoptedVersionId + "）");
+			else if (!canAdoptVersion(adopted)) issues.push(asset.name + "：当前采用版本不满足采用条件");
+		}
+	}
+	for (const link of store.links) {
+		const requirement = store.requirements.find((r) => r.id === link.requirementId), asset = store.assets.find((a) => a.id === link.assetId);
+		const pair = JSON.stringify([link.requirementId, link.assetId]);
+		if (pairs.has(pair)) issues.push("重复需求资产关联：" + link.requirementId + " → " + link.assetId);
+		pairs.add(pair);
+		if (!requirement) issues.push("关联需求已失效（" + (link.requirementId || "尚未选择") + "）");
+		else if (requirement.archived) issues.push("关联需求已归档：" + requirement.name);
+		if (!asset) issues.push("关联资产已失效（" + (link.assetId || "尚未选择") + "）");
+		else if (asset.archived) issues.push("关联资产已归档：" + asset.name);
+	}
+	return [...new Set(issues)];
+}
+const text$1 = (value) => value.trim() || "待补充";
+const adoptedText = (asset) => {
+	const version = asset.versions.find((v) => v.id === asset.adoptedVersionId);
+	return version ? text$1(version.name) + " [版本 ID：" + version.id + "] · " + (version.placeholder ? "占位" : "正式") + " · " + version.review : asset.adoptedVersionId ? "采用版本已失效（" + asset.adoptedVersionId + "）" : "尚未采用";
+};
+const productionLabel = (status) => status === "已通过" ? "已完成" : status === "待审核" ? "待验收" : status;
+const deliveryLines = (item) => [
+	"- 工程内交付路径：" + (item.delivery?.path || "待填写"),
+	"- 交付与验证说明：" + (item.delivery?.notes || "待填写"),
+	"- 关联美术任务 ID：" + (item.scheduleProgress?.taskIds.join("、") || "未关联，手动管理状态")
+];
+function artReferencesMarkdown(kind, id, store, sources) {
+	const requirements = store.requirements.filter((r) => r.sources.some((s) => s.kind === kind && s.targetId === id));
+	const lines = ["#### 素材需求与资产", ""];
+	if (!requirements.length) lines.push("暂无关联素材需求。");
+	for (const requirement of requirements) {
+		lines.push(`- ${text$1(requirement.name)} [需求 ID：${requirement.id}] · ${productionLabel(requirement.status)}${requirement.archived ? "（已归档）" : ""}`);
+		for (const source of requirement.sources.filter((s) => s.kind === kind && s.targetId === id)) lines.push("  - 来源：" + artSourceText(source, sources) + "；" + text$1(source.note));
+		for (const link of store.links.filter((l) => l.requirementId === requirement.id)) {
+			const asset = store.assets.find((a) => a.id === link.assetId);
+			lines.push("  - 资产：" + (asset ? text$1(asset.name) : "已失效") + " [资产 ID：" + link.assetId + "]；" + (asset ? productionLabel(asset.productionStatus || "待制作") : "关联已失效") + (asset?.archived ? "（资产已归档）" : ""));
+		}
+	}
+	return lines.join("\n") + "\n";
+}
+function artAssetsMarkdown(store, sources) {
+	const lines = [
+		"## 素材资产",
+		"",
+		"> 本模块提供素材制作文档。素材原文件直接生成在游戏工程中，按文档验收；关联美术任务的状态通过开发反馈或项目排期回写。全部关联美术任务完成后，素材同步完成，无需导入或采用图片版本。",
+		"",
+		artStyleMarkdown(store),
+		"",
+		"### 素材需求",
+		""
+	];
+	if (!store.requirements.length) lines.push("暂无素材需求。", "");
+	for (const requirement of store.requirements) {
+		lines.push("#### " + text$1(requirement.name), "", "- 需求 ID：" + requirement.id, "- 所属分类：" + artCategoryName(artLibrary(store), artCategoryId(artLibrary(store), "requirement", requirement.id)), "- 分类：" + requirement.category, "- 状态：" + productionLabel(requirement.status) + (requirement.archived ? "（已归档）" : ""), "- 优先级：" + requirement.priority, "- 负责人：" + text$1(requirement.owner), "- 截止日期：" + (requirement.dueDate || "未设置"), "", "需求说明：", text$1(requirement.description), "", "制作规格：", text$1(requirement.specification), "", "验收标准：", text$1(requirement.acceptance), "", "需求来源：");
+		if (!requirement.sources.length) lines.push("- 尚未关联来源。");
+		for (const source of requirement.sources) {
+			const resolved = sourceParts(source, sources);
+			lines.push(`- ${artSourceText(source, sources)} [${source.kind === "gameplay" ? "玩法" : "功能"} ID：${source.targetId}；来源 ID：${source.sourceId || "整体"}]；用途：${text$1(source.note)}`);
+			if (resolved.detail) lines.push("  需求上下文：" + resolved.detail);
+		}
+		if (requirement.generationPrompt) lines.push("", "素材生成提示词：", materialPromptText(requirement.generationPrompt) || "尚未填写", "");
+		lines.push("", itemStyleMarkdown(store, "requirement", requirement.id), "");
+		lines.push("", ...deliveryLines(requirement), "", "关联资产：");
+		const links = store.links.filter((l) => l.requirementId === requirement.id);
+		if (!links.length) lines.push("- 暂无关联资产。");
+		for (const link of links) {
+			const asset = store.assets.find((a) => a.id === link.assetId);
+			lines.push(`- ${asset ? text$1(asset.name) : "资产已失效"} [资产 ID：${link.assetId}]；${asset ? productionLabel(asset.productionStatus || "待制作") : "关联已失效"}；用途：${text$1(link.note)}`);
+		}
+		lines.push("");
+	}
+	lines.push("### 资产库", "");
+	if (!store.assets.length) lines.push("暂无素材资产。", "");
+	for (const asset of store.assets) {
+		lines.push("#### " + text$1(asset.name), "", "- 资产 ID：" + asset.id, "- 所属分类：" + artCategoryName(artLibrary(store), artCategoryId(artLibrary(store), "asset", asset.id)), "- 归档：" + (asset.archived ? "是" : "否"), "- 制作状态：" + productionLabel(asset.productionStatus || "待制作"), ...deliveryLines(asset), "- 历史采用记录：" + adoptedText(asset), "", text$1(asset.description), "", "服务需求：");
+		const links = store.links.filter((l) => l.assetId === asset.id);
+		if (!links.length) lines.push("- 暂无关联需求。");
+		for (const link of links) {
+			const requirement = store.requirements.find((r) => r.id === link.requirementId);
+			lines.push(`- ${requirement ? text$1(requirement.name) : "需求已失效"} [需求 ID：${link.requirementId}]；${text$1(link.note)}`);
+		}
+		lines.push("", itemStyleMarkdown(store, "asset", asset.id), "", "历史导入记录 / 版本历史（不作为完成前提）：");
+		if (!asset.versions.length) lines.push("- 无历史导入文件；请按工程交付说明在游戏工程内制作。");
+		for (const version of asset.versions) {
+			lines.push("", "##### " + text$1(version.name), "", "- 版本 ID：" + version.id, "- 类型：" + (version.placeholder ? "占位版本" : "正式版本"), "- 审核：" + version.review, "- 采用：" + (asset.adoptedVersionId === version.id ? "是" : "否"), "- 创建时间：" + version.createdAt, "", "版本说明：" + text$1(version.notes), "", "审核反馈：" + text$1(version.feedback), "", "文件：");
+			if (!version.files.length) lines.push("- 无文件。");
+			for (const file of version.files) lines.push(`- ${file.name} [文件 ID：${file.id}] · ${file.size} 字节 · ${file.mime || "未知类型"}；存储标识：${file.storagePath}`);
+		}
+		lines.push("");
+	}
+	const lost = store.links.filter((l) => !store.requirements.some((r) => r.id === l.requirementId) && !store.assets.some((a) => a.id === l.assetId));
+	if (lost.length) lines.push("### 两端失效的资产关联", "", ...lost.map((l) => `- 需求 ${l.requirementId} → 资产 ${l.assetId}；${text$1(l.note)}`), "");
+	if (store.productionDocs?.length) {
+		lines.push("### 制作方案", "");
+		for (const doc of store.productionDocs) lines.push("#### " + text$1(doc.title), "", "- 文档 ID：" + doc.id, "- 分类：" + text$1(doc.category || "未分类"), "- 关联需求：" + (doc.requirementIds.map((id) => store.requirements.find((r) => r.id === id)?.name || "失效引用 " + id).join("、") || "无"), "- 关联资产：" + (doc.assetIds.map((id) => store.assets.find((a) => a.id === id)?.name || "失效引用 " + id).join("、") || "无"), "", productionStyleMarkdown(store, doc), "", doc.content.replace(/material-image:([a-f0-9-]{36}\.[a-z0-9]{1,12})/g, "../media/$1"), "");
+	}
+	const issues = artIssues(store, sources);
+	if (issues.length) lines.push("### 素材引用与审核检查", "", ...issues.map((i) => "- " + i), "");
+	return lines.join("\n");
+}
 
 //#endregion
 //#region src/enum-versions.ts
@@ -2912,6 +5105,16 @@ function validateJson(v, depth = 0) {
 		if (!safeKey$3(k)) throw new Error("不支持的字段名：" + k);
 		validateJson(x, depth + 1);
 	}
+}
+function dataDirectory(value) {
+	const s = String(value || "").trim().replace(/^res:\/\//, "").replace(/\\/g, "/").replace(/\/+$/, "");
+	if (!s || s.length > 200 || s.split("/").some((p) => !p || p === "." || p === ".." || /[<>:"|?*\x00-\x1f]/.test(p) || /[. ]$/.test(p) || /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(p)) || s.split("/").some((p) => [
+		".gamecreator-sync",
+		".godot",
+		".git",
+		"gamecreator"
+	].includes(p.toLowerCase()))) throw new Error("数据目录必须是工程内的普通子目录，不能使用协作、缓存或同步记录目录");
+	return s;
 }
 function shapeOf(value) {
 	validateJson(value);
@@ -4090,7 +6293,7 @@ function assertContentReferences(before, after) {
 
 //#endregion
 //#region shared/gamecreator-guide.mjs
-const guideVersion = "2026-09-27.3";
+const guideVersion = "2026-09-27.4";
 function authoringReadme() {
 	return `# AI 项目编写入口
 
@@ -4115,6 +6318,8 @@ function authoringReadme() {
 | context/templates.json | 完整条目及常用嵌套子项模板 | 复制后填写新 ID、字段和引用 |
 | context/template-options.json | 关键枚举、初始状态与子项位置 | 配合模板查阅 |
 | change-template.json | 跨模块变更批次模板 | 复制成自己的草稿文件 |
+| WORKFLOW_MCP.md | AI 工作流工具连接与调用说明 | 读取、提交、应用与工程同步 |
+| workflow-mcp.cjs / workflow-service.json | stdio MCP 适配器与本机服务入口 | 按 mcp.config.example.json 配置身份凭证路径 |
 | TEAM_MANAGEMENT.md | 制作人接手与团队管理命令 | 持有 team_manage 权限后阅读 |
 | manage-team.cjs / team-service.json | 本机签名团队管理工具与运行入口 | 客户端打开对应项目时使用；不手改入口 |
 | submit-change.cjs | 校验及签名提交命令 | 通过 Node.js 执行 |
@@ -4170,6 +6375,10 @@ GameCreator 项目根目录的 PROJECT_STANDARDS.md 包含完整通用规则与�
 制作人是项目推进负责人。没有个人任务时，先检查项目设计、验收基线和团队缺口，再建立计划并创建开发者，而不是等待分配或立即开始铺开程序。详见 ai/TEAM_MANAGEMENT.md。岗位工作文档是公开说明，personal 中的 JSON 才是私有签名凭证。
 
 新建制作人默认获得独立的 team_manage 权限，可通过 ai/manage-team.cjs 创建或编辑开发者、选择多个岗位与任务、签发或撤销令牌。已有身份不会自动扩权；按当前有效授权核验，不能授予超出自身范围的权限。团队管理命令成功即生效，项目正文变更仍需在项目内容同步核对并应用。
+
+## AI 工作流工具
+
+管理项目 ai/WORKFLOW_MCP.md 说明 MCP 连接配置及读取、校验、提交、应用、协作导出和工程同步工具。ai/mcp.config.example.json 提供连接示例，凭证通过本机文件路径配置。使用帮助的“AI 工作流工具”展示同一份文档。
 
 ## 从哪里开始
 
@@ -4259,6 +6468,255 @@ ${Object.entries(authoringModules).map(([id, label]) => "- " + label + "：" + i
 
 更新协作文件只更新 GameCreator 管理的文档与上下文，保留自定义 README 和 AGENTS.md。项目根 README 中的使用说明链接用于发现入口。此说明不授予权限；缺少令牌或范围时，在人员分配明确授权后再提交。
 `;
+}
+
+//#endregion
+//#region shared/config-data-policy.mjs
+function configDataPolicyMarkdown(config) {
+	const document = frameworkLibrary.documents.find((d) => d.id === "config-data-policy");
+	if (!document) throw new Error("缺少配置数据管理与同步规范");
+	let directory = "", invalid = "";
+	try {
+		directory = dataDirectory(config.dataPath);
+	} catch {
+		invalid = "未配置或目录无效，请在数据同步中设置后重新生成。";
+	}
+	const root = String(config.projectPath || "").trim().replaceAll("\\", "/").replace(/\/+$/, "");
+	const escape = (value) => String(value).replaceAll("|", "\\|").replace(/[\r\n]/g, " ");
+	const rows = [
+		["引擎", config.engine || "未配置"],
+		["工程根目录", root || "未连接工程"],
+		["数据相对目录", directory || invalid],
+		["配置落点", root && directory ? root + "/" + directory : "尚未确定，不得猜测路径"],
+		["项目输出格式", config.outputFormat || "未设置"],
+		["当前数据同步能力", config.outputFormat === "json" ? "JSON；直接读取指定目录，不递归扫描子目录" : "仅支持 JSON；当前格式不适用于数据同步，请调整设置后重新生成"],
+		["规范适用范围", "本项目纳入 GameCreator 数据同步管理的配置文件；不包含运行状态、玩家存档、缓存或素材资源"]
+	];
+	const body = document.content.replace("[返回目录](../README.md)\n", "").replace(/^# 配置数据管理与同步规范\n/, "").trim();
+	return "# 配置数据管理与同步规范\n\n## 当前项目目录约定\n\n| 配置项 | 当前保存值 |\n| --- | --- |\n" + rows.map(([key, value]) => "| " + key + " | " + escape(value) + " |").join("\n") + "\n\n以上为生成时的设置快照。目录是否存在、资源是否已同步及程序是否已加载，需要实际验证。\n\n" + body + "\n";
+}
+
+//#endregion
+//#region src/ai-document-zip.ts
+const crcTable = Uint32Array.from({ length: 256 }, (_, i) => {
+	let n = i;
+	for (let j = 0; j < 8; j++) n = n & 1 ? 3988292384 ^ n >>> 1 : n >>> 1;
+	return n >>> 0;
+});
+
+//#endregion
+//#region src/ai-export.ts
+const bullets = (items) => items.length ? items.map((item) => `- ${item}`).join("\n") : "- 无";
+const table = (headers, rows) => [
+	`| ${headers.join(" | ")} |`,
+	`| ${headers.map(() => "---").join(" | ")} |`,
+	...rows.map((row) => `| ${row.map((cell) => String(cell).replace(/\|/g, "\\|").replace(/\n/g, " ")).join(" | ")} |`)
+].join("\n");
+function buildAiDocument(project, stories, data, definitions, config, registry, gameplay = [], functional = emptyFunctionalSystems(), art = emptyArtAssets(), core = emptyGameplayCore(), prototype = emptyPrototypeDesign(), tasks = emptyTaskFlows(), narrative = emptyStoryOrchestration(), maps = emptyMapDesign(), categories = [], schedule = emptyProjectSchedule(), analysis = emptyNumericalAnalysis(), framework = emptyProgramFramework(), tools = emptyDevelopmentTools(), standards = emptyProjectStandards()) {
+	const sections = [];
+	const add = (id, body, empty = false) => sections.push({
+		id,
+		label: aiModules.find((m) => m.id === id).label,
+		body: body.trim() + (empty ? "\n\n暂无内容。" : "")
+	});
+	add("overview", [
+		"## 项目概览",
+		"",
+		`- 类型：${project.genre}`,
+		`- 平台：${project.platform}`,
+		`- 版本：${project.version}`,
+		`- 状态：${project.status}`,
+		"",
+		project.description
+	].join("\n"));
+	add("standards", projectStandardsMarkdown(standards));
+	add("engine", [
+		"## 引擎配置",
+		"",
+		table(["配置项", "值"], [
+			["引擎", config.engine],
+			["工程目录", config.projectPath],
+			["枚举目录", config.enumPath],
+			["数据目录", config.dataPath],
+			["输出格式", config.outputFormat],
+			["自动同步", String(config.autoSync)]
+		])
+	].join("\n"));
+	const scan = registry.scan;
+	add("enum-versions", [
+		"## 稳定枚举版本",
+		"",
+		`- 稳定版本：${registry.active?.id ?? "未建立"}`,
+		`- 来源：${scan ? scan.projectPath + "/" + scan.enumPath : "未配置"}`,
+		`- 文件：${scan?.counts.files ?? 0}`,
+		`- 枚举组：${scan?.counts.groups ?? 0}`,
+		`- 成员：${scan?.counts.members ?? 0}`,
+		"",
+		"本章节记录已发布版本，未发布的枚举改动不计入配置依据。"
+	].join("\n"));
+	const enums = ["## 枚举定义", ""];
+	for (const group of scan?.groups ?? []) enums.push(`### ${group.name}`, "", group.comment ? `> ${group.comment}` : "", table([
+		"键",
+		"值",
+		"来源",
+		"注释"
+	], group.members.map((member) => [
+		member.key,
+		String(member.value),
+		`${group.source}:${member.line}`,
+		member.comment || ""
+	])), "");
+	if (scan?.dynamic.length) enums.push("### 动态 ID 提示", "", bullets(scan.dynamic.map((item) => `${item.name}（${item.source}:${item.line}）：${item.detail}`)), "");
+	add("enum-definitions", enums.join("\n"), !scan?.groups.length && !scan?.dynamic.length);
+	const functionalSources = {
+		designs: gameplay,
+		data,
+		definitions
+	};
+	const artSources = {
+		designs: gameplay,
+		functional
+	};
+	add("schedule", projectScheduleMarkdown(schedule, buildScheduleSources(gameplay, functional, art, maps, prototype, tools)), !schedule.tasks.length && !schedule.milestones.length);
+	add("personnel", personnelMarkdown(schedule));
+	add("core", gameplayCoreMarkdown(core, gameplay), !core.graphs.length);
+	add("prototype", prototypeMarkdown(prototype), !prototype.scenes.length);
+	add("gameplay", gameplayMarkdown(gameplay, {
+		stories,
+		datasets: definitions
+	}, (d) => gameplayFunctionalMarkdown(d.id, functional, functionalSources) + "\n" + artReferencesMarkdown("gameplay", d.id, art, artSources), categories), !gameplay.length);
+	add("functional", functionalSystemsMarkdown(functional, functionalSources, (c) => artReferencesMarkdown("capability", c.id, art, artSources)), !functional.systems.length && !functional.capabilities.length);
+	add("development-tools", developmentToolsMarkdown(tools), !tools.tools.length);
+	add("art", artAssetsMarkdown(art, artSources), !art.requirements.length && !art.assets.length && !art.productionDocs?.length && !art.style);
+	add("tasks", taskFlowsMarkdown(tasks, {
+		designs: gameplay,
+		capabilities: functional.capabilities.map((c) => ({
+			...c,
+			archived: c.archived || !!functional.systems.find((s) => s.id === c.systemId)?.archived
+		})),
+		stories,
+		assets: art.assets,
+		definitions,
+		data
+	}), !tasks.tasks.length);
+	if (narrative.enabled) add("narrative", storyOrchestrationMarkdown(narrative), !narrative.stories.length && !narrative.characters?.length);
+	if (maps.enabled) add("maps", mapMarkdown(maps, gameplay), !maps.maps.length);
+	const lines = ["## 故事文档", ""];
+	for (const story of stories) lines.push(`### ${story.title}`, "", `- 分类：${story.category}`, `- 归档：${story.archived ? "是" : "否"}`, `- 正文格式：${story.format || "plain"}`, `- 条目引用：${(story.references || []).map((r) => r.kind + " / " + r.label + " (" + r.targetId + ")").join("；") || "无"}`, `- 状态：${story.status}`, "", story.summary, "", story.content, "", `标签：${story.tags.join("、")}`, "", `大纲：${story.outlines.join("、")}`, "");
+	add("stories", lines.join("\n"), !stories.length);
+	add("analysis", numericalAnalysisMarkdown(analysis, {
+		data,
+		narrative
+	}));
+	add("framework", programFrameworkMarkdown(framework, config.engine));
+	lines.length = 0;
+	lines.push("## 数据配置", "");
+	for (const definition of definitions) {
+		const rows = (data.datasets[definition.key] ?? []).map((record) => definition.columns.map((column) => String(record[column.key] ?? "")));
+		lines.push(`### ${definition.label}`, "", table(definition.columns.map((column) => column.label), rows), "");
+	}
+	add("data", lines.join("\n"), !definitions.length);
+	sections.sort((a, b) => aiModules.findIndex((m) => m.id === a.id) - aiModules.findIndex((m) => m.id === b.id));
+	return {
+		projectName: project.name,
+		version: project.version,
+		generatedAt: (/* @__PURE__ */ new Date()).toISOString(),
+		sections,
+		projectStandards: structuredClone(standards),
+		configDataPolicy: configDataPolicyMarkdown(config)
+	};
+}
+const aiModules = [
+	{
+		id: "overview",
+		label: "项目概览"
+	},
+	{
+		id: "standards",
+		label: "项目规范"
+	},
+	{
+		id: "schedule",
+		label: "项目排期"
+	},
+	{
+		id: "personnel",
+		label: "人员分配"
+	},
+	{
+		id: "core",
+		label: "玩法核心"
+	},
+	{
+		id: "gameplay",
+		label: "玩法设计"
+	},
+	{
+		id: "prototype",
+		label: "原型设计"
+	},
+	{
+		id: "maps",
+		label: "地图设计"
+	},
+	{
+		id: "functional",
+		label: "功能系统"
+	},
+	{
+		id: "development-tools",
+		label: "开发工具"
+	},
+	{
+		id: "framework",
+		label: "程序框架"
+	},
+	{
+		id: "art",
+		label: "素材资产"
+	},
+	{
+		id: "stories",
+		label: "故事文档"
+	},
+	{
+		id: "narrative",
+		label: "故事编排"
+	},
+	{
+		id: "data",
+		label: "数据配置"
+	},
+	{
+		id: "enum-definitions",
+		label: "枚举定义"
+	},
+	{
+		id: "enum-versions",
+		label: "枚举管理"
+	},
+	{
+		id: "engine",
+		label: "工程连接"
+	},
+	{
+		id: "tasks",
+		label: "任务与流程"
+	},
+	{
+		id: "analysis",
+		label: "数值分析"
+	}
+];
+
+//#endregion
+//#region src/workflow-document.ts
+function workflowDocument(a, config) {
+	const versions = a["enum-versions"], active = versions.snapshots.find((s) => s.id === versions.activeId);
+	return buildAiDocument(a.project, a.stories, versions.data, a.definitions, config, {
+		active,
+		scan: active?.scan
+	}, a.gameplay.designs, a["functional-systems"], a["art-assets"], a["gameplay-core"], a["prototype-design"], a["task-flows"], a["story-orchestration"], a["map-design"], a.gameplay.categories || [], a["project-schedule"], a["numerical-analysis"], a["program-framework"], a["development-tools"], a["project-standards"]);
 }
 
 //#endregion
@@ -4700,3 +7158,4 @@ exports.validateAuthoringProposal = validateAuthoringProposal;
 exports.validateContentArchive = validateContentArchive;
 exports.validateContentBatch = validateContentBatch;
 exports.validateContentChange = validateContentChange;
+exports.workflowDocument = workflowDocument;

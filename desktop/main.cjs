@@ -29,7 +29,7 @@ const projectPackages = createProjectPackages({dataDirectory, storage, resolveAs
 const aiDocuments = createAiDocuments({defaultDirectory:path.join(root,'generate')});
 const engineSync = createEngineSync({artFiles,storage});
 const packageTokens = new Map();
-let localServer, mainWindow, teamManagement;
+let localServer, mainWindow, teamManagement, workflowServer, workflowGuard;
 let initializing = true;
 if (!app.requestSingleInstanceLock()) app.quit();
 else {
@@ -48,11 +48,12 @@ else {
         new URL(frame.url).origin === localServer?.url;
     } catch { return false; } // An IPC frame may detach while a native dialog is open.
   };
+  workflowGuard=require('./workflow-editor-guard.cjs').createWorkflowEditorGuard({ipcMain,window:()=>mainWindow,trusted,storage});
   let authoring;
   const projectAuthoring=()=>authoring??=require('./project-authoring.cjs').createProjectAuthoring({storage,folders});
   ipcMain.handle('project-authoring',(event,operation,input)=>{if(!trusted(event))throw new Error('不允许访问项目编写');return projectAuthoring().run(operation,input);});
   let developerService;
-  const developers=()=>developerService??=require('./ai-developers.cjs').createDeveloperService({storage,vault:require('./ai-credential-vault.cjs').createCredentialVault({directory:path.join(app.getPath('userData'),'ai-credential-vault'),safeStorage})});
+  const developers=()=>developerService??=require('./ai-developers.cjs').createDeveloperService({storage,allowBackgroundRead:true,vault:require('./ai-credential-vault.cjs').createCredentialVault({directory:path.join(app.getPath('userData'),'ai-credential-vault'),safeStorage})});
   let startupService;
   ipcMain.handle('project-startup',(event,operation,input)=>{
     if(!trusted(event))throw new Error('不允许初始化项目');
@@ -87,6 +88,7 @@ else {
       if (!trusted(event)) throw new Error('不允许访问本地存档');
       if (request?.operation === 'get') event.returnValue = { ok: true, value: storage.getItem(request.key) };
       else if (request?.operation === 'set') {
+        if(workflowGuard.blocks(request.key))throw new Error('工作流正在写入，请稍后重试');
         if(request.key?.endsWith(':project-schedule')&&Object.hasOwn(request,'expected')&&storage.getItem(request.key)!==request.expected)throw new Error('团队或排期已变化，请保留草稿并重新读取');
         const active=JSON.parse(storage.getItem('gamecreator.projects.v1')||'null')?.activeId;
         if(active&&(request.key==='gamecreator.projects.v1'||require('./folder-projects.cjs').owned(request.key,active)))require('./project-changes.cjs').assertNoPendingContent(storage,active);
@@ -267,6 +269,7 @@ else {
     await migrateLegacy({ userData: app.getPath('userData'), dataDirectory, storage, BrowserWindow, session: session.defaultSession });
     folders.refreshRecent();
     await createWindow();
+    workflowServer=await require('./workflow-service.cjs').createWorkflowServer({storage,folders,developers:developers(),artFiles,beforeMutation:id=>workflowGuard.begin(id)});
     teamManagement=await require('./team-management.cjs').createTeamManagementServer({storage,folders,developers:developers(),onChanged:projectId=>mainWindow?.webContents.send('team-management-changed',projectId)});
     initializing = false;
   }).catch(error => {
@@ -274,6 +277,6 @@ else {
     app.quit();
   });
   app.on('window-all-closed', () => { if (!initializing && process.platform !== 'darwin') app.quit(); });
-  app.on('will-quit', () => { teamManagement?.close(); folders.close(); if (localServer) localServer.server.close(); });
+  app.on('will-quit', () => { workflowServer?.close(); teamManagement?.close(); folders.close(); if (localServer) localServer.server.close(); });
   app.on('activate', () => { if (!initializing && !mainWindow) void createWindow(); });
 }

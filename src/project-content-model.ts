@@ -99,3 +99,5 @@ export function validateContentArchive(module:string,value:unknown){
  validateProjectPackage(candidate);
  return value;
 }
+
+export {workflowDocument} from './workflow-document.ts';
