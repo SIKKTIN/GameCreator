@@ -1,5 +1,5 @@
 import type {ReactNode} from 'react';
-import {isHelpPage} from './SoftwareHelp';
+import {helpPages,isHelpPage} from './SoftwareHelp';
 import { Search, CalendarDays, Map, Layers, Gamepad2, ListTree, Palette, BookOpen, Database, Tag, Settings2, GitBranch, BarChart3, Server, Workflow, Users, PanelsTopLeft, FileCode2, Wrench, BookOpenCheck, ChevronDown, Rocket, FolderSync, Archive, type LucideIcon } from 'lucide-react';
 import './workspace-sidebar.css';
 import { useWorkspaceNavigationGroups } from './useWorkspaceNavigation';
@@ -48,6 +48,6 @@ export function WorkspaceSidebar({ picker, active, onNavigate, team = false, emp
     <div className="side-bottom">{(onManageServer || onManageUsers) && <nav className="workspace-admin-nav" aria-label="管理模块">
       <span>管理</span>{onManageServer&&<button type="button" className={active === '服务器管理' ? 'active' : ''} aria-current={active === '服务器管理' ? 'page' : undefined} onClick={onManageServer}><Server size={17} />本机服务器</button>}
       {onManageUsers&&<button type="button" className={active==='用户与权限'?'active':''} aria-current={active==='用户与权限'?'page':undefined} onClick={onManageUsers}><Users size={17}/>用户与权限</button>}
-    </nav>}<nav className="workspace-help-nav" aria-label="软件帮助"><button type="button" className={`workspace-nav-group-toggle${activeGroup==='help'?' contains-current':''}`} aria-expanded={!collapsed.includes('help')} aria-controls="help-submenu" onClick={()=>toggle('help')}><BookOpen size={17}/>使用帮助<ChevronDown size={15} className="workspace-nav-chevron"/></button><div id="help-submenu" className="workspace-nav-submenu" role="group" aria-label="使用帮助子菜单" hidden={collapsed.includes('help')}>{(['操作说明','通用规范'] as const).map(name=>moduleButton(name,BookOpen))}</div></nav>{footer}</div>
+    </nav>}<nav className="workspace-help-nav" aria-label="软件帮助"><button type="button" className={`workspace-nav-group-toggle${activeGroup==='help'?' contains-current':''}`} aria-expanded={!collapsed.includes('help')} aria-controls="help-submenu" onClick={()=>toggle('help')}><BookOpen size={17}/>使用帮助<ChevronDown size={15} className="workspace-nav-chevron"/></button><div id="help-submenu" className="workspace-nav-submenu" role="group" aria-label="使用帮助子菜单" hidden={collapsed.includes('help')}>{helpPages.map(name=>moduleButton(name,BookOpen))}</div></nav>{footer}</div>
   </aside>;
 }
