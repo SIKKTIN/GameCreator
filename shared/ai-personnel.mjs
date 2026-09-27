@@ -1,10 +1,11 @@
+import {producerBoundaries} from './producer-boundaries.mjs';
 import {artPermissionsMarkdown} from './art-permissions.mjs';
 import {moduleGrants,authoringModules} from './project-authoring.mjs';
 export const aiRoles=['制作管理','策划','程序开发','美术','动画','UI','测试','音效','音乐','开发工具','关卡设计'];
 export const aiPermissionLabels={progress:'提交制作进度',review:'提交验收结论',propose:'提交排期与分配建议',spec_change:'提交需求与验收变更建议',project_write:'修改项目内容与排期',team_manage:'管理开发团队与令牌'};
 export function nextAiName(members,role){const base={'制作管理':'制作人','策划':'策划','程序开发':'程序','美术':'美术','测试':'测试','音效':'音效'}[role]||role;const names=new Set(members.map(m=>m.name));if(base==='制作人'&&!names.has(base))return base;for(let i=0;;i++){let n=i+1,s='';while(n){n--;s=String.fromCharCode(65+n%26)+s;n=Math.floor(n/26);}if(!names.has(base+s))return base+s;}}
 export function newAiMember(members,role='程序开发'){return {id:crypto.randomUUID(),name:nextAiName(members,role),roles:[role],duties:'',active:true,scope:role==='制作管理'?'project':'assigned',permissions:role==='制作管理'?['progress','review','propose','spec_change','project_write','team_manage']:role==='测试'?['progress','review']:['progress'],createdAt:new Date().toISOString()};}
-export function defaultAiTeam(){const duties={制作管理:'建立项目设计与验收基线，创建开发团队并授权、分配任务，依据引擎效果组织迭代与验收。',策划:'维护玩法规则、数值、关卡与验收要求。',程序开发:'实现功能、接入工程并开发制作工具。',美术:'按制作文档完成角色、场景、动画与 UI 素材。',测试:'验证功能、记录问题并进行回归检查。',音效:'制作音效、音乐与音频接入说明。'};return {schema:1,members:Object.entries(duties).map(([role,duties])=>({...newAiMember([],role),duties})),credentials:[]};}
+export function defaultAiTeam(){const duties={制作管理:'建立设计与验收基线，授权、分工并交接给实际助手，依据引擎效果协调与验收；具体制作须明确兼任并分配任务。',策划:'维护玩法规则、数值、关卡与验收要求。',程序开发:'实现功能、接入工程并开发制作工具。',美术:'按制作文档完成角色、场景、动画与 UI 素材。',测试:'验证功能、记录问题并进行回归检查。',音效:'制作音效、音乐与音频接入说明。'};return {schema:1,members:Object.entries(duties).map(([role,duties])=>({...newAiMember([],role),duties})),credentials:[]};}
 export const taskAssignment=t=>t.assignment||{primaryId:'',collaboratorIds:[],reviewerId:''};
 export const memberTasks=(schedule,id)=>schedule.tasks.filter(t=>{const a=taskAssignment(t);return a.primaryId===id||a.reviewerId===id||a.collaboratorIds.includes(id);});
 export function normalizePersonnelSchedule(schedule){if(!schedule.personnel)return schedule;return {...schedule,tasks:schedule.tasks.map(t=>{const member=schedule.personnel.members.find(m=>m.id===t.assignment?.primaryId);return member&&t.owner!==member.name?{...t,owner:member.name}:t;})};}
@@ -20,7 +21,7 @@ export function personnelMarkdown(schedule,onlyMemberId){
 
 // Positions describe work; members are execution identities created when issuing credentials.
 export function defaultAiPositions(){return [
- ['producer','制作人',[],'建立项目设计与验收基线，创建开发团队并授权、分配任务，依据引擎效果组织迭代与验收。'],
+ ['producer','制作人',[],'建立设计与验收基线，授权、分工并交接给实际助手，依据引擎效果协调与验收；具体制作须明确兼任并分配任务。'],
  ['planning','策划',['设计','关卡'],'维护玩法规则、数值、关卡与验收要求。'],
  ['program','程序',['程序'],'实现功能、接入工程并开发制作工具。'],
  ['art','美术',['美术'],'按制作文档完成角色、场景、动画与 UI 素材。'],
@@ -102,5 +103,5 @@ function roleOnboarding(schedule,key,member){
  const intro=['## 接手顺序','这份 Markdown 是公开岗位工作说明，不是令牌。私有凭证是 personal 中的 JSON；只使用交付给自己的身份。','以引擎工程为开发主目录，先读引擎协作入口 README，再进入其绑定的 GameCreator 管理项目，阅读 GAMECREATOR_GUIDE.md、PROJECT_STANDARDS.md 和 ai/context/content。实际权限以客户端当前有效授权为准。'];
  if(!producer)return [...intro,'核对职责、任务依赖和验收标准，按约定交付引擎成果并反馈待验收。没有具体任务时先核对岗位范围和团队安排，不自行扩大工作范围。'].join('\n\n');
  const tasks=schedule.tasks,stage=!tasks.length?'尚未建立制作排期（请同时核对已有设计，勿覆盖已有内容）':tasks.every(t=>t.status==='已完成')?'任务已完成，需检查里程碑验收与下一轮目标':tasks.some(t=>['进行中','待验收','受阻'].includes(t.status))?'开发与验收推进中':'已建立计划，准备组织制作';
- return [...intro,'## 制作人行动清单','当前排期判断：'+stage+'。这只是排期快照，不能代替引擎实际检查。','制作人负责推动项目从目标、设计、团队到交付。零个人任务不等于等待指派，也不意味着直接开始全面编码。','1. 检查用户目标、工程现状和现有设计；明确最小体验、范围边界、验收标准与风险。','2. 空项目先形成设计基线；已有项目先说明复用、修改、新增与归档方案。通过管理项目 ai/changes 提交玩法、功能、素材文档、配置与排期，并区分已提交和已应用。','3. 根据职责建立策划、程序、主美、美术、测试等开发者，明确授权、任务依赖和交付要求。',key.persistent&&member.permissions.includes('team_manage')?'4. 已授予团队管理权限：进入管理项目 ai/TEAM_MANAGEMENT.md，使用 manage-team.cjs 读取实时团队，创建身份、签发凭证并多选任务；不需要让用户逐个手工创建。':'4. 当前未授予可执行的团队管理权限：先形成成员与权限方案，请本地管理者明确授权 team_manage 或代为创建；名称叫制作人不自动授权。','5. 开发中检查运行效果、阻塞和变更影响；收尾以测试证据和验收标准审查任务与里程碑，推动下一轮迭代。','首轮交付：项目现状与目标、最小设计基线、成员职责和授权、任务依赖与验收、提交应用状态以及下一步。创建身份不等于启动外部 AI 会话，凭证须分别交付。'].join('\n\n');
+ return [...intro,'## 制作人行动清单','当前排期判断：'+stage+'。这只是排期快照，不能代替引擎实际检查。',producerBoundaries,'1. 检查用户目标、工程现状和现有设计；明确最小体验、范围边界、验收标准与风险。','2. 空项目先形成设计基线；已有项目先说明复用、修改、新增与归档方案。通过管理项目 ai/changes 提交玩法、功能、素材文档、配置与排期，并区分已提交和已应用。','3. 根据职责建立策划、程序、主美、美术、测试等开发者，明确授权、任务依赖和交付要求。',key.persistent&&member.permissions.includes('team_manage')?'4. 已授予团队管理权限：进入管理项目 ai/TEAM_MANAGEMENT.md，使用 manage-team.cjs 读取实时团队，创建身份、签发凭证并多选任务；不需要让用户逐个手工创建。':'4. 当前未授予可执行的团队管理权限：先形成成员与权限方案，请本地管理者明确授权 team_manage 或代为创建；名称叫制作人不自动授权。','5. 分工后交付工作包，核对实际助手是否接手；未接入时报告缺口并继续管理工作，不自动转入程序或素材实现。','6. 开发中检查运行效果、阻塞和变更影响；收尾以测试证据和验收标准审查任务与里程碑，推动下一轮迭代。','首轮交付：项目现状与目标、最小设计基线、成员职责和授权、任务依赖与验收、提交应用状态以及下一步。创建身份不等于启动外部 AI 会话，凭证须分别交付。'].join('\n\n');
 }
