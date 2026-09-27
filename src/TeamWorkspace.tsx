@@ -14,6 +14,7 @@ import { TeamGameplayCore } from './TeamGameplayCore';
 import { TeamGameplayDesign, useTeamGameplay } from './TeamGameplayDesign';
 import { TeamOverview } from './TeamOverview';
 import { WorkspaceSidebar } from './WorkspaceSidebar';
+import {SoftwareHelp,isHelpPage} from './SoftwareHelp';
 import type { ServerModuleNavigation } from './ServerManager';
 import { workspaceStorage } from './workspace-storage';
 import type { SavedProject } from './project-catalog';
@@ -116,11 +117,13 @@ export function TeamProjectWorkspace({ project, session, picker, localProjects, 
     <main hidden={!!serverPage} className={active === '玩法核心' ? 'core-workspace-page' : undefined}><header><div><div className="crumb">{project.name} <span>/</span> 团队项目</div><h1>{active}</h1></div>
       <div className="team-actions"><GlobalSearchInput/>{!accessBlocked && role === 'admin' && <button onClick={() => { if (canLeaveTeam()) setManageMembers(true); }}>成员管理</button>}<button onClick={onConnection}>连接设置</button><button onClick={onDisconnect}>断开团队连接</button></div></header>
       <SearchReturn active={active==='全局搜索'}/><GlobalSearchPanel active={active==='全局搜索'}/>
-      <div className="team-project-info"><span>团队项目 · {session.url}</span><span>当前成员：{session.user.username} · {roleLabels[role]}</span><span>已共享：{scheduleEnabled ? '项目概览、项目排期、玩法核心、玩法设计、故事文档' : gameplayEnabled ? '项目概览、玩法核心、玩法设计、故事文档' : (session.apiVersion ?? 0) >= 7 ? '项目概览、玩法核心、故事文档' : overviewEnabled ? '项目概览、故事文档' : '故事文档'}</span></div>
+      {isHelpPage(active)&&<SoftwareHelp page={active} onPage={setActive}/>}
+      <div hidden={isHelpPage(active)}><div className="team-project-info"><span>团队项目 · {session.url}</span><span>当前成员：{session.user.username} · {roleLabels[role]}</span><span>已共享：{scheduleEnabled ? '项目概览、项目排期、玩法核心、玩法设计、故事文档' : gameplayEnabled ? '项目概览、玩法核心、玩法设计、故事文档' : (session.apiVersion ?? 0) >= 7 ? '项目概览、玩法核心、故事文档' : overviewEnabled ? '项目概览、故事文档' : '故事文档'}</span></div>
       <div className={'team-sync ' + (syncError ? 'offline' : '')} role="status">{syncError ? <CloudOff size={16} /> : <Cloud size={16} />}
         <span>{syncError || (loaded ? '已连接 · 每 2 秒检查团队更新' : '正在读取团队故事…')}</span>
         <button aria-label="立即刷新团队内容" onClick={() => setRefresh(value => value + 1)}><RefreshCw size={15} /></button></div>
       {accessBlocked && <p className="team-message" role="alert">{projectDeleted?'此协作项目已被管理员删除。本机项目和未提交草稿仍保留，请从项目列表选择其他项目。':session.invalid?'团队登录已失效，请重新连接。本机未提交草稿仍保留。':'你已无权访问这个项目。本机未提交草稿仍保留，请选择其他项目或联系项目管理员。'}</p>}
+      </div>
       {overviewEnabled&&<div hidden={accessBlocked||active!=='项目概览'}><TeamOverview onSchedule={scheduleEnabled?()=>{if(canLeaveTeam())setActive('项目排期');}:undefined} blocked={accessBlocked} session={session} projectId={project.id} members={members} onMembers={()=>setManageMembers(true)} onDenied={status=>{setAccessDenied(true);if(status===410)setProjectDeleted(true);}}/></div>}
       {(session.apiVersion ?? 0) >= 7 && <div hidden={accessBlocked || active !== '玩法核心'}><TeamGameplayCore session={session} projectId={project.id} blocked={accessBlocked} designs={gameplay.remote?.store.designs} designsReady={!!gameplay.remote?.initialized} onOpenGameplay={id=>{if(canLeaveTeam()){setSelectedGameplayId(id);setActive('玩法设计');}}} onDenied={status=>{setAccessDenied(true);if(status===410)setProjectDeleted(true);}}/></div>}
       {scheduleEnabled&&<div hidden={accessBlocked||active!=='项目排期'}><TeamProjectSchedule session={session} projectId={project.id} blocked={accessBlocked} designs={gameplay.remote?.store.designs} onOpenGameplay={id=>{if(canLeaveTeam()){setSelectedGameplayId(id);setActive('玩法设计');}}} onDenied={status=>{setAccessDenied(true);if(status===410)setProjectDeleted(true);}}/></div>}

@@ -43,6 +43,8 @@ const root = path.resolve(__dirname, '..'), key = 'gamecreator.ui-preferences.v1
   }
   try {
     await fs.mkdir(qa, { recursive: true }); await launch(); await check(true);
+    const beforeHelp=storage.getItem(coreKey);await button('操作说明').click();await page.locator('main .software-help').waitFor();assert.equal(await button('操作说明').getAttribute('aria-current'),'page');assert.equal(await page.locator('dialog[open]').count(),0);
+    await page.getByRole('tab',{name:'通用规范',exact:true}).click();await page.getByRole('heading',{name:'通用规范',level:1,exact:true}).waitFor();assert.equal(await button('通用规范').getAttribute('aria-current'),'page');assert.equal(storage.getItem(coreKey),beforeHelp);
     await button('玩法核心').click(); await button('选择节点：主界面').click();
     await page.getByLabel('节点名称', { exact: true }).fill('保留编辑后的入口');
     await button('缩小画布').click();
@@ -124,6 +126,7 @@ const root = path.resolve(__dirname, '..'), key = 'gamecreator.ui-preferences.v1
     await dialog.getByLabel('团队密码', { exact: true }).fill('bob123');
     await dialog.getByRole('button', { name: '连接并进入项目', exact: true }).click();
     await page.locator('.team-project .story-workspace').waitFor();
+    await groupButton('使用帮助').click();await button('操作说明').click();await page.locator('.team-project > main .software-help').waitFor();assert.equal(await page.locator('.team-project .story-workspace').isVisible(),false);assert.equal(await page.locator('dialog[open]').count(),0);await button('故事文档').click();await page.locator('.team-project .story-workspace').waitFor();
     const teamWidth = (await page.locator('.team-project > main').boundingBox()).width;
     await toggle().click(); await check(false);
     assert.ok((await page.locator('.team-project > main').boundingBox()).width > teamWidth + 200);

@@ -1,5 +1,5 @@
-import {useState,type ReactNode} from 'react';
-import {SoftwareHelp,type HelpPage} from './SoftwareHelp';
+import type {ReactNode} from 'react';
+import {isHelpPage} from './SoftwareHelp';
 import { Search, CalendarDays, Map, Layers, Gamepad2, ListTree, Palette, BookOpen, Database, Tag, Settings2, GitBranch, BarChart3, Server, Workflow, Users, PanelsTopLeft, FileCode2, Wrench, BookOpenCheck, ChevronDown, Rocket, FolderSync, Archive, type LucideIcon } from 'lucide-react';
 import './workspace-sidebar.css';
 import { useWorkspaceNavigationGroups } from './useWorkspaceNavigation';
@@ -20,11 +20,10 @@ const navigationGroups: NavigationGroup[] = [
 export function WorkspaceSidebar({ picker, active, onNavigate, team = false, empty = false, teamOverview = false, teamCore = false, teamGameplay = false, teamSchedule = false, onManageServer, onManageUsers, storyEnabled = false, mapEnabled = false, footer }: {
   mapEnabled?: boolean; storyEnabled?: boolean; picker: ReactNode; active: string; onNavigate: (name: string) => void; team?: boolean; empty?: boolean; teamOverview?: boolean; teamCore?: boolean; teamGameplay?: boolean; teamSchedule?: boolean; onManageServer?: () => void; onManageUsers?: () => void; footer: ReactNode;
 }) {
-  const [helpPage,setHelpPage]=useState<HelpPage>();
-  const activeGroup = navigationGroups.find(group => group.children.some(([name]) => name === active))?.id;
+  const activeGroup = isHelpPage(active)?'help':navigationGroups.find(group => group.children.some(([name]) => name === active))?.id;
   const { collapsed, toggle, saveError } = useWorkspaceNavigationGroups(active, activeGroup);
   const visible = ([name]: NavigationItem) => (name !== '地图设计' || mapEnabled && !team && !empty) && (name !== '故事编排' || storyEnabled && !team && !empty);
-  const unavailable = (name:string) => empty || (team && name !== '全局搜索' && name !== '故事文档' && !(teamOverview && name === '项目概览') && !(teamCore && name === '玩法核心') && !(teamSchedule && name === '项目排期') && !(teamGameplay && name === '玩法设计'));
+  const unavailable = (name:string) => !isHelpPage(name)&&(empty || (team && name !== '全局搜索' && name !== '故事文档' && !(teamOverview && name === '项目概览') && !(teamCore && name === '玩法核心') && !(teamSchedule && name === '项目排期') && !(teamGameplay && name === '玩法设计')));
   const moduleButton = (name: string, Icon: LucideIcon) => <button key={name} type="button" className={active === name ? 'active' : ''}
     aria-current={active === name ? 'page' : undefined} disabled={unavailable(name)}
     title={unavailable(name) ? (empty ? '请先创建或选择项目' : '此模块尚未接入团队共享') : undefined} onClick={() => onNavigate(name)}>
@@ -49,6 +48,6 @@ export function WorkspaceSidebar({ picker, active, onNavigate, team = false, emp
     <div className="side-bottom">{(onManageServer || onManageUsers) && <nav className="workspace-admin-nav" aria-label="管理模块">
       <span>管理</span>{onManageServer&&<button type="button" className={active === '服务器管理' ? 'active' : ''} aria-current={active === '服务器管理' ? 'page' : undefined} onClick={onManageServer}><Server size={17} />本机服务器</button>}
       {onManageUsers&&<button type="button" className={active==='用户与权限'?'active':''} aria-current={active==='用户与权限'?'page':undefined} onClick={onManageUsers}><Users size={17}/>用户与权限</button>}
-    </nav>}<nav className="workspace-help-nav" aria-label="软件帮助"><button type="button" className="workspace-nav-group-toggle" aria-expanded={!collapsed.includes('help')} aria-controls="help-submenu" onClick={()=>toggle('help')}><BookOpen size={17}/>使用帮助<ChevronDown size={15} className="workspace-nav-chevron"/></button><div id="help-submenu" className="workspace-nav-submenu" role="group" aria-label="使用帮助子菜单" hidden={collapsed.includes('help')}>{(['操作说明','通用规范'] as const).map(name=><button key={name} type="button" onClick={()=>setHelpPage(name)}><BookOpen size={17}/>{name}</button>)}</div></nav>{footer}</div>{helpPage&&<SoftwareHelp page={helpPage} onPage={setHelpPage} onClose={()=>setHelpPage(undefined)}/>}
+    </nav>}<nav className="workspace-help-nav" aria-label="软件帮助"><button type="button" className={`workspace-nav-group-toggle${activeGroup==='help'?' contains-current':''}`} aria-expanded={!collapsed.includes('help')} aria-controls="help-submenu" onClick={()=>toggle('help')}><BookOpen size={17}/>使用帮助<ChevronDown size={15} className="workspace-nav-chevron"/></button><div id="help-submenu" className="workspace-nav-submenu" role="group" aria-label="使用帮助子菜单" hidden={collapsed.includes('help')}>{(['操作说明','通用规范'] as const).map(name=>moduleButton(name,BookOpen))}</div></nav>{footer}</div>
   </aside>;
 }

@@ -1,2 +1,3 @@
-.software-help{width:min(1100px,calc(100vw - 48px));max-height:90vh;box-sizing:border-box;overflow:auto;background:#15121e;border:1px solid #554363;border-radius:16px;padding:28px;color:#ede7f6}
-.software-help::backdrop{background:#08060cbb}.help-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:20px}.help-heading h2{margin:12px 0}.help-heading p{color:#b6abc9;line-height:1.7}.help-heading small{color:#baa0ee;letter-spacing:2px}.software-help .ug-reader{max-width:none}.software-help .ps-steps{margin-top:20px}.workspace-help-nav{border-top:1px solid #302738;padding-top:12px;margin-top:12px}.workspace-help-nav .workspace-nav-submenu{margin-bottom:8px}@media(max-width:700px){.software-help{width:calc(100vw - 20px);padding:18px;max-height:94vh}}
+.software-help{min-width:0}.software-help .ug-reader{max-width:none}.software-help .ps-steps{margin-top:20px}
+.help-heading h2{margin:12px 0}.help-heading p{color:#b6abc9;line-height:1.7}.help-heading small{color:#baa0ee;letter-spacing:2px}
+.workspace-help-nav{border-top:1px solid #302738;padding-top:12px;margin-top:12px}.workspace-help-nav .workspace-nav-submenu{margin-bottom:8px}
