@@ -1,3 +1,4 @@
+import {referenceBoardsMarkdown} from '../shared/art-knowledge.mjs';
 export * from '../shared/art-style.mjs';
 import {currentArtStyle,styleDefinitionMarkdown,styleDraftChanged,styleExceptionOf,styleReviewState,styleReviewLabels} from '../shared/art-style.mjs';
 import {artLibrary,artCategoryId,artCategoryName,type ArtItemKind} from './art-library.ts';
@@ -17,6 +18,7 @@ export function artStyleMarkdown(store:ArtStore){
  if(version)lines.push('',styleDefinitionMarkdown(version.definition,categories));
  if(styleDraftChanged(store.style))lines.push('','#### 待确认草稿（不作为当前制作标准）','',styleDefinitionMarkdown(store.style!.draft,categories));
  if(store.style?.versions.length)lines.push('','#### 风格变更记录','',...store.style.versions.map(v=>`- V${v.revision} · ${v.at} · ${v.note}`));
+ if(store.referenceBoards?.length)lines.push('',referenceBoardsMarkdown(store.referenceBoards).replace(/material-image:([a-f0-9-]{36}\.[a-z0-9]{1,12})/g,'../media/$1'));
  return lines.join('\n');
 }
 export function productionStyleMarkdown(store:ArtStore,doc:ProductionDoc){

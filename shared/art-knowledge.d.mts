@@ -1,0 +1,13 @@
+import type {ArtFile} from '../src/art-assets.ts';
+export const knowledgeTags:Record<string,string>;
+export const referenceSourceTypes:Record<string,string>;
+export const referenceUsages:Record<string,string>;
+export type KnowledgeMetadata={name:string;description:string;source:string;creator:string;work:string;sourceType:string;usage:string;usageNotes:string;tags:string[]};
+export type KnowledgeImage=KnowledgeMetadata&{id:string;hash:string;extension:string;width:number;height:number;revision:number;createdAt:string;updatedAt:string};
+export type ReferenceSnapshot={id:string;libraryId:string;referenceId:string;revision:number;hash:string;at:string;metadata:KnowledgeMetadata;image:ArtFile;use:string;take:string;avoid:string;strength:'required'|'inspiration';active:boolean;deliverImage:boolean};
+export type ReferenceBoard={id:string;name:string;categoryId:string;references:ReferenceSnapshot[]};
+export type KnowledgeListing={libraryId:string;directory:string;images:KnowledgeImage[]};
+export type KnowledgeAPI={list:()=>Promise<KnowledgeListing>;importImages:()=>Promise<KnowledgeListing|null>;choose:()=>Promise<KnowledgeListing|null>;backup:()=>Promise<string|null>;reveal:()=>Promise<void>;update:(id:string,revision:number,metadata:KnowledgeMetadata)=>Promise<KnowledgeListing>;preview:(id:string)=>Promise<string>;snapshot:(id:string,workspaceId:string)=>Promise<ReferenceSnapshot>};
+export function validateKnowledgeMetadata(v:unknown):KnowledgeMetadata;
+export function validateReferenceBoards(v:unknown):ReferenceBoard[];
+export function referenceBoardsMarkdown(boards?:ReferenceBoard[]):string;

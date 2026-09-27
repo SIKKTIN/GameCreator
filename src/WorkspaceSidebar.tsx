@@ -1,6 +1,6 @@
 import type {ReactNode} from 'react';
 import {helpPages,isHelpPage} from './SoftwareHelp';
-import { Search, CalendarDays, Map, Layers, Gamepad2, ListTree, Palette, BookOpen, Database, Tag, Settings2, GitBranch, BarChart3, Server, Workflow, Users, PanelsTopLeft, FileCode2, Wrench, BookOpenCheck, ChevronDown, Rocket, FolderSync, Archive, type LucideIcon } from 'lucide-react';
+import { Search, CalendarDays, Map, Layers, Gamepad2, ListTree, Palette, BookOpen, Database, Tag, Settings2, GitBranch, BarChart3, Server, Workflow, Users, PanelsTopLeft, FileCode2, Wrench, BookOpenCheck, ChevronDown, Rocket, FolderSync, Archive, Library, type LucideIcon } from 'lucide-react';
 import './workspace-sidebar.css';
 import { useWorkspaceNavigationGroups } from './useWorkspaceNavigation';
 
@@ -17,10 +17,10 @@ const navigationGroups: NavigationGroup[] = [
   { id: 'deprecated', label: '废弃模块', icon: Archive, children: [['枚举定义', Tag], ['枚举管理', Tag]] },
 ];
 
-export function WorkspaceSidebar({ picker, active, onNavigate, team = false, empty = false, teamOverview = false, teamCore = false, teamGameplay = false, teamSchedule = false, onManageServer, onManageUsers, storyEnabled = false, mapEnabled = false, footer }: {
-  mapEnabled?: boolean; storyEnabled?: boolean; picker: ReactNode; active: string; onNavigate: (name: string) => void; team?: boolean; empty?: boolean; teamOverview?: boolean; teamCore?: boolean; teamGameplay?: boolean; teamSchedule?: boolean; onManageServer?: () => void; onManageUsers?: () => void; footer: ReactNode;
+export function WorkspaceSidebar({ picker, active, onNavigate, team = false, empty = false, teamOverview = false, teamCore = false, teamGameplay = false, teamSchedule = false, onManageServer, onManageUsers, storyEnabled = false, mapEnabled = false, onWorkspaceSettings, footer }: {
+  onWorkspaceSettings?: () => void; mapEnabled?: boolean; storyEnabled?: boolean; picker: ReactNode; active: string; onNavigate: (name: string) => void; team?: boolean; empty?: boolean; teamOverview?: boolean; teamCore?: boolean; teamGameplay?: boolean; teamSchedule?: boolean; onManageServer?: () => void; onManageUsers?: () => void; footer: ReactNode;
 }) {
-  const activeGroup = isHelpPage(active)?'help':navigationGroups.find(group => group.children.some(([name]) => name === active))?.id;
+  const activeGroup = active==='美术知识库'?'knowledge':isHelpPage(active)?'help':navigationGroups.find(group => group.children.some(([name]) => name === active))?.id;
   const { collapsed, toggle, saveError } = useWorkspaceNavigationGroups(active, activeGroup);
   const visible = ([name]: NavigationItem) => (name !== '地图设计' || mapEnabled && !team && !empty) && (name !== '故事编排' || storyEnabled && !team && !empty);
   const unavailable = (name:string) => !isHelpPage(name)&&(empty || (team && name !== '全局搜索' && name !== '故事文档' && !(teamOverview && name === '项目概览') && !(teamCore && name === '玩法核心') && !(teamSchedule && name === '项目排期') && !(teamGameplay && name === '玩法设计')));
@@ -45,9 +45,9 @@ export function WorkspaceSidebar({ picker, active, onNavigate, team = false, emp
       </div>)}
     </nav>
     {saveError && <p className="workspace-nav-save-error" role="status">菜单展开状态暂未保存，当前仍可使用。</p>}
-    <div className="side-bottom">{(onManageServer || onManageUsers) && <nav className="workspace-admin-nav" aria-label="管理模块">
-      <span>管理</span>{onManageServer&&<button type="button" className={active === '服务器管理' ? 'active' : ''} aria-current={active === '服务器管理' ? 'page' : undefined} onClick={onManageServer}><Server size={17} />本机服务器</button>}
+    <div className="side-bottom"><div className="workspace-utility-scroll" role="region" aria-label="工作区工具" tabIndex={0}>{(onManageServer || onManageUsers) && <nav className="workspace-admin-nav" aria-label="管理模块">
+      {onManageServer&&<button type="button" className={active === '服务器管理' ? 'active' : ''} aria-current={active === '服务器管理' ? 'page' : undefined} onClick={onManageServer}><Server size={17} />本机服务器</button>}
       {onManageUsers&&<button type="button" className={active==='用户与权限'?'active':''} aria-current={active==='用户与权限'?'page':undefined} onClick={onManageUsers}><Users size={17}/>用户与权限</button>}
-    </nav>}<nav className="workspace-help-nav" aria-label="软件帮助"><button type="button" className={`workspace-nav-group-toggle${activeGroup==='help'?' contains-current':''}`} aria-expanded={!collapsed.includes('help')} aria-controls="help-submenu" onClick={()=>toggle('help')}><BookOpen size={17}/>使用帮助<ChevronDown size={15} className="workspace-nav-chevron"/></button><div id="help-submenu" className="workspace-nav-submenu" role="group" aria-label="使用帮助子菜单" hidden={collapsed.includes('help')}>{helpPages.map(name=>moduleButton(name,BookOpen))}</div></nav>{footer}</div>
+    </nav>}{!team&&<nav className="workspace-help-nav" aria-label="知识库"><button type="button" className={`workspace-nav-group-toggle${activeGroup==='knowledge'?' contains-current':''}`} aria-expanded={!collapsed.includes('knowledge')} aria-controls="knowledge-submenu" onClick={()=>toggle('knowledge')}><Library size={17}/>知识库<ChevronDown size={15} className="workspace-nav-chevron"/></button><div id="knowledge-submenu" className="workspace-nav-submenu" role="group" aria-label="知识库子菜单" hidden={collapsed.includes('knowledge')}><button type="button" className={active==='美术知识库'?'active':''} aria-current={active==='美术知识库'?'page':undefined} onClick={()=>onNavigate('美术知识库')}><Palette size={17}/>美术知识库</button></div></nav>}<nav className="workspace-help-nav" aria-label="软件帮助"><button type="button" className={`workspace-nav-group-toggle${activeGroup==='help'?' contains-current':''}`} aria-expanded={!collapsed.includes('help')} aria-controls="help-submenu" onClick={()=>toggle('help')}><BookOpen size={17}/>使用帮助<ChevronDown size={15} className="workspace-nav-chevron"/></button><div id="help-submenu" className="workspace-nav-submenu" role="group" aria-label="使用帮助子菜单" hidden={collapsed.includes('help')}>{helpPages.map(name=>moduleButton(name,BookOpen))}</div></nav>{onWorkspaceSettings&&<button type="button" className={active==='工作区设置'?'active':''} aria-current={active==='工作区设置'?'page':undefined} onClick={onWorkspaceSettings}><Settings2 size={17}/>工作区设置</button>}</div>{footer}</div>
   </aside>;
 }

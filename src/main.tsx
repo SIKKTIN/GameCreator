@@ -1,3 +1,5 @@
+import {ArtKnowledge} from './ArtKnowledge';
+import {addKnowledgeReference} from './ReferenceBoards';
 import {TaskInbox} from './TaskInbox';
 import {DataVersions} from './DataVersions';
 import {AiPersonnel} from './AiPersonnel';
@@ -112,6 +114,7 @@ import { AiExportDialog } from './AiExportDialog';
 function WorkspaceController() {
   const username='本地';
   const [mode,setMode]=useState<'start'|'local'|'team'>('start');
+  const [emptyKnowledge,setEmptyKnowledge]=useState(false);
   const [emptyHelpPage,setEmptyHelpPage]=useState<HelpPage>();
   const teamOrigin=useRef<'start'|'local'>('local');
   const projects = useProjectCatalog();
@@ -141,7 +144,7 @@ function WorkspaceController() {
       onBack={() => { leaveServer(); if (returnToConnection) team.resume(); }}
       onUseAddress={url => { setAddressRequest({ url }); leaveServer(); if (returnToConnection) team.resume(); else team.show(); }} /> : null,
   };
-  const openEmptyHelp=(name:string)=>{if(isHelpPage(name)&&canLeaveTeam()){leaveServer();setEmptyHelpPage(name);}};
+  const openEmptyHelp=(name:string)=>{if(isHelpPage(name)&&canLeaveTeam()){leaveServer();setEmptyKnowledge(false);setEmptyHelpPage(name);}};
   const emptyHelp=emptyHelpPage&&<main><header><div><div className="crumb">使用帮助 <span>/</span> {emptyHelpPage}</div><h1>{emptyHelpPage}</h1></div><button className="ps-secondary-button" onClick={()=>setEmptyHelpPage(undefined)}>返回项目选择</button></header><SoftwareHelp page={emptyHelpPage} onPage={setEmptyHelpPage}/></main>;
   const connectTeam = () => { if (allowSwitch()) { setCreateAfterConnection(false); setPublishAfterConnection(null); team.show(); } };
   const createTeam = () => {
@@ -347,16 +350,16 @@ function WorkspaceController() {
     testSession={testSession} onLoadTest={load} onExitTest={exit} preparingTest={preparing || prototypeBusy || transfer.busy || projects.blocked}
     testError={error || projects.error || sessionError || (storedTest && !valid ? '测试会话信息无效，已回到正式工作区。' : '')} />
     : <div className="app local-workspace empty-project-workspace">
-      <WorkspaceSidebar active={serverNavigation.serverPage ? serverNavigation.adminPageName??'服务器管理' : emptyHelpPage||''} onNavigate={openEmptyHelp} onManageServer={serverNavigation.onManageServer} onManageUsers={serverNavigation.onManageUsers} empty
+      <WorkspaceSidebar active={serverNavigation.serverPage ? serverNavigation.adminPageName??'服务器管理' : emptyKnowledge?'美术知识库':emptyHelpPage||''} onNavigate={name => {if(canLeaveTeam()){leaveServer();setEmptyKnowledge(name==='美术知识库');setEmptyHelpPage(isHelpPage(name)?name:undefined);}}} onManageServer={serverNavigation.onManageServer} onManageUsers={serverNavigation.onManageUsers} empty
         picker={<ProjectSwitcher projects={options} teamNotice={teamNotice} currentId={null} currentName="未选择项目" canAdd={!projects.blocked} busy={prototypeBusy || transfer.busy}
           onSelect={selectProject} onAdd={addProject} onDelete={deleteProject} onConnectTeam={connectTeam} onCreateTeam={canManageTeam||!team.session?createTeam:undefined} onImportPrototype={openPrototypeImport} onImportProject={transfer.enabled ? transfer.openImport : undefined} />}
         footer={<div className="user"><div className="avatar">{username.slice(0, 1).toUpperCase()}</div><div><b>{username}</b><small>本地项目</small></div></div>} />
-      {serverNavigation.serverPage || emptyHelp || <main className="empty-project-main"><FolderOpen size={40} /><h1>暂无本地项目</h1>
+      {serverNavigation.serverPage || emptyHelp || (emptyKnowledge?<main style={{minWidth:0,padding:40}}><ArtKnowledge/></main>:<main className="empty-project-main"><FolderOpen size={40} /><h1>暂无本地项目</h1>
         <p>从左上角项目菜单新建项目、导入原型示例或项目文件夹。</p>
         <p>也可以连接团队服务器，选择已有的协作项目。</p>
         <button type="button" className="ps-secondary-button" onClick={connectTeam}>连接团队服务器</button>
         {projects.error && <p role="alert">{projects.error}</p>}
-      </main>}
+      </main>)}
     </div>}</WorkspaceShell>;
 }
 
@@ -578,21 +581,21 @@ function WorkspaceApp({ contentReload,onContentReload,username, testSession, onL
       <WorkspaceSidebar picker={<ProjectSwitcher projects={projectOptions} teamNotice={teamNotice} currentId={testSession ? null : formalProject.id} currentName={project.name}
           testName={testSession ? testScenarios.find(item=>item.id===testSession.scenario)?.name : undefined}
           canAdd busy={preparingTest || registry.busy || registry.loading || gameplay.pending || functional.pending || functional.blocked || art.pending || art.blocked || core.pending || prototype.pending || tasks.pending || narrative.pending || maps.pending || schedule.pending || analysis.pending || standards.pending || framework.pending || developmentTools.pending || storyState.pending} onSelect={onSelectProject} onAdd={onAddProject} onDelete={onDeleteProject} onConnectTeam={onConnectTeam} onCreateTeam={onCreateTeam} onPublishProject={!testSession && !storageError ? onPublishProject : undefined} onImportPrototype={onImportPrototype} onImportProject={onImportProject} onExportProject={!testSession && !storageError ? onExportProject : undefined} onSaveAsProject={!testSession && !storageError ? onSaveAsProject : undefined} />} active={serverPage ? adminPageName??'服务器管理' : active}
-        mapEnabled={maps.store.enabled} storyEnabled={narrative.store.enabled} onNavigate={name => { if(canLeaveTeam()){onLeaveServer(); setRequestedSchedule(undefined); setRequestedTool(undefined); if (name === '素材资产') { setRequestedArtStyle(undefined); setArtSelection(null); setArtHomeRevision(value => value + 1); } setActive(name);} }} onManageServer={onManageServer} onManageUsers={onManageUsers} footer={<>
-        <button onClick={()=>{if(canLeaveTeam()){onLeaveServer();setActive('工作区设置');}}}><Settings2 size={17} />工作区设置</button><div className="user"><div className="avatar">G</div><span>{username}<small>本地项目</small></span></div>
+        mapEnabled={maps.store.enabled} storyEnabled={narrative.store.enabled} onNavigate={name => { if(canLeaveTeam()){onLeaveServer(); setRequestedSchedule(undefined); setRequestedTool(undefined); if (name === '素材资产') { setRequestedArtStyle(undefined); setArtSelection(null); setArtHomeRevision(value => value + 1); } setActive(name);} }} onManageServer={onManageServer} onManageUsers={onManageUsers} onWorkspaceSettings={()=>{if(canLeaveTeam()){onLeaveServer();setActive('工作区设置');}}} footer={<>
+        <div className="user"><div className="avatar">G</div><span>{username}<small>本地项目</small></span></div>
       </>} />
 
       {serverPage}
       <main hidden={!!serverPage} className={active === '玩法核心' ? 'core-workspace-page' : active === '项目排期' ? 'schedule-workspace-page' : undefined}>
         <header>
-          <div><div className="crumb">{project.name.toUpperCase()} <span>/</span> {active.toUpperCase()}</div><h1>{active}</h1></div>
-          <div className="header-actions">
+          <div><div className="crumb">{active==='美术知识库'?'工作区':project.name.toUpperCase()} <span>/</span> {active.toUpperCase()}</div><h1>{active}</h1></div>
+          {active!=='美术知识库'&&<div className="header-actions">
             {<TestPanel page={active} username={username} config={engineConfig} registry={registry} testSession={testSession}
               busy={preparingTest || gameplay.pending || functional.pending || functional.blocked || art.pending || art.blocked || core.pending || prototype.pending || tasks.pending || narrative.pending || maps.pending || schedule.pending || analysis.pending || standards.pending || framework.pending || developmentTools.pending || storyState.pending} error={testError || storageError} onLoad={onLoadTest} onExit={onExitTest} onNavigate={setActive} />}
             <GlobalSearchInput/>
             <button className="save" disabled={!!aiExportBlocked} title={aiExportBlocked||undefined} onClick={()=>setAiExportOpen(true)}><FileText size={16} />生成 AI 文档</button>
             <button className="save" disabled={!onExportProject||!!storageError||preparingTest||registry.busy||!!testSession} onClick={onExportProject} title={formalProject.folderPath || '保存为独立的项目文件夹 · Ctrl+S'}>{storageError ? <AlertTriangle size={16} /> : <Check size={16} />}{storageError ? '请检查保存状态' : registry.busy ? '正在保存…' : !onExportProject || formalProject.folderPath ? '已自动保存' : '保存到文件夹'}</button>
-          </div>
+          </div>}
         </header>
 
         {autoDataStatus&&<div className="ds-auto-status" role="status">{autoDataStatus} <button onClick={()=>setActive('数据同步')}>查看数据同步</button></div>}
@@ -669,6 +672,7 @@ function WorkspaceApp({ contentReload,onContentReload,username, testSession, onL
           if (link.kind === 'story') { openStory(link.targetId); }
           else { setActiveDataset(link.targetId); setActive('数据配置'); }
         }} />}
+        {active === '美术知识库' && <><ArtKnowledge onUse={!testSession?image=>addKnowledgeReference(art,image):undefined}/><button className="gp-secondary" onClick={()=>{setArtSelection(null);setRequestedArtStyle({});setActive('素材资产');}}>打开当前项目的参考板</button></>}
         {active === '素材资产' && <ArtAssets requestedStyle={requestedArtStyle} schedule={schedule} onOpenTask={id=>{setRequestedSchedule({kind:"task",id});setActive("项目排期");}} key={artHomeRevision} deletionReferences={artDeletionReferences} controller={art} sources={artSources} selected={artSelection} onSelect={value=>{leaveSearch();setArtSelection(value);}} onOpenGameplay={openGameplay} onOpenCapability={openCapability} />}
         {active === '功能系统' && <FunctionalSystems workspaceId={dataKey} renderArtReferences={c => <ArtReferences controller={art} sources={artSources} kind="capability" targetId={c.id} onOpenRequirement={openArtRequirement} />} controller={functional} sources={functionalSources} selected={functionalSelection} onSelect={value=>{leaveSearch();setFunctionalSelection(value);}} onOpenGameplay={openGameplay} onOpenDataset={key => { setActiveDataset(key); setActive('数据配置'); }} />}
         {active === '故事文档' && (storyState.pending||storyState.blocked) && <div className="sl-notice" role="alert">{storyError}<button disabled={storyState.blocked} onClick={storyState.retry}>重试保存故事文档</button><button onClick={()=>{if(!storyState.pending||window.confirm('重新读取会放弃未保存的故事草稿。请先导出备份，再确认继续。'))storyState.reload();}}>重新读取故事文档</button><button onClick={()=>{const u=URL.createObjectURL(new Blob([JSON.stringify(storyDocs,null,2)],{type:'application/json'})),a=document.createElement('a');a.href=u;a.download='story-draft.json';a.click();URL.revokeObjectURL(u);}}>导出故事草稿</button></div>}
@@ -696,7 +700,7 @@ function WorkspaceApp({ contentReload,onContentReload,username, testSession, onL
         {active === '项目启动' && <ProjectStartup project={formalProject} build={exportAiContext} art={art.store} collaboration={{schedule:schedule.store,tools:developmentTools.store}} snapshot={()=>captureProjectPackage(workspaceStorage,formalProject).expectedEntries} blockedReason={testSession?'测试工作区不支持初始化正式工程':connectionDirty?'工程连接有未保存的修改':aiExportBlocked} onNavigate={setActive} onSaveProject={onExportProject}/>}
         {(active === '工程连接'||connectionDirty) && <fieldset hidden={active!=='工程连接'} disabled={!!testSession} style={{border:0,padding:0,margin:0,minWidth:0}}><EngineSettings config={engineConfig} setConfig={next=>testSession?Promise.resolve(false):onConfigChange(next)} registry={registry} onPickDirectory={window.desktopClient?.pickProjectDirectory} onDirtyChange={setConnectionDirty}/></fieldset>}
         {active === '工程同步' && <fieldset disabled={!!testSession} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>{testSession && <p>测试场景使用固定来源，请通过测试面板加载或重置场景。</p>}<EngineSyncPanel onOpenConnection={()=>setActive('工程连接')} initialFeedback={contentReload} collaboration={{schedule:schedule.store,tools:developmentTools.store}} onFeedbackApplied={(reloadContent=false)=>{if(reloadContent){onContentReload?.();return true;}const s=schedule.reloadIfClean(),t=developmentTools.reloadIfClean();return s&&t;}} onOpenAsset={id=>{setArtSelection({kind:'asset',id});setActive('素材资产');}} projectId={formalProject.id} build={exportAiContext} art={art.store} blockedReason={connectionDirty?'工程连接有未保存的修改，请先保存工程连接。':aiExportBlocked} config={engineConfig} registry={registry} onPickDirectory={window.desktopClient?.pickProjectDirectory} setConfig={(next) => testSession ? Promise.resolve(false) : onConfigChange(next)} /></fieldset>}
-        {!isHelpPage(active) && active !== '项目启动' && active !== '工程连接' && active !== '项目内容同步' && active !== '项目规范' && active !== '任务清单' && active !== '人员分配' && active !== '数据同步' && active !== '开发工具' && active !== '程序框架' && active !== '全局搜索' && active !== '数值分析' && active !== '项目排期' && active !== '地图设计' && active !== '工作区设置' && active !== '故事编排' && active !== '原型设计' && active !== '任务与流程' && active !== '项目概览' && active !== '玩法核心' && active !== '玩法设计' && active !== '功能系统' && active !== '素材资产' && active !== '故事文档' && active !== '数据配置' && active !== '枚举定义' && active !== '枚举管理' && active !== '工程同步' && (
+        {active !== '美术知识库' && !isHelpPage(active) && active !== '项目启动' && active !== '工程连接' && active !== '项目内容同步' && active !== '项目规范' && active !== '任务清单' && active !== '人员分配' && active !== '数据同步' && active !== '开发工具' && active !== '程序框架' && active !== '全局搜索' && active !== '数值分析' && active !== '项目排期' && active !== '地图设计' && active !== '工作区设置' && active !== '故事编排' && active !== '原型设计' && active !== '任务与流程' && active !== '项目概览' && active !== '玩法核心' && active !== '玩法设计' && active !== '功能系统' && active !== '素材资产' && active !== '故事文档' && active !== '数据配置' && active !== '枚举定义' && active !== '枚举管理' && active !== '工程同步' && (
           <section className="empty">
             <div className="empty-icon"><Layers size={34} /></div>
             <h2>{active}</h2>

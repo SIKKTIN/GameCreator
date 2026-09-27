@@ -1,3 +1,4 @@
+import {ReferenceBoards} from './ReferenceBoards';
 import {useState} from 'react';
 import {ArrowRight,Check,Palette,Plus,Trash2} from 'lucide-react';
 import {artLibrary,artCategoryName} from './art-library';
@@ -19,6 +20,7 @@ export function ArtStyleGuide({controller,onOpen}:{controller:ArtController;onOp
   <header className="gp-editor-heading"><div><span className="gp-kicker">ART DIRECTION</span><h2>让每一份素材遵循同一套视觉语言。</h2><p className="gp-muted">先确定项目基准，再补充角色、场景、UI 等分类要求。未填写的内容保持待确定。</p></div><Palette size={32}/></header>
   <div className="as-summary"><article><small>项目风格基准</small><strong>{version?'V'+version.revision+(pending?' · 尚未保存':' · 已确认'):'待确定'}</strong><p>{version?.definition.direction||'填写整体方向后确认基准'}</p></article><article><small>分类补充</small><strong>{version?.definition.categories.filter(c=>c.rules.trim()&&library.categories.some(v=>v.id===c.id)).length||0} / {library.categories.length}</strong><p>沿用现有素材分类，可分别补充规则</p></article><article><small>风格复核</small><strong>{version?waiting.length+' 项待复核':'尚未建立基准'}</strong><p>仅核对风格，素材完成与验收状态保持独立</p></article></div>
   {version&&<details className="gp-card as-inherited"><summary>{pending?'基准预览（尚未保存）':'查看当前生效基准'} · V{version.revision}</summary><p>{version.note} · {new Date(version.at).toLocaleString()}</p><pre>{styleDefinitionMarkdown(version.definition,library.categories)}</pre></details>}
+  <ReferenceBoards controller={controller}/>
   <section className="gp-card as-draft"><div className="gp-card-heading"><h3>风格草稿</h3><span className="gp-badge">{styleDraftChanged(style)?'有待确认调整':version?'与当前基准一致':'待填写'}</span></div><p className="gp-muted">草稿随编辑保存。确认后才会进入素材制作标准；空白项会明确标为“待确定”。</p>
    <div className="as-field-grid">{(Object.entries(artStyleFields) as [StyleField,string][]).map(([key,label])=><label className="gp-field" key={key}>{label}<textarea aria-label={'美术风格：'+label} rows={key==='direction'?3:2} maxLength={4000} disabled={blocked} value={draft[key]} placeholder="待确定" onChange={e=>patch(d=>({...d,[key]:e.target.value}))}/></label>)}</div>
   </section>

@@ -16,6 +16,7 @@ contextBridge.exposeInMainWorld('desktopClient', {
   storage: { getItem: key => storageRequest('get', key), setItem: (key, value) => storageRequest('set', key, value), info: key => storageRequest('info', key) },
   developerCredentials:(operation,input)=>ipcRenderer.invoke('ai-developer',operation,input),
   issueAiCredential:input=>ipcRenderer.invoke('ai-credential-issue',input),
+  artKnowledge:{list:()=>ipcRenderer.invoke('art-knowledge','list'),importImages:()=>ipcRenderer.invoke('art-knowledge','import'),choose:()=>ipcRenderer.invoke('art-knowledge','choose'),backup:()=>ipcRenderer.invoke('art-knowledge','backup'),reveal:()=>ipcRenderer.invoke('art-knowledge','reveal'),update:(id,revision,metadata)=>ipcRenderer.invoke('art-knowledge','update',{id,revision,metadata}),preview:id=>ipcRenderer.invoke('art-knowledge','preview',{id}),snapshot:(id,workspaceId)=>ipcRenderer.invoke('art-knowledge','snapshot',{id,workspaceId})},
   artFiles: {
     importFiles: workspaceId => ipcRenderer.invoke('art-files-import', workspaceId),
     readPreview: (workspaceId, storagePath) => ipcRenderer.invoke('art-files-preview', { workspaceId, storagePath }),

@@ -392,3 +392,11 @@ test('malformed material delivery metadata is rejected before project export wri
   await assert.rejects(f.export(),/素材/);assert.equal(await exists(f.directory),false);
  }
 });
+
+
+test('reference-board snapshots are portable even when no delivered asset refers to the image',async t=>{
+ const f=await fixture(t),metadata={name:'参考',description:'轮廓',source:'本地资料',creator:'作者',work:'',sourceType:'internal',usage:'reference',usageNotes:'',tags:['shape:round']};
+ f.document.archives['art-assets']={schema:1,requirements:[],assets:[],links:[],referenceBoards:[{id:'board',name:'角色参考',categoryId:'',references:[{id:'ref',libraryId:'library',referenceId:'source',revision:1,hash:sha(PNG),at:new Date().toISOString(),metadata,image:f.files[0],use:'轮廓',take:'圆润',avoid:'尖锐',strength:'required',active:true,deliverImage:false}]}]};
+ f.storage.setItem(archiveKey(f.id,'art-assets'),JSON.stringify(f.document.archives['art-assets']));f.args.expectedEntries=f.args.expectedEntries.map(e=>({...e,value:f.storage.getItem(e.key)}));const result=await f.export();assert.equal(result.fileCount,1);
+ const otherData=path.join(f.root,'other'),other=createProjectPackages({dataDirectory:otherData,storage:createWorkspaceStorage(otherData)}),prepared=await other.prepareImport(f.directory),id=newId();await other.restoreAssets({token:prepared.token,projectId:id});assert.deepEqual(await createArtFiles(otherData).readBytes('project:'+id,f.files[0].storagePath),PNG);assert.equal(prepared.document.archives['art-assets'].referenceBoards[0].references[0].take,'圆润');
+});

@@ -1,3 +1,4 @@
+import {validateReferenceBoards,type ReferenceBoard} from '../shared/art-knowledge.mjs';
 import {validateProductionDocs,type ProductionDoc} from '../shared/material-production.mjs';
 import {validateMaterialDocumentFields} from '../shared/material-document.mjs';
 import {validateArtStyle,validateStyleItem,validateStyleMutation,type ArtStyle,type StyledItem} from '../shared/art-style.mjs';
@@ -19,7 +20,7 @@ export type ArtFile = { id: string; name: string; size: number; mime: string; st
 export type ArtVersion = { id: string; name: string; notes: string; placeholder: boolean; review: typeof artReviewStatuses[number]; feedback: string; files: ArtFile[]; createdAt: string };
 export type ArtAsset = MaterialDocumentFields & { productionStatus?:ArtRequirement['status']; id: string; name: string; description: string; versions: ArtVersion[]; adoptedVersionId: string; archived: boolean; createdAt: string; updatedAt: string };
 export type ArtLink = { id: string; requirementId: string; assetId: string; note: string };
-export type ArtStore = { style?: ArtStyle; productionDocs?: ProductionDoc[]; library?: ArtLibrary; schema: 1; requirements: ArtRequirement[]; assets: ArtAsset[]; links: ArtLink[] };
+export type ArtStore = { referenceBoards?:ReferenceBoard[]; style?: ArtStyle; productionDocs?: ProductionDoc[]; library?: ArtLibrary; schema: 1; requirements: ArtRequirement[]; assets: ArtAsset[]; links: ArtLink[] };
 export type ArtSources = { designs: GameplayDesign[]; functional: FunctionalStore };
 export const emptyArtAssets = (): ArtStore => ({ schema: 1, requirements: [], assets: [], links: [] });
 export function createArtRequirement(name: string): ArtRequirement {
@@ -49,6 +50,7 @@ export function validateArtAssets(value: unknown): ArtStore {
         list(v.files, f => strings(f, ['name', 'mime', 'storagePath']) && !!(f.storagePath as string).trim() && typeof f.size === 'number' && Number.isSafeInteger(f.size) && f.size >= 0))) ||
     !list(value.links, l => strings(l, ['requirementId', 'assetId', 'note']))) throw new Error('素材资产存档格式异常，已停止写入');
   validateProductionDocs(value.productionDocs);
+  validateReferenceBoards(value.referenceBoards);
   validateArtStyle(value.style);
   for(const item of [...value.requirements as ArtRequirement[],...value.assets as ArtAsset[]]){validateMaterialDocumentFields(item);validateStyleItem(item);}
   if (Object.prototype.hasOwnProperty.call(value, 'library')) validateArtLibrary(value.library, value as unknown as ArtStore);

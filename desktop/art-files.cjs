@@ -263,4 +263,4 @@ function createArtFiles(dataDirectory, options = {}) {
   }
   return {importFiles, readPreview, reveal, readBytes};
 }
-module.exports = {createArtFiles, validateWorkspaceId, workspaceHash, MAX_FILE_BYTES, MAX_PREVIEW_BYTES};
+module.exports = {validImage,sniffMime,createArtFiles, validateWorkspaceId, workspaceHash, MAX_FILE_BYTES, MAX_PREVIEW_BYTES};

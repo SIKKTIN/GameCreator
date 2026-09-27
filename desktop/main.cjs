@@ -1,5 +1,5 @@
 const path = require('node:path');
-const { app, BrowserWindow, shell, ipcMain, session, dialog, clipboard, safeStorage } = require('electron');
+const { app, BrowserWindow, shell, ipcMain, session, dialog, clipboard, safeStorage, nativeImage } = require('electron');
 const { createDesktopServer } = require('./server.cjs');
 const { createWorkspaceStorage, prepareTestWorkspace } = require('./test-workspaces.cjs');
 const { validateProjectLocation } = require('./project-locations.cjs');
@@ -18,6 +18,13 @@ if (process.env.GAMECREATOR_USER_DATA_DIR) app.setPath('userData', process.env.G
 const folders = createFolderProjects({legacyStorage:createWorkspaceStorage(dataDirectory),dataDirectory});
 const storage = folders.storage;
 const artFiles = createArtFiles(dataDirectory, {resolveWorkspaceDirectory:folders.assetDirectory});
+let knowledgeService;
+function getArtKnowledge(){if(knowledgeService)return knowledgeService;
+const knowledgePreference=path.join(dataDirectory,'art-knowledge-location.json');
+let knowledgeDirectory=process.env.GAMECREATOR_KNOWLEDGE_DIR||path.join(process.env.GAMECREATOR_USER_DATA_DIR||app.getPath('userData'),'art-knowledge');
+try{const saved=JSON.parse(require('node:fs').readFileSync(knowledgePreference,'utf8'));if(typeof saved.directory==='string'&&path.isAbsolute(saved.directory))knowledgeDirectory=saved.directory;}catch{}
+knowledgeService=require('./art-knowledge.cjs').createArtKnowledge({directory:knowledgeDirectory,artFiles,thumbnail:bytes=>{const image=nativeImage.createFromBuffer(bytes);if(image.isEmpty())throw new Error('无法解析参考图片');const {width,height}=image.getSize();return {width,height,bytes:image.resize({width:Math.min(480,width)}).toPNG()};}});
+return knowledgeService;}
 const projectPackages = createProjectPackages({dataDirectory, storage, resolveAssetDirectory:folders.assetDirectory});
 const aiDocuments = createAiDocuments({defaultDirectory:path.join(root,'generate')});
 const engineSync = createEngineSync({artFiles,storage});
@@ -146,6 +153,20 @@ else {
   ipcMain.handle('prepare-test-workspace', async (event, scenario) => {
     if (!trusted(event)) throw new Error('不允许创建测试工程');
     return prepareTestWorkspace(root, dataDirectory, scenario);
+  });
+  ipcMain.handle('art-knowledge',async(event,operation,input={})=>{
+    if(!trusted(event))throw new Error('不允许访问美术知识库');
+    if(operation==='list')return getArtKnowledge().list();
+    if(operation==='preview')return getArtKnowledge().preview(input.id);
+    if(operation==='update')return getArtKnowledge().update(input.id,input.revision,input.metadata);
+    if(operation==='snapshot'){const current=JSON.parse(storage.getItem('gamecreator.projects.v1')||'null');if(input.workspaceId!=='project:'+current?.activeId)throw new Error('请在当前正式项目添加参考');return getArtKnowledge().snapshot(input.id,input.workspaceId);}
+    if(operation==='reveal'){const value=await getArtKnowledge().list();const error=await shell.openPath(value.directory);if(error)throw new Error(error);return;}
+    if(!['import','choose','backup'].includes(operation))throw new Error('未知知识库操作');
+    const result=await dialog.showOpenDialog(mainWindow,{title:operation==='import'?'导入参考图片':operation==='backup'?'选择资料库备份位置':'打开或创建独立美术资料库',properties:operation==='import'?['openFile','multiSelections']:['openDirectory','createDirectory'],...(operation==='import'?{filters:[{name:'参考图片',extensions:['png','jpg','jpeg','webp']}]}:{})});
+    if(result.canceled||!result.filePaths.length)return null;if(!trusted(event))throw new Error('工作区窗口已改变');
+    if(operation==='import')return getArtKnowledge().importImages(result.filePaths);
+    if(operation==='backup')return getArtKnowledge().backup(result.filePaths[0]);
+    const value=await getArtKnowledge().choose(result.filePaths[0]);require('./storage.cjs').atomicWrite(path.join(dataDirectory,'art-knowledge-location.json'),JSON.stringify({directory:value.directory}));return value;
   });
   ipcMain.handle('art-files-import', async (event, workspaceId) => {
     if (!trusted(event)) throw new Error('不允许导入素材文件');

@@ -1,5 +1,5 @@
-let validateArtStyle, validateStyleItem, validateProjectStandards, validateMaterialDocumentFields, validateProductionDocs, validateDevelopmentTools;
-const productionReady=Promise.all([import('../shared/art-style.mjs').then(m=>{validateArtStyle=m.validateArtStyle;validateStyleItem=m.validateStyleItem;}),import('../shared/project-standards.mjs').then(m=>{validateProjectStandards=m.validateProjectStandards;}),import('../shared/material-document.mjs').then(m=>{validateMaterialDocumentFields=m.validateMaterialDocumentFields;}),import('../shared/material-production.mjs').then(m=>{validateProductionDocs=m.validateProductionDocs;}),import('../shared/development-tools.mjs').then(m=>{validateDevelopmentTools=m.validateDevelopmentTools;})]);
+let validateReferenceBoards, validateArtStyle, validateStyleItem, validateProjectStandards, validateMaterialDocumentFields, validateProductionDocs, validateDevelopmentTools;
+const productionReady=Promise.all([import('../shared/art-knowledge.mjs').then(m=>{validateReferenceBoards=m.validateReferenceBoards;}),import('../shared/art-style.mjs').then(m=>{validateArtStyle=m.validateArtStyle;validateStyleItem=m.validateStyleItem;}),import('../shared/project-standards.mjs').then(m=>{validateProjectStandards=m.validateProjectStandards;}),import('../shared/material-document.mjs').then(m=>{validateMaterialDocumentFields=m.validateMaterialDocumentFields;}),import('../shared/material-production.mjs').then(m=>{validateProductionDocs=m.validateProductionDocs;}),import('../shared/development-tools.mjs').then(m=>{validateDevelopmentTools=m.validateDevelopmentTools;})]);
 const {storyExtras}=require('../shared/story-document.cjs');
 // Portable project folders contain JSON archives and original art files, never executable imports.
 const path = require('node:path');
@@ -551,6 +551,7 @@ function validateDocument(value) {
   if (!record(art) || !Array.isArray(art.assets)) throw new Error('素材资产存档格式无效');
   if (!Array.isArray(art.requirements) || art.requirements.some(r => !record(r) || Object.hasOwn(r, 'generationPrompt') && (!record(r.generationPrompt) || typeof r.generationPrompt.prompt !== 'string' || typeof r.generationPrompt.negative !== 'string'))) throw new Error('素材生成提示词格式无效');
   // Shared schema validation also protects folder imports.
+  validateReferenceBoards(art.referenceBoards);
   validateProductionDocs(art.productionDocs);
   validateArtStyle(art.style);
   for(const item of [...art.requirements,...art.assets]){validateMaterialDocumentFields(item);validateStyleItem(item);}
@@ -560,7 +561,7 @@ function validateDocument(value) {
 function referencedFiles(document) {
   const files = new Map();
   const art=document.archives['art-assets'];
-  for (const asset of [...art.assets,{versions:(art.productionDocs||[]).map(d=>({files:d.images}))}]) {
+  for (const asset of [...art.assets,{versions:[...(art.productionDocs||[]).map(d=>({files:d.images})),...(art.referenceBoards||[]).map(b=>({files:b.references.map(r=>r.image)}))]}]) {
     if (!record(asset) || !Array.isArray(asset.versions)) throw new Error('素材资产版本格式无效');
     for (const version of asset.versions) {
       if (!record(version) || !Array.isArray(version.files)) throw new Error('素材文件版本格式无效');
