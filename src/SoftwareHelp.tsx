@@ -1,4 +1,4 @@
-import {createElement,useState} from 'react';
+import {createElement,useEffect,useState} from 'react';
 import workflowOverview from '../docs/workflow-overview.md?raw';
 import artWorkflow from '../docs/art-workflow.md?raw';
 import {Copy,Download} from 'lucide-react';
@@ -14,6 +14,7 @@ export type HelpPage=typeof helpPages[number];
 export function isHelpPage(page:string):page is HelpPage{return helpPages.some(p=>p===page);}
 export function SoftwareHelp({page,onPage}:{page:HelpPage;onPage:(page:HelpPage)=>void}){
  const [scope,setScope]=useState<StandardScope>('general'),[notice,setNotice]=useState('');
+ useEffect(()=>setNotice(''),[page]);
  const text=page==='工作流总览'?workflowOverview:page==='美术工作流'?artWorkflow:page==='操作说明'?gamecreatorGuide():builtinStandardsMarkdown();
  const download=()=>{const url=URL.createObjectURL(new Blob([text],{type:'text/markdown;charset=utf-8'})),a=document.createElement('a');a.href=url;a.download=page==='工作流总览'?'GAMECREATOR_WORKFLOW.md':page==='美术工作流'?'GAMECREATOR_ART_WORKFLOW.md':page==='操作说明'?'GAMECREATOR_GUIDE.md':'GAMECREATOR_RULES.md';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
  return <section className="software-help usage-guide" aria-label="使用帮助">
